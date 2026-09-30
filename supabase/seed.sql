@@ -137,3 +137,75 @@ insert into public.maintenance_plans (workspace_id, printer_id, task, every_hour
   ('00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000041',
    'Renovar la grasa del eje Z', null, 90,
    '["Limpiar el husillo", "Aplicar grasa nueva"]'::jsonb);
+
+-- ------------------------------------------------------------- catalogue
+--
+-- The potion bottle, as described so far. What is still a guess is marked TODO.
+
+insert into public.catalog_products (
+  id, workspace_id, name, slug, description, category, tags, status, bot_visible,
+  specs, lead_time_days
+) values (
+  '00000000-0000-4000-8000-000000000090', '00000000-0000-4000-8000-000000000001',
+  'Botella de poción', 'botella-de-pocion',
+  'Botella decorativa impresa en 3D que se entrega llena de dulces.',
+  'Halloween', '{halloween,regalo,dulces}', 'published', true,
+  '{"acabado": "termoformado", "uso": "decorativo", "contenido": "dulces envueltos"}'::jsonb,
+  3
+);
+
+insert into public.product_variants (
+  id, workspace_id, product_id, name, options, list_price, min_order_units
+) values
+  ('00000000-0000-4000-8000-000000000091', '00000000-0000-4000-8000-000000000001',
+   '00000000-0000-4000-8000-000000000090', 'Con dulces surtidos',
+   '{"relleno": "dulces surtidos"}'::jsonb, 10.00, null),
+  -- TODO: precio y relleno reales de la versión premium (entre S/ 15 y S/ 20).
+  ('00000000-0000-4000-8000-000000000092', '00000000-0000-4000-8000-000000000001',
+   '00000000-0000-4000-8000-000000000090', 'Con chocolates premium',
+   '{"relleno": "chocolates"}'::jsonb, 18.00, null);
+
+insert into public.recipes (
+  id, workspace_id, variant_id, version, setup_minutes, minutes_per_unit, note
+) values (
+  '00000000-0000-4000-8000-000000000093', '00000000-0000-4000-8000-000000000001',
+  '00000000-0000-4000-8000-000000000091', 1, 10.00, 5.00,
+  'Armado rápido: es termoformado, no hay limpieza. TODO: confirmar los minutos de preparación del lote.'
+);
+
+insert into public.recipe_plates (
+  id, workspace_id, recipe_id, label, plate_index, units_per_run, print_time_s, source_file_name
+) values
+  ('00000000-0000-4000-8000-000000000094', '00000000-0000-4000-8000-000000000001',
+   '00000000-0000-4000-8000-000000000093', 'Botella', 1, 1, 2586,
+   'Thermoformed_potion_bottle_-_Honeycomb_AMS_Love potion.gcode.3mf'),
+  -- TODO: datos reales de la placa de tapas; por ahora es un supuesto.
+  ('00000000-0000-4000-8000-000000000095', '00000000-0000-4000-8000-000000000001',
+   '00000000-0000-4000-8000-000000000093', 'Tapas', 2, 9, 1200, null);
+
+insert into public.recipe_plate_filaments (
+  workspace_id, recipe_plate_id, slot, material_id, color_hex, filament_sku_id, grams
+) values
+  ('00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000094', 1,
+   '00000000-0000-4000-8000-000000000020', '#F55A74', '00000000-0000-4000-8000-000000000032', 5.69),
+  -- TODO: no hay rollo negro registrado todavía, por eso va sin SKU.
+  ('00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000094', 3,
+   '00000000-0000-4000-8000-000000000020', '#000000', null, 4.63),
+  ('00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000094', 4,
+   '00000000-0000-4000-8000-000000000020', '#DE4343', '00000000-0000-4000-8000-000000000031', 1.02),
+  ('00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000095', 1,
+   '00000000-0000-4000-8000-000000000020', '#000000', null, 15.00);
+
+insert into public.recipe_items (workspace_id, recipe_id, inventory_item_id, quantity_per_unit)
+select '00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000093', i.id,
+       case i.name when 'Dulces surtidos' then 66 else 1 end
+from public.inventory_items i
+where i.workspace_id = '00000000-0000-4000-8000-000000000001'
+  and i.name in ('Dulces surtidos', 'Bolsa con etiqueta');
+
+-- Unit price by quantity. One-off units are dearer because a whole plate of
+-- caps gets printed for them, so they should come out of stock.
+insert into public.price_tiers (workspace_id, variant_id, min_quantity, unit_price, note) values
+  ('00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000091', 1, 10.00, 'Venta por unidad, desde stock'),
+  ('00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000091', 5, 9.00, 'Lote pequeño'),
+  ('00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000091', 10, 8.50, 'Lote grande');

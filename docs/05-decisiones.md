@@ -156,6 +156,18 @@ Cada decisión tiene uno de estos estados: **Aceptada** (confirmada por el dueñ
 
 ---
 
+## ADR-013 · La app web se publica en GitHub Pages
+
+**Estado:** Aceptada · 2026-09-30
+
+**Contexto.** El frontend es una SPA estática y hace falta un hosting gratuito. El dueño ya tiene una cuenta con GitHub Pages en uso y agotó el plan gratuito de Vercel.
+
+**Decisión.** Publicar en GitHub Pages, como página de proyecto del repositorio (`/pickypop/`), con un workflow de GitHub Actions que compile y publique en cada push a `main`.
+
+**Consecuencias.** Costo cero y un solo lugar para el código y el sitio. A cambio, hay que compilar con la ruta base correcta y resolver las rutas de la SPA (copiando `index.html` a `404.html` o usando rutas con `#`). El repositorio debe ser público, cosa que ya es por la licencia MIT. Si algún día se quiere un dominio propio o cabeceras personalizadas, Cloudflare Pages es la salida natural.
+
+---
+
 ## Pendientes
 
 | Tema | Opciones | Comentario |

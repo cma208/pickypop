@@ -162,3 +162,9 @@ export interface BatchCostBreakdown {
   assigned: number;
   costPerUnit: number;
 }
+
+/** A quantity threshold and the unit price that applies from there upwards. */
+export interface PriceTier {
+  minQuantity: number;
+  unitPrice: number;
+}

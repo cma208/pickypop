@@ -286,7 +286,9 @@ Variante
       │    (un producto puede necesitar varias: la botella en una, las tapas en otra)
       │    └── Filamentos: ranura, material, color, SKU sugerido, gramos
       ├── Insumos y empaque por unidad
-      └── Minutos de preparación y de post-proceso
+      └── Dos tiempos, propios de cada producto:
+           · preparación del lote (laminar, acomodar, cargar): se paga una vez
+           · minutos por unidad (armar, rellenar, empacar): no bajan con el volumen
 ```
 
 - **Costo actual** de la variante = receta evaluada con los parámetros y costos de stock vigentes.
