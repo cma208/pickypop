@@ -31,7 +31,7 @@ insert into public.cost_profiles (
 -- ------------------------------------------------------------- filament
 
 insert into public.brands (id, workspace_id, name) values
-  (:brand_generic, :workspace, 'Genérico'); -- TODO: replace with the real brand
+  (:brand_generic, :workspace, 'Krear3D');
 
 insert into public.materials (id, workspace_id, code, density_g_cm3, hygroscopic, abrasive) values
   (:material_pla, :workspace, 'PLA', 1.24, false, false);
@@ -40,11 +40,11 @@ insert into public.filament_skus (
   id, workspace_id, brand_id, material_id, finish, color_name, color_hex,
   net_weight_g, min_stock_g, replacement_cost_per_kg
 ) values
-  (:sku_red, :workspace, :brand_generic, :material_pla, 'Basic', 'Rojo', '#DE4343', 1000, 500, 50.00),
-  (:sku_pink, :workspace, :brand_generic, :material_pla, 'Basic', 'Rosado', '#F55A74', 1000, 500, 50.00),
+  (:sku_red, :workspace, :brand_generic, :material_pla, 'K3D', 'Rojo', '#DE4343', 1000, 500, 50.00),
+  (:sku_pink, :workspace, :brand_generic, :material_pla, 'K3D', 'Rosado', '#F55A74', 1000, 500, 50.00),
   -- The lime green batch came in expensive; buying it again at the same shop
   -- should cost about S/ 60, which is what quotes should assume.
-  (:sku_lime, :workspace, :brand_generic, :material_pla, 'Basic', 'Verde lima', '#61C680', 1000, 500, 60.00);
+  (:sku_lime, :workspace, :brand_generic, :material_pla, 'K3D', 'Verde lima', '#61C680', 1000, 500, 60.00);
 
 insert into public.suppliers (workspace_id, name, note)
 values (:workspace, 'Tienda local', 'TODO: nombre real de la tienda');
@@ -93,7 +93,8 @@ select :workspace, 'purchase', c.id, 1000, 0.075, 'purchase', 'Ingreso del rollo
 -- ------------------------------------------------------- other supplies
 
 insert into public.inventory_items (workspace_id, kind, name, unit, min_stock, perishable, note) values
-  (:workspace, 'supply', 'Dulces surtidos', 'unidad', 50, true, 'Aproximadamente S/ 1.00 por pieza. TODO: costo y vencimiento reales'),
+  -- S/ 15 a kilo, about 66 g go inside each product: roughly S/ 0.99 a unit.
+  (:workspace, 'supply', 'Dulces surtidos', 'g', 1000, true, 'S/ 15.00 el kilo. 66 g por producto. TODO: registrar vencimiento de cada lote'),
   (:workspace, 'packaging', 'Bolsa con etiqueta', 'unidad', 50, false, 'TODO: costo real'),
   (:workspace, 'spare_part', 'Boquilla 0.4 acero', 'unidad', 1, false, null);
 
@@ -108,8 +109,8 @@ insert into public.printers (
   maintenance_budget_per_year, expected_hours_per_year, note
 ) values (
   :printer, :workspace, :asset_printer, 'A1 mini', 'Bambu Lab A1 mini', 57, 175,
-  120.00, 500.00,
-  '57 W es el promedio de la wiki de Bambu. 175 h ya usadas al registrarla.'
+  240.00, 2000.00,
+  '57 W es el promedio de la wiki de Bambu. 175 h en 32 días, unas 5.5 h al día.'
 );
 
 -- Preventive plan from docs/02-dominio.md, section 2.4.

@@ -103,3 +103,62 @@ export interface PriceBreakdown {
   marginAmount: number;
   effectiveMarginRate: number;
 }
+
+// --------------------------------------------------------------- batches
+
+/**
+ * One plate that a product needs. A finished product is often the sum of
+ * several plates: the body on one, the caps on another.
+ */
+export interface BatchPlate {
+  label?: string;
+  /** Slicer estimate for ONE run of this plate. */
+  printTimeSeconds: number;
+  /** Filament used by ONE run. */
+  filaments: FilamentUsage[];
+  /** Finished units that one run of this plate contributes. */
+  unitsPerRun: number;
+}
+
+export interface BatchInput {
+  /** Finished products to deliver. */
+  units: number;
+  plates: BatchPlate[];
+  /** Work done once for the whole batch: slicing, arranging, loading. */
+  setupMinutes: number;
+  /** Work done on every finished unit: assembly, filling, packing. */
+  minutesPerUnit: number;
+  suppliesPerUnit?: SupplyUsage[];
+  suppliesPerBatch?: SupplyUsage[];
+}
+
+export interface BatchPlateBreakdown {
+  label?: string;
+  runs: number;
+  unitsProduced: number;
+  /** Extra pieces the last run leaves over. They are paid for anyway. */
+  spareUnits: number;
+  printHours: number;
+  material: number;
+}
+
+export interface BatchCostBreakdown {
+  units: number;
+  plates: BatchPlateBreakdown[];
+  printHours: number;
+  machineRatePerHour: number;
+  material: number;
+  energy: number;
+  machine: number;
+  productionBeforeFailure: number;
+  failureAllowance: number;
+  production: number;
+  laborSetup: number;
+  laborPerUnits: number;
+  labor: number;
+  supplies: number;
+  total: number;
+  cashOutOfPocket: number;
+  assigned: number;
+  costPerUnit: number;
+}

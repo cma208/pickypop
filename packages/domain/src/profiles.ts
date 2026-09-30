@@ -34,9 +34,8 @@ export const DRAFT_PRINTER_A1_MINI: PrinterProfile = {
   assetCost: 1500,
   // PLACEHOLDER: a conservative life for a machine that has run 175 h so far.
   usefulLifeHours: 5000,
-  // PLACEHOLDER: around 8 % of the machine price per year in nozzles, plate,
-  // grease and cutter blades.
-  maintenanceCostPerYear: 120,
-  // PLACEHOLDER: pending how long the printer has been in use.
-  printHoursPerYear: 500,
+  // PLACEHOLDER: nozzles, plate, grease and cutter blades under heavy use.
+  maintenanceCostPerYear: 240,
+  // REAL-ISH: 175 h in 32 days is about 5.5 h a day, so roughly 2,000 a year.
+  printHoursPerYear: 2000,
 };

@@ -69,8 +69,10 @@ Están marcados con ⚠️ dentro de los documentos. Al reemplazarlos, quitar la
 | Valor de la hora de trabajo | ⚠️ Provisional: S/ 15 y S/ 25 | Derivadas de los sueldos (S/ 3,000 y S/ 5,000 ÷ 208 h) |
 | Margen objetivo | ✅ 50 % | Fórmula de precio |
 | Precio mínimo por orden | ⚠️ Pendiente | Fórmula de precio |
-| Costo real del dulce y del empaque | ⚠️ Provisional: S/ 1.00 y S/ 0.50 | Insumos de cada unidad |
-| Horas al año y mantenimiento | ⚠️ Provisional: 500 h y S/ 120 | Tarifa de máquina. Falta saber desde cuándo tienen la impresora |
+| Costo del dulce | ✅ S/ 0.99 (66 g a S/ 15 el kilo) | Insumo de cada unidad |
+| Costo del empaque | ⚠️ Provisional: S/ 0.50 | Insumo de cada unidad |
+| Horas al año | ✅ ~2,000 h (175 h en 32 días) | Tarifa de máquina |
+| Presupuesto de mantenimiento | ⚠️ Provisional: S/ 240 al año | Tarifa de máquina. Se reemplaza con el gasto real |
 | Archivos `.gcode.3mf` de referencia | ✅ Recibidos el 2026-09-29 | [Hallazgos](01-investigacion.md#comprobado-con-archivos-laminados-2026-09-29): la purga ya viene en los gramos |
 
 ## Decisiones tomadas

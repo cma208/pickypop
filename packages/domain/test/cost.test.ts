@@ -8,8 +8,8 @@ const A1_MINI: PrinterProfile = {
   avgPowerWatts: 57,
   assetCost: 1500,
   usefulLifeHours: 5000,
-  maintenanceCostPerYear: 120,
-  printHoursPerYear: 500,
+  maintenanceCostPerYear: 240,
+  printHoursPerYear: 2000,
 };
 
 /** The made-up machine used by the first example in docs/02-dominio.md. */
@@ -18,6 +18,7 @@ const A1_MINI_ILLUSTRATIVE: PrinterProfile = {
   assetCost: 2000,
   maintenanceCostPerYear: 200,
   printHoursPerYear: 1000,
+  usefulLifeHours: 5000,
 };
 
 const PROFILE: CostProfile = {
@@ -43,15 +44,15 @@ const LOVE_POTION: JobInput = {
   prepMinutes: 5,
   postMinutes: 5,
   supplies: [
-    { label: 'Dulce', cost: 1 },
+    { label: 'Dulce', cost: 0.99 }, // 66 g of assorted sweets at S/ 15 a kilo
     { label: 'Empaque', cost: 0.5 },
   ],
 };
 
 describe('machineRatePerHour', () => {
   it('adds depreciation and maintenance per hour', () => {
-    // 1500 / 5000 = 0.30 of depreciation, 120 / 500 = 0.24 of maintenance.
-    expect(machineRatePerHour(A1_MINI)).toBe(0.54);
+    // 1500 / 5000 = 0.30 of depreciation, 240 / 2000 = 0.12 of maintenance.
+    expect(machineRatePerHour(A1_MINI)).toBe(0.42);
   });
 
   it('ignores a rate it cannot compute instead of dividing by zero', () => {
@@ -88,18 +89,18 @@ describe('calculateCost', () => {
     expect(cost.materialByFilament.map((line) => line.cost)).toEqual([0.29, 0.24, 0.05]);
     expect(cost.material).toBe(0.58);
     expect(cost.energy).toBe(0.03);
-    expect(cost.machine).toBe(0.39);
-    expect(cost.production).toBe(1.11); // 1.00 / 0.90, the failure allowance
+    expect(cost.machine).toBe(0.3);
+    expect(cost.production).toBe(1.01); // 0.91 / 0.90, the failure allowance
     expect(cost.labor).toBe(2.5);
-    expect(cost.supplies).toBe(1.5);
-    expect(cost.total).toBe(5.11);
+    expect(cost.supplies).toBe(1.49);
+    expect(cost.total).toBe(5);
   });
 
   it('separates money spent today from cost that is only charged', () => {
     const cost = calculateCost(LOVE_POTION, PROFILE, A1_MINI);
 
-    expect(cost.cashOutOfPocket).toBe(2.11); // filament, electricity, sweet and bag
-    expect(cost.assigned).toBe(2.89); // machine wear and own labour
+    expect(cost.cashOutOfPocket).toBe(2.1); // filament, electricity, sweet and bag
+    expect(cost.assigned).toBe(2.8); // machine wear and own labour
     expect(cost.cashOutOfPocket + cost.assigned + cost.failureAllowance).toBeCloseTo(cost.total, 10);
   });
 

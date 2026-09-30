@@ -44,9 +44,9 @@ Los parámetros se agrupan en un **perfil de costos con fecha de vigencia**. Cam
 | Tarifa eléctrica | ⚠️ **S/ 0.7556 por kWh** *(provisional)* | Pendiente: reemplazar con el valor de tu recibo. Referencia: Luz del Sur, BT5B residencial, más de 140 kWh al mes, IGV incluido (ver [Investigación §1.5](01-investigacion.md#tarifa-eléctrica-en-surquillo)) |
 | Potencia promedio de la A1 mini | **57 W** | Es un dato de cada impresora, no del perfil; conviene medirlo |
 | Costo de la impresora + AMS lite | **S/ 1,500** | Real. Llevaba **175 h** de uso al registrarla |
-| Vida útil a amortizar | ⚠️ 5,000 h *(supuesto)* | Con S/ 1,500 son S/ 0.30 por hora. Si dura menos, el costo por hora sube |
-| Horas de impresión por año | ⚠️ 500 h *(provisional)* | Pendiente: ¿desde cuándo tienen la impresora? Con eso salen las horas reales |
-| Mantenimiento por hora | ⚠️ S/ 0.24 *(provisional)* | Regla inicial: ~8 % del valor de la impresora al año (S/ 120) ÷ 500 h. Se reemplaza por el gasto real |
+| Vida útil a amortizar | ⚠️ 5,000 h *(supuesto)* | S/ 1,500 ÷ 5,000 h = S/ 0.30 por hora. A este ritmo son unos 2.5 años. **Hora de máquina total: S/ 0.42** |
+| Horas de impresión por año | **~2,000 h** | 175 h en 32 días, unas 5.5 h diarias. Uso intenso |
+| Mantenimiento por hora | ⚠️ S/ 0.12 *(provisional)* | S/ 240 al año (boquillas, placa, grasa, cuchilla) ÷ 2,000 h. Se reemplaza por el gasto real |
 | Valor de la hora de trabajo | ⚠️ S/ 15 *(provisional)* | S/ 3,000 al mes ÷ 208 h. La otra persona bordea S/ 25 |
 | Tasa de fallo | 10 % | Se recalcula con el historial |
 | Merma de material | 3 % | **Verificado:** los gramos del laminado ya incluyen la purga y la torre de limpieza. La merma solo cubre el cebado inicial y los restos del final del rollo |
@@ -58,6 +58,8 @@ Los parámetros se agrupan en un **perfil de costos con fecha de vigencia**. Cam
 | Valorización del filamento al cotizar | Costo promedio del stock disponible | Alternativas: último costo de compra o costo de reposición manual |
 
 **Dos personas, dos tarifas.** La hora de cada quien se guarda en su ficha de miembro. Las cotizaciones usan la tarifa del perfil (la del taller), pero al cerrar un trabajo se puede costear con la tarifa de quien realmente lo hizo. Con sueldos de S/ 3,000 y S/ 5,000 al mes sobre unas 208 horas, las referencias son **S/ 15 y S/ 25 por hora**.
+
+Como el post-proceso lo hacen entre los dos, conviene una regla simple: **el trabajo repetitivo por unidad se cotiza a S/ 15**, y la hora cara se reserva para el diseño y la preparación del lote, que se pagan una sola vez y se reparten entre todas las unidades. Cotizar todo a S/ 25 encarecería cada pieza en un 67 % de su mano de obra.
 
 ---
 
@@ -213,20 +215,45 @@ Pieza de 80 g en dos colores, 4 h de impresión, 10 min de preparación, 10 min 
 
 ### Ejemplo con datos reales
 
-*Love potion*, la placa de 3 colores: **11.34 g y 43 minutos**, en PLA rojo de S/ 50 el kilo, con 10 minutos de trabajo entre preparación y post-proceso, un dulce de S/ 1.00 adentro y S/ 0.50 de empaque. Con los parámetros vigentes: máquina S/ 0.54 la hora, trabajo S/ 15 la hora, merma 3 %, fallos 10 % y margen 50 %.
+*Love potion*, la placa de 3 colores: **11.34 g y 43 minutos**, en PLA rojo de S/ 50 el kilo, con 10 minutos de trabajo, un dulce adentro (66 g de los S/ 15 el kilo, o sea S/ 0.99) y S/ 0.50 de empaque. Con los parámetros vigentes: máquina S/ 0.42 la hora, trabajo S/ 15 la hora, merma 3 %, fallos 10 % y margen 50 %.
 
 | Concepto | Cálculo | S/ |
 |---|---|---|
 | Material | 11.34 g × 1.03 × 0.050 | 0.58 |
 | Energía | 0.72 h × 0.057 kW × 0.7556 | 0.03 |
-| Máquina | 0.72 h × 0.54 | 0.39 |
-| Con fallo del 10 % | 1.00 / 0.90 | **1.11** |
+| Máquina | 0.72 h × 0.42 | 0.30 |
+| Con fallo del 10 % | 0.91 / 0.90 | **1.01** |
 | Trabajo | (10 / 60) h × 15 | 2.50 |
-| Insumos | Dulce 1.00 + empaque 0.50 | 1.50 |
-| **COSTO** | | **5.11** |
-| Precio con margen del 50 % | 5.11 / 0.50 = 10.22 | **10.50** |
+| Insumos | Dulce 0.99 + empaque 0.50 | 1.49 |
+| **COSTO** | | **5.00** |
+| Precio con margen del 50 % | 5.00 / 0.50 | **10.00** |
 
-Esto confirma el precio de S/ 10 que ya tenían pensado y, sobre todo, muestra dónde está el límite: **a S/ 10 el costo no puede pasar de S/ 5**. Como la producción, el dulce y el empaque ya suman S/ 2.61, quedan **S/ 2.39 para mano de obra, o sea unos 9 minutos** a S/ 15 la hora. Si la misma pieza la trabaja la persona cuya hora vale S/ 25, el presupuesto baja a menos de 6 minutos.
+Con los números reales el precio cae **exactamente en los S/ 10** que ya tenían pensado. Y queda claro dónde está el límite: a ese precio el costo no puede pasar de S/ 5, y como la producción, el dulce y el empaque ya suman S/ 2.50, quedan **S/ 2.50 para mano de obra, unos 10 minutos** a S/ 15 la hora. Si la pieza la trabaja la persona cuya hora vale S/ 25, el presupuesto baja a 6 minutos.
+
+### Un producto puede salir de varias placas
+
+Un producto rara vez es una sola placa: la botella sale de una (una unidad por corrida de 43 minutos) y las tapas que la cierran salen de otra (varias por corrida). El cotizador trabaja por **lote**, no por pieza suelta:
+
+1. Cada placa se corre las veces que haga falta, **redondeando hacia arriba**. Diez botellas son 10 corridas de la primera placa y 2 de la segunda, si entran nueve tapas por placa.
+2. Las piezas sobrantes de la última corrida (8 tapas) **se pagan igual**, porque el material se gastó. Quedan como stock para el siguiente lote.
+3. La mano de obra se parte en dos: la **preparación del lote**, que se paga una sola vez, y los **minutos por unidad** de armado, relleno y empaque.
+
+Lote de 10 botellas, con 30 minutos de preparación y 4 minutos por unidad:
+
+| Concepto | S/ |
+|---|---|
+| Material (7.85 h de impresión en total) | 7.39 |
+| Energía | 0.34 |
+| Máquina | 3.30 |
+| Con fallo del 10 % | **12.26** |
+| Preparación del lote, 30 min | 7.50 |
+| Trabajo por unidad, 4 min × 10 | 10.00 |
+| Dulces y empaque, 10 × 1.49 | 14.90 |
+| **COSTO DEL LOTE** | **44.66** |
+| **Costo por unidad** | **4.47** |
+| Precio por unidad con margen del 50 % | **9.00** |
+
+Imprimir en lote baja el costo por unidad de S/ 5.00 a S/ 4.47 y permite vender a S/ 9 sin tocar el margen. La diferencia no está en el filamento: está en que la preparación se paga una sola vez.
 
 Dos reglas prácticas que salen de la fórmula con margen del 50 %:
 
@@ -256,6 +283,7 @@ Dos reglas prácticas que salen de la fórmula con margen del 50 %:
 Variante
  └── Receta (versión, vigencia)
       ├── Placas: unidades por placa, tiempo, miniatura, nombre del 3MF de origen
+      │    (un producto puede necesitar varias: la botella en una, las tapas en otra)
       │    └── Filamentos: ranura, material, color, SKU sugerido, gramos
       ├── Insumos y empaque por unidad
       └── Minutos de preparación y de post-proceso

@@ -43,10 +43,10 @@ describe('calculatePrice', () => {
   });
 
   it('prices the real Love potion plate at the workshop margin', () => {
-    const price = calculatePrice(5.11, { ...PROFILE, targetMargin: 0.5 });
+    const price = calculatePrice(5, { ...PROFILE, targetMargin: 0.5 });
 
-    expect(price.basePrice).toBe(10.22);
-    expect(price.total).toBe(10.5); // the S/ 10 they had in mind, rounded up
+    expect(price.basePrice).toBe(10);
+    expect(price.total).toBe(10); // exactly the S/ 10 they had in mind
   });
 
   it('never goes below the minimum order price', () => {
