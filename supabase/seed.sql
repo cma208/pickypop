@@ -209,3 +209,45 @@ insert into public.price_tiers (workspace_id, variant_id, min_quantity, unit_pri
   ('00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000091', 1, 10.00, 'Venta por unidad, desde stock'),
   ('00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000091', 5, 9.00, 'Lote pequeño'),
   ('00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000091', 10, 8.50, 'Lote grande');
+
+-- --------------------------------------------------- local dev account
+--
+-- Only for local development: in production people sign in with Google and
+-- this block never runs, because seeds are not applied to a hosted project.
+
+-- GoTrue reads these token columns as plain strings, so they must be empty
+-- text and never NULL, or signing in fails with "Database error querying schema".
+insert into auth.users (
+  instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
+  raw_app_meta_data, raw_user_meta_data, created_at, updated_at,
+  confirmation_token, recovery_token, email_change, email_change_token_new,
+  email_change_token_current, phone_change, phone_change_token, reauthentication_token
+) values (
+  '00000000-0000-0000-0000-000000000000',
+  '00000000-0000-4000-8000-0000000000aa',
+  'authenticated', 'authenticated', 'dev@pickypop.test',
+  extensions.crypt('pickypop123', extensions.gen_salt('bf')), now(),
+  '{"provider":"email","providers":["email"]}'::jsonb, '{}'::jsonb, now(), now(),
+  '', '', '', '', '', '', '', ''
+);
+
+insert into auth.identities (
+  id, user_id, provider_id, identity_data, provider, last_sign_in_at, created_at, updated_at
+) values (
+  gen_random_uuid(), '00000000-0000-4000-8000-0000000000aa', '00000000-0000-4000-8000-0000000000aa',
+  '{"sub":"00000000-0000-4000-8000-0000000000aa","email":"dev@pickypop.test"}'::jsonb,
+  'email', now(), now(), now()
+);
+
+insert into public.workspace_members (workspace_id, user_id, role, display_name, labor_rate_per_hour)
+values ('00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-0000000000aa',
+        'owner', 'Carlos (local)', 15.00);
+
+insert into public.sales_channels (workspace_id, name, commission_rate) values
+  ('00000000-0000-4000-8000-000000000001', 'Directo', 0),
+  ('00000000-0000-4000-8000-000000000001', 'Instagram', 0);
+
+insert into public.gift_categories (workspace_id, name, treatment) values
+  ('00000000-0000-4000-8000-000000000001', 'Empresa', 'marketing'),
+  ('00000000-0000-4000-8000-000000000001', 'Personal', 'owner_draw'),
+  ('00000000-0000-4000-8000-000000000001', 'Otros', 'other');
