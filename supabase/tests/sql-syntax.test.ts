@@ -21,6 +21,23 @@ beforeAll(async () => {
   parse = (sql: string) => pg.parse(sql);
 });
 
+describe('seed', () => {
+  it('is plain SQL: the CLI sends it to PostgreSQL, so psql meta-commands break it', () => {
+    const seed = readFileSync(fileURLToPath(new URL('../seed.sql', import.meta.url)), 'utf8');
+
+    const metaCommands = seed
+      .split('\n')
+      .filter((line) => line.startsWith('\\'));
+    expect(metaCommands).toEqual([]);
+  });
+
+  it('parses without syntax errors', () => {
+    const seed = readFileSync(fileURLToPath(new URL('../seed.sql', import.meta.url)), 'utf8');
+
+    expect(parse(seed).error?.message ?? null).toBeNull();
+  });
+});
+
 describe('migrations', () => {
   it('there is at least one migration', () => {
     expect(migrations.length).toBeGreaterThan(0);
