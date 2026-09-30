@@ -1,0 +1,12 @@
+{
+  "name": "@pickypop/slicer-files",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Lector de archivos laminados de Bambu Studio",
+  "license": "MIT",
+  "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  }
+}

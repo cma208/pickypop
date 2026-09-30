@@ -1,0 +1,19 @@
+{
+  "name": "pickypop",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Gestion y finanzas para talleres de impresion 3D",
+  "license": "MIT",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.3",
+    "supabase": "^2.118.0",
+    "typescript": "^5.9.3",
+    "vitest": "^5.0.2"
+  }
+}
