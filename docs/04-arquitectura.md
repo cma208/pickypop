@@ -37,6 +37,22 @@ flowchart LR
 
 ## 4.2 ¿Monolito? Sí: monolito modular
 
+**Aclaración importante: "monolito" describe cómo se organiza el código, no dónde corre.** No significa que haya un servidor nuestro haciendo todo. De hecho, no hay servidor nuestro.
+
+| Pieza | Dónde corre | Quién la ejecuta |
+|---|---|---|
+| Pantallas y fórmulas (Angular + `domain`) | En el navegador de cada persona | El navegador |
+| Base de datos, permisos y operaciones atómicas | Postgres, en Supabase | Supabase |
+| API REST sobre las tablas | PostgREST, en Supabase | Supabase, **no la escribimos** |
+| Login con Google | Auth, en Supabase | Supabase |
+| Fotos | Storage, en Supabase | Supabase |
+| Bot y MCP público (más adelante) | Edge Functions, en Supabase | Supabase |
+| Hosting de la app | GitHub Pages | Solo entrega archivos, no ejecuta nada nuestro |
+
+Dicho en una línea: **el "backend" es Postgres con sus reglas, y vive en Supabase**. El hosting estático únicamente reparte el HTML y el JavaScript al navegador; toda la lógica corre o en el navegador o dentro de la base.
+
+Por eso no montamos un servidor propio (NestJS o similar): habría que pagarlo, mantenerlo y, sobre todo, duplicaría lo que PostgREST y las reglas de acceso ya hacen.
+
 **Recomendación: un monolito modular en un solo repositorio.**
 
 Por qué:
@@ -201,6 +217,18 @@ Otras convenciones:
 4. Publica la app web estática en un hosting gratuito (Cloudflare Pages, Netlify, Vercel o GitHub Pages).
 
 Así **nadie más te cuesta dinero** y cada taller es dueño de sus datos. El modelo de datos con `workspace_id` deja abierta la opción de una instancia compartida si algún día tiene sentido.
+
+### Dónde se publica la app web
+
+En **GitHub Pages**, que es gratis e ilimitado para repositorios públicos, y el nuestro lo será por la licencia MIT. Quedaría en `https://<usuario>.github.io/pickypop/`, conviviendo con cualquier otra página del mismo usuario.
+
+Tres detalles que hay que resolver al construirla:
+
+1. **Ruta base:** al compilar hay que indicar `--base-href /pickypop/`, porque no está en la raíz del dominio.
+2. **Rutas internas:** GitHub Pages no sabe de rutas de una SPA, así que al recargar `/pedidos` daría 404. Se resuelve copiando `index.html` a `404.html` al publicar, o usando rutas con `#`.
+3. **Publicación automática:** un workflow de GitHub Actions que compile y publique en cada push a `main`.
+
+**Sobre las llaves:** la llave pública de Supabase (la *anon*) viaja dentro del JavaScript y eso es correcto por diseño: no da acceso a nada, porque quien decide qué se ve son las reglas de acceso de la base. La llave `service_role`, en cambio, **nunca** puede salir en el build.
 
 ---
 
