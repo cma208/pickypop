@@ -12,20 +12,32 @@ Cotizaciones, catálogo, pedidos, uso personal y regalos, inventario de filament
 docs/                    Diseño: visión, dominio, modelo de datos, arquitectura y decisiones
 packages/domain/         Reglas de negocio: costos, precios e IGV
 packages/slicer-files/   Lector de archivos laminados de Bambu Studio
+supabase/migrations/     Esquema de la base de datos
+supabase/seed.sql        Datos de desarrollo
+supabase/tests/          Validación de las migraciones
 ```
 
 ## Requisitos
 
 - Node 22 o superior
 - pnpm 9 o superior
+- Docker, para levantar la base de datos local
 
 ## Comandos
 
 ```bash
 pnpm install     # instalar dependencias
-pnpm test        # correr las pruebas
+pnpm test        # pruebas del dominio, del lector y de las migraciones
 pnpm test:watch  # pruebas en modo continuo
 pnpm typecheck   # revisar tipos
+```
+
+Base de datos local, en contenedores:
+
+```bash
+pnpm supabase start      # levanta Postgres, Auth, Storage y Studio
+pnpm supabase db reset   # aplica las migraciones y carga los datos de prueba
+pnpm supabase stop       # apaga todo
 ```
 
 ## Cómo se calcula un precio

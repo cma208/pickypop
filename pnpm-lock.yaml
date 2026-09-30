@@ -11,6 +11,9 @@ importers:
       '@types/node':
         specifier: ^26.6.3
         version: 26.6.3
+      pg-query-emscripten:
+        specifier: ^5.1.0
+        version: 5.1.0
       supabase:
         specifier: ^2.118.0
         version: 2.118.0
@@ -341,6 +344,9 @@ packages:
   obug@2.2.1:
     resolution: {integrity: sha512-XrsrhT5sybtKI6wakr2SPOlGZWWYbUXZ7a0jT8/QOeAPau+1X/bSegNe5YR75oJmEZQbKningirmGOEJCIk61Q==}
     engines: {node: '>=12.20.0'}
+
+  pg-query-emscripten@5.1.0:
+    resolution: {integrity: sha512-H1ZWOzLRddmHuE4GZqFjjo55hA9zMiePz/WDDGANA/EnvILCJps9pcRucyGd+MFvapeYOy6TWSYz6DbtBOaxRQ==}
 
   picocolors@1.1.1:
     resolution: {integrity: sha512-xceH2snhtb5M9liqDsmEw56le376mTZkEX/jEb/RxNFyegNul7eNslCXP9FDj/Lcu0X8KEyMceP2ntpaHrDEVA==}
@@ -684,6 +690,8 @@ snapshots:
   nanoid@3.3.19: {}
 
   obug@2.2.1: {}
+
+  pg-query-emscripten@5.1.0: {}
 
   picocolors@1.1.1: {}
 

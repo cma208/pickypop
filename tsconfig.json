@@ -8,6 +8,7 @@
   },
   "include": [
     "packages/*/src/**/*.ts",
-    "packages/*/test/**/*.ts"
+    "packages/*/test/**/*.ts",
+    "supabase/tests/**/*.ts"
   ]
 }
