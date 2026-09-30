@@ -1,0 +1,9 @@
+@if (session.email(); as email) {
+  <header class="bar">
+    <strong>Pickypop</strong>
+    <span class="muted">{{ email }}</span>
+    <button type="button" (click)="signOut()">Salir</button>
+  </header>
+}
+
+<router-outlet />

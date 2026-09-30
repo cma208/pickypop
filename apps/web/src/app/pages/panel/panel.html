@@ -1,0 +1,83 @@
+<main class="panel">
+  @if (loading()) {
+    <p class="muted">Cargando…</p>
+  } @else if (error(); as message) {
+    <p class="error">{{ message }}</p>
+  } @else {
+    <section>
+      <h2>Filamento en stock</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Color</th>
+            <th class="num">Disponible</th>
+            <th class="num">Costo por gramo</th>
+            <th class="num">Costo del rollo</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (filament of filaments(); track filament.id) {
+            <tr>
+              <td>
+                <span class="dot" [style.background]="filament.colorHex ?? 'transparent'"></span>
+                {{ filament.colorName }}
+                @if (filament.belowMinimum) { <span class="tag">bajo mínimo</span> }
+              </td>
+              <td class="num">{{ weight(filament.availableG) }}</td>
+              <td class="num">{{ money(filament.costPerGram, 3) }}</td>
+              <td class="num">
+                {{ filament.costPerGram === null ? '—' : money(filament.costPerGram * 1000) }}
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>Catálogo</h2>
+      @for (product of catalog(); track product.id) {
+        <article class="product">
+          <header>
+            <h3>{{ product.name }}</h3>
+            <span class="tag">{{ product.status }}</span>
+            @if (product.leadTimeDays !== null) {
+              <span class="muted">{{ product.leadTimeDays }} días de plazo</span>
+            }
+          </header>
+
+          @for (variant of product.variants; track variant.id) {
+            <div class="variant">
+              <span>{{ variant.name }}</span>
+              <span class="price">{{ price(variant.listPrice) }}</span>
+              @if (variant.tiers.length > 0) {
+                <ul class="tiers">
+                  @for (tier of variant.tiers; track tier.minQuantity) {
+                    <li>desde {{ tier.minQuantity }}: <strong>{{ price(tier.unitPrice) }}</strong></li>
+                  }
+                </ul>
+              }
+            </div>
+          }
+        </article>
+      }
+    </section>
+
+    <section>
+      <h2>Impresoras</h2>
+      @for (printer of printers(); track printer.id) {
+        <article class="printer">
+          <h3>{{ printer.name }}</h3>
+          <p class="muted">{{ printer.model }} · {{ printer.initialHours }} h de uso registradas</p>
+          <p>
+            Hora de máquina: <strong>{{ money(printer.machineRatePerHour) }}</strong>
+            <span class="muted">
+              ({{ money(printer.depreciationPerHour) }} de depreciación +
+              {{ money(printer.maintenancePerHour) }} de mantenimiento)
+            </span>
+          </p>
+        </article>
+      }
+    </section>
+  }
+</main>

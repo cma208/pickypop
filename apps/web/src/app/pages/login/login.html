@@ -1,0 +1,30 @@
+<main class="login">
+  <form class="card" (ngSubmit)="submit()">
+    <h1>Pickypop</h1>
+    <p class="muted">Gestión del taller</p>
+
+    <label>
+      Correo
+      <input type="email" name="email" autocomplete="username" required
+             [ngModel]="email()" (ngModelChange)="email.set($event)" />
+    </label>
+
+    <label>
+      Contraseña
+      <input type="password" name="password" autocomplete="current-password" required
+             [ngModel]="password()" (ngModelChange)="password.set($event)" />
+    </label>
+
+    @if (error(); as message) {
+      <p class="error">{{ message }}</p>
+    }
+
+    <button type="submit" [disabled]="busy()">
+      {{ busy() ? 'Entrando…' : 'Entrar' }}
+    </button>
+
+    <p class="hint">
+      En local ya viene un usuario de prueba cargado. Más adelante, el ingreso será con Google.
+    </p>
+  </form>
+</main>
