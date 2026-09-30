@@ -65,10 +65,14 @@ Están marcados con ⚠️ dentro de los documentos. Al reemplazarlos, quitar la
 | Dato | Estado | Dónde se usa |
 |---|---|---|
 | Tarifa eléctrica de tu recibo | ⚠️ Provisional: S/ 0.7556 por kWh | [Parámetros](02-dominio.md#22-parámetros) |
-| Costo de la A1 mini + AMS lite | ⚠️ Pendiente | Activos y tarifa de máquina |
-| Valor de la hora de trabajo | ⚠️ Pendiente | Fórmula de costo |
-| Margen objetivo y precio mínimo por orden | ⚠️ Pendiente | Fórmula de precio |
-| Horas de impresión al año y presupuesto de mantenimiento | ⚠️ Pendiente | Tarifa de máquina |
+| Costo de la A1 mini + AMS lite | ✅ S/ 1,500, con 175 h de uso | Activos y tarifa de máquina |
+| Valor de la hora de trabajo | ⚠️ Provisional: S/ 15 y S/ 25 | Derivadas de los sueldos (S/ 3,000 y S/ 5,000 ÷ 208 h) |
+| Margen objetivo | ✅ 50 % | Fórmula de precio |
+| Precio mínimo por orden | ⚠️ Pendiente | Fórmula de precio |
+| Costo del dulce | ✅ S/ 0.99 (66 g a S/ 15 el kilo) | Insumo de cada unidad |
+| Costo del empaque | ⚠️ Provisional: S/ 0.50 | Insumo de cada unidad |
+| Horas al año | ✅ ~2,000 h (175 h en 32 días) | Tarifa de máquina |
+| Presupuesto de mantenimiento | ⚠️ Provisional: S/ 240 al año | Tarifa de máquina. Se reemplaza con el gasto real |
 | Archivos `.gcode.3mf` de referencia | ✅ Recibidos el 2026-09-29 | [Hallazgos](01-investigacion.md#comprobado-con-archivos-laminados-2026-09-29): la purga ya viene en los gramos |
 
 ## Decisiones tomadas

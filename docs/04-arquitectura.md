@@ -201,3 +201,23 @@ Otras convenciones:
 4. Publica la app web estática en un hosting gratuito (Cloudflare Pages, Netlify, Vercel o GitHub Pages).
 
 Así **nadie más te cuesta dinero** y cada taller es dueño de sus datos. El modelo de datos con `workspace_id` deja abierta la opción de una instancia compartida si algún día tiene sentido.
+
+---
+
+## 4.11 Desarrollo local con contenedores
+
+Todo el backend local corre en Docker, levantado por el CLI de Supabase, que vive como dependencia del repositorio para que nadie tenga que instalarlo aparte.
+
+| Comando | Qué hace |
+|---|---|
+| `pnpm supabase start` | Levanta Postgres, Auth, Storage, PostgREST y Studio en contenedores |
+| `pnpm supabase db reset` | Recrea la base, aplica las migraciones en orden y carga `supabase/seed.sql` |
+| `pnpm supabase status` | Muestra las URLs y llaves locales |
+| `pnpm supabase stop` | Apaga los contenedores |
+| `pnpm test` | Dominio, lector de archivos y **sintaxis de las migraciones** |
+
+La primera vez descarga varios gigabytes de imágenes y necesita el daemon de Docker corriendo.
+
+**Regla de las migraciones:** viven en `supabase/migrations`, se aplican en orden por nombre y **una migración ya aplicada no se edita**. Todo cambio va en una migración nueva.
+
+Para no depender de Docker en cada cambio, `supabase/tests/sql-syntax.test.ts` valida las migraciones con el parser de PostgreSQL compilado a WebAssembly: corre en milisegundos y atrapa errores de tipeo. La prueba de verdad sigue siendo `db reset`.
