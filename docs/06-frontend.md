@@ -11,7 +11,8 @@ Una aplicación de taller que se usa todos los días, no un panel de demostraci�
 
 ```
 apps/web/src/app/
-├── core/          Cliente de Supabase tipado, sesión, guardas, formato, tipos de la base
+├── core/          Cliente de Supabase tipado, sesión, taller actual, guardas, formato,
+│                 tipos de la base y los ayudantes que usan varias áreas
 ├── ui/            Componentes compartidos y pipes de formato
 ├── layout/        Armazón con navegación lateral
 └── features/      Una carpeta por área, con sus páginas y su servicio de datos
@@ -25,7 +26,10 @@ apps/web/src/app/
 - Cada área tiene su servicio, por ejemplo `features/inventario/inventario.data.ts`, con métodos que devuelven tipos propios del dominio en lugar de filas crudas.
 - **Las reglas de acceso viven en la base.** El frontend nunca filtra por taller: RLS ya lo hace.
 - Las operaciones que tocan varias tablas van por RPC: `next_document_number`, `price_for_quantity`, `complete_print_job`.
-- Los cálculos de dinero **no se reescriben**: se usa `@pickypop/domain`.
+- Los cálculos de dinero **no se reescriben**: se usan a través de `core/pricing.ts`, que reexporta `@pickypop/domain`. Ninguna pantalla hace su propia aritmética de centavos.
+- **Hay un solo servicio para saber en qué taller estás:** `core/workspace.ts` (`CurrentWorkspace`). Trae id, nombre, régimen tributario y el rol de la persona, resuelve una vez y cachea. Ninguna área consulta la tabla `workspaces` por su cuenta.
+- **Un insumo cuesta lo que dice la vista `inventory_item_costs`**, nunca un promedio calculado en el navegador. Si `cost_source` es `unknown`, el costo es cero y la pantalla tiene que decirlo: cotizar a ciegas es peor que no cotizar.
+- Los ayudantes compartidos viven en `core/`: `dates.ts`, `fetch-all.ts` (PostgREST corta en 1000 filas), `form-errors.ts`, `friendly-error.ts` y `styles.ts`.
 
 ## 6.4 Sistema de diseño
 

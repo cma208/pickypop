@@ -86,6 +86,13 @@ export function createOrderLineForm(): OrderLineForm {
           }
           @if (estimatedUnit() !== null) {
             <span>Costo estimado: {{ estimatedUnit() | money }} por unidad.</span>
+            @if (unpricedSupplies().length > 0) {
+              <span class="warn-text" role="status">
+                Es un mínimo: {{ unpricedSupplies().join(', ') }}
+                {{ unpricedSupplies().length === 1 ? 'no tiene' : 'no tienen' }} costo registrado y no
+                {{ unpricedSupplies().length === 1 ? 'suma' : 'suman' }}.
+              </span>
+            }
           } @else {
             <span>Sin receta: no hay costo estimado.</span>
           }
@@ -102,6 +109,7 @@ export function createOrderLineForm(): OrderLineForm {
     .numbers { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: 0.75rem; }
     .notes { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 0.75rem; font-size: 0.8rem; }
     .total { margin-left: auto; color: var(--text); }
+    .warn-text { color: var(--warn); }
   `,
 })
 export class PedidoLinea implements OnInit {
@@ -119,6 +127,7 @@ export class PedidoLinea implements OnInit {
 
   protected readonly suggested = signal<number | null>(null);
   protected readonly estimatedUnit = signal<number | null>(null);
+  protected readonly unpricedSupplies = signal<string[]>([]);
   protected readonly loading = signal(false);
   protected readonly failed = signal(false);
   protected priceEdited = false;
@@ -181,6 +190,7 @@ export class PedidoLinea implements OnInit {
       this.loading.set(false);
       this.suggested.set(null);
       this.estimatedUnit.set(null);
+      this.unpricedSupplies.set([]);
       this.group().controls.estimatedUnitCost.setValue(null);
       return;
     }
@@ -196,6 +206,7 @@ export class PedidoLinea implements OnInit {
 
       this.suggested.set(price);
       this.estimatedUnit.set(cost?.perUnit ?? null);
+      this.unpricedSupplies.set(cost?.unpricedSupplies ?? []);
       this.group().controls.estimatedUnitCost.setValue(cost?.perUnit ?? null);
       if (!this.priceEdited && price !== null) this.group().controls.unitPrice.setValue(price);
     } catch {

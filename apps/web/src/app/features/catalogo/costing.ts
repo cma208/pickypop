@@ -6,7 +6,7 @@ import {
   type CostProfile,
   type PrinterProfile,
 } from '../../core/pricing';
-import type { Lookups, Recipe, RecipeFilament, SkuOption } from './catalogo.models';
+import type { Lookups, Recipe, RecipeFilament, SkuOption, SupplyOption } from './catalogo.models';
 
 const GRAMS_PER_KG = 1000;
 
@@ -61,6 +61,30 @@ export function gramCost(filament: RecipeFilament, lookups: Lookups): GramCost {
 
 function priceOf(sku: SkuOption): number | null {
   return sku.stockCostPerGram ?? sku.replacementCostPerGram;
+}
+
+/**
+ * Joins the active supplies with their row in `inventory_item_costs`. A supply
+ * the view does not know, or one with no purchase and no standard cost, keeps a
+ * null cost so the screen can say it is missing rather than showing it as free.
+ */
+export function supplyOptions(
+  items: { id: string; name: string; unit: string }[],
+  costs: { inventory_item_id: string | null; cost_per_unit: number | null }[],
+): SupplyOption[] {
+  const costPerUnit = new Map(
+    costs.flatMap((row) =>
+      row.inventory_item_id === null || row.cost_per_unit === null
+        ? []
+        : [[row.inventory_item_id, Number(row.cost_per_unit)] as const],
+    ),
+  );
+  return items.map((item) => ({
+    id: item.id,
+    name: item.name,
+    unit: item.unit,
+    costPerUnit: costPerUnit.get(item.id) ?? null,
+  }));
 }
 
 export function supplyCostPerUnit(

@@ -255,6 +255,10 @@ Lote de 10 botellas, con 30 minutos de preparación y 4 minutos por unidad:
 
 Imprimir en lote baja el costo por unidad de S/ 5.00 a S/ 4.47 y permite vender a S/ 9 sin tocar el margen. La diferencia no está en el filamento: está en que la preparación se paga una sola vez.
 
+> **Comprobado en la aplicación (2026-10-04).** La receta cargada usa 10 minutos de preparación y 5 por unidad, no los 30 y 4 de este ejemplo, así que el lote de diez sale en **S/ 42.16** (S/ 4.22 por unidad) en vez de S/ 44.66. Todo lo demás coincide línea por línea: material S/ 7.39, energía S/ 0.34, máquina S/ 3.30, producción S/ 12.26 e insumos S/ 14.90. La diferencia de S/ 2.50 es exactamente la de mano de obra entre los dos juegos de minutos.
+>
+> Con esos minutos reales el precio objetivo cae en **S/ 8.50 a 10 unidades y S/ 9.00 a 5**, que es la escalera que ya estaban usando. El cotizador y la ficha del catálogo devuelven el mismo número, porque los dos llaman al mismo motor y leen el mismo costo de insumos.
+
 Dos reglas prácticas que salen de la fórmula con margen del 50 %:
 
 - **Cada sol de dulce sube el precio en S/ 2.** Por eso la versión con chocolates más caros se va sola a la franja de S/ 15 a S/ 20.

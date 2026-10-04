@@ -1,6 +1,6 @@
 import { DRAFT_COST_PROFILE_PE, DRAFT_PRINTER_A1_MINI } from '@pickypop/domain';
 import type { Lookups, Recipe, RecipeFilament } from './catalogo.models';
-import { computeCost, gramCost, isBelowTarget, marginOf, targetPriceFor } from './costing';
+import { computeCost, gramCost, isBelowTarget, marginOf, supplyOptions, targetPriceFor } from './costing';
 import { parseTags, slugify } from './catalogo.util';
 
 const filament = (overrides: Partial<RecipeFilament> = {}): RecipeFilament => ({
@@ -103,6 +103,41 @@ describe('computeCost', () => {
     expect(computeCost(sources(recipe({ plates: [] })), 10)).toBeNull();
     expect(computeCost(sources(), 0)).toBeNull();
     expect(computeCost(sources(), 2.5)).toBeNull();
+  });
+});
+
+describe('supplyOptions', () => {
+  // Rows as `inventory_item_costs` returns them: numerics can arrive as strings.
+  const items = [
+    { id: 'sweets', name: 'Dulces surtidos', unit: 'g' },
+    { id: 'bag', name: 'Bolsa con etiqueta', unit: 'unidad' },
+    { id: 'nozzle', name: 'Boquilla 0.4 acero', unit: 'unidad' },
+  ];
+  const costs = [
+    { inventory_item_id: 'sweets', cost_per_unit: 0.015 },
+    { inventory_item_id: 'bag', cost_per_unit: '0.5' as unknown as number },
+    { inventory_item_id: 'nozzle', cost_per_unit: null },
+  ];
+
+  it('takes each cost from the view and keeps a missing one as null', () => {
+    const supplies = supplyOptions(items, costs);
+
+    expect(supplies.map((supply) => supply.costPerUnit)).toEqual([0.015, 0.5, null]);
+  });
+
+  it('costs the seeded potion bottle at S/ 1.49 per unit, where it used to read zero', () => {
+    const potion = recipe({
+      supplies: [
+        { id: 's1', inventoryItemId: 'sweets', quantityPerUnit: 66 },
+        { id: 's2', inventoryItemId: 'bag', quantityPerUnit: 1 },
+      ],
+    });
+    const fromView = { ...sources(potion), lookups: { ...lookups(), supplies: supplyOptions(items, costs) } };
+    const beforeTheFix = { ...sources(potion), lookups: { ...lookups(), supplies: supplyOptions(items, []) } };
+
+    expect(computeCost(fromView, 1)?.breakdown.supplies).toBe(1.49);
+    expect(computeCost(fromView, 10)?.breakdown.supplies).toBe(14.9);
+    expect(computeCost(beforeTheFix, 1)?.breakdown.supplies).toBe(0);
   });
 });
 

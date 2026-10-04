@@ -23,6 +23,7 @@ import type {
   Variant,
   VariantInput,
 } from './catalogo.models';
+import { supplyOptions } from './costing';
 import { blankToNull, CatalogoError, todayIso } from './catalogo.util';
 
 const GRAMS_PER_KG = 1000;
@@ -64,13 +65,6 @@ function fromPairs(pairs: Pair[] | undefined): Record<string, string> {
 
 function numberOrNull(value: number | string | null | undefined): number | null {
   return value === null || value === undefined ? null : Number(value);
-}
-
-/** Weighted average of (quantity, unit cost) samples, or null when there are none. */
-function weightedCost(samples: { quantity: number; cost: number }[]): number | null {
-  const quantity = samples.reduce((sum, sample) => sum + sample.quantity, 0);
-  if (quantity <= 0) return null;
-  return samples.reduce((sum, sample) => sum + sample.quantity * sample.cost, 0) / quantity;
 }
 
 /** Everything the catalogue screens read and write. Pages never touch Supabase. */
@@ -460,7 +454,7 @@ export class CatalogoData {
 
   /** Materials, spool products and supplies, each with the cost the stock says. */
   async lookups(): Promise<Lookups> {
-    const [materials, skus, stock, items, movements, lines] = await Promise.all([
+    const [materials, skus, stock, items, costs] = await Promise.all([
       this.supabase.from('materials').select('id, code').order('code'),
       this.supabase
         .from('filament_skus')
@@ -472,23 +466,18 @@ export class CatalogoData {
         .select('id, name, unit')
         .eq('active', true)
         .order('name'),
-      this.supabase
-        .from('stock_movements')
-        .select('inventory_item_id, quantity, unit_cost')
-        .eq('type', 'purchase')
-        .not('inventory_item_id', 'is', null)
-        .not('unit_cost', 'is', null),
-      this.supabase
-        .from('purchase_lines')
-        .select('inventory_item_id, quantity, unit_price, allocated_extra_cost')
-        .not('inventory_item_id', 'is', null),
+      // The view owns what a supply costs. This used to be rebuilt here from
+      // purchase rows as a weighted average, which was a third answer to the
+      // same question and ignored the standard cost altogether. The view takes
+      // the LAST purchase, not an average, on purpose: the quoting screen and
+      // order estimates read the same view, so all three now agree.
+      this.supabase.from('inventory_item_costs').select('inventory_item_id, cost_per_unit'),
     ]);
     if (materials.error) fail(materials.error, 'No pudimos cargar los materiales.');
     if (skus.error) fail(skus.error, 'No pudimos cargar los filamentos.');
     if (stock.error) fail(stock.error, 'No pudimos cargar el costo del stock.');
     if (items.error) fail(items.error, 'No pudimos cargar los insumos.');
-    if (movements.error) fail(movements.error, 'No pudimos cargar el costo de los insumos.');
-    if (lines.error) fail(lines.error, 'No pudimos cargar el costo de los insumos.');
+    if (costs.error) fail(costs.error, 'No pudimos cargar el costo de los insumos.');
 
     const stockCost = new Map(stock.data.map((row) => [row.filament_sku_id, numberOrNull(row.weighted_cost_per_gram)]));
     const materialCode = new Map(materials.data.map((row) => [row.id, row.code]));
@@ -511,41 +500,8 @@ export class CatalogoData {
               : Number(sku.replacement_cost_per_kg) / GRAMS_PER_KG,
         }),
       ),
-      supplies: items.data.map((item) => ({
-        id: item.id,
-        name: item.name,
-        unit: item.unit,
-        costPerUnit: this.supplyCost(item.id, movements.data, lines.data),
-      })),
+      supplies: supplyOptions(items.data, costs.data),
     };
-  }
-
-  /** Purchase movements first, since they carry the real landed cost; invoice lines otherwise. */
-  private supplyCost(
-    itemId: string,
-    movements: { inventory_item_id: string | null; quantity: number; unit_cost: number | null }[],
-    lines: {
-      inventory_item_id: string | null;
-      quantity: number;
-      unit_price: number;
-      allocated_extra_cost: number;
-    }[],
-  ): number | null {
-    const fromMovements = weightedCost(
-      movements
-        .filter((row) => row.inventory_item_id === itemId && row.unit_cost !== null)
-        .map((row) => ({ quantity: Number(row.quantity), cost: Number(row.unit_cost) })),
-    );
-    if (fromMovements !== null) return fromMovements;
-
-    return weightedCost(
-      lines
-        .filter((row) => row.inventory_item_id === itemId)
-        .map((row) => ({
-          quantity: Number(row.quantity),
-          cost: Number(row.unit_price) + Number(row.allocated_extra_cost) / Number(row.quantity),
-        })),
-    );
   }
 
   /** The cost profile in force today and the active printers with their machine rates. */

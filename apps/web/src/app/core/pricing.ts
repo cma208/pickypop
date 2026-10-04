@@ -1,4 +1,12 @@
-import { calculateBatchCost, calculatePrice, priceForQuantity } from '@pickypop/domain';
+import {
+  calculateBatchCost,
+  calculatePrice,
+  chargesIgv,
+  priceForQuantity,
+  roundMoney,
+  roundUpToStep,
+  sumMoney,
+} from '@pickypop/domain';
 import { parseSliceInfo, totalFilamentGrams } from '@pickypop/slicer-files';
 
 /**
@@ -6,7 +14,17 @@ import { parseSliceInfo, totalFilamentGrams } from '@pickypop/slicer-files';
  * app, the MCP server and the database tooling all agree. Re-exported here so
  * features import them from one place.
  */
-export { calculateBatchCost, calculatePrice, priceForQuantity, parseSliceInfo, totalFilamentGrams };
+export {
+  calculateBatchCost,
+  calculatePrice,
+  chargesIgv,
+  priceForQuantity,
+  roundMoney,
+  roundUpToStep,
+  sumMoney,
+  parseSliceInfo,
+  totalFilamentGrams,
+};
 export type {
   BatchCostBreakdown,
   BatchInput,

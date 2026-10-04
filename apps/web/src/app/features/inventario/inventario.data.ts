@@ -1,5 +1,5 @@
 import { inject, Injectable } from '@angular/core';
-import { sumMoney } from '@pickypop/domain';
+import { sumMoney } from '../../core/pricing';
 import { SUPABASE } from '../../core/supabase';
 import { CurrentWorkspace } from '../../core/workspace';
 import { dayEnd, dayStart, todayIso, type ItemKind, type MovementType, type SpoolStatus } from './inventario.format';

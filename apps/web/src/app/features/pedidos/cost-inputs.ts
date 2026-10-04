@@ -32,11 +32,6 @@ export class CostInputs {
     return this.remember('filaments', () => this.loadFilamentCosts());
   }
 
-  /** Average purchase cost per unit of each supply, from its purchase movements. */
-  supplyCostPerUnit(): Promise<Map<string, number>> {
-    return this.remember('supplies', () => this.loadSupplyCosts());
-  }
-
   private remember<T>(key: string, load: () => Promise<T>): Promise<T> {
     const hit = this.cache.get(key);
     if (hit && Date.now() - hit.at < CACHE_MS) return hit.value as Promise<T>;
@@ -109,29 +104,5 @@ export class CostInputs {
       }
     }
     return costs;
-  }
-
-  private async loadSupplyCosts(): Promise<Map<string, number>> {
-    const { data, error } = await this.supabase
-      .from('stock_movements')
-      .select('inventory_item_id, quantity, unit_cost')
-      .eq('type', 'purchase')
-      .not('inventory_item_id', 'is', null);
-    if (error) throw error;
-
-    const totals = new Map<string, { quantity: number; cost: number }>();
-    for (const row of data) {
-      if (!row.inventory_item_id || row.unit_cost == null) continue;
-      const total = totals.get(row.inventory_item_id) ?? { quantity: 0, cost: 0 };
-      total.quantity += Number(row.quantity);
-      total.cost += Number(row.quantity) * Number(row.unit_cost);
-      totals.set(row.inventory_item_id, total);
-    }
-
-    const averages = new Map<string, number>();
-    for (const [id, total] of totals) {
-      if (total.quantity > 0) averages.set(id, total.cost / total.quantity);
-    }
-    return averages;
   }
 }

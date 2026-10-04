@@ -157,7 +157,7 @@ export interface SupplyOption {
   id: string;
   name: string;
   unit: string;
-  /** Cost per item unit from purchases, when any was ever recorded. */
+  /** From `inventory_item_costs`: last purchase, else standard cost; null when neither exists. */
   costPerUnit: number | null;
 }
 
