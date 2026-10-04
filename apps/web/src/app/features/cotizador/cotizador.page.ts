@@ -277,13 +277,16 @@ export class CotizadorPage {
     () => this.context()?.filaments.filter((sku) => sku.costPerKg === null) ?? [],
   );
 
-  protected readonly canAddLine = computed(
-    () =>
-      this.lineForm.valid &&
-      this.plates().length > 0 &&
-      this.result() !== null &&
-      (this.result()?.missingSkus ?? 1) === 0,
-  );
+  protected readonly canAddLine = computed(() => {
+    // Every signal is read before the first condition on purpose: `&&` would
+    // short-circuit past them, and a computed that never read a signal never
+    // recomputes, so the button would stay disabled for good.
+    this.formTick();
+    const result = this.result();
+    const hasPlates = this.plates().length > 0;
+
+    return this.lineForm.valid && hasPlates && result !== null && result.missingSkus === 0;
+  });
 
   protected readonly totals = computed(() => {
     const context = this.context();
@@ -486,13 +489,18 @@ export class CotizadorPage {
 
   // ------------------------------------------------------ from catalog
 
-  /** Kept empty so the picker always reads "elige una variante". */
-  protected readonly variantPick = signal('');
+  /**
+   * The picker is an action, not a field: it goes back to its placeholder once
+   * the recipe is in. A value binding would not, because Angular only writes
+   * when the bound value itself changes.
+   */
+  protected async loadVariant(event: Event): Promise<void> {
+    const select = event.target as HTMLSelectElement;
+    const variantId = select.value;
+    select.value = '';
 
-  protected async loadVariant(variantId: string): Promise<void> {
     const context = this.context();
     const variant = context?.variants.find((item) => item.id === variantId);
-    this.variantPick.set('');
     if (context === null || variant === undefined) return;
 
     this.error.set(null);

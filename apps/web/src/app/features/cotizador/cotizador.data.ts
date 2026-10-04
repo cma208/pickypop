@@ -1,6 +1,7 @@
 import { inject, Injectable } from '@angular/core';
 import type { PostgrestError } from '@supabase/supabase-js';
 import { SUPABASE } from '../../core/supabase';
+import { CurrentWorkspace } from '../../core/workspace';
 import type { Database } from '../../core/database.types';
 import type { CostProfile, PriceTier, PrinterProfile } from '../../core/pricing';
 import {
@@ -349,11 +350,44 @@ function parseSnapshot(raw: unknown): QuoteSnapshot | null {
 @Injectable({ providedIn: 'root' })
 export class CotizadorData {
   private readonly supabase = inject(SUPABASE);
+  private readonly workspace = inject(CurrentWorkspace);
 
   /** Loads the parameters, stock prices and lists the calculator works from. */
   async context(): Promise<QuotingContext> {
+    const parameters = await this.parameters();
+
+    const [printers, filaments, supplies, variants, customers, channels, requests] =
+      await Promise.all([
+        this.printers(),
+        this.filaments(parameters.valuation),
+        this.supplies(),
+        this.variants(),
+        this.customers(),
+        this.channels(),
+        this.pendingRequests(),
+      ]);
+
+    return { ...parameters, printers, filaments, supplies, variants, customers, channels, requests };
+  }
+
+  /** The rate sheet in force today, plus the workshop it belongs to. */
+  private async parameters(): Promise<
+    Pick<
+      QuotingContext,
+      'workspaceId' | 'workspaceName' | 'profile' | 'profileId' | 'profileValidFrom' | 'valuation'
+    >
+  > {
+    let workspaceId: string;
+    try {
+      workspaceId = await this.workspace.requireId();
+    } catch {
+      throw new DataError('Tu usuario no pertenece a ningún taller.');
+    }
+
+    // CurrentWorkspace does not carry the tax regime, and the price depends on
+    // it: no RUC means no IGV. See docs/02-dominio.md section 2.5.
     const [workspaces, profiles] = await Promise.all([
-      this.supabase.from('workspaces').select('id, name, tax_regime').limit(1),
+      this.supabase.from('workspaces').select('id, name, tax_regime').eq('id', workspaceId).single(),
       this.supabase
         .from('cost_profiles')
         .select('*')
@@ -365,56 +399,34 @@ export class CotizadorData {
     fail(workspaces.error, 'No pudimos leer los datos del taller.');
     fail(profiles.error, 'No pudimos leer los parámetros de costo.');
 
-    const workspace = workspaces.data?.[0];
-    const profileRow = profiles.data?.[0];
+    const workspace = workspaces.data;
+    const row = profiles.data?.[0];
 
-    if (workspace === undefined) throw new DataError('Tu usuario no pertenece a ningún taller.');
-    if (profileRow === undefined) {
+    if (workspace === null) throw new DataError('Tu usuario no pertenece a ningún taller.');
+    if (row === undefined) {
       throw new DataError(
         'Todavía no hay parámetros de costo vigentes. Créalos en Configuración antes de cotizar.',
       );
     }
 
-    const valuation = profileRow.material_valuation;
-
-    const profile: CostProfile = {
-      materialWasteRate: num(profileRow.material_waste_rate),
-      failureRate: num(profileRow.failure_rate),
-      laborRatePerHour: num(profileRow.labor_rate_per_hour),
-      energyRatePerKwh: num(profileRow.energy_rate_per_kwh),
-      targetMargin: num(profileRow.target_margin),
-      minOrderPrice: num(profileRow.min_order_price),
-      roundingStep: num(profileRow.rounding_step),
-      igvRate: num(profileRow.igv_rate),
-      // The regime belongs to the workshop, not to the rate sheet.
-      taxRegime: workspace.tax_regime,
-    };
-
-    const [printers, filaments, supplies, variants, customers, channels, requests] =
-      await Promise.all([
-        this.printers(),
-        this.filaments(valuation),
-        this.supplies(),
-        this.variants(),
-        this.customers(),
-        this.channels(),
-        this.pendingRequests(),
-      ]);
-
     return {
       workspaceId: workspace.id,
       workspaceName: workspace.name,
-      profile,
-      profileId: profileRow.id,
-      profileValidFrom: profileRow.valid_from,
-      valuation,
-      printers,
-      filaments,
-      supplies,
-      variants,
-      customers,
-      channels,
-      requests,
+      profileId: row.id,
+      profileValidFrom: row.valid_from,
+      valuation: row.material_valuation,
+      profile: {
+        materialWasteRate: num(row.material_waste_rate),
+        failureRate: num(row.failure_rate),
+        laborRatePerHour: num(row.labor_rate_per_hour),
+        energyRatePerKwh: num(row.energy_rate_per_kwh),
+        targetMargin: num(row.target_margin),
+        minOrderPrice: num(row.min_order_price),
+        roundingStep: num(row.rounding_step),
+        igvRate: num(row.igv_rate),
+        // The regime belongs to the workshop, not to the rate sheet.
+        taxRegime: workspace.tax_regime,
+      },
     };
   }
 
@@ -529,6 +541,8 @@ export class CotizadorData {
         .neq('kind', 'finished_good')
         .order('name'),
       this.supabase.from('inventory_balances').select('inventory_item_id, available'),
+      // TODO: swap for the inventory_item_costs view once its migration is
+      // applied and the generated types know about it.
       this.supabase
         .from('purchase_lines')
         .select('inventory_item_id, quantity, unit_price, allocated_extra_cost, created_at')
@@ -547,7 +561,8 @@ export class CotizadorData {
       const id = line.inventory_item_id;
       const quantity = num(line.quantity);
       if (id === null || quantity <= 0 || lastPrice.has(id)) continue;
-      lastPrice.set(id, (num(line.unit_price) + num(line.allocated_extra_cost)) / quantity);
+      // unit_price is per unit; the allocated shipping is for the whole line.
+      lastPrice.set(id, num(line.unit_price) + num(line.allocated_extra_cost) / quantity);
     }
 
     return (items.data ?? []).map((item) => ({

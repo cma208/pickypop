@@ -44,11 +44,7 @@
             @if (ctx.variants.length === 0) {
               <p class="muted">Todavía no hay variantes publicadas.</p>
             } @else {
-              <select
-                [value]="variantPick()"
-                (change)="loadVariant(value($event))"
-                aria-label="Variante del catálogo"
-              >
+              <select (change)="loadVariant($event)" aria-label="Variante del catálogo">
                 <option value="">Elige una variante…</option>
                 @for (variant of ctx.variants; track variant.id) {
                   <option [value]="variant.id">{{ variant.label }}</option>
@@ -305,7 +301,12 @@
                       <option value="batch">una vez por lote</option>
                     </select>
                   </td>
-                  <td class="num">{{ supply.quantity * supply.unitCost | money }}</td>
+                  <td class="num">
+                    {{ supply.quantity * supply.unitCost | money }}
+                    @if (supply.inventoryItemId && supply.unitCost === 0) {
+                      <small class="error">sin costo registrado: escríbelo a mano</small>
+                    }
+                  </td>
                   <td><button type="button" class="ghost" (click)="removeSupply($index)">Quitar</button></td>
                 </tr>
               }

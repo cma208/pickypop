@@ -1,5 +1,5 @@
-import { Component, computed, inject, signal } from '@angular/core';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { Component, computed, effect, inject, input, signal } from '@angular/core';
+import { RouterLink } from '@angular/router';
 import { AsyncState, Badge, Card, Empty, FORMAT_PIPES, Page, type BadgeTone } from '../../ui';
 import { Desglose } from '../cotizador/desglose';
 import {
@@ -59,8 +59,8 @@ const A_CENT = 0.005;
 export class CotizacionPage {
   private readonly data = inject(CotizadorData);
 
-  /** Component input binding is not wired up in the app, so read the route. */
-  private readonly id = inject(ActivatedRoute).snapshot.paramMap.get('id') ?? '';
+  /** Bound from the :id segment of the route. */
+  readonly id = input.required<string>();
 
   protected readonly loading = signal(true);
   protected readonly error = signal<string | null>(null);
@@ -71,7 +71,9 @@ export class CotizacionPage {
   private readonly today = new Date().toISOString().slice(0, 10);
 
   constructor() {
-    void this.load();
+    // A required input is not set yet while the constructor runs, and the id
+    // can change when the router reuses this component for another quote.
+    effect(() => void this.load(this.id()));
   }
 
   // ------------------------------------------------------------ reading
@@ -144,12 +146,13 @@ export class CotizacionPage {
   protected readonly canSend = computed(() => this.quote()?.status === 'draft');
   protected readonly canClose = computed(() => this.quote()?.status === 'sent');
 
-  private async load(): Promise<void> {
+  private async load(id: string): Promise<void> {
     this.loading.set(true);
     this.error.set(null);
+    this.quote.set(null);
 
     try {
-      this.quote.set(await this.data.quote(this.id));
+      this.quote.set(await this.data.quote(id));
     } catch (cause) {
       this.error.set(
         cause instanceof DataError ? cause.message : 'No pudimos leer la cotización.',
