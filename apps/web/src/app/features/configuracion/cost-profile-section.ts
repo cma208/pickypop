@@ -1,5 +1,5 @@
 import { Component, computed, inject, signal } from '@angular/core';
-import { Badge, Card, Empty, AsyncState } from '../../ui';
+import { Badge, Card, Empty, AsyncState, FORMAT_PIPES } from '../../ui';
 import { ConfiguracionData } from './configuracion.data';
 import type { CostProfileRecord } from './configuracion.models';
 import { pickCurrent } from './cost-profile-lines';
@@ -7,13 +7,12 @@ import { CostProfileForm } from './cost-profile-form';
 import { ProfileSummary } from './profile-summary';
 import { friendlyError } from './shared/friendly-error';
 import { todayLocal } from './shared/dates';
-import { PlainDatePipe } from './shared/plain-date.pipe';
 import { SECTION_STYLES } from './shared/styles';
 
 /** The profile in force, how to version it, and the full history. */
 @Component({
   selector: 'app-cost-profile-section',
-  imports: [Badge, Card, Empty, AsyncState, PlainDatePipe, ProfileSummary, CostProfileForm],
+  imports: [Badge, Card, Empty, AsyncState, FORMAT_PIPES, ProfileSummary, CostProfileForm],
   styles: [
     SECTION_STYLES,
     `
@@ -46,7 +45,7 @@ import { SECTION_STYLES } from './shared/styles';
           @if (!formOpen()) {
             <button card-actions type="button" (click)="formOpen.set(true)">Crear nueva versión</button>
           }
-          <p class="muted">Vigentes desde el {{ profile.validFrom | fechaDia }}.</p>
+          <p class="muted">Vigentes desde el {{ profile.validFrom | fecha }}.</p>
           <app-profile-summary [profile]="profile" />
           @if (profile.note) {
             <p class="muted">Nota: {{ profile.note }}</p>
@@ -63,7 +62,7 @@ import { SECTION_STYLES } from './shared/styles';
           @for (profile of profiles(); track profile.id) {
             <details>
               <summary>
-                <span class="when">Desde el {{ profile.validFrom | fechaDia }}</span>
+                <span class="when">Desde el {{ profile.validFrom | fecha }}</span>
                 <pp-badge [tone]="tone(profile)">{{ stateOf(profile) }}</pp-badge>
               </summary>
               <app-profile-summary [profile]="profile" />

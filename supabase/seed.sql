@@ -95,13 +95,15 @@ insert into public.stock_movements (workspace_id, type, spool_id, quantity, unit
 
 -- ------------------------------------------------------- other supplies
 
-insert into public.inventory_items (workspace_id, kind, name, unit, min_stock, perishable, note) values
+insert into public.inventory_items (
+  workspace_id, kind, name, unit, min_stock, perishable, standard_cost, note
+) values
   -- S/ 15 a kilo, about 66 g go inside each product: roughly S/ 0.99 a unit.
-  ('00000000-0000-4000-8000-000000000001', 'supply', 'Dulces surtidos', 'g', 1000, true,
+  ('00000000-0000-4000-8000-000000000001', 'supply', 'Dulces surtidos', 'g', 1000, true, 0.0150,
    'S/ 15.00 el kilo. 66 g por producto. TODO: registrar el vencimiento de cada lote'),
-  ('00000000-0000-4000-8000-000000000001', 'packaging', 'Bolsa con etiqueta', 'unidad', 50, false,
-   'TODO: costo real'),
-  ('00000000-0000-4000-8000-000000000001', 'spare_part', 'Boquilla 0.4 acero', 'unidad', 1, false, null);
+  ('00000000-0000-4000-8000-000000000001', 'packaging', 'Bolsa con etiqueta', 'unidad', 50, false, 0.5000,
+   'TODO: costo real, todavía están viendo opciones de empaque'),
+  ('00000000-0000-4000-8000-000000000001', 'spare_part', 'Boquilla 0.4 acero', 'unidad', 1, false, null, null);
 
 -- --------------------------------------------------------------- printer
 

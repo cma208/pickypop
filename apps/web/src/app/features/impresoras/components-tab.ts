@@ -1,6 +1,5 @@
 import { Component, inject, input, output, signal } from '@angular/core';
-import { Badge, Empty } from '../../ui';
-import { PlainDatePipe } from '../configuracion/shared/plain-date.pipe';
+import { Badge, Empty, FORMAT_PIPES } from '../../ui';
 import { todayLocal } from '../configuracion/shared/dates';
 import { friendlyError } from '../configuracion/shared/friendly-error';
 import { SECTION_STYLES } from '../configuracion/shared/styles';
@@ -11,7 +10,7 @@ import { COMPONENT_LABELS, type ComponentRecord } from './impresoras.models';
 /** Parts installed on the printer, and how many hours each one has been running. */
 @Component({
   selector: 'app-components-tab',
-  imports: [Badge, Empty, ComponentForm, PlainDatePipe],
+  imports: [Badge, Empty, ComponentForm, FORMAT_PIPES],
   styles: SECTION_STYLES,
   template: `
     <div class="toolbar">
@@ -48,13 +47,13 @@ import { COMPONENT_LABELS, type ComponentRecord } from './impresoras.models';
                 }
               </span>
               @if (component.retiredOn) {
-                <pp-badge>Retirado el {{ component.retiredOn | fechaDia }}</pp-badge>
+                <pp-badge>Retirado el {{ component.retiredOn | fecha }}</pp-badge>
               } @else {
                 <pp-badge tone="info">{{ hoursWorn(component) }} h puestas</pp-badge>
               }
             </header>
             <p class="muted">
-              Instalado el {{ component.installedOn | fechaDia }}, con {{ component.hoursAtInstall }} h en la máquina.
+              Instalado el {{ component.installedOn | fecha }}, con {{ component.hoursAtInstall }} h en la máquina.
             </p>
             @if (!component.retiredOn) {
               <div class="actions">

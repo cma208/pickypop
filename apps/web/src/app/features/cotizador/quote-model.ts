@@ -141,6 +141,17 @@ export function suggestFilamentSku(
 
 // ----------------------------------------------------------------- drafting
 
+/** "bottle - front.STL" reads better as "bottle - front" on a quote. */
+function plateLabel(plate: SlicedPlate): string {
+  const first = plate.objectNames[0];
+  if (first === undefined) return `Placa ${plate.index}`;
+
+  const name = first.replace(/\.(stl|3mf|obj|step|stp)$/i, '').trim();
+  if (name === '') return `Placa ${plate.index}`;
+
+  return plate.objectNames.length > 1 ? `${name} y ${plate.objectNames.length - 1} más` : name;
+}
+
 export function plateFromSlicedPlate(
   plate: SlicedPlate,
   fileName: string,
@@ -149,7 +160,7 @@ export function plateFromSlicedPlate(
   return {
     // The slicer's own estimate includes heating and tool changes: docs 1.2.
     printTimeSeconds: plate.predictionSeconds ?? 0,
-    label: plate.objectNames[0] ?? `Placa ${plate.index}`,
+    label: plateLabel(plate),
     unitsPerRun: 1,
     source: 'file',
     sourceFileName: fileName,

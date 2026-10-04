@@ -1,7 +1,6 @@
 import { Component, inject, resource } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { AsyncState, Badge, Card, Empty, FORMAT_PIPES, Page } from '../../ui';
-import { PlainDatePipe } from '../configuracion/shared/plain-date.pipe';
 import { SECTION_STYLES } from '../configuracion/shared/styles';
 import { DUE_LABELS, DUE_TONES } from '../impresoras/maintenance-due';
 import { PanelData } from './panel.data';
@@ -18,7 +17,7 @@ const TODAY = new Intl.DateTimeFormat('es-PE', {
 
 @Component({
   selector: 'app-panel',
-  imports: [RouterLink, Page, Card, Badge, Empty, AsyncState, FORMAT_PIPES, PlainDatePipe],
+  imports: [RouterLink, Page, Card, Badge, Empty, AsyncState, FORMAT_PIPES],
   styles: [
     SECTION_STYLES,
     `
@@ -126,7 +125,7 @@ const TODAY = new Intl.DateTimeFormat('es-PE', {
           <a card-actions routerLink="/configuracion">Ver configuración</a>
           <pp-async [loading]="profile.isLoading()" [error]="problem(profile.error(), 'los parámetros')">
             @if (profile.value(); as p) {
-              <p class="muted">Desde el {{ p.validFrom | fechaDia }}</p>
+              <p class="muted">Desde el {{ p.validFrom | fecha }}</p>
               <dl class="params">
                 <div><dt>Margen objetivo</dt><dd>{{ p.targetMargin | percent1 }}</dd></div>
                 <div><dt>Tasa de fallo</dt><dd>{{ p.failureRate | percent1 }}</dd></div>

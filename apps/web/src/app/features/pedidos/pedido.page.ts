@@ -190,7 +190,7 @@ import {
     </pp-page>
   `,
   styles: `
-    .stack { display: grid; gap: 1rem; }
+    .stack { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1rem; }
     .badges { margin-bottom: 0.75rem; }
     dl { display: grid; grid-template-columns: max-content 1fr; gap: 0.3rem 1rem; margin: 0; }
     dt { color: var(--muted); }

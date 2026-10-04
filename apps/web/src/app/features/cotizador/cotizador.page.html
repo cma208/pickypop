@@ -27,7 +27,7 @@
             usa «Export plate sliced file».
           </p>
           <label class="pick">
-            <input type="file" accept=".3mf,.gcode.3mf" multiple (change)="onPick($event)" />
+            <input type="file" accept=".3mf" multiple (change)="onPick($event)" />
             <span>Elegir archivo</span>
           </label>
           @if (reading()) {
@@ -45,7 +45,7 @@
               <p class="muted">Todavía no hay variantes publicadas.</p>
             } @else {
               <select
-                [value]="''"
+                [value]="variantPick()"
                 (change)="loadVariant(value($event))"
                 aria-label="Variante del catálogo"
               >

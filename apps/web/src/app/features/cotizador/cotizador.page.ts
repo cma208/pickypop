@@ -486,9 +486,13 @@ export class CotizadorPage {
 
   // ------------------------------------------------------ from catalog
 
+  /** Kept empty so the picker always reads "elige una variante". */
+  protected readonly variantPick = signal('');
+
   protected async loadVariant(variantId: string): Promise<void> {
     const context = this.context();
     const variant = context?.variants.find((item) => item.id === variantId);
+    this.variantPick.set('');
     if (context === null || variant === undefined) return;
 
     this.error.set(null);

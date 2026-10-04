@@ -52,7 +52,6 @@ function isOverdue(quote: QuoteSummary, today: string): boolean {
               <button
                 type="button"
                 [class.secondary]="filter() !== option.value"
-                [class.ghost]="filter() === option.value"
                 [attr.aria-pressed]="filter() === option.value"
                 (click)="filter.set(option.value)"
               >
