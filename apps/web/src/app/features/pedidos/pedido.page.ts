@@ -2,11 +2,13 @@ import { Component, computed, effect, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { date } from '../../core/format';
+import { friendlyError } from '../../core/friendly-error';
 import { AsyncState, Badge, Card, Empty, FORMAT_PIPES, Page } from '../../ui';
 import { PrintJobCard } from '../produccion/print-job-card';
 import { PrintJobForm, type FixedOrderLine } from '../produccion/print-job-form';
 import { ProduccionData, type JobItem } from '../produccion/produccion.data';
-import { PedidosData, type OrderDetail, type OrderLine, type OrderSummary } from './pedidos.data';
+import { PedidoCobro } from './pedido-cobro';
+import { PedidosData, type OrderDetail, type OrderLine, type OrderSummary, type PaymentSummary } from './pedidos.data';
 import { explainError } from './pedidos.errors';
 import {
   isFinal,
@@ -21,7 +23,7 @@ import {
 
 @Component({
   selector: 'app-pedido',
-  imports: [RouterLink, Page, Card, Badge, AsyncState, Empty, PrintJobCard, PrintJobForm, ...FORMAT_PIPES],
+  imports: [RouterLink, Page, Card, Badge, AsyncState, Empty, PrintJobCard, PrintJobForm, PedidoCobro, ...FORMAT_PIPES],
   template: `
     <pp-page [title]="order()?.number ?? 'Pedido'" [subtitle]="subtitle()">
       <a actions routerLink="/pedidos"><button type="button" class="secondary">Volver</button></a>
@@ -46,6 +48,12 @@ import {
                 @if (o.note) { <dt>Nota</dt><dd>{{ o.note }}</dd> }
               </dl>
             </pp-card>
+
+            @if (payment(); as p) {
+              <app-pedido-cobro [orderId]="o.id" [summary]="p" [cancelled]="o.status === 'cancelled'" (collected)="reloadPayment()" />
+            } @else if (paymentError(); as message) {
+              <pp-card heading="Cobro"><p class="error">{{ message }}</p></pp-card>
+            }
 
             <pp-card heading="Avance">
               <ol class="flow" aria-label="Estados del pedido">
@@ -226,10 +234,13 @@ export class PedidoPage {
 
   protected readonly order = signal<OrderDetail | null>(null);
   protected readonly summary = signal<OrderSummary | null>(null);
+  /** Null for anything that is not a sale: only sales are collected. */
+  protected readonly payment = signal<PaymentSummary | null>(null);
   protected readonly jobs = signal<JobItem[]>([]);
   protected readonly loading = signal(true);
   protected readonly error = signal<string | null>(null);
   protected readonly summaryError = signal<string | null>(null);
+  protected readonly paymentError = signal<string | null>(null);
   protected readonly jobsError = signal<string | null>(null);
   protected readonly statusError = signal<string | null>(null);
   protected readonly changing = signal(false);
@@ -296,12 +307,20 @@ export class PedidoPage {
     void this.reloadProduction();
   }
 
+  /** The database recomputes the status from the money, so it is read back instead of guessed. */
+  protected async reloadPayment(): Promise<void> {
+    await this.loadPayment(this.id());
+  }
+
   protected async reloadProduction(): Promise<void> {
     await Promise.all([this.loadJobs(this.id()), this.loadSummary(this.id())]);
   }
 
   private async load(id: string, showSpinner = true): Promise<void> {
-    if (showSpinner) this.loading.set(true);
+    if (showSpinner) {
+      this.loading.set(true);
+      this.payment.set(null);
+    }
     try {
       this.order.set(await this.orders.getOrder(id));
       this.error.set(null);
@@ -311,7 +330,7 @@ export class PedidoPage {
       return;
     }
     this.loading.set(false);
-    await this.reloadProduction();
+    await Promise.all([this.reloadProduction(), this.loadPayment(id)]);
   }
 
   private async loadJobs(id: string): Promise<void> {
@@ -320,6 +339,15 @@ export class PedidoPage {
       this.jobsError.set(null);
     } catch (error) {
       this.jobsError.set(explainError(error, 'No pudimos leer las impresiones de este pedido.'));
+    }
+  }
+
+  private async loadPayment(id: string): Promise<void> {
+    try {
+      this.payment.set(await this.orders.paymentSummary(id));
+      this.paymentError.set(null);
+    } catch (error) {
+      this.paymentError.set(friendlyError(error, 'No pudimos leer el estado de cobro de este pedido.'));
     }
   }
 

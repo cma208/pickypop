@@ -2,7 +2,7 @@ import { inject, Injectable } from '@angular/core';
 import { SUPABASE } from '../../core/supabase';
 import { Workshop, type PrinterSummary } from '../../core/workshop';
 import { CostInputs } from '../pedidos/cost-inputs';
-import { roundMoney } from '../pedidos/pedidos.data';
+import { roundMoney } from '../../core/pricing';
 import { CurrentWorkspace } from '../../core/workspace';
 import type { FailureCause, JobStatus } from './produccion.labels';
 

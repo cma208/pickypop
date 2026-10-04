@@ -2,11 +2,11 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { FormArray, FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
+import { roundMoney } from '../../core/pricing';
 import { AsyncState, Card, Field, FORMAT_PIPES, Page } from '../../ui';
 import { createOrderLineForm, PedidoLinea } from './pedido-linea';
 import {
   PedidosData,
-  roundMoney,
   type CustomerOption,
   type GiftCategoryOption,
   type NewOrder,

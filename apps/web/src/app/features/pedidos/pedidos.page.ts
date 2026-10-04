@@ -5,6 +5,8 @@ import { explainError } from './pedidos.errors';
 import { PedidosData, type OrderListItem } from './pedidos.data';
 import {
   ALL_STATUSES,
+  PAYMENT_STATUS_LABEL,
+  PAYMENT_STATUS_TONE,
   PURPOSE_LABEL,
   PURPOSE_TONE,
   PURPOSES,
@@ -62,6 +64,9 @@ const FINISHED: OrderStatus[] = ['delivered', 'closed', 'cancelled'];
                     <strong>{{ order.number }}</strong>
                     <pp-badge [tone]="purposeTone[order.purpose]">{{ purposeName(order) }}</pp-badge>
                     <pp-badge [tone]="statusTone[order.status]">{{ statusLabel[order.status] }}</pp-badge>
+                    @if (order.paymentStatus !== 'not_applicable' && order.status !== 'cancelled') {
+                      <pp-badge [tone]="paymentTone[order.paymentStatus]">{{ paymentLabel[order.paymentStatus] }}</pp-badge>
+                    }
                   </div>
                   <div class="who">{{ subject(order) }}</div>
                   <div class="meta muted">
@@ -103,6 +108,8 @@ export class PedidosPage {
   protected readonly statusTone = STATUS_TONE;
   protected readonly purposeLabel = PURPOSE_LABEL;
   protected readonly purposeTone = PURPOSE_TONE;
+  protected readonly paymentLabel = PAYMENT_STATUS_LABEL;
+  protected readonly paymentTone = PAYMENT_STATUS_TONE;
 
   protected readonly orders = signal<OrderListItem[]>([]);
   protected readonly loading = signal(true);

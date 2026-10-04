@@ -5,6 +5,8 @@ type Enums = Database['public']['Enums'];
 
 export type OrderPurpose = Enums['order_purpose'];
 export type OrderStatus = Enums['order_status'];
+export type OrderPaymentStatus = Enums['order_payment_status'];
+export type PaymentMethod = Enums['payment_method'];
 
 export const PURPOSE_LABEL: Record<OrderPurpose, string> = {
   sale: 'Venta',
@@ -72,3 +74,26 @@ export function nextStatus(status: OrderStatus): OrderStatus | null {
 export function isFinal(status: OrderStatus): boolean {
   return status === 'closed' || status === 'cancelled';
 }
+
+export const PAYMENT_STATUS_LABEL: Record<OrderPaymentStatus, string> = {
+  not_applicable: 'No aplica',
+  unpaid: 'Sin cobrar',
+  partial: 'Cobro parcial',
+  paid: 'Cobrado',
+};
+
+export const PAYMENT_STATUS_TONE: Record<OrderPaymentStatus, BadgeTone> = {
+  not_applicable: 'neutral',
+  unpaid: 'warn',
+  partial: 'info',
+  paid: 'good',
+};
+
+export const PAYMENT_METHOD_LABEL: Record<PaymentMethod, string> = {
+  cash: 'Efectivo',
+  yape: 'Yape',
+  plin: 'Plin',
+  transfer: 'Transferencia',
+};
+
+export const PAYMENT_METHODS: PaymentMethod[] = ['cash', 'yape', 'plin', 'transfer'];

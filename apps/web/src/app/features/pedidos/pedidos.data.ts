@@ -1,17 +1,22 @@
 import { inject, Injectable } from '@angular/core';
+import { UserFacingError } from '../../core/friendly-error';
+import { roundMoney } from '../../core/pricing';
 import { SUPABASE } from '../../core/supabase';
 import { Workshop } from '../../core/workshop';
-import type { OrderPurpose, OrderStatus } from './pedidos.labels';
+import type { OrderPaymentStatus, OrderPurpose, OrderStatus, PaymentMethod } from './pedidos.labels';
 import { CurrentWorkspace } from '../../core/workspace';
 
 const DOCUMENT_KIND_ORDER = 'order';
-const CENTS = 100;
+/** SQLSTATE of a `raise exception` in plpgsql: the database speaking on purpose. */
+const RAISED_BY_DATABASE = 'P0001';
 
 export interface OrderListItem {
   id: string;
   number: string;
   purpose: OrderPurpose;
   status: OrderStatus;
+  /** Derived by the database from the money movements; `not_applicable` for anything but a sale. */
+  paymentStatus: OrderPaymentStatus;
   orderedOn: Date;
   dueDate: Date | null;
   total: number;
@@ -44,6 +49,33 @@ export interface OrderSummary {
   realProductionCost: number;
   estimatedCost: number;
   soldFor: number;
+}
+
+/** What a sale is worth, what was collected on it and what is still owed. */
+export interface PaymentSummary {
+  total: number;
+  paid: number;
+  balance: number;
+  paymentStatus: OrderPaymentStatus;
+  lastPaymentAt: Date | null;
+}
+
+export interface AccountOption {
+  id: string;
+  name: string;
+  /** What the collection form fills in when the person leaves the method blank. */
+  defaultMethod: PaymentMethod | null;
+}
+
+export interface NewPayment {
+  orderId: string;
+  accountId: string;
+  amount: number;
+  /** Null lets the database use the account's default method. */
+  method: PaymentMethod | null;
+  /** ISO instant, or null for "now". */
+  occurredAt: string | null;
+  reference: string | null;
 }
 
 export interface CustomerOption {
@@ -89,10 +121,6 @@ export function parseDateOnly(value: string): Date {
   return new Date(year!, month! - 1, day);
 }
 
-export function roundMoney(value: number): number {
-  return Math.round(value * CENTS) / CENTS;
-}
-
 /** Data access for orders. Pages never talk to Supabase directly. */
 @Injectable({ providedIn: 'root' })
 export class PedidosData {
@@ -104,7 +132,7 @@ export class PedidosData {
     const { data, error } = await this.supabase
       .from('orders')
       .select(
-        'id, number, purpose, status, ordered_on, due_date, total, recipient, customers(name), gift_categories(name)',
+        'id, number, purpose, status, payment_status, ordered_on, due_date, total, recipient, customers(name), gift_categories(name)',
       )
       .order('created_at', { ascending: false });
     if (error) throw error;
@@ -114,6 +142,7 @@ export class PedidosData {
       number: row.number,
       purpose: row.purpose,
       status: row.status,
+      paymentStatus: row.payment_status,
       orderedOn: parseDateOnly(row.ordered_on),
       dueDate: row.due_date ? parseDateOnly(row.due_date) : null,
       total: Number(row.total),
@@ -128,7 +157,7 @@ export class PedidosData {
       this.supabase
         .from('orders')
         .select(
-          'id, number, purpose, status, ordered_on, due_date, total, recipient, note, customers(name), gift_categories(name)',
+          'id, number, purpose, status, payment_status, ordered_on, due_date, total, recipient, note, customers(name), gift_categories(name)',
         )
         .eq('id', id)
         .maybeSingle(),
@@ -148,6 +177,7 @@ export class PedidosData {
       number: row.number,
       purpose: row.purpose,
       status: row.status,
+      paymentStatus: row.payment_status,
       orderedOn: parseDateOnly(row.ordered_on),
       dueDate: row.due_date ? parseDateOnly(row.due_date) : null,
       total: Number(row.total),
@@ -189,6 +219,54 @@ export class PedidosData {
       estimatedCost: Number(data.estimated_cost),
       soldFor: Number(data.sold_for),
     };
+  }
+
+  /** Null when the order is not a sale: the view only lists those. */
+  async paymentSummary(orderId: string): Promise<PaymentSummary | null> {
+    const { data, error } = await this.supabase
+      .from('order_payment_summary')
+      .select('total, paid, balance, payment_status, last_payment_at')
+      .eq('order_id', orderId)
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) return null;
+
+    return {
+      total: Number(data.total),
+      paid: Number(data.paid),
+      balance: Number(data.balance),
+      paymentStatus: data.payment_status ?? 'unpaid',
+      lastPaymentAt: data.last_payment_at ? new Date(data.last_payment_at) : null,
+    };
+  }
+
+  /** Accounts that can receive money today. */
+  async paymentAccounts(): Promise<AccountOption[]> {
+    const { data, error } = await this.supabase
+      .from('accounts')
+      .select('id, name, default_payment_method')
+      .eq('active', true)
+      .order('name');
+    if (error) throw error;
+    return data.map((row) => ({ id: row.id, name: row.name, defaultMethod: row.default_payment_method }));
+  }
+
+  /**
+   * Collects through the database rule, which records the money and refuses an
+   * overpayment. Its refusals are already worded for the person, with the exact
+   * amounts, so they travel as they are instead of becoming a generic message.
+   */
+  async recordPayment(payment: NewPayment): Promise<void> {
+    const { error } = await this.supabase.rpc('record_payment', {
+      p_order_id: payment.orderId,
+      p_account_id: payment.accountId,
+      p_amount: roundMoney(payment.amount),
+      p_payment_method: payment.method ?? undefined,
+      p_occurred_at: payment.occurredAt ?? undefined,
+      p_reference: payment.reference ?? undefined,
+    });
+    if (error?.code === RAISED_BY_DATABASE) throw new UserFacingError(error.message);
+    if (error) throw error;
   }
 
   async setStatus(orderId: string, status: OrderStatus): Promise<void> {

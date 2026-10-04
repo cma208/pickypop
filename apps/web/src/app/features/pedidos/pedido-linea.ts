@@ -1,9 +1,10 @@
 import { Component, DestroyRef, inject, input, OnInit, output, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { roundMoney } from '../../core/pricing';
 import { Field, FORMAT_PIPES } from '../../ui';
 import { CostEstimator } from './cost-estimate';
-import { PedidosData, roundMoney, type VariantOption } from './pedidos.data';
+import { PedidosData, type VariantOption } from './pedidos.data';
 
 const TYPING_DELAY_MS = 300;
 
