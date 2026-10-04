@@ -4,7 +4,26 @@ export type Database = {
   
   "public": {
           Tables: {
-            "assets": {
+            "accounts": {
+                  Row: {
+                    "active": boolean,"created_at": string,"created_by": string | null,"default_payment_method": Database["public"]['Enums']["payment_method"] | null,"id": string,"kind": Database["public"]['Enums']["account_kind"],"name": string,"note": string | null,"opening_balance": number,"opening_balance_on": string,"updated_at": string,"workspace_id": string
+                  }
+                  Insert: {
+                    "active"?: boolean,"created_at"?: string,"created_by"?: string | null,"default_payment_method"?: Database["public"]['Enums']["payment_method"] | null,"id"?: string,"kind"?: Database["public"]['Enums']["account_kind"],"name": string,"note"?: string | null,"opening_balance"?: number,"opening_balance_on"?: string,"updated_at"?: string,"workspace_id": string
+                  }
+                  Update: {
+                    "active"?: boolean,"created_at"?: string,"created_by"?: string | null,"default_payment_method"?: Database["public"]['Enums']["payment_method"] | null,"id"?: string,"kind"?: Database["public"]['Enums']["account_kind"],"name"?: string,"note"?: string | null,"opening_balance"?: number,"opening_balance_on"?: string,"updated_at"?: string,"workspace_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "accounts_workspace_id_fkey"
+      columns: ["workspace_id"]
+isOneToOne: false
+      referencedRelation: "workspaces"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"assets": {
                   Row: {
                     "acquired_on": string | null,"cost": number,"created_at": string,"id": string,"name": string,"note": string | null,"updated_at": string,"useful_life_hours": number,"workspace_id": string
                   }
@@ -326,6 +345,12 @@ isOneToOne: false
       foreignKeyName: "order_lines_order_id_fkey"
       columns: ["order_id"]
 isOneToOne: false
+      referencedRelation: "order_payment_summary"
+      referencedColumns: ["order_id"]
+    },{
+      foreignKeyName: "order_lines_order_id_fkey"
+      columns: ["order_id"]
+isOneToOne: false
       referencedRelation: "order_production_summary"
       referencedColumns: ["order_id"]
     },{
@@ -334,6 +359,12 @@ isOneToOne: false
 isOneToOne: false
       referencedRelation: "orders"
       referencedColumns: ["id"]
+    },{
+      foreignKeyName: "order_lines_order_id_fkey"
+      columns: ["order_id"]
+isOneToOne: false
+      referencedRelation: "receivables"
+      referencedColumns: ["order_id"]
     },{
       foreignKeyName: "order_lines_quote_line_id_fkey"
       columns: ["quote_line_id"]
@@ -362,13 +393,13 @@ isOneToOne: false
                   ]
                 },"orders": {
                   Row: {
-                    "channel_id": string | null,"created_at": string,"created_by": string | null,"customer_id": string | null,"due_date": string | null,"gift_category_id": string | null,"id": string,"note": string | null,"number": string,"ordered_on": string,"purpose": Database["public"]['Enums']["order_purpose"],"quote_id": string | null,"recipient": string | null,"status": Database["public"]['Enums']["order_status"],"total": number,"updated_at": string,"workspace_id": string
+                    "channel_id": string | null,"created_at": string,"created_by": string | null,"customer_id": string | null,"due_date": string | null,"gift_category_id": string | null,"id": string,"note": string | null,"number": string,"ordered_on": string,"payment_status": Database["public"]['Enums']["order_payment_status"],"purpose": Database["public"]['Enums']["order_purpose"],"quote_id": string | null,"recipient": string | null,"status": Database["public"]['Enums']["order_status"],"total": number,"updated_at": string,"workspace_id": string
                   }
                   Insert: {
-                    "channel_id"?: string | null,"created_at"?: string,"created_by"?: string | null,"customer_id"?: string | null,"due_date"?: string | null,"gift_category_id"?: string | null,"id"?: string,"note"?: string | null,"number": string,"ordered_on"?: string,"purpose"?: Database["public"]['Enums']["order_purpose"],"quote_id"?: string | null,"recipient"?: string | null,"status"?: Database["public"]['Enums']["order_status"],"total"?: number,"updated_at"?: string,"workspace_id": string
+                    "channel_id"?: string | null,"created_at"?: string,"created_by"?: string | null,"customer_id"?: string | null,"due_date"?: string | null,"gift_category_id"?: string | null,"id"?: string,"note"?: string | null,"number": string,"ordered_on"?: string,"payment_status"?: Database["public"]['Enums']["order_payment_status"],"purpose"?: Database["public"]['Enums']["order_purpose"],"quote_id"?: string | null,"recipient"?: string | null,"status"?: Database["public"]['Enums']["order_status"],"total"?: number,"updated_at"?: string,"workspace_id": string
                   }
                   Update: {
-                    "channel_id"?: string | null,"created_at"?: string,"created_by"?: string | null,"customer_id"?: string | null,"due_date"?: string | null,"gift_category_id"?: string | null,"id"?: string,"note"?: string | null,"number"?: string,"ordered_on"?: string,"purpose"?: Database["public"]['Enums']["order_purpose"],"quote_id"?: string | null,"recipient"?: string | null,"status"?: Database["public"]['Enums']["order_status"],"total"?: number,"updated_at"?: string,"workspace_id"?: string
+                    "channel_id"?: string | null,"created_at"?: string,"created_by"?: string | null,"customer_id"?: string | null,"due_date"?: string | null,"gift_category_id"?: string | null,"id"?: string,"note"?: string | null,"number"?: string,"ordered_on"?: string,"payment_status"?: Database["public"]['Enums']["order_payment_status"],"purpose"?: Database["public"]['Enums']["order_purpose"],"quote_id"?: string | null,"recipient"?: string | null,"status"?: Database["public"]['Enums']["order_status"],"total"?: number,"updated_at"?: string,"workspace_id"?: string
                   }
                   Relationships: [
                     {
@@ -1107,6 +1138,140 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"transaction_categories": {
+                  Row: {
+                    "active": boolean,"created_at": string,"direction": Database["public"]['Enums']["transaction_direction"],"id": string,"name": string,"note": string | null,"updated_at": string,"workspace_id": string
+                  }
+                  Insert: {
+                    "active"?: boolean,"created_at"?: string,"direction": Database["public"]['Enums']["transaction_direction"],"id"?: string,"name": string,"note"?: string | null,"updated_at"?: string,"workspace_id": string
+                  }
+                  Update: {
+                    "active"?: boolean,"created_at"?: string,"direction"?: Database["public"]['Enums']["transaction_direction"],"id"?: string,"name"?: string,"note"?: string | null,"updated_at"?: string,"workspace_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "transaction_categories_workspace_id_fkey"
+      columns: ["workspace_id"]
+isOneToOne: false
+      referencedRelation: "workspaces"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"transactions": {
+                  Row: {
+                    "account_id": string,"amount": number,"category_id": string | null,"counter_account_id": string | null,"counterparty": string | null,"created_at": string,"created_by": string | null,"expected_direction": Database["public"]['Enums']["transaction_direction"] | null,"id": string,"maintenance_log_id": string | null,"note": string | null,"occurred_at": string,"order_id": string | null,"payment_method": Database["public"]['Enums']["payment_method"],"purchase_id": string | null,"reference": string | null,"type": Database["public"]['Enums']["transaction_type"],"updated_at": string,"void_reason": string | null,"voided_at": string | null,"voided_by": string | null,"workspace_id": string
+                  }
+                  Insert: {
+                    "account_id": string,"amount": number,"category_id"?: string | null,"counter_account_id"?: string | null,"counterparty"?: string | null,"created_at"?: string,"created_by"?: string | null,"expected_direction"?: never,"id"?: string,"maintenance_log_id"?: string | null,"note"?: string | null,"occurred_at"?: string,"order_id"?: string | null,"payment_method": Database["public"]['Enums']["payment_method"],"purchase_id"?: string | null,"reference"?: string | null,"type": Database["public"]['Enums']["transaction_type"],"updated_at"?: string,"void_reason"?: string | null,"voided_at"?: string | null,"voided_by"?: string | null,"workspace_id": string
+                  }
+                  Update: {
+                    "account_id"?: string,"amount"?: number,"category_id"?: string | null,"counter_account_id"?: string | null,"counterparty"?: string | null,"created_at"?: string,"created_by"?: string | null,"expected_direction"?: never,"id"?: string,"maintenance_log_id"?: string | null,"note"?: string | null,"occurred_at"?: string,"order_id"?: string | null,"payment_method"?: Database["public"]['Enums']["payment_method"],"purchase_id"?: string | null,"reference"?: string | null,"type"?: Database["public"]['Enums']["transaction_type"],"updated_at"?: string,"void_reason"?: string | null,"voided_at"?: string | null,"voided_by"?: string | null,"workspace_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "transactions_account_id_fkey"
+      columns: ["account_id"]
+isOneToOne: false
+      referencedRelation: "account_balances"
+      referencedColumns: ["account_id"]
+    },{
+      foreignKeyName: "transactions_account_id_fkey"
+      columns: ["account_id"]
+isOneToOne: false
+      referencedRelation: "accounts"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "transactions_account_id_workspace_id_fkey"
+      columns: ["account_id","workspace_id"]
+isOneToOne: false
+      referencedRelation: "account_balances"
+      referencedColumns: ["account_id","workspace_id"]
+    },{
+      foreignKeyName: "transactions_account_id_workspace_id_fkey"
+      columns: ["account_id","workspace_id"]
+isOneToOne: false
+      referencedRelation: "accounts"
+      referencedColumns: ["id","workspace_id"]
+    },{
+      foreignKeyName: "transactions_category_id_expected_direction_fkey"
+      columns: ["category_id","expected_direction"]
+isOneToOne: false
+      referencedRelation: "transaction_categories"
+      referencedColumns: ["id","direction"]
+    },{
+      foreignKeyName: "transactions_category_id_fkey"
+      columns: ["category_id"]
+isOneToOne: false
+      referencedRelation: "transaction_categories"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "transactions_counter_account_id_fkey"
+      columns: ["counter_account_id"]
+isOneToOne: false
+      referencedRelation: "account_balances"
+      referencedColumns: ["account_id"]
+    },{
+      foreignKeyName: "transactions_counter_account_id_fkey"
+      columns: ["counter_account_id"]
+isOneToOne: false
+      referencedRelation: "accounts"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "transactions_counter_account_id_workspace_id_fkey"
+      columns: ["counter_account_id","workspace_id"]
+isOneToOne: false
+      referencedRelation: "account_balances"
+      referencedColumns: ["account_id","workspace_id"]
+    },{
+      foreignKeyName: "transactions_counter_account_id_workspace_id_fkey"
+      columns: ["counter_account_id","workspace_id"]
+isOneToOne: false
+      referencedRelation: "accounts"
+      referencedColumns: ["id","workspace_id"]
+    },{
+      foreignKeyName: "transactions_maintenance_log_id_fkey"
+      columns: ["maintenance_log_id"]
+isOneToOne: false
+      referencedRelation: "maintenance_logs"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "transactions_order_id_fkey"
+      columns: ["order_id"]
+isOneToOne: false
+      referencedRelation: "order_payment_summary"
+      referencedColumns: ["order_id"]
+    },{
+      foreignKeyName: "transactions_order_id_fkey"
+      columns: ["order_id"]
+isOneToOne: false
+      referencedRelation: "order_production_summary"
+      referencedColumns: ["order_id"]
+    },{
+      foreignKeyName: "transactions_order_id_fkey"
+      columns: ["order_id"]
+isOneToOne: false
+      referencedRelation: "orders"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "transactions_order_id_fkey"
+      columns: ["order_id"]
+isOneToOne: false
+      referencedRelation: "receivables"
+      referencedColumns: ["order_id"]
+    },{
+      foreignKeyName: "transactions_purchase_id_fkey"
+      columns: ["purchase_id"]
+isOneToOne: false
+      referencedRelation: "purchases"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "transactions_workspace_id_fkey"
+      columns: ["workspace_id"]
+isOneToOne: false
+      referencedRelation: "workspaces"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"workspace_members": {
                   Row: {
                     "created_at": string,"display_name": string | null,"id": string,"labor_rate_per_hour": number | null,"role": Database["public"]['Enums']["member_role"],"updated_at": string,"user_id": string,"workspace_id": string
@@ -1142,7 +1307,20 @@ isOneToOne: false
                 }
           }
           Views: {
-            "failure_stats": {
+            "account_balances": {
+                  Row: {
+                    "account_id": string | null,"active": boolean | null,"balance": number | null,"kind": Database["public"]['Enums']["account_kind"] | null,"last_movement_at": string | null,"movements": number | null,"name": string | null,"opening_balance": number | null,"total_in": number | null,"total_out": number | null,"workspace_id": string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "accounts_workspace_id_fkey"
+      columns: ["workspace_id"]
+isOneToOne: false
+      referencedRelation: "workspaces"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"failure_stats": {
                   Row: {
                     "closed_jobs": number | null,"failed_jobs": number | null,"failure_rate": number | null,"most_common_cause": Database["public"]['Enums']["print_failure_cause"] | null,"printer_id": string | null,"workspace_id": string | null
                   }
@@ -1206,6 +1384,38 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"monthly_income_statement": {
+                  Row: {
+                    "cost_of_sales": number | null,"gross_profit": number | null,"inventory_purchases": number | null,"month": string | null,"net_profit": number | null,"operating_expenses": number | null,"other_income": number | null,"owner_contributions": number | null,"owner_draws": number | null,"sales": number | null,"workspace_id": string | null
+                  }
+                  Relationships: [
+                    
+                  ]
+                },"order_payment_summary": {
+                  Row: {
+                    "balance": number | null,"channel_id": string | null,"customer_id": string | null,"due_date": string | null,"last_payment_at": string | null,"number": string | null,"order_id": string | null,"ordered_on": string | null,"paid": number | null,"payment_status": Database["public"]['Enums']["order_payment_status"] | null,"status": Database["public"]['Enums']["order_status"] | null,"total": number | null,"workspace_id": string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "orders_channel_id_fkey"
+      columns: ["channel_id"]
+isOneToOne: false
+      referencedRelation: "sales_channels"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "orders_customer_id_fkey"
+      columns: ["customer_id"]
+isOneToOne: false
+      referencedRelation: "customers"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "orders_workspace_id_fkey"
+      columns: ["workspace_id"]
+isOneToOne: false
+      referencedRelation: "workspaces"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"order_production_summary": {
                   Row: {
                     "estimated_cost": number | null,"failed_jobs": number | null,"jobs": number | null,"number": string | null,"order_id": string | null,"printed_hours": number | null,"purpose": Database["public"]['Enums']["order_purpose"] | null,"real_production_cost": number | null,"sold_for": number | null,"status": Database["public"]['Enums']["order_status"] | null,"successful_jobs": number | null,"workspace_id": string | null
@@ -1226,6 +1436,25 @@ isOneToOne: false
                   Relationships: [
                     {
       foreignKeyName: "printers_workspace_id_fkey"
+      columns: ["workspace_id"]
+isOneToOne: false
+      referencedRelation: "workspaces"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"receivables": {
+                  Row: {
+                    "balance": number | null,"customer_id": string | null,"customer_name": string | null,"customer_phone": string | null,"days_overdue": number | null,"due_date": string | null,"last_payment_at": string | null,"number": string | null,"order_id": string | null,"ordered_on": string | null,"paid": number | null,"payment_status": Database["public"]['Enums']["order_payment_status"] | null,"status": Database["public"]['Enums']["order_status"] | null,"total": number | null,"workspace_id": string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "orders_customer_id_fkey"
+      columns: ["customer_id"]
+isOneToOne: false
+      referencedRelation: "customers"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "orders_workspace_id_fkey"
       columns: ["workspace_id"]
 isOneToOne: false
       referencedRelation: "workspaces"
@@ -1262,6 +1491,13 @@ isOneToOne: false
       referencedRelation: "workspaces"
       referencedColumns: ["id"]
     }
+                  ]
+                },"transaction_entries": {
+                  Row: {
+                    "account_id": string | null,"category_id": string | null,"counterparty": string | null,"is_counter_leg": boolean | null,"maintenance_log_id": string | null,"note": string | null,"occurred_at": string | null,"order_id": string | null,"payment_method": Database["public"]['Enums']["payment_method"] | null,"purchase_id": string | null,"signed_amount": number | null,"transaction_id": string | null,"type": Database["public"]['Enums']["transaction_type"] | null,"workspace_id": string | null
+                  }
+                  Relationships: [
+                    
                   ]
                 },"variant_available_colors": {
                   Row: {
@@ -1315,10 +1551,41 @@ isOneToOne: false
                            },
 "price_for_quantity":
 { Args: { "p_on_date"?: string,"p_quantity": number,"p_variant": string }; Returns: number
-                           }
+                           },
+"record_payment":
+{ Args: { "p_account_id": string,"p_amount": number,"p_category_id"?: string,"p_note"?: string,"p_occurred_at"?: string,"p_order_id": string,"p_payment_method"?: Database["public"]['Enums']["payment_method"],"p_reference"?: string }; Returns: {
+              "account_id": string,
+"amount": number,
+"category_id": string | null,
+"counter_account_id": string | null,
+"counterparty": string | null,
+"created_at": string,
+"created_by": string | null,
+"expected_direction": Database["public"]['Enums']["transaction_direction"] | null,
+"id": string,
+"maintenance_log_id": string | null,
+"note": string | null,
+"occurred_at": string,
+"order_id": string | null,
+"payment_method": Database["public"]['Enums']["payment_method"],
+"purchase_id": string | null,
+"reference": string | null,
+"type": Database["public"]['Enums']["transaction_type"],
+"updated_at": string,
+"void_reason": string | null,
+"voided_at": string | null,
+"voided_by": string | null,
+"workspace_id": string
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "transactions"
+        isOneToOne: true
+        isSetofReturn: false
+      } }
           }
           Enums: {
-            "component_kind": "nozzle"|"hotend"|"plate"|"ptfe"|"cutter"|"fan"|"ams"|"other","cost_allocation": "by_amount"|"by_weight","customer_doc_type": "none"|"dni"|"ruc"|"ce","customer_kind": "person"|"company","gift_treatment": "marketing"|"owner_draw"|"other","inventory_item_kind": "supply"|"packaging"|"spare_part"|"finished_good","material_valuation": "weighted_avg"|"last_cost"|"replacement","member_role": "owner"|"operator"|"viewer","order_purpose": "sale"|"personal"|"gift","order_status": "confirmed"|"queued"|"printing"|"post_processing"|"ready"|"delivered"|"closed"|"on_hold"|"cancelled","print_failure_cause": "adhesion"|"clog"|"spaghetti"|"layer_shift"|"filament_runout"|"power_loss"|"wrong_settings"|"other","print_job_status": "planned"|"printing"|"success"|"failed"|"cancelled","printer_status": "active"|"maintenance"|"retired","product_status": "draft"|"published"|"archived","quote_line_kind": "catalog"|"custom"|"service","quote_status": "draft"|"sent"|"accepted"|"rejected"|"expired","request_status": "new"|"awaiting_slicing"|"quoted"|"discarded","spool_status": "sealed"|"open"|"in_use"|"empty"|"discarded","stock_movement_type": "purchase"|"consumption"|"waste"|"adjustment"|"maintenance"|"reservation"|"release","tax_regime": "none"|"nrus"|"rer"|"rmt"|"general"
+            "account_kind": "cash"|"bank"|"wallet","component_kind": "nozzle"|"hotend"|"plate"|"ptfe"|"cutter"|"fan"|"ams"|"other","cost_allocation": "by_amount"|"by_weight","customer_doc_type": "none"|"dni"|"ruc"|"ce","customer_kind": "person"|"company","gift_treatment": "marketing"|"owner_draw"|"other","inventory_item_kind": "supply"|"packaging"|"spare_part"|"finished_good","material_valuation": "weighted_avg"|"last_cost"|"replacement","member_role": "owner"|"operator"|"viewer","order_payment_status": "not_applicable"|"unpaid"|"partial"|"paid","order_purpose": "sale"|"personal"|"gift","order_status": "confirmed"|"queued"|"printing"|"post_processing"|"ready"|"delivered"|"closed"|"on_hold"|"cancelled","payment_method": "cash"|"yape"|"plin"|"transfer","print_failure_cause": "adhesion"|"clog"|"spaghetti"|"layer_shift"|"filament_runout"|"power_loss"|"wrong_settings"|"other","print_job_status": "planned"|"printing"|"success"|"failed"|"cancelled","printer_status": "active"|"maintenance"|"retired","product_status": "draft"|"published"|"archived","quote_line_kind": "catalog"|"custom"|"service","quote_status": "draft"|"sent"|"accepted"|"rejected"|"expired","request_status": "new"|"awaiting_slicing"|"quoted"|"discarded","spool_status": "sealed"|"open"|"in_use"|"empty"|"discarded","stock_movement_type": "purchase"|"consumption"|"waste"|"adjustment"|"maintenance"|"reservation"|"release","tax_regime": "none"|"nrus"|"rer"|"rmt"|"general","transaction_direction": "income"|"expense","transaction_type": "income"|"expense"|"transfer"|"owner_contribution"|"owner_draw"
           }
           CompositeTypes: {
             [_ in never]: never
@@ -1434,7 +1701,7 @@ export type CompositeTypes<
 export const Constants = {
   "public": {
           Enums: {
-            "component_kind": ["nozzle", "hotend", "plate", "ptfe", "cutter", "fan", "ams", "other"],"cost_allocation": ["by_amount", "by_weight"],"customer_doc_type": ["none", "dni", "ruc", "ce"],"customer_kind": ["person", "company"],"gift_treatment": ["marketing", "owner_draw", "other"],"inventory_item_kind": ["supply", "packaging", "spare_part", "finished_good"],"material_valuation": ["weighted_avg", "last_cost", "replacement"],"member_role": ["owner", "operator", "viewer"],"order_purpose": ["sale", "personal", "gift"],"order_status": ["confirmed", "queued", "printing", "post_processing", "ready", "delivered", "closed", "on_hold", "cancelled"],"print_failure_cause": ["adhesion", "clog", "spaghetti", "layer_shift", "filament_runout", "power_loss", "wrong_settings", "other"],"print_job_status": ["planned", "printing", "success", "failed", "cancelled"],"printer_status": ["active", "maintenance", "retired"],"product_status": ["draft", "published", "archived"],"quote_line_kind": ["catalog", "custom", "service"],"quote_status": ["draft", "sent", "accepted", "rejected", "expired"],"request_status": ["new", "awaiting_slicing", "quoted", "discarded"],"spool_status": ["sealed", "open", "in_use", "empty", "discarded"],"stock_movement_type": ["purchase", "consumption", "waste", "adjustment", "maintenance", "reservation", "release"],"tax_regime": ["none", "nrus", "rer", "rmt", "general"]
+            "account_kind": ["cash", "bank", "wallet"],"component_kind": ["nozzle", "hotend", "plate", "ptfe", "cutter", "fan", "ams", "other"],"cost_allocation": ["by_amount", "by_weight"],"customer_doc_type": ["none", "dni", "ruc", "ce"],"customer_kind": ["person", "company"],"gift_treatment": ["marketing", "owner_draw", "other"],"inventory_item_kind": ["supply", "packaging", "spare_part", "finished_good"],"material_valuation": ["weighted_avg", "last_cost", "replacement"],"member_role": ["owner", "operator", "viewer"],"order_payment_status": ["not_applicable", "unpaid", "partial", "paid"],"order_purpose": ["sale", "personal", "gift"],"order_status": ["confirmed", "queued", "printing", "post_processing", "ready", "delivered", "closed", "on_hold", "cancelled"],"payment_method": ["cash", "yape", "plin", "transfer"],"print_failure_cause": ["adhesion", "clog", "spaghetti", "layer_shift", "filament_runout", "power_loss", "wrong_settings", "other"],"print_job_status": ["planned", "printing", "success", "failed", "cancelled"],"printer_status": ["active", "maintenance", "retired"],"product_status": ["draft", "published", "archived"],"quote_line_kind": ["catalog", "custom", "service"],"quote_status": ["draft", "sent", "accepted", "rejected", "expired"],"request_status": ["new", "awaiting_slicing", "quoted", "discarded"],"spool_status": ["sealed", "open", "in_use", "empty", "discarded"],"stock_movement_type": ["purchase", "consumption", "waste", "adjustment", "maintenance", "reservation", "release"],"tax_regime": ["none", "nrus", "rer", "rmt", "general"],"transaction_direction": ["income", "expense"],"transaction_type": ["income", "expense", "transfer", "owner_contribution", "owner_draw"]
           }
         }
 } as const

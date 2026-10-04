@@ -264,3 +264,33 @@ insert into public.gift_categories (workspace_id, name, treatment) values
   ('00000000-0000-4000-8000-000000000001', 'Empresa', 'marketing'),
   ('00000000-0000-4000-8000-000000000001', 'Personal', 'owner_draw'),
   ('00000000-0000-4000-8000-000000000001', 'Otros', 'other');
+
+-- ---------------------------------------------------------------- finanzas
+--
+-- Las cuatro formas de cobrar y pagar que usa el taller. El saldo de apertura
+-- queda en cero a propósito: es un dato real que todavía no nos pasaron, y
+-- poner un número inventado haría que todos los reportes mientan.
+
+insert into public.accounts (
+  workspace_id, name, kind, opening_balance, opening_balance_on, default_payment_method, note
+) values
+  ('00000000-0000-4000-8000-000000000001', 'Efectivo', 'cash', 0, date '2026-09-01', 'cash',
+   'TODO: cuánto había en la caja el día que empezaron a registrar'),
+  ('00000000-0000-4000-8000-000000000001', 'Yape', 'wallet', 0, date '2026-09-01', 'yape',
+   'TODO: saldo inicial'),
+  ('00000000-0000-4000-8000-000000000001', 'Plin', 'wallet', 0, date '2026-09-01', 'plin',
+   'TODO: saldo inicial'),
+  ('00000000-0000-4000-8000-000000000001', 'Cuenta bancaria', 'bank', 0, date '2026-09-01', 'transfer',
+   'TODO: banco y saldo inicial');
+
+insert into public.transaction_categories (workspace_id, name, direction) values
+  ('00000000-0000-4000-8000-000000000001', 'Venta de productos', 'income'),
+  ('00000000-0000-4000-8000-000000000001', 'Trabajos por encargo', 'income'),
+  ('00000000-0000-4000-8000-000000000001', 'Filamento', 'expense'),
+  ('00000000-0000-4000-8000-000000000001', 'Dulces y empaque', 'expense'),
+  ('00000000-0000-4000-8000-000000000001', 'Repuestos y herramientas', 'expense'),
+  ('00000000-0000-4000-8000-000000000001', 'Mantenimiento', 'expense'),
+  ('00000000-0000-4000-8000-000000000001', 'Envíos', 'expense'),
+  ('00000000-0000-4000-8000-000000000001', 'Comisiones de venta', 'expense'),
+  ('00000000-0000-4000-8000-000000000001', 'Publicidad', 'expense'),
+  ('00000000-0000-4000-8000-000000000001', 'Luz', 'expense');
