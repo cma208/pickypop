@@ -7,17 +7,24 @@ import { errorOf, textOrNull } from '../configuracion/shared/form-errors';
 import { friendlyError } from '../configuracion/shared/friendly-error';
 import { SECTION_STYLES } from '../configuracion/shared/styles';
 import { ImpresorasData } from './impresoras.data';
-import type { PlanRecord } from './impresoras.models';
+import type { LogDraft, PlanRecord } from './impresoras.models';
 
 const NO_PLAN = '';
 const HOURS_PRECISION = 100;
 
-/** Builds the note stored with the log: free text plus the ticked checklist. */
-export function composeLogNote(note: string, steps: string[], done: ReadonlySet<number>): string | null {
-  const checklist = steps.map((step, index) => `${done.has(index) ? '✔' : '✘'} ${step}`);
-  const parts = [textOrNull(note), steps.length > 0 ? `Lista de verificación:\n${checklist.join('\n')}` : null];
-  const text = parts.filter((part) => part !== null).join('\n\n');
-  return text === '' ? null : text;
+/**
+ * Splits what the person wrote from what they ticked. The steps are stored as
+ * worded today, because the plan's checklist can be edited later.
+ */
+export function composeLogContent(
+  note: string,
+  steps: string[],
+  done: ReadonlySet<number>,
+): Pick<LogDraft, 'note' | 'checklistDone'> {
+  return {
+    note: textOrNull(note),
+    checklistDone: steps.filter((_, index) => done.has(index)),
+  };
 }
 
 /** Register a maintenance that was done, optionally against one of the plans. */
@@ -146,7 +153,7 @@ export class LogForm {
         printerHours: value.printerHours ?? 0,
         durationMin: value.durationMin,
         cost: value.cost ?? 0,
-        note: composeLogNote(value.note, this.steps(), this.done()),
+        ...composeLogContent(value.note, this.steps(), this.done()),
       });
       this.saved.emit();
     } catch (error) {

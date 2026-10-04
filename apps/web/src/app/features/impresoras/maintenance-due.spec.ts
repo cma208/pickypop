@@ -1,6 +1,7 @@
 import type { LogRecord, PlanRecord } from './impresoras.models';
 import { dueStatuses, evaluatePlan, needsAttention } from './maintenance-due';
-import { composeLogNote } from './log-form';
+import { composeLogContent } from './log-form';
+import { parseChecklist } from './impresoras.data';
 
 const TODAY = '2026-10-04';
 
@@ -28,6 +29,7 @@ function log(overrides: Partial<LogRecord>): LogRecord {
     durationMin: null,
     cost: 0,
     note: null,
+    checklistDone: [],
     ...overrides,
   };
 }
@@ -106,15 +108,47 @@ describe('dueStatuses', () => {
   });
 });
 
-describe('composeLogNote', () => {
-  it('returns null when there is nothing to say', () => {
-    expect(composeLogNote('', [], new Set())).toBeNull();
+describe('composeLogContent', () => {
+  it('returns no note and no steps when there is nothing to say', () => {
+    expect(composeLogContent('', [], new Set())).toEqual({ note: null, checklistDone: [] });
   });
 
-  it('keeps the free note and marks the checklist', () => {
-    const note = composeLogNote(' Todo bien ', ['Limpiar guías', 'Lubricar'], new Set([0]));
-    expect(note).toContain('Todo bien');
-    expect(note).toContain('✔ Limpiar guías');
-    expect(note).toContain('✘ Lubricar');
+  it('keeps only the free text in the note and only the ticked steps in the checklist', () => {
+    const content = composeLogContent(' Todo bien ', ['Limpiar guías', 'Lubricar', 'Revisar correas'], new Set([0, 2]));
+    expect(content.note).toBe('Todo bien');
+    expect(content.checklistDone).toEqual(['Limpiar guías', 'Revisar correas']);
+  });
+
+  it('does not mention the checklist in the note when the note is empty', () => {
+    const content = composeLogContent('   ', ['Limpiar guías'], new Set([0]));
+    expect(content.note).toBeNull();
+    expect(content.checklistDone).toEqual(['Limpiar guías']);
+  });
+
+  it('records no steps when the plan has a checklist but nothing was ticked', () => {
+    const content = composeLogContent('Sin tiempo', ['Limpiar guías', 'Lubricar'], new Set());
+    expect(content).toEqual({ note: 'Sin tiempo', checklistDone: [] });
+  });
+
+  it('follows the step order of the plan, not the order of ticking', () => {
+    const content = composeLogContent('', ['A', 'B', 'C'], new Set([2, 0]));
+    expect(content.checklistDone).toEqual(['A', 'C']);
+  });
+});
+
+describe('parseChecklist', () => {
+  it('keeps a list of strings as it is', () => {
+    expect(parseChecklist(['Limpiar guías', 'Lubricar'])).toEqual(['Limpiar guías', 'Lubricar']);
+  });
+
+  it('drops anything that is not a string inside the list', () => {
+    expect(parseChecklist(['Lubricar', 3, null, { step: 'x' }, ['y']])).toEqual(['Lubricar']);
+  });
+
+  it('treats anything that is not a list as empty', () => {
+    expect(parseChecklist(null)).toEqual([]);
+    expect(parseChecklist('Lubricar')).toEqual([]);
+    expect(parseChecklist(42)).toEqual([]);
+    expect(parseChecklist({ 0: 'Lubricar' })).toEqual([]);
   });
 });

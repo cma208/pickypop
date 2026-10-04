@@ -18,7 +18,8 @@ import type {
 
 const SECONDS_PER_HOUR = 3600;
 
-function parseChecklist(value: Json): string[] {
+/** The column is jsonb, so anything can be in there: keep only strings, else nothing. */
+export function parseChecklist(value: Json): string[] {
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : [];
 }
 
@@ -45,7 +46,7 @@ export class ImpresorasData {
       fetchAll((from, to) =>
         this.supabase
           .from('maintenance_logs')
-          .select('id, printer_id, plan_id, performed_at, printer_hours_at, duration_min, cost, note')
+          .select('id, printer_id, plan_id, performed_at, printer_hours_at, duration_min, cost, note, checklist_done')
           .order('performed_at', { ascending: false })
           .range(from, to),
       ),
@@ -99,6 +100,7 @@ export class ImpresorasData {
         durationMin: row.duration_min,
         cost: Number(row.cost),
         note: row.note,
+        checklistDone: parseChecklist(row.checklist_done),
       })),
       components: (components.data ?? []).map((row): ComponentRecord => ({
         id: row.id,
@@ -156,6 +158,7 @@ export class ImpresorasData {
       duration_min: draft.durationMin,
       cost: draft.cost,
       note: draft.note,
+      checklist_done: draft.checklistDone,
     });
     if (error) throw error;
   }

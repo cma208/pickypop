@@ -20,6 +20,7 @@ const HISTORY_LIMIT = 10;
       .item.never { border-left: 4px solid var(--accent); }
       h3 { margin: 1.25rem 0 0.75rem; font-size: 0.95rem; }
       details summary { cursor: pointer; font-size: 0.85rem; }
+      .done { margin: 0.4rem 0 0; padding: 0; list-style: none; font-size: 0.85rem; }
       pre { margin: 0.4rem 0 0; white-space: pre-wrap; font: inherit; font-size: 0.85rem; }
     `,
   ],
@@ -83,10 +84,19 @@ const HISTORY_LIMIT = 10;
               @if (log.durationMin !== null) { · {{ log.durationMin }} min }
               @if (log.cost > 0) { · {{ log.cost | money }} }
             </p>
-            @if (log.note) {
+            @if (log.note || log.checklistDone.length > 0) {
               <details>
-                <summary>Ver notas</summary>
-                <pre>{{ log.note }}</pre>
+                <summary>Ver detalle</summary>
+                @if (log.checklistDone.length > 0) {
+                  <ul class="done">
+                    @for (step of log.checklistDone; track $index) {
+                      <li>✔ {{ step }}</li>
+                    }
+                  </ul>
+                }
+                @if (log.note) {
+                  <pre>{{ log.note }}</pre>
+                }
               </details>
             }
           </li>

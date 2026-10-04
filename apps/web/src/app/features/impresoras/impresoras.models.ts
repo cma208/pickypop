@@ -36,6 +36,8 @@ export interface LogRecord {
   durationMin: number | null;
   cost: number;
   note: string | null;
+  /** Checklist steps that were ticked, worded as they were that day. */
+  checklistDone: string[];
 }
 
 export interface ComponentRecord {
@@ -83,6 +85,7 @@ export interface LogDraft {
   durationMin: number | null;
   cost: number;
   note: string | null;
+  checklistDone: string[];
 }
 
 export interface ComponentDraft {
