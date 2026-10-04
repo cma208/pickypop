@@ -5,8 +5,13 @@
   --muted: #6f6b66;
   --line: #e4e1dd;
   --accent: #b4532a;
-  --accent-soft: #f5e9e3;
+  --accent-soft: #f7ebe5;
   --danger: #b3261e;
+  --danger-soft: #fae9e8;
+  --good: #1f6b43;
+  --good-soft: #e5f2ea;
+  --warn: #8a5a00;
+  --warn-soft: #fbf0db;
   color-scheme: light dark;
 }
 
@@ -20,6 +25,11 @@
     --accent: #e0855c;
     --accent-soft: #3a2a23;
     --danger: #f2b8b5;
+    --danger-soft: #3d2320;
+    --good: #87d6a8;
+    --good-soft: #1f3528;
+    --warn: #e5bf73;
+    --warn-soft: #39301c;
   }
 }
 
@@ -32,25 +42,60 @@ body {
   font: 15px/1.5 system-ui, -apple-system, 'Segoe UI', sans-serif;
 }
 
-.muted { color: var(--muted); }
+h1, h2, h3 { line-height: 1.25; }
 
+.muted { color: var(--muted); }
+.error { color: var(--danger); }
+.num { text-align: right; font-variant-numeric: tabular-nums; }
+.row { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+.grid { display: grid; gap: 1rem; }
+.grid.two { grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr)); }
+
+/* Tables: plain markup, consistent look. */
+table { width: 100%; border-collapse: collapse; }
+
+th, td { padding: 0.5rem 0.7rem; border-bottom: 1px solid var(--line); text-align: left; }
+
+th {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+tbody tr:hover { background: var(--accent-soft); }
+
+/* Controls */
 button {
-  padding: 0.5rem 0.9rem;
+  padding: 0.45rem 0.85rem;
   border: 1px solid transparent;
   border-radius: 8px;
   background: var(--accent);
-  color: white;
+  color: #fff;
   font: inherit;
   cursor: pointer;
 }
 
-button:disabled { opacity: 0.6; cursor: progress; }
+button:disabled { opacity: 0.55; cursor: not-allowed; }
+button.secondary { background: transparent; border-color: var(--line); color: inherit; }
+button.ghost { background: transparent; border-color: transparent; color: inherit; padding: 0.3rem 0.5rem; }
+button.ghost:hover, button.secondary:hover { background: var(--line); }
+button.danger { background: var(--danger); }
 
-input {
-  padding: 0.5rem 0.65rem;
+input, select, textarea {
+  width: 100%;
+  padding: 0.45rem 0.6rem;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--bg);
   color: inherit;
   font: inherit;
 }
+
+input:focus-visible, select:focus-visible, textarea:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+a { color: var(--accent); }

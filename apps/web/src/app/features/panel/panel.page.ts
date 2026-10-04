@@ -3,8 +3,8 @@ import { Workshop, type CatalogProduct, type FilamentStock, type PrinterSummary 
 
 @Component({
   selector: 'app-panel',
-  templateUrl: './panel.html',
-  styleUrl: './panel.scss',
+  templateUrl: './panel.page.html',
+  styleUrl: './panel.page.scss',
 })
 export class PanelPage {
   private readonly workshop = inject(Workshop);
