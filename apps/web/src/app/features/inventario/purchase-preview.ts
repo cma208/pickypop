@@ -1,7 +1,7 @@
 import { Component, computed, input } from '@angular/core';
 import { FORMAT_PIPES } from '../../ui';
 import { INVENTORY_STYLES } from './inventario.styles';
-import type { PlanLine, PurchasePlan } from './purchase-plan';
+import type { PlanLine, PurchasePlan } from '../../core/pricing';
 
 const COST_PER_GRAM_DIGITS = 3;
 

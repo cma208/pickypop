@@ -303,10 +303,11 @@ export interface MaterialLineRow {
 /**
  * Material cost broken down by filament for the whole batch.
  *
- * calculateBatchCost only reports material per plate, so each filament is run
- * through the same function on its own, with no print time, so there is no
- * energy or machine cost to get in the way. The figures are therefore the very
- * ones the batch total adds up, not a second implementation of the formula.
+ * The engine reports each filament's cost already rounded, and those cents are
+ * the ones the plate and batch material add up from, so this is a lookup and
+ * not a second implementation of the formula. A plate that produces nothing is
+ * left out here (the engine would refuse it) because the screen keeps showing
+ * the other plates while the user is still typing.
  */
 export function materialLines(
   line: LineDraft,
@@ -314,47 +315,31 @@ export function materialLines(
   profile: CostProfile,
   printer: PrinterProfile,
 ): MaterialLineRow[] {
-  const units = Math.max(1, Math.round(line.quantity));
-  const rows: MaterialLineRow[] = [];
+  const plates = line.plates.filter((plate) => plate.unitsPerRun > 0);
+  if (plates.length === 0) return [];
 
-  for (const plate of line.plates) {
-    if (plate.unitsPerRun <= 0) continue;
-    const runs = Math.ceil(units / plate.unitsPerRun);
+  const { plates: costed } = calculateBatchCost(
+    toBatchInput({ ...line, plates }, skus),
+    profile,
+    printer,
+  );
 
-    for (const filament of plate.filaments) {
+  return plates.flatMap((plate, plateIndex) =>
+    plate.filaments.map((filament, filamentIndex): MaterialLineRow => {
       const sku = skus.find((option) => option.id === filament.filamentSkuId);
-      const costPerKg = sku?.costPerKg ?? 0;
+      const breakdown = costed[plateIndex]?.materialByFilament[filamentIndex];
 
-      const { material } = calculateBatchCost(
-        {
-          units: runs,
-          setupMinutes: 0,
-          minutesPerUnit: 0,
-          plates: [
-            {
-              printTimeSeconds: 0,
-              unitsPerRun: 1,
-              filaments: [{ grams: filament.grams, costPerKg }],
-            },
-          ],
-        },
-        profile,
-        printer,
-      );
-
-      rows.push({
+      return {
         plateLabel: plate.label,
         slot: filament.slot,
         label: sku?.label ?? 'Sin filamento elegido',
         colorHex: sku?.colorHex ?? filament.colorHex,
-        grams: filament.grams * runs,
-        cost: material,
+        grams: breakdown?.grams ?? 0,
+        cost: breakdown?.cost ?? 0,
         skuMissing: filament.filamentSkuId === null,
-      });
-    }
-  }
-
-  return rows;
+      };
+    }),
+  );
 }
 
 /** Grams of a given SKU the whole line needs, to warn about short stock. */

@@ -34,7 +34,7 @@ import {
 import { describeError } from './inventario.errors';
 import { INVENTORY_STYLES } from './inventario.styles';
 import { todayIso } from './inventario.format';
-import { planPurchase, type AllocationMethod, type PlanLineInput } from './purchase-plan';
+import { planPurchase, type AllocationMethod, type PlanLineInput } from '../../core/pricing';
 import { PurchasePreview, type PreviewRow } from './purchase-preview';
 import { QuickAdd } from './quick-add';
 

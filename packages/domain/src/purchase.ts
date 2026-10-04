@@ -1,4 +1,4 @@
-import { roundMoney } from '../../core/pricing';
+import { roundMoney } from './money.ts';
 
 /**
  * Spreads a purchase's shipping and other costs over its lines and over each
@@ -6,7 +6,9 @@ import { roundMoney } from '../../core/pricing';
  *
  * All the arithmetic is done in whole cents and the remainders are handed out
  * one cent at a time (largest remainder), so the pieces always add up to the
- * exact amount that was paid: no cent is created or lost.
+ * exact amount that was paid: no cent is created or lost. Rounding each share
+ * on its own would not guarantee that, and the kardex would drift from the
+ * invoice by a cent here and there.
  */
 export type AllocationMethod = 'by_amount' | 'by_weight';
 
@@ -39,14 +41,16 @@ export interface PurchasePlan {
   fellBack: boolean;
 }
 
+const CENTS_PER_SOL = 100;
+/** The kardex keeps unit costs to 6 decimals, finer than cents, so cheap items do not round to zero. */
 const COST_DECIMALS = 1_000_000;
 
 function toCents(amount: number): number {
-  return Math.round(roundMoney(Number.isFinite(amount) ? amount : 0) * 100);
+  return Math.round(roundMoney(Number.isFinite(amount) ? amount : 0) * CENTS_PER_SOL);
 }
 
 function fromCents(cents: number): number {
-  return roundMoney(cents / 100);
+  return roundMoney(cents / CENTS_PER_SOL);
 }
 
 /** Splits `totalCents` in proportion to `weights`; the result always sums to `totalCents`. */
@@ -54,6 +58,7 @@ export function allocateCents(totalCents: number, weights: number[]): number[] {
   if (weights.length === 0 || totalCents <= 0) return weights.map(() => 0);
 
   const weightSum = weights.reduce((sum, weight) => sum + weight, 0);
+  // Without any weight to go by, an even split is fairer than dropping the cost.
   const usable = weightSum > 0 ? weights : weights.map(() => 1);
   const usableSum = weightSum > 0 ? weightSum : usable.length;
 
@@ -61,6 +66,7 @@ export function allocateCents(totalCents: number, weights: number[]): number[] {
   const shares = raw.map((value) => Math.floor(value));
   let remaining = totalCents - shares.reduce((sum, share) => sum + share, 0);
 
+  // Biggest leftover first; ties go to the earlier line so the result is stable.
   const byRemainder = raw
     .map((value, index) => ({ index, remainder: value - Math.floor(value) }))
     .sort((a, b) => b.remainder - a.remainder || a.index - b.index);
@@ -87,7 +93,8 @@ export function planPurchase(
     line.kind === 'sku' && line.unitWeightG ? line.quantity * line.unitWeightG : 0,
   );
   const hasWeights = weights.some((weight) => weight > 0);
-  const method: AllocationMethod = requested === 'by_weight' && hasWeights ? 'by_weight' : 'by_amount';
+  const method: AllocationMethod =
+    requested === 'by_weight' && hasWeights ? 'by_weight' : 'by_amount';
 
   const lineExtras = allocateCents(extraCents, method === 'by_weight' ? weights : subtotalsCents);
 
@@ -105,7 +112,9 @@ export function planPurchase(
       total: fromCents(totalCents),
       unitCosts,
       effectiveUnitCost:
-        line.quantity > 0 ? Math.round((totalCents / 100 / line.quantity) * COST_DECIMALS) / COST_DECIMALS : 0,
+        line.quantity > 0
+          ? Math.round((totalCents / CENTS_PER_SOL / line.quantity) * COST_DECIMALS) / COST_DECIMALS
+          : 0,
     };
   });
 

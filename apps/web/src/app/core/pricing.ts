@@ -1,7 +1,9 @@
 import {
+  allocateCents,
   calculateBatchCost,
   calculatePrice,
   chargesIgv,
+  planPurchase,
   priceForQuantity,
   roundMoney,
   roundUpToStep,
@@ -15,9 +17,11 @@ import { parseSliceInfo, totalFilamentGrams } from '@pickypop/slicer-files';
  * features import them from one place.
  */
 export {
+  allocateCents,
   calculateBatchCost,
   calculatePrice,
   chargesIgv,
+  planPurchase,
   priceForQuantity,
   roundMoney,
   roundUpToStep,
@@ -26,13 +30,17 @@ export {
   totalFilamentGrams,
 };
 export type {
+  AllocationMethod,
   BatchCostBreakdown,
   BatchInput,
   CostBreakdown,
   CostProfile,
   JobInput,
+  PlanLine,
+  PlanLineInput,
   PriceBreakdown,
   PriceTier,
   PrinterProfile,
+  PurchasePlan,
 } from '@pickypop/domain';
 export type { SliceInfo, SlicedPlate, SlicedFilament } from '@pickypop/slicer-files';

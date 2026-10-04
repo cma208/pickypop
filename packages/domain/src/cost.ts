@@ -128,17 +128,23 @@ export function calculateBatchCost(
     const runs = Math.ceil(batch.units / plate.unitsPerRun);
     const unitsProduced = runs * plate.unitsPerRun;
 
+    // Each filament is rounded once, here, and the plate's material is the sum
+    // of those very cents. Costing the plate as a whole and splitting it
+    // afterwards would leave the breakdown a cent off the total.
+    const materialByFilament: MaterialLine[] = plate.filaments.map((filament) => ({
+      ...(filament.label === undefined ? {} : { label: filament.label }),
+      grams: filament.grams * runs,
+      cost: costOfFilament(filament.grams * runs, filament.costPerKg, profile.materialWasteRate),
+    }));
+
     return {
       ...(plate.label === undefined ? {} : { label: plate.label }),
       runs,
       unitsProduced,
       spareUnits: unitsProduced - batch.units,
       printHours: (plate.printTimeSeconds * runs) / SECONDS_PER_HOUR,
-      material: sumMoney(
-        plate.filaments.map((filament) =>
-          costOfFilament(filament.grams * runs, filament.costPerKg, profile.materialWasteRate),
-        ),
-      ),
+      materialByFilament,
+      material: sumMoney(materialByFilament.map((line) => line.cost)),
     };
   });
 

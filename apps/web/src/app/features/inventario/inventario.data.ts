@@ -3,7 +3,7 @@ import { sumMoney } from '../../core/pricing';
 import { SUPABASE } from '../../core/supabase';
 import { CurrentWorkspace } from '../../core/workspace';
 import { dayEnd, dayStart, todayIso, type ItemKind, type MovementType, type SpoolStatus } from './inventario.format';
-import type { AllocationMethod, PurchasePlan } from './purchase-plan';
+import type { AllocationMethod, PurchasePlan } from '../../core/pricing';
 
 // ------------------------------------------------------------------ types
 
