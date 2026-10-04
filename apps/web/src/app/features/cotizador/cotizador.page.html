@@ -94,7 +94,7 @@
                   <input
                     type="text"
                     [value]="plate.label"
-                    (input)="updatePlate($index, { label: value($event) })"
+                    (change)="updatePlate($index, { label: value($event) })"
                   />
                 </pp-field>
                 <pp-field
@@ -106,7 +106,7 @@
                     min="0"
                     step="1"
                     [value]="minutesOf(plate.printTimeSeconds)"
-                    (input)="updatePlate($index, { printTimeSeconds: minutesToSeconds($event) })"
+                    (change)="updatePlate($index, { printTimeSeconds: minutesToSeconds($event) })"
                   />
                 </pp-field>
                 <pp-field
@@ -118,7 +118,7 @@
                     min="0.001"
                     step="1"
                     [value]="plate.unitsPerRun"
-                    (input)="updatePlate($index, { unitsPerRun: numberValue($event) })"
+                    (change)="updatePlate($index, { unitsPerRun: numberValue($event) })"
                   />
                 </pp-field>
               </div>
@@ -174,7 +174,7 @@
                           min="0"
                           step="0.01"
                           [value]="filament.grams"
-                          (input)="
+                          (change)="
                             updateFilament(plateIndex, slotIndex, { grams: numberValue($event) })
                           "
                           [attr.aria-label]="'Gramos de la ranura ' + filament.slot"
@@ -270,7 +270,7 @@
                         type="text"
                         [value]="supply.label"
                         placeholder="Nombre del insumo"
-                        (input)="updateSupply($index, { label: value($event) })"
+                        (change)="updateSupply($index, { label: value($event) })"
                         aria-label="Nombre del insumo"
                       />
                     }
@@ -281,7 +281,7 @@
                       min="0"
                       step="0.001"
                       [value]="supply.quantity"
-                      (input)="updateSupply($index, { quantity: numberValue($event) })"
+                      (change)="updateSupply($index, { quantity: numberValue($event) })"
                       aria-label="Cantidad"
                     />
                   </td>
@@ -291,7 +291,7 @@
                       min="0"
                       step="0.01"
                       [value]="supply.unitCost"
-                      (input)="updateSupply($index, { unitCost: numberValue($event) })"
+                      (change)="updateSupply($index, { unitCost: numberValue($event) })"
                       aria-label="Costo unitario"
                     />
                   </td>
