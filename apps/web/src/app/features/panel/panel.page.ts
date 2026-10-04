@@ -1,4 +1,5 @@
 import { Component, inject, signal } from '@angular/core';
+import { calculatePrice } from '../../core/pricing';
 import { Workshop, type CatalogProduct, type FilamentStock, type PrinterSummary } from '../../core/workshop';
 
 @Component({
@@ -20,6 +21,23 @@ export class PanelPage {
 
   constructor() {
     void this.load();
+  }
+
+  /** Smoke check that the shared domain package is wired into the build. */
+  protected priceFor(cost: number): string {
+    return this.money(
+      calculatePrice(cost, {
+        materialWasteRate: 0.03,
+        failureRate: 0.1,
+        laborRatePerHour: 15,
+        energyRatePerKwh: 0.7556,
+        targetMargin: 0.5,
+        minOrderPrice: 5,
+        roundingStep: 0.5,
+        igvRate: 0.18,
+        taxRegime: 'none',
+      }).total,
+    );
   }
 
   protected money(amount: number | null, fractionDigits = 2): string {
