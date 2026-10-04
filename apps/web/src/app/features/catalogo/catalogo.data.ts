@@ -1,6 +1,7 @@
 import { inject, Injectable } from '@angular/core';
 import type { PostgrestError } from '@supabase/supabase-js';
 import { SUPABASE } from '../../core/supabase';
+import { CurrentWorkspace } from '../../core/workspace';
 import type { CostProfile, PrinterProfile } from '../../core/pricing';
 import type { Json } from '../../core/database.types';
 import type {
@@ -76,19 +77,11 @@ function weightedCost(samples: { quantity: number; cost: number }[]): number | n
 @Injectable({ providedIn: 'root' })
 export class CatalogoData {
   private readonly supabase = inject(SUPABASE);
-  private workspace: Promise<string> | null = null;
+  private readonly workspace = inject(CurrentWorkspace);
 
   /** Rows are created inside the person's workshop; RLS keeps it that way. */
   private workspaceId(): Promise<string> {
-    this.workspace ??= (async () => {
-      const { data, error } = await this.supabase.from('workspaces').select('id').limit(1);
-      if (error) fail(error, 'No pudimos leer tu taller.');
-      const id = data[0]?.id;
-      if (!id) throw new CatalogoError('Tu usuario no pertenece a ningún taller.');
-      return id;
-    })();
-    this.workspace.catch(() => (this.workspace = null));
-    return this.workspace;
+    return this.workspace.requireId();
   }
 
   // ---------------------------------------------------------------- products
@@ -557,14 +550,13 @@ export class CatalogoData {
 
   /** The cost profile in force today and the active printers with their machine rates. */
   async costContext(): Promise<CostContext> {
-    const [profiles, workspace, printers, rates] = await Promise.all([
+    const [profiles, printers, rates, workspace] = await Promise.all([
       this.supabase
         .from('cost_profiles')
         .select('*')
         .lte('valid_from', todayIso())
         .order('valid_from', { ascending: false })
         .limit(1),
-      this.supabase.from('workspaces').select('tax_regime').limit(1),
       this.supabase
         .from('printers')
         .select(
@@ -573,9 +565,9 @@ export class CatalogoData {
         .eq('status', 'active')
         .order('name'),
       this.supabase.from('printer_machine_rates').select('printer_id, machine_rate_per_hour'),
+      this.workspace.info(),
     ]);
     if (profiles.error) fail(profiles.error, 'No pudimos leer los parámetros de costo.');
-    if (workspace.error) fail(workspace.error, 'No pudimos leer los datos del taller.');
     if (printers.error) fail(printers.error, 'No pudimos leer las impresoras.');
     if (rates.error) fail(rates.error, 'No pudimos leer las horas de máquina.');
 
@@ -590,7 +582,7 @@ export class CatalogoData {
           minOrderPrice: Number(row.min_order_price),
           roundingStep: Number(row.rounding_step),
           igvRate: Number(row.igv_rate),
-          taxRegime: workspace.data[0]?.tax_regime ?? 'none',
+          taxRegime: workspace.taxRegime,
         }
       : null;
 

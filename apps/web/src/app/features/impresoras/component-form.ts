@@ -1,10 +1,10 @@
 import { Component, inject, input, output, signal } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Field } from '../../ui';
-import { todayLocal } from '../configuracion/shared/dates';
-import { errorOf, textOrNull } from '../configuracion/shared/form-errors';
-import { friendlyError } from '../configuracion/shared/friendly-error';
-import { SECTION_STYLES } from '../configuracion/shared/styles';
+import { todayLocal } from '../../core/dates';
+import { errorOf, textOrNull } from '../../core/form-errors';
+import { friendlyError } from '../../core/friendly-error';
+import { SECTION_STYLES } from '../../core/styles';
 import { ImpresorasData } from './impresoras.data';
 import { COMPONENT_KINDS, COMPONENT_LABELS, type ComponentKind } from './impresoras.models';
 

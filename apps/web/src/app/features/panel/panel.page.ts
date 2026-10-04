@@ -1,7 +1,7 @@
 import { Component, inject, resource } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { AsyncState, Badge, Card, Empty, FORMAT_PIPES, Page } from '../../ui';
-import { SECTION_STYLES } from '../configuracion/shared/styles';
+import { SECTION_STYLES } from '../../core/styles';
 import { DUE_LABELS, DUE_TONES } from '../impresoras/maintenance-due';
 import { PanelData } from './panel.data';
 import { FAILURE_CAUSE_LABELS, ORDER_STATUS_LABELS } from './panel.labels';

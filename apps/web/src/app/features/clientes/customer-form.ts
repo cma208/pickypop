@@ -2,9 +2,9 @@ import { Component, computed, inject, input, output, signal } from '@angular/cor
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Field } from '../../ui';
-import { errorOf, textOrNull } from '../configuracion/shared/form-errors';
-import { friendlyError } from '../configuracion/shared/friendly-error';
-import { SECTION_STYLES } from '../configuracion/shared/styles';
+import { errorOf, textOrNull } from '../../core/form-errors';
+import { friendlyError } from '../../core/friendly-error';
+import { SECTION_STYLES } from '../../core/styles';
 import { ClientesData } from './clientes.data';
 import {
   DOC_FORMAT_HINTS,

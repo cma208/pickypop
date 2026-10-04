@@ -1,8 +1,8 @@
 import { inject, Injectable } from '@angular/core';
 import type { Json } from '../../core/database.types';
 import { SUPABASE } from '../../core/supabase';
-import { fetchAll } from '../configuracion/shared/fetch-all';
-import { WorkspaceContext } from '../configuracion/shared/workspace-context';
+import { fetchAll } from '../../core/fetch-all';
+import { CurrentWorkspace } from '../../core/workspace';
 import type {
   ComponentDraft,
   ComponentRecord,
@@ -27,7 +27,7 @@ export function parseChecklist(value: Json): string[] {
 @Injectable({ providedIn: 'root' })
 export class ImpresorasData {
   private readonly supabase = inject(SUPABASE);
-  private readonly workspace = inject(WorkspaceContext);
+  private readonly workspace = inject(CurrentWorkspace);
 
   async load(): Promise<PrinterWorkshop> {
     const [printers, rates, workedByPrinter, plans, logs, components, incidents] = await Promise.all([
@@ -138,7 +138,7 @@ export class ImpresorasData {
       ? await this.supabase.from('maintenance_plans').update(values).eq('id', planId)
       : await this.supabase
           .from('maintenance_plans')
-          .insert({ ...values, printer_id: printerId, workspace_id: await this.workspace.id() });
+          .insert({ ...values, printer_id: printerId, workspace_id: await this.workspace.requireId() });
 
     if (error) throw error;
   }
@@ -150,7 +150,7 @@ export class ImpresorasData {
 
   async logMaintenance(printerId: string, draft: LogDraft): Promise<void> {
     const { error } = await this.supabase.from('maintenance_logs').insert({
-      workspace_id: await this.workspace.id(),
+      workspace_id: await this.workspace.requireId(),
       printer_id: printerId,
       plan_id: draft.planId,
       performed_at: draft.performedAt,
@@ -165,7 +165,7 @@ export class ImpresorasData {
 
   async addComponent(printerId: string, draft: ComponentDraft): Promise<void> {
     const { error } = await this.supabase.from('printer_components').insert({
-      workspace_id: await this.workspace.id(),
+      workspace_id: await this.workspace.requireId(),
       printer_id: printerId,
       kind: draft.kind,
       description: draft.description,
@@ -198,7 +198,7 @@ export class ImpresorasData {
       ? await this.supabase.from('incidents').update(values).eq('id', incidentId)
       : await this.supabase
           .from('incidents')
-          .insert({ ...values, printer_id: printerId, workspace_id: await this.workspace.id() });
+          .insert({ ...values, printer_id: printerId, workspace_id: await this.workspace.requireId() });
 
     if (error) throw error;
   }

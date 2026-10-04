@@ -1,7 +1,7 @@
 import { inject, Injectable } from '@angular/core';
 import type { PostgrestError } from '@supabase/supabase-js';
 import { SUPABASE } from '../../core/supabase';
-import { CurrentWorkspace } from '../../core/workspace';
+import { CurrentWorkspace, type WorkspaceInfo } from '../../core/workspace';
 import type { Database } from '../../core/database.types';
 import type { CostProfile, PriceTier, PrinterProfile } from '../../core/pricing';
 import {
@@ -13,6 +13,7 @@ import {
   type PrinterOption,
   type SupplyDraft,
 } from './quote-model';
+import { toCostSource, type SupplyCostSource } from './supply-costs';
 
 /**
  * Everything the calculator and the quote screens read and write.
@@ -40,8 +41,12 @@ export interface SupplyOption {
   name: string;
   unit: string;
   available: number;
-  /** Last purchase price per unit, shipping included. Null when never bought. */
+  /**
+   * Cost per unit: the last purchase (shipping included) when there is one,
+   * the standard cost otherwise. Null only when `costSource` is 'unknown'.
+   */
   unitCost: number | null;
+  costSource: SupplyCostSource;
 }
 
 export interface VariantOption {
@@ -377,17 +382,14 @@ export class CotizadorData {
       'workspaceId' | 'workspaceName' | 'profile' | 'profileId' | 'profileValidFrom' | 'valuation'
     >
   > {
-    let workspaceId: string;
+    let workspace: WorkspaceInfo;
     try {
-      workspaceId = await this.workspace.requireId();
+      workspace = await this.workspace.info();
     } catch {
       throw new DataError('Tu usuario no pertenece a ningún taller.');
     }
 
-    // CurrentWorkspace does not carry the tax regime, and the price depends on
-    // it: no RUC means no IGV. See docs/02-dominio.md section 2.5.
-    const [workspaces, profiles] = await Promise.all([
-      this.supabase.from('workspaces').select('id, name, tax_regime').eq('id', workspaceId).single(),
+    const [profiles] = await Promise.all([
       this.supabase
         .from('cost_profiles')
         .select('*')
@@ -396,13 +398,10 @@ export class CotizadorData {
         .limit(1),
     ]);
 
-    fail(workspaces.error, 'No pudimos leer los datos del taller.');
     fail(profiles.error, 'No pudimos leer los parámetros de costo.');
 
-    const workspace = workspaces.data;
     const row = profiles.data?.[0];
 
-    if (workspace === null) throw new DataError('Tu usuario no pertenece a ningún taller.');
     if (row === undefined) {
       throw new DataError(
         'Todavía no hay parámetros de costo vigentes. Créalos en Configuración antes de cotizar.',
@@ -425,7 +424,7 @@ export class CotizadorData {
         roundingStep: num(row.rounding_step),
         igvRate: num(row.igv_rate),
         // The regime belongs to the workshop, not to the rate sheet.
-        taxRegime: workspace.tax_regime,
+        taxRegime: workspace.taxRegime,
       },
     };
   }
@@ -531,9 +530,13 @@ export class CotizadorData {
       .sort((a, b) => a.label.localeCompare(b.label, 'es'));
   }
 
-  /** Supplies and packaging, priced at what the last purchase cost. */
+  /**
+   * Supplies and packaging, priced by the `inventory_item_costs` view: the last
+   * purchase when there is one, the standard cost until then. The view owns
+   * that rule so the catalogue, orders and this screen cannot drift apart.
+   */
   private async supplies(): Promise<SupplyOption[]> {
-    const [items, balances, purchases] = await Promise.all([
+    const [items, balances, costs] = await Promise.all([
       this.supabase
         .from('inventory_items')
         .select('id, name, unit, kind')
@@ -541,37 +544,32 @@ export class CotizadorData {
         .neq('kind', 'finished_good')
         .order('name'),
       this.supabase.from('inventory_balances').select('inventory_item_id, available'),
-      // TODO: swap for the inventory_item_costs view once its migration is
-      // applied and the generated types know about it.
       this.supabase
-        .from('purchase_lines')
-        .select('inventory_item_id, quantity, unit_price, allocated_extra_cost, created_at')
-        .not('inventory_item_id', 'is', null)
-        .order('created_at', { ascending: false }),
+        .from('inventory_item_costs')
+        .select('inventory_item_id, cost_per_unit, cost_source'),
     ]);
 
     fail(items.error, 'No pudimos leer los insumos.');
     fail(balances.error, 'No pudimos leer el stock de insumos.');
-    fail(purchases.error, 'No pudimos leer las compras de insumos.');
+    fail(costs.error, 'No pudimos leer los costos de los insumos.');
 
     const available = new Map((balances.data ?? []).map((row) => [row.inventory_item_id, row]));
+    const priced = new Map((costs.data ?? []).map((row) => [row.inventory_item_id, row]));
 
-    const lastPrice = new Map<string, number>();
-    for (const line of purchases.data ?? []) {
-      const id = line.inventory_item_id;
-      const quantity = num(line.quantity);
-      if (id === null || quantity <= 0 || lastPrice.has(id)) continue;
-      // unit_price is per unit; the allocated shipping is for the whole line.
-      lastPrice.set(id, num(line.unit_price) + num(line.allocated_extra_cost) / quantity);
-    }
+    return (items.data ?? []).map((item) => {
+      const cost = priced.get(item.id);
+      const costSource = toCostSource(cost?.cost_source ?? null);
 
-    return (items.data ?? []).map((item) => ({
-      id: item.id,
-      name: item.name,
-      unit: item.unit,
-      available: num(available.get(item.id)?.available),
-      unitCost: lastPrice.get(item.id) ?? null,
-    }));
+      return {
+        id: item.id,
+        name: item.name,
+        unit: item.unit,
+        available: num(available.get(item.id)?.available),
+        // Null stays null: a missing price must not read as a free item.
+        unitCost: costSource === 'unknown' || cost?.cost_per_unit == null ? null : num(cost.cost_per_unit),
+        costSource,
+      };
+    });
   }
 
   private async variants(): Promise<VariantOption[]> {

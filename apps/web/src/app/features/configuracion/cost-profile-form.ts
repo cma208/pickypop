@@ -4,10 +4,10 @@ import { Field } from '../../ui';
 import type { CostProfileRecord, Valuation } from './configuracion.models';
 import { VALUATION_HELP, VALUATION_LABELS, VALUATIONS } from './configuracion.models';
 import { ConfiguracionData } from './configuracion.data';
-import { errorOf, textOrNull } from './shared/form-errors';
-import { friendlyError } from './shared/friendly-error';
-import { SECTION_STYLES } from './shared/styles';
-import { todayLocal } from './shared/dates';
+import { errorOf, textOrNull } from '../../core/form-errors';
+import { friendlyError } from '../../core/friendly-error';
+import { SECTION_STYLES } from '../../core/styles';
+import { todayLocal } from '../../core/dates';
 
 const PERCENT_SCALE = 100;
 const MAX_PERCENT = 99.99;

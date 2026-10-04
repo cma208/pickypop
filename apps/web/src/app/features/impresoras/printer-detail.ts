@@ -1,7 +1,7 @@
 import { Component, computed, input, output, signal } from '@angular/core';
 import { Badge, Card, FORMAT_PIPES } from '../../ui';
-import { todayLocal } from '../configuracion/shared/dates';
-import { SECTION_STYLES } from '../configuracion/shared/styles';
+import { todayLocal } from '../../core/dates';
+import { SECTION_STYLES } from '../../core/styles';
 import { ComponentsTab } from './components-tab';
 import {
   PRINTER_STATE_LABELS,

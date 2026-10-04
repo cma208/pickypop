@@ -1,14 +1,14 @@
 import { inject, Injectable } from '@angular/core';
 import { SUPABASE } from '../../core/supabase';
-import { fetchAll } from '../configuracion/shared/fetch-all';
-import { WorkspaceContext } from '../configuracion/shared/workspace-context';
+import { fetchAll } from '../../core/fetch-all';
+import { CurrentWorkspace } from '../../core/workspace';
 import type { CustomerDraft, CustomerRecord } from './clientes.models';
 
 /** Data access for customers, including how many orders each one has. */
 @Injectable({ providedIn: 'root' })
 export class ClientesData {
   private readonly supabase = inject(SUPABASE);
-  private readonly workspace = inject(WorkspaceContext);
+  private readonly workspace = inject(CurrentWorkspace);
 
   async list(): Promise<CustomerRecord[]> {
     const [customers, orders] = await Promise.all([
@@ -64,7 +64,7 @@ export class ClientesData {
       ? await this.supabase.from('customers').update(values).eq('id', customerId)
       : await this.supabase
           .from('customers')
-          .insert({ ...values, workspace_id: await this.workspace.id() });
+          .insert({ ...values, workspace_id: await this.workspace.requireId() });
 
     if (error) throw error;
   }

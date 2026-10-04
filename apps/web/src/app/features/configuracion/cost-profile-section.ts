@@ -5,9 +5,9 @@ import type { CostProfileRecord } from './configuracion.models';
 import { pickCurrent } from './cost-profile-lines';
 import { CostProfileForm } from './cost-profile-form';
 import { ProfileSummary } from './profile-summary';
-import { friendlyError } from './shared/friendly-error';
-import { todayLocal } from './shared/dates';
-import { SECTION_STYLES } from './shared/styles';
+import { friendlyError } from '../../core/friendly-error';
+import { todayLocal } from '../../core/dates';
+import { SECTION_STYLES } from '../../core/styles';
 
 /** The profile in force, how to version it, and the full history. */
 @Component({

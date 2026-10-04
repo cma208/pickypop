@@ -10,9 +10,9 @@ import {
   type MemberRecord,
   type MemberRole,
 } from './configuracion.models';
-import { errorOf, textOrNull } from './shared/form-errors';
-import { friendlyError } from './shared/friendly-error';
-import { SECTION_STYLES } from './shared/styles';
+import { errorOf, textOrNull } from '../../core/form-errors';
+import { friendlyError } from '../../core/friendly-error';
+import { SECTION_STYLES } from '../../core/styles';
 
 /** Who works in the workshop, their role and what their hour costs. */
 @Component({

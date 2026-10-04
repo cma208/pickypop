@@ -1,8 +1,8 @@
 import { Component, inject, input, output, signal } from '@angular/core';
 import { Badge, Empty, FORMAT_PIPES } from '../../ui';
-import { todayLocal } from '../configuracion/shared/dates';
-import { friendlyError } from '../configuracion/shared/friendly-error';
-import { SECTION_STYLES } from '../configuracion/shared/styles';
+import { todayLocal } from '../../core/dates';
+import { friendlyError } from '../../core/friendly-error';
+import { SECTION_STYLES } from '../../core/styles';
 import { ComponentForm } from './component-form';
 import { ImpresorasData } from './impresoras.data';
 import { COMPONENT_LABELS, type ComponentRecord } from './impresoras.models';

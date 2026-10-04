@@ -1,7 +1,7 @@
 import { Component, inject, input, output, signal } from '@angular/core';
 import { Badge, Empty } from '../../ui';
-import { friendlyError } from '../configuracion/shared/friendly-error';
-import { SECTION_STYLES } from '../configuracion/shared/styles';
+import { friendlyError } from '../../core/friendly-error';
+import { SECTION_STYLES } from '../../core/styles';
 import { ImpresorasData } from './impresoras.data';
 import type { PlanRecord } from './impresoras.models';
 import { PlanForm } from './plan-form';

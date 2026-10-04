@@ -1,6 +1,6 @@
 import { Component, input, output, signal } from '@angular/core';
 import { Badge, Empty, FORMAT_PIPES } from '../../ui';
-import { SECTION_STYLES } from '../configuracion/shared/styles';
+import { SECTION_STYLES } from '../../core/styles';
 import { IncidentForm } from './incident-form';
 import type { IncidentRecord } from './impresoras.models';
 

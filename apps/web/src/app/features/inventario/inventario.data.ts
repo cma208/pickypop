@@ -1,6 +1,7 @@
 import { inject, Injectable } from '@angular/core';
 import { sumMoney } from '@pickypop/domain';
 import { SUPABASE } from '../../core/supabase';
+import { CurrentWorkspace } from '../../core/workspace';
 import { dayEnd, dayStart, todayIso, type ItemKind, type MovementType, type SpoolStatus } from './inventario.format';
 import type { AllocationMethod, PurchasePlan } from './purchase-plan';
 
@@ -224,21 +225,11 @@ function skuLabel(brand: string | undefined, material: string | undefined, finis
 @Injectable({ providedIn: 'root' })
 export class InventarioData {
   private readonly supabase = inject(SUPABASE);
-  private workspace: Promise<string> | null = null;
+  private readonly workspace = inject(CurrentWorkspace);
 
   /** Inserts need the workshop id; RLS guarantees we only ever see our own. */
   private workspaceId(): Promise<string> {
-    this.workspace ??= (async () => {
-      const { data, error } = await this.supabase.from('workspaces').select('id').limit(1);
-      if (error) throw error;
-      const id = data[0]?.id;
-      if (!id) throw new Error('The signed-in user does not belong to any workshop');
-      return id;
-    })().catch((error: unknown) => {
-      this.workspace = null;
-      throw error;
-    });
-    return this.workspace;
+    return this.workspace.requireId();
   }
 
   // ------------------------------------------------------------ catalogues

@@ -1,6 +1,6 @@
 import { Component, computed, input, output, signal } from '@angular/core';
 import { Badge, Empty, FORMAT_PIPES } from '../../ui';
-import { SECTION_STYLES } from '../configuracion/shared/styles';
+import { SECTION_STYLES } from '../../core/styles';
 import type { LogRecord, PlanRecord, PrinterRecord } from './impresoras.models';
 import { LogForm } from './log-form';
 import { DUE_LABELS, DUE_TONES, needsAttention, type DueStatus } from './maintenance-due';

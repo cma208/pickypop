@@ -11,8 +11,8 @@ import type {
   WorkshopDraft,
   WorkshopRecord,
 } from './configuracion.models';
-import { permissionError } from './shared/friendly-error';
-import { WorkspaceContext } from './shared/workspace-context';
+import { permissionError } from '../../core/friendly-error';
+import { CurrentWorkspace } from '../../core/workspace';
 
 /**
  * Data access for the settings screen: cost profiles, workshop data, members,
@@ -25,14 +25,14 @@ import { WorkspaceContext } from './shared/workspace-context';
 @Injectable({ providedIn: 'root' })
 export class ConfiguracionData {
   private readonly supabase = inject(SUPABASE);
-  private readonly workspace = inject(WorkspaceContext);
+  private readonly workspace = inject(CurrentWorkspace);
 
   currentRole() {
     return this.workspace.info().then((info) => info.role);
   }
 
   async workshop(): Promise<WorkshopRecord> {
-    const id = await this.workspace.id();
+    const id = await this.workspace.requireId();
     const { data, error } = await this.supabase
       .from('workspaces')
       .select('id, name, currency, timezone, tax_regime, ruc, legal_name')
@@ -65,7 +65,7 @@ export class ConfiguracionData {
         ruc: draft.ruc,
         legal_name: draft.legalName,
       })
-      .eq('id', await this.workspace.id())
+      .eq('id', await this.workspace.requireId())
       .select('id');
     if (error) throw error;
     if (data.length === 0) throw permissionError();
@@ -130,7 +130,7 @@ export class ConfiguracionData {
   /** Always inserts: a profile in force is never edited, only superseded. */
   async createCostProfile(draft: CostProfileDraft): Promise<void> {
     const { error } = await this.supabase.from('cost_profiles').insert({
-      workspace_id: await this.workspace.id(),
+      workspace_id: await this.workspace.requireId(),
       valid_from: draft.validFrom,
       material_waste_rate: draft.materialWasteRate,
       failure_rate: draft.failureRate,
@@ -181,7 +181,7 @@ export class ConfiguracionData {
 
     const { error } = await this.supabase
       .from('sales_channels')
-      .insert({ ...values, workspace_id: await this.workspace.id() });
+      .insert({ ...values, workspace_id: await this.workspace.requireId() });
     if (error) throw error;
   }
 
@@ -214,7 +214,7 @@ export class ConfiguracionData {
 
     const { error } = await this.supabase
       .from('gift_categories')
-      .insert({ ...values, workspace_id: await this.workspace.id() });
+      .insert({ ...values, workspace_id: await this.workspace.requireId() });
     if (error) throw error;
   }
 }

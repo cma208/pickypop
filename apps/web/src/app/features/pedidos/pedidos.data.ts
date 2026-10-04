@@ -2,7 +2,7 @@ import { inject, Injectable } from '@angular/core';
 import { SUPABASE } from '../../core/supabase';
 import { Workshop } from '../../core/workshop';
 import type { OrderPurpose, OrderStatus } from './pedidos.labels';
-import { WorkspaceScope } from './workspace-scope';
+import { CurrentWorkspace } from '../../core/workspace';
 
 const DOCUMENT_KIND_ORDER = 'order';
 const CENTS = 100;
@@ -97,7 +97,7 @@ export function roundMoney(value: number): number {
 @Injectable({ providedIn: 'root' })
 export class PedidosData {
   private readonly supabase = inject(SUPABASE);
-  private readonly workspace = inject(WorkspaceScope);
+  private readonly workspace = inject(CurrentWorkspace);
   private readonly workshop = inject(Workshop);
 
   async listOrders(): Promise<OrderListItem[]> {
@@ -209,7 +209,7 @@ export class PedidosData {
   async createCustomer(name: string, phone: string | null): Promise<CustomerOption> {
     const { data, error } = await this.supabase
       .from('customers')
-      .insert({ workspace_id: await this.workspace.id(), name: name.trim(), phone })
+      .insert({ workspace_id: await this.workspace.requireId(), name: name.trim(), phone })
       .select('id, name')
       .single();
     if (error) throw error;
@@ -253,7 +253,7 @@ export class PedidosData {
    * the browser, so if the lines fail the empty order is removed again.
    */
   async createOrder(input: NewOrder): Promise<{ id: string; number: string }> {
-    const workspaceId = await this.workspace.id();
+    const workspaceId = await this.workspace.requireId();
     const isSale = input.purpose === 'sale';
 
     const { data: number, error: numberError } = await this.supabase.rpc('next_document_number', {

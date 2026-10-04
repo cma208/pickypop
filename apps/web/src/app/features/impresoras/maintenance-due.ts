@@ -1,4 +1,4 @@
-import { daysBetween, DEFAULT_TIMEZONE, localDate } from '../configuracion/shared/dates';
+import { daysBetween, DEFAULT_TIMEZONE, localDate } from '../../core/dates';
 import type { BadgeTone } from '../../ui';
 import type { LogRecord, PlanRecord } from './impresoras.models';
 

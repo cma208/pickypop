@@ -1,7 +1,7 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { AsyncState, Badge, Empty, Page } from '../../ui';
-import { friendlyError } from '../configuracion/shared/friendly-error';
-import { SECTION_STYLES } from '../configuracion/shared/styles';
+import { friendlyError } from '../../core/friendly-error';
+import { SECTION_STYLES } from '../../core/styles';
 import { ClientesData } from './clientes.data';
 import { DOC_TYPE_LABELS, KIND_LABELS, type CustomerRecord } from './clientes.models';
 import { CustomerForm } from './customer-form';

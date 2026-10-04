@@ -3,7 +3,7 @@ import { SUPABASE } from '../../core/supabase';
 import { Workshop, type PrinterSummary } from '../../core/workshop';
 import { CostInputs } from '../pedidos/cost-inputs';
 import { roundMoney } from '../pedidos/pedidos.data';
-import { WorkspaceScope } from '../pedidos/workspace-scope';
+import { CurrentWorkspace } from '../../core/workspace';
 import type { FailureCause, JobStatus } from './produccion.labels';
 
 const SECONDS_PER_HOUR = 3600;
@@ -164,7 +164,7 @@ export interface CloseOutcome {
 @Injectable({ providedIn: 'root' })
 export class ProduccionData {
   private readonly supabase = inject(SUPABASE);
-  private readonly workspace = inject(WorkspaceScope);
+  private readonly workspace = inject(CurrentWorkspace);
   private readonly workshop = inject(Workshop);
   private readonly costs = inject(CostInputs);
 
@@ -299,7 +299,7 @@ export class ProduccionData {
 
   /** Creates the job and the rolls it will use. Undone if the rolls fail. */
   async createJob(input: NewJob): Promise<string> {
-    const workspaceId = await this.workspace.id();
+    const workspaceId = await this.workspace.requireId();
 
     const { data: job, error } = await this.supabase
       .from('print_jobs')

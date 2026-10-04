@@ -1,7 +1,7 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { AsyncState, Badge, Empty, Page } from '../../ui';
-import { todayLocal } from '../configuracion/shared/dates';
-import { friendlyError } from '../configuracion/shared/friendly-error';
+import { todayLocal } from '../../core/dates';
+import { friendlyError } from '../../core/friendly-error';
 import { ImpresorasData } from './impresoras.data';
 import { totalHours, type PrinterWorkshop } from './impresoras.models';
 import { dueStatuses, needsAttention } from './maintenance-due';

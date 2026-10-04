@@ -33,6 +33,7 @@ import {
   type SupplyScope,
 } from './quote-model';
 import { readSlicedFile, SlicedFileError } from './sliced-file';
+import { lacksRecordedCost } from './supply-costs';
 
 /** A line already added to the quote being built. */
 interface QuoteLineDraft {
@@ -453,6 +454,11 @@ export class CotizadorPage {
         })),
       })),
     );
+  }
+
+  /** Flags a stock item counted at zero because it has no cost on record. */
+  protected lacksCost(supply: LineDraft['supplies'][number]): boolean {
+    return lacksRecordedCost(supply, this.context()?.supplies ?? []);
   }
 
   protected addSupply(): void {

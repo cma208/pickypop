@@ -3,9 +3,9 @@ import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angula
 import { AsyncState, Badge, Card, Empty, Field, FORMAT_PIPES } from '../../ui';
 import { ConfiguracionData } from './configuracion.data';
 import type { ChannelRecord } from './configuracion.models';
-import { errorOf } from './shared/form-errors';
-import { friendlyError } from './shared/friendly-error';
-import { SECTION_STYLES } from './shared/styles';
+import { errorOf } from '../../core/form-errors';
+import { friendlyError } from '../../core/friendly-error';
+import { SECTION_STYLES } from '../../core/styles';
 
 const PERCENT_SCALE = 100;
 const MAX_PERCENT = 99.99;
