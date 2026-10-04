@@ -45,9 +45,25 @@ export function duration(seconds: number | null | undefined): string {
   return minutes === 0 ? `${hours} h` : `${hours} h ${minutes} min`;
 }
 
+const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * A plain date column has no time zone. Parsing "2026-09-01" with the Date
+ * constructor reads it as UTC, which in Lima shows the day before, so those
+ * are built as a local date instead.
+ */
 export function date(value: string | Date | null | undefined): string {
   if (!value) return '—';
-  const parsed = value instanceof Date ? value : new Date(value);
+
+  let parsed: Date;
+  if (value instanceof Date) {
+    parsed = value;
+  } else if (DATE_ONLY.test(value)) {
+    const [year, month, day] = value.split('-').map(Number);
+    parsed = new Date(year!, month! - 1, day!);
+  } else {
+    parsed = new Date(value);
+  }
 
   return Number.isNaN(parsed.getTime()) ? '—' : DATE.format(parsed);
 }

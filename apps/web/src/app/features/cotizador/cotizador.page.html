@@ -1,0 +1,484 @@
+<pp-page
+  title="Cotizador"
+  [subtitle]="subtitle()"
+>
+  <div actions>
+    <a routerLink="/cotizaciones"><button type="button" class="secondary">Ver cotizaciones</button></a>
+  </div>
+
+  <pp-async [loading]="loading()" [error]="error()">
+    @if (context(); as ctx) {
+      @if (notice(); as message) {
+        <p class="banner info">{{ message }}</p>
+      }
+
+      <!-- ------------------------------------------------ how data gets in -->
+      <pp-card heading="De dónde salen los datos">
+        <div
+          class="drop"
+          [class.over]="dragging()"
+          (dragover)="onDragOver($event)"
+          (dragleave)="onDragLeave()"
+          (drop)="onDrop($event)"
+        >
+          <p><strong>Arrastra aquí tu archivo laminado</strong> (.gcode.3mf)</p>
+          <p class="muted">
+            Se lee en tu navegador: el archivo no se sube a ningún lado. En Bambu Studio lamina y
+            usa «Export plate sliced file».
+          </p>
+          <label class="pick">
+            <input type="file" accept=".3mf,.gcode.3mf" multiple (change)="onPick($event)" />
+            <span>Elegir archivo</span>
+          </label>
+          @if (reading()) {
+            <p class="muted">Leyendo el archivo…</p>
+          }
+        </div>
+
+        @for (problem of fileErrors(); track $index) {
+          <p class="banner bad">{{ problem }}</p>
+        }
+
+        <div class="grid two from-sources">
+          <pp-field label="Partir de una variante del catálogo" hint="Carga su receta de producción">
+            @if (ctx.variants.length === 0) {
+              <p class="muted">Todavía no hay variantes publicadas.</p>
+            } @else {
+              <select
+                [value]="''"
+                (change)="loadVariant(value($event))"
+                aria-label="Variante del catálogo"
+              >
+                <option value="">Elige una variante…</option>
+                @for (variant of ctx.variants; track variant.id) {
+                  <option [value]="variant.id">{{ variant.label }}</option>
+                }
+              </select>
+            }
+          </pp-field>
+
+          <div class="by-hand">
+            <p class="label">A mano</p>
+            <button type="button" class="secondary" (click)="addPlate()">Agregar una placa</button>
+            <small class="muted">Agrega placas y filamentos tú mismo</small>
+          </div>
+        </div>
+      </pp-card>
+
+      <!-- ------------------------------------------------------- the plates -->
+      <pp-card heading="Placas del lote">
+        <button card-actions type="button" class="ghost" (click)="suggestAgain()">
+          Sugerir filamentos
+        </button>
+
+        @if (plates().length === 0) {
+          <pp-empty message="Todavía no hay placas. Arrastra un archivo laminado, carga una variante o agrega una a mano." />
+        } @else {
+          @for (plate of plates(); track $index; let plateIndex = $index) {
+            <fieldset class="plate">
+              <legend>
+                Placa {{ $index + 1 }}
+                @switch (plate.source) {
+                  @case ('file') { <pp-badge tone="good">del archivo</pp-badge> }
+                  @case ('recipe') { <pp-badge tone="info">de la receta</pp-badge> }
+                  @default { <pp-badge tone="neutral">a mano</pp-badge> }
+                }
+              </legend>
+
+              @if (plate.sourceFileName) {
+                <p class="muted filename">{{ plate.sourceFileName }}</p>
+              }
+
+              <div class="grid two">
+                <pp-field label="Nombre">
+                  <input
+                    type="text"
+                    [value]="plate.label"
+                    (input)="updatePlate($index, { label: value($event) })"
+                  />
+                </pp-field>
+                <pp-field
+                  label="Tiempo estimado (minutos)"
+                  [hint]="'Equivale a ' + (plate.printTimeSeconds | duration)"
+                >
+                  <input
+                    type="number"
+                    min="0"
+                    step="1"
+                    [value]="minutesOf(plate.printTimeSeconds)"
+                    (input)="updatePlate($index, { printTimeSeconds: minutesToSeconds($event) })"
+                  />
+                </pp-field>
+                <pp-field
+                  label="Unidades por corrida"
+                  hint="Cuántos productos terminados sale de una pasada de esta placa"
+                >
+                  <input
+                    type="number"
+                    min="0.001"
+                    step="1"
+                    [value]="plate.unitsPerRun"
+                    (input)="updatePlate($index, { unitsPerRun: numberValue($event) })"
+                  />
+                </pp-field>
+              </div>
+
+              <table>
+                <thead>
+                  <tr>
+                    <th>Ranura</th>
+                    <th>Filamento del inventario</th>
+                    <th class="num">Gramos por corrida</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (filament of plate.filaments; track $index; let slotIndex = $index) {
+                    <tr>
+                      <td>
+                        <span
+                          class="dot"
+                          [style.background]="filament.colorHex || 'transparent'"
+                          [attr.title]="filament.colorHex"
+                        ></span>
+                        {{ filament.slot }}
+                        @if (filament.type) {
+                          <small class="muted">{{ filament.type }}</small>
+                        }
+                      </td>
+                      <td>
+                        <select
+                          [value]="filament.filamentSkuId ?? ''"
+                          (change)="
+                            updateFilament(plateIndex, slotIndex, {
+                              filamentSkuId: value($event) === '' ? null : value($event)
+                            })
+                          "
+                          [attr.aria-label]="'Filamento de la ranura ' + filament.slot"
+                        >
+                          <option value="">Elige el filamento…</option>
+                          @for (sku of ctx.filaments; track sku.id) {
+                            <option [value]="sku.id">{{ sku.label }}</option>
+                          }
+                        </select>
+                        @if (!filament.filamentSkuId) {
+                          <small class="error">
+                            Sin filamento no podemos costear el material
+                            @if (filament.colorHex) { (el archivo dice {{ filament.colorHex }}) }
+                          </small>
+                        }
+                      </td>
+                      <td class="num">
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          [value]="filament.grams"
+                          (input)="
+                            updateFilament(plateIndex, slotIndex, { grams: numberValue($event) })
+                          "
+                          [attr.aria-label]="'Gramos de la ranura ' + filament.slot"
+                        />
+                      </td>
+                      <td>
+                        <button
+                          type="button"
+                          class="ghost"
+                          (click)="removeFilament(plateIndex, slotIndex)"
+                        >
+                          Quitar
+                        </button>
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+
+              <div class="row">
+                <button type="button" class="ghost" (click)="addFilament($index)">
+                  Agregar filamento
+                </button>
+                <button type="button" class="ghost danger-text" (click)="removePlate($index)">
+                  Quitar la placa
+                </button>
+              </div>
+            </fieldset>
+          }
+        }
+      </pp-card>
+
+      <!-- ------------------------------------------------- batch and labour -->
+      <pp-card heading="El lote">
+        <form [formGroup]="lineForm">
+          <div class="grid two">
+            <pp-field label="Qué se cotiza" [required]="true" [error]="
+              lineForm.controls.description.touched && lineForm.controls.description.invalid
+                ? 'Escribe una descripción'
+                : null
+            ">
+              <input type="text" formControlName="description" placeholder="Botella de poción con dulces" />
+            </pp-field>
+            <pp-field label="Cantidad de unidades" [required]="true">
+              <input type="number" min="1" step="1" formControlName="quantity" />
+            </pp-field>
+            <pp-field
+              label="Preparación del lote (minutos)"
+              hint="Se paga una sola vez y se reparte entre todas las unidades"
+            >
+              <input type="number" min="0" step="1" formControlName="setupMinutes" />
+            </pp-field>
+            <pp-field
+              label="Trabajo por unidad (minutos)"
+              hint="Armado, relleno y empaque de cada pieza"
+            >
+              <input type="number" min="0" step="1" formControlName="minutesPerUnit" />
+            </pp-field>
+          </div>
+        </form>
+
+        <h3>Insumos</h3>
+        @if (supplies().length === 0) {
+          <p class="muted">Sin insumos. Agrega dulces, empaque o lo que entre en el producto.</p>
+        } @else {
+          <table>
+            <thead>
+              <tr>
+                <th>Insumo</th>
+                <th class="num">Cantidad</th>
+                <th class="num">Costo unitario</th>
+                <th>Se cobra</th>
+                <th class="num">Costo</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (supply of supplies(); track $index) {
+                <tr>
+                  <td>
+                    <select
+                      [value]="supply.inventoryItemId ?? ''"
+                      (change)="pickSupplyItem($index, value($event))"
+                      aria-label="Insumo del inventario"
+                    >
+                      <option value="">Otro (a mano)</option>
+                      @for (item of ctx.supplies; track item.id) {
+                        <option [value]="item.id">{{ item.name }} ({{ item.unit }})</option>
+                      }
+                    </select>
+                    @if (!supply.inventoryItemId) {
+                      <input
+                        type="text"
+                        [value]="supply.label"
+                        placeholder="Nombre del insumo"
+                        (input)="updateSupply($index, { label: value($event) })"
+                        aria-label="Nombre del insumo"
+                      />
+                    }
+                  </td>
+                  <td class="num">
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.001"
+                      [value]="supply.quantity"
+                      (input)="updateSupply($index, { quantity: numberValue($event) })"
+                      aria-label="Cantidad"
+                    />
+                  </td>
+                  <td class="num">
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      [value]="supply.unitCost"
+                      (input)="updateSupply($index, { unitCost: numberValue($event) })"
+                      aria-label="Costo unitario"
+                    />
+                  </td>
+                  <td>
+                    <select
+                      [value]="supply.scope"
+                      (change)="updateSupply($index, { scope: value($event) === 'batch' ? 'batch' : 'unit' })"
+                      aria-label="Se cobra por"
+                    >
+                      <option value="unit">por unidad</option>
+                      <option value="batch">una vez por lote</option>
+                    </select>
+                  </td>
+                  <td class="num">{{ supply.quantity * supply.unitCost | money }}</td>
+                  <td><button type="button" class="ghost" (click)="removeSupply($index)">Quitar</button></td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        }
+        <button type="button" class="secondary" (click)="addSupply()">Agregar insumo</button>
+      </pp-card>
+
+      <!-- ---------------------------------------------------- the breakdown -->
+      <pp-card heading="Costo y precio">
+        <div card-actions class="row">
+          <button type="button" class="secondary" (click)="clearLine()">Limpiar</button>
+          <button type="button" [disabled]="!canAddLine()" (click)="addLine()">
+            Agregar a la cotización
+          </button>
+        </div>
+
+        <form [formGroup]="priceForm" class="grid two">
+          <pp-field label="Impresora">
+            <select formControlName="printerId">
+              @for (item of ctx.printers; track item.id) {
+                <option [value]="item.id">{{ item.name }}</option>
+              }
+            </select>
+          </pp-field>
+          <pp-field label="Canal de venta" hint="Su comisión se suma al precio sin comerse el margen">
+            <select formControlName="channelId">
+              <option value="">Venta directa</option>
+              @for (channel of ctx.channels; track channel.id) {
+                <option [value]="channel.id">
+                  {{ channel.name }} ({{ channel.commissionRate | percent1 }})
+                </option>
+              }
+            </select>
+          </pp-field>
+          <pp-field label="Descuento por volumen (%)">
+            <input type="number" min="0" max="90" step="1" formControlName="volumeDiscountPercent" />
+          </pp-field>
+          <pp-field label="Recargo por urgencia (%)">
+            <input type="number" min="0" max="200" step="1" formControlName="urgencySurchargePercent" />
+          </pp-field>
+        </form>
+
+        <p class="muted params">
+          Parámetros vigentes desde {{ ctx.profileValidFrom | fecha }}: merma
+          {{ ctx.profile.materialWasteRate | percent1 }}, fallos
+          {{ ctx.profile.failureRate | percent1 }}, mano de obra
+          {{ ctx.profile.laborRatePerHour | money }} la hora, margen
+          {{ ctx.profile.targetMargin | percent1 }}. El filamento se valoriza al
+          {{ valuationLabel() }}.
+        </p>
+
+        @if (result(); as calculated) {
+          @if (calculated.missingSkus > 0) {
+            <p class="banner bad">
+              Faltan {{ calculated.missingSkus }} filamentos por asociar a un SKU del inventario. El
+              material está contado de menos y la cotización no se puede guardar así.
+            </p>
+          }
+          @for (short of shortStock(); track short.sku.id) {
+            <p class="banner warn">
+              {{ short.sku.label }}: el lote necesita {{ short.grams | grams }} y en el taller hay
+              {{ short.sku.availableG | grams }}.
+            </p>
+          }
+          @for (sku of pricelessSkus(); track sku.id) {
+            <p class="banner warn">
+              {{ sku.label }} no tiene precio: sin stock ni costo de reposición no podemos
+              costearlo.
+            </p>
+          }
+
+          <pp-desglose
+            [cost]="calculated.cost"
+            [price]="calculated.price"
+            [materials]="materials()"
+            [profile]="ctx.profile"
+          />
+        } @else {
+          <pp-empty message="Agrega al menos una placa con sus gramos para ver el costo." />
+        }
+      </pp-card>
+
+      <!-- -------------------------------------------------------- the quote -->
+      <pp-card heading="La cotización">
+        @if (lines().length === 0) {
+          <pp-empty message="Todavía no agregaste ninguna línea a la cotización." />
+        } @else {
+          <table>
+            <thead>
+              <tr>
+                <th>Línea</th>
+                <th class="num">Cantidad</th>
+                <th class="num">Costo unitario</th>
+                <th class="num">Precio unitario</th>
+                <th class="num">Total</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (line of lines(); track line.key) {
+                <tr>
+                  <td>{{ line.draft.description }}</td>
+                  <td class="num">{{ line.cost.units }}</td>
+                  <td class="num">{{ line.cost.costPerUnit | money }}</td>
+                  <td class="num">{{ line.price.total | money }}</td>
+                  <td class="num">{{ line.price.total * line.cost.units | money }}</td>
+                  <td class="row">
+                    <button type="button" class="ghost" (click)="editLine(line.key)">Editar</button>
+                    <button type="button" class="ghost danger-text" (click)="removeLine(line.key)">
+                      Quitar
+                    </button>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+
+          @if (totals(); as sums) {
+            <dl class="totals">
+              <div><dt>Valor de venta</dt><dd class="num">{{ sums.subtotal | money }}</dd></div>
+              @if (sums.igv > 0) {
+                <div><dt>IGV</dt><dd class="num">{{ sums.igv | money }}</dd></div>
+              }
+              @if (sums.discount > 0) {
+                <div><dt>Descuento aplicado</dt><dd class="num">{{ sums.discount | money }}</dd></div>
+              }
+              <div class="big"><dt>Total</dt><dd class="num">{{ sums.total | money }}</dd></div>
+              <div>
+                <dt>Costo del trabajo</dt>
+                <dd class="num">
+                  {{ sums.cost | money }}
+                  <small class="muted">de los cuales {{ sums.cash | money }} salen del bolsillo</small>
+                </dd>
+              </div>
+            </dl>
+          }
+
+          <form [formGroup]="quoteForm" class="grid two">
+            <pp-field label="Cliente">
+              <select formControlName="customerId">
+                <option value="">Sin cliente todavía</option>
+                @for (customer of ctx.customers; track customer.id) {
+                  <option [value]="customer.id">{{ customer.name }}</option>
+                }
+              </select>
+            </pp-field>
+            @if (ctx.requests.length > 0) {
+              <pp-field label="Responde a un pedido de cotización">
+                <select formControlName="requestId">
+                  <option value="">Ninguno</option>
+                  @for (request of ctx.requests; track request.id) {
+                    <option [value]="request.id">{{ request.description }}</option>
+                  }
+                </select>
+              </pp-field>
+            }
+            <pp-field label="Vigencia (días)" hint="0 para que no venza">
+              <input type="number" min="0" max="365" step="1" formControlName="validityDays" />
+            </pp-field>
+            <pp-field label="Nota para el cliente">
+              <textarea rows="2" formControlName="note"></textarea>
+            </pp-field>
+          </form>
+
+          <button type="button" [disabled]="saving()" (click)="save()">
+            @if (saving()) { Guardando… } @else if (previousVersion(); as previous) {
+              Guardar como versión {{ previous.version + 1 }} de {{ previous.number }}
+            } @else { Guardar como cotización }
+          </button>
+        }
+      </pp-card>
+    }
+  </pp-async>
+</pp-page>

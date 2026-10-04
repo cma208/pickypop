@@ -1,0 +1,162 @@
+<pp-page [title]="quote() ? quote()!.number : 'Cotización'" [subtitle]="statusLabel()">
+  <div actions>
+    <a routerLink="/cotizaciones"><button type="button" class="secondary">Volver</button></a>
+  </div>
+
+  <pp-async [loading]="loading()" [error]="error()">
+    @if (quote(); as q) {
+      @if (overdue()) {
+        <p class="banner warn">
+          Esta cotización venció el {{ q.validUntil | fecha }}. Si el cliente sigue interesado,
+          crea una versión nueva con los precios de hoy.
+        </p>
+      }
+      @if (q.hasNewerVersion) {
+        <p class="banner info">
+          Hay una versión más nueva de {{ q.number }}. Esta quedó como historial.
+        </p>
+      }
+      @if (q.snapshot === null) {
+        <p class="banner bad">
+          Esta cotización no guardó los parámetros con los que se calculó, así que solo podemos
+          mostrar los totales.
+        </p>
+      }
+
+      <pp-card heading="Datos">
+        <div card-actions class="row">
+          @if (canSend()) {
+            <button type="button" [disabled]="busy()" (click)="apply('sent')">
+              Marcar como enviada
+            </button>
+          }
+          @if (canClose()) {
+            <button type="button" [disabled]="busy()" (click)="ask('accepted')">Aceptada</button>
+            <button type="button" class="secondary" [disabled]="busy()" (click)="ask('rejected')">
+              Rechazada
+            </button>
+          }
+          <a [routerLink]="['/cotizador']" [queryParams]="{ nuevaVersionDe: q.id }">
+            <button type="button" class="secondary">Crear versión nueva</button>
+          </a>
+        </div>
+
+        @if (confirming(); as pending) {
+          <p class="banner warn row">
+            <span>{{ confirmLabel() }}</span>
+            <button type="button" [disabled]="busy()" (click)="apply(pending)">Sí, confirmar</button>
+            <button type="button" class="ghost" (click)="cancelAsk()">No</button>
+          </p>
+        }
+
+        <dl class="facts">
+          <dt>Estado</dt>
+          <dd><pp-badge [tone]="tone()">{{ statusLabel() }}</pp-badge></dd>
+          <dt>Versión</dt>
+          <dd>{{ q.version }}</dd>
+          <dt>Cliente</dt>
+          <dd>{{ q.customerName ?? 'Sin cliente' }}</dd>
+          <dt>Canal</dt>
+          <dd>{{ q.channelName ?? 'Venta directa' }}</dd>
+          <dt>Emitida</dt>
+          <dd>{{ q.issuedOn | fecha }}</dd>
+          <dt>Válida hasta</dt>
+          <dd>{{ q.validUntil ? (q.validUntil | fecha) : 'sin fecha' }}</dd>
+          @if (q.note) {
+            <dt>Nota</dt>
+            <dd>{{ q.note }}</dd>
+          }
+        </dl>
+
+        <dl class="totals">
+          <div><dt>Valor de venta</dt><dd class="num">{{ q.subtotal | money }}</dd></div>
+          @if (q.igv > 0) {
+            <div><dt>IGV</dt><dd class="num">{{ q.igv | money }}</dd></div>
+          }
+          @if (q.discount > 0) {
+            <div><dt>Descuento aplicado</dt><dd class="num">{{ q.discount | money }}</dd></div>
+          }
+          <div class="big"><dt>Total</dt><dd class="num">{{ q.total | money }}</dd></div>
+        </dl>
+      </pp-card>
+
+      @if (q.snapshot; as snapshot) {
+        <pp-card heading="Parámetros congelados">
+          <p class="muted">
+            Calculada el {{ snapshot.calculatedAt | fecha }} con los parámetros vigentes desde
+            {{ snapshot.profileValidFrom | fecha }} y la {{ snapshot.printer.name }}. Merma
+            {{ snapshot.profile.materialWasteRate | percent1 }}, fallos
+            {{ snapshot.profile.failureRate | percent1 }}, mano de obra
+            {{ snapshot.profile.laborRatePerHour | money }} la hora, margen
+            {{ snapshot.profile.targetMargin | percent1 }}, redondeo a
+            {{ snapshot.profile.roundingStep | money }}. El filamento se valorizó al
+            {{ valuationLabel() }}.
+          </p>
+        </pp-card>
+      }
+
+      <pp-card heading="Desglose">
+        @if (lines().length === 0) {
+          <pp-empty message="Esta cotización no tiene líneas." />
+        } @else {
+          @for (line of lines(); track line.stored.id) {
+            <section class="line">
+              <h3>{{ line.stored.description }}</h3>
+              <p class="muted meta">
+                {{ line.stored.quantity }}
+                {{ line.stored.quantity === 1 ? 'unidad' : 'unidades' }} ·
+                costo unitario {{ line.stored.unitCost | money }} ·
+                precio unitario {{ line.stored.unitPrice | money }} ·
+                total {{ line.stored.lineTotal | money }}
+              </p>
+
+              @if (line.drifted) {
+                <p class="banner warn">
+                  El desglose recalculado no cuadra con el precio guardado. Vale el precio
+                  guardado: {{ line.stored.unitPrice | money }} por unidad.
+                </p>
+              }
+
+              @if (line.result; as calculated) {
+                <pp-desglose
+                  [cost]="calculated.cost"
+                  [price]="calculated.price"
+                  [materials]="line.materials"
+                  [profile]="q.snapshot!.profile"
+                />
+              } @else {
+                <p class="muted">
+                  No pudimos reconstruir el desglose de esta línea. Quedan los totales guardados.
+                </p>
+              }
+
+              @if (line.stored.supplies.length > 0) {
+                <table>
+                  <caption>Insumos</caption>
+                  <thead>
+                    <tr>
+                      <th>Insumo</th>
+                      <th class="num">Cantidad</th>
+                      <th>Se cobra</th>
+                      <th class="num">Costo</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (supply of line.stored.supplies; track $index) {
+                      <tr>
+                        <td>{{ supply.label }}</td>
+                        <td class="num">{{ supply.quantity }}</td>
+                        <td>{{ supply.scope === 'batch' ? 'una vez por lote' : 'por unidad' }}</td>
+                        <td class="num">{{ supply.quantity * supply.unitCost | money }}</td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              }
+            </section>
+          }
+        }
+      </pp-card>
+    }
+  </pp-async>
+</pp-page>

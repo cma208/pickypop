@@ -1,4 +1,4 @@
-import { Component, input } from '@angular/core';
+import { booleanAttribute, Component, input } from '@angular/core';
 
 /** Label + control + hint, so forms look the same everywhere. */
 @Component({
@@ -26,5 +26,6 @@ export class Field {
   readonly label = input.required<string>();
   readonly hint = input<string>();
   readonly error = input<string | null>(null);
-  readonly required = input(false);
+  /** Accepts the bare attribute too: <pp-field required>. */
+  readonly required = input(false, { transform: booleanAttribute });
 }
