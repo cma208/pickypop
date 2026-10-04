@@ -1,4 +1,3 @@
-
 export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[]
 
 export type Database = {
@@ -208,13 +207,13 @@ isOneToOne: false
                   ]
                 },"inventory_items": {
                   Row: {
-                    "active": boolean,"created_at": string,"id": string,"kind": Database["public"]['Enums']["inventory_item_kind"],"min_stock": number,"name": string,"note": string | null,"perishable": boolean,"unit": string,"updated_at": string,"workspace_id": string
+                    "active": boolean,"created_at": string,"id": string,"kind": Database["public"]['Enums']["inventory_item_kind"],"min_stock": number,"name": string,"note": string | null,"perishable": boolean,"standard_cost": number | null,"unit": string,"updated_at": string,"workspace_id": string
                   }
                   Insert: {
-                    "active"?: boolean,"created_at"?: string,"id"?: string,"kind": Database["public"]['Enums']["inventory_item_kind"],"min_stock"?: number,"name": string,"note"?: string | null,"perishable"?: boolean,"unit"?: string,"updated_at"?: string,"workspace_id": string
+                    "active"?: boolean,"created_at"?: string,"id"?: string,"kind": Database["public"]['Enums']["inventory_item_kind"],"min_stock"?: number,"name": string,"note"?: string | null,"perishable"?: boolean,"standard_cost"?: number | null,"unit"?: string,"updated_at"?: string,"workspace_id": string
                   }
                   Update: {
-                    "active"?: boolean,"created_at"?: string,"id"?: string,"kind"?: Database["public"]['Enums']["inventory_item_kind"],"min_stock"?: number,"name"?: string,"note"?: string | null,"perishable"?: boolean,"unit"?: string,"updated_at"?: string,"workspace_id"?: string
+                    "active"?: boolean,"created_at"?: string,"id"?: string,"kind"?: Database["public"]['Enums']["inventory_item_kind"],"min_stock"?: number,"name"?: string,"note"?: string | null,"perishable"?: boolean,"standard_cost"?: number | null,"unit"?: string,"updated_at"?: string,"workspace_id"?: string
                   }
                   Relationships: [
                     {
@@ -227,13 +226,13 @@ isOneToOne: false
                   ]
                 },"maintenance_logs": {
                   Row: {
-                    "cost": number,"created_at": string,"duration_min": number | null,"id": string,"note": string | null,"performed_at": string,"performed_by": string | null,"plan_id": string | null,"printer_hours_at": number,"printer_id": string,"updated_at": string,"workspace_id": string
+                    "checklist_done": NonNullable<Json>,"cost": number,"created_at": string,"duration_min": number | null,"id": string,"note": string | null,"performed_at": string,"performed_by": string | null,"plan_id": string | null,"printer_hours_at": number,"printer_id": string,"updated_at": string,"workspace_id": string
                   }
                   Insert: {
-                    "cost"?: number,"created_at"?: string,"duration_min"?: number | null,"id"?: string,"note"?: string | null,"performed_at"?: string,"performed_by"?: string | null,"plan_id"?: string | null,"printer_hours_at"?: number,"printer_id": string,"updated_at"?: string,"workspace_id": string
+                    "checklist_done"?: NonNullable<Json>,"cost"?: number,"created_at"?: string,"duration_min"?: number | null,"id"?: string,"note"?: string | null,"performed_at"?: string,"performed_by"?: string | null,"plan_id"?: string | null,"printer_hours_at"?: number,"printer_id": string,"updated_at"?: string,"workspace_id": string
                   }
                   Update: {
-                    "cost"?: number,"created_at"?: string,"duration_min"?: number | null,"id"?: string,"note"?: string | null,"performed_at"?: string,"performed_by"?: string | null,"plan_id"?: string | null,"printer_hours_at"?: number,"printer_id"?: string,"updated_at"?: string,"workspace_id"?: string
+                    "checklist_done"?: NonNullable<Json>,"cost"?: number,"created_at"?: string,"duration_min"?: number | null,"id"?: string,"note"?: string | null,"performed_at"?: string,"performed_by"?: string | null,"plan_id"?: string | null,"printer_hours_at"?: number,"printer_id"?: string,"updated_at"?: string,"workspace_id"?: string
                   }
                   Relationships: [
                     {
@@ -672,6 +671,12 @@ isOneToOne: false
       foreignKeyName: "purchase_lines_inventory_item_id_fkey"
       columns: ["inventory_item_id"]
 isOneToOne: false
+      referencedRelation: "inventory_item_costs"
+      referencedColumns: ["inventory_item_id"]
+    },{
+      foreignKeyName: "purchase_lines_inventory_item_id_fkey"
+      columns: ["inventory_item_id"]
+isOneToOne: false
       referencedRelation: "inventory_items"
       referencedColumns: ["id"]
     },{
@@ -840,6 +845,12 @@ isOneToOne: false
       columns: ["inventory_item_id"]
 isOneToOne: false
       referencedRelation: "inventory_balances"
+      referencedColumns: ["inventory_item_id"]
+    },{
+      foreignKeyName: "recipe_items_inventory_item_id_fkey"
+      columns: ["inventory_item_id"]
+isOneToOne: false
+      referencedRelation: "inventory_item_costs"
       referencedColumns: ["inventory_item_id"]
     },{
       foreignKeyName: "recipe_items_inventory_item_id_fkey"
@@ -1049,6 +1060,12 @@ isOneToOne: false
       foreignKeyName: "stock_movements_inventory_item_id_fkey"
       columns: ["inventory_item_id"]
 isOneToOne: false
+      referencedRelation: "inventory_item_costs"
+      referencedColumns: ["inventory_item_id"]
+    },{
+      foreignKeyName: "stock_movements_inventory_item_id_fkey"
+      columns: ["inventory_item_id"]
+isOneToOne: false
       referencedRelation: "inventory_items"
       referencedColumns: ["id"]
     },{
@@ -1166,6 +1183,19 @@ isOneToOne: false
                 },"inventory_balances": {
                   Row: {
                     "available": number | null,"inventory_item_id": string | null,"kind": Database["public"]['Enums']["inventory_item_kind"] | null,"min_stock": number | null,"name": string | null,"on_hand": number | null,"reserved": number | null,"unit": string | null,"workspace_id": string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "inventory_items_workspace_id_fkey"
+      columns: ["workspace_id"]
+isOneToOne: false
+      referencedRelation: "workspaces"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"inventory_item_costs": {
+                  Row: {
+                    "cost_per_unit": number | null,"cost_source": string | null,"inventory_item_id": string | null,"last_purchase_cost": number | null,"name": string | null,"standard_cost": number | null,"unit": string | null,"workspace_id": string | null
                   }
                   Relationships: [
                     {
