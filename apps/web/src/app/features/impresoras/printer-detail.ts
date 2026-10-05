@@ -1,8 +1,11 @@
-import { Component, computed, input, output, signal } from '@angular/core';
+import { Component, computed, inject, input, output, signal } from '@angular/core';
 import { Badge, Card, FORMAT_PIPES } from '../../ui';
 import { todayLocal } from '../../core/dates';
+import { friendlyError } from '../../core/friendly-error';
 import { SECTION_STYLES } from '../../core/styles';
+import { CurrentWorkspace } from '../../core/workspace';
 import { ComponentsTab } from './components-tab';
+import { ImpresorasData } from './impresoras.data';
 import {
   PRINTER_STATE_LABELS,
   totalHours,
@@ -37,9 +40,32 @@ const HOURS = new Intl.NumberFormat('es-PE', { maximumFractionDigits: 1 });
   ],
   template: `
     <pp-card [heading]="printer().name">
-      <pp-badge card-actions [tone]="printer().status === 'active' ? 'good' : 'neutral'">
-        {{ stateLabels[printer().status] }}
-      </pp-badge>
+      <div card-actions class="actions">
+        <pp-badge [tone]="printer().status === 'active' ? 'good' : 'neutral'">
+          {{ stateLabels[printer().status] }}
+        </pp-badge>
+        <button type="button" class="secondary" [disabled]="busy()" (click)="edit.emit()">Editar</button>
+        @if (printer().status === 'retired') {
+          <button type="button" class="secondary" [disabled]="busy()" (click)="reactivate()">Reactivar</button>
+        } @else {
+          <button type="button" class="ghost" [disabled]="busy()" (click)="retire()">Dar de baja</button>
+        }
+        @if (canDelete()) {
+          <button type="button" class="ghost" [disabled]="busy()" (click)="remove()">Borrar</button>
+        }
+      </div>
+
+      @if (error(); as message) {
+        <p class="error" role="alert">{{ message }}</p>
+      }
+      @if (rateGaps().length > 0) {
+        <div class="notice warn" role="status">
+          @for (gap of rateGaps(); track gap) {
+            <p>{{ gap }}</p>
+          }
+          <button type="button" class="secondary" (click)="edit.emit()">Completar datos</button>
+        </div>
+      }
 
       @if (printer().model) {
         <p class="muted">{{ printer().model }}</p>
@@ -115,9 +141,40 @@ export class PrinterDetail {
   readonly printer = input.required<PrinterRecord>();
   readonly workshop = input.required<PrinterWorkshop>();
   readonly changed = output<void>();
+  readonly edit = output<void>();
+  /** Emitted after the printer is gone, so the page stops pointing at it. */
+  readonly removed = output<void>();
+
+  private readonly data = inject(ImpresorasData);
+  private readonly workspace = inject(CurrentWorkspace);
+
+  protected readonly busy = signal(false);
+  protected readonly error = signal<string | null>(null);
 
   protected readonly stateLabels = PRINTER_STATE_LABELS;
   protected readonly active = signal<TabId>('maintenance');
+
+  /** The database lets only owners delete, and refuses a printer that has printed. */
+  protected readonly canDelete = computed(
+    () => this.workspace.role() === 'owner' && this.printer().jobCount === 0,
+  );
+
+  /** What makes this printer's hourly rate incomplete, said out loud rather than left as a low number. */
+  protected readonly rateGaps = computed(() => {
+    const printer = this.printer();
+    if (printer.status === 'retired') return [];
+
+    const gaps: string[] = [];
+    if (!printer.assetId) {
+      gaps.push('Esta impresora no tiene activo asociado: la hora de máquina no incluye depreciación y las cotizaciones salen más baratas de lo que son.');
+    } else if (printer.depreciationPerHour <= 0) {
+      gaps.push('El costo o la vida útil del activo están en 0: la hora de máquina no incluye depreciación.');
+    }
+    if (printer.maintenancePerHour <= 0) {
+      gaps.push('Faltan el presupuesto de mantenimiento o las horas esperadas al año: la hora de máquina no incluye mantenimiento.');
+    }
+    return gaps;
+  });
 
   protected readonly total = computed(() => totalHours(this.printer()));
   protected readonly allPlans = computed(() =>
@@ -153,5 +210,42 @@ export class PrinterDetail {
 
   protected hours(value: number): string {
     return HOURS.format(value);
+  }
+
+  protected retire(): Promise<void> {
+    const name = this.printer().name;
+    const message = `¿Dar de baja «${name}»? Dejará de ofrecerse en el cotizador y su historial se conserva. Podrás reactivarla.`;
+    return this.run(message, () => this.data.setPrinterStatus(this.printer().id, 'retired'), 'No pudimos dar de baja la impresora.');
+  }
+
+  protected reactivate(): Promise<void> {
+    return this.run(null, () => this.data.setPrinterStatus(this.printer().id, 'active'), 'No pudimos reactivar la impresora.');
+  }
+
+  protected async remove(): Promise<void> {
+    const name = this.printer().name;
+    const message = `¿Borrar «${name}» para siempre? Se borran también sus planes, componentes e incidentes. Esto no se puede deshacer; si solo dejó de usarse, mejor dala de baja.`;
+    await this.run(message, () => this.data.deletePrinter(this.printer()), 'No pudimos borrar la impresora.', true);
+  }
+
+  private async run(
+    confirmation: string | null,
+    action: () => Promise<void>,
+    fallback: string,
+    removes = false,
+  ): Promise<void> {
+    if (confirmation && !confirm(confirmation)) return;
+
+    this.busy.set(true);
+    this.error.set(null);
+    try {
+      await action();
+      if (removes) this.removed.emit();
+      this.changed.emit();
+    } catch (error) {
+      this.error.set(friendlyError(error, fallback));
+    } finally {
+      this.busy.set(false);
+    }
   }
 }

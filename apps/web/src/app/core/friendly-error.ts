@@ -22,6 +22,10 @@ const CONSTRAINT_MESSAGES: Record<string, string> = {
   maintenance_plans_needs_a_trigger:
     'Indica cada cuántas horas o cada cuántos días toca la tarea (o ambas).',
   printer_components_printer_idx: 'Ese componente ya está registrado.',
+  printers_workspace_id_name_key: 'Ya hay una impresora con ese nombre. Usa otro para distinguirlas.',
+  brands_workspace_id_name_key: 'Ya existe una marca con ese nombre.',
+  materials_workspace_id_code_key: 'Ya existe un material con ese código.',
+  filament_finishes_workspace_id_name_key: 'Ya existe un acabado con ese nombre.',
 };
 
 interface PostgrestLike {

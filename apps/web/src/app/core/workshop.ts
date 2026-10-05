@@ -109,7 +109,9 @@ export class Workshop {
 
   async printers(): Promise<PrinterSummary[]> {
     const [printers, rates] = await Promise.all([
-      this.supabase.from('printers').select('id, name, model, initial_hours'),
+      // A retired printer must not be offered when logging a print: the
+      // quoting screen already excludes them and the two should agree.
+      this.supabase.from('printers').select('id, name, model, initial_hours').neq('status', 'retired'),
       this.supabase
         .from('printer_machine_rates')
         .select('printer_id, depreciation_per_hour, maintenance_per_hour, machine_rate_per_hour'),

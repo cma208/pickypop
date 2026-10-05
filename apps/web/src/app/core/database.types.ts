@@ -44,13 +44,13 @@ isOneToOne: false
                   ]
                 },"brands": {
                   Row: {
-                    "created_at": string,"id": string,"name": string,"updated_at": string,"workspace_id": string
+                    "active": boolean,"created_at": string,"id": string,"name": string,"updated_at": string,"workspace_id": string
                   }
                   Insert: {
-                    "created_at"?: string,"id"?: string,"name": string,"updated_at"?: string,"workspace_id": string
+                    "active"?: boolean,"created_at"?: string,"id"?: string,"name": string,"updated_at"?: string,"workspace_id": string
                   }
                   Update: {
-                    "created_at"?: string,"id"?: string,"name"?: string,"updated_at"?: string,"workspace_id"?: string
+                    "active"?: boolean,"created_at"?: string,"id"?: string,"name"?: string,"updated_at"?: string,"workspace_id"?: string
                   }
                   Relationships: [
                     {
@@ -137,15 +137,34 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
-                },"filament_skus": {
+                },"filament_finishes": {
                   Row: {
-                    "active": boolean,"brand_id": string,"color_hex": string | null,"color_name": string,"created_at": string,"diameter_mm": number,"finish": string | null,"id": string,"is_refill": boolean,"material_id": string,"min_stock_g": number,"net_weight_g": number,"replacement_cost_per_kg": number | null,"spool_tare_g": number | null,"tray_info_idx": string | null,"updated_at": string,"workspace_id": string
+                    "abrasive": boolean,"active": boolean,"created_at": string,"id": string,"name": string,"note": string | null,"updated_at": string,"workspace_id": string
                   }
                   Insert: {
-                    "active"?: boolean,"brand_id": string,"color_hex"?: string | null,"color_name": string,"created_at"?: string,"diameter_mm"?: number,"finish"?: string | null,"id"?: string,"is_refill"?: boolean,"material_id": string,"min_stock_g"?: number,"net_weight_g"?: number,"replacement_cost_per_kg"?: number | null,"spool_tare_g"?: number | null,"tray_info_idx"?: string | null,"updated_at"?: string,"workspace_id": string
+                    "abrasive"?: boolean,"active"?: boolean,"created_at"?: string,"id"?: string,"name": string,"note"?: string | null,"updated_at"?: string,"workspace_id": string
                   }
                   Update: {
-                    "active"?: boolean,"brand_id"?: string,"color_hex"?: string | null,"color_name"?: string,"created_at"?: string,"diameter_mm"?: number,"finish"?: string | null,"id"?: string,"is_refill"?: boolean,"material_id"?: string,"min_stock_g"?: number,"net_weight_g"?: number,"replacement_cost_per_kg"?: number | null,"spool_tare_g"?: number | null,"tray_info_idx"?: string | null,"updated_at"?: string,"workspace_id"?: string
+                    "abrasive"?: boolean,"active"?: boolean,"created_at"?: string,"id"?: string,"name"?: string,"note"?: string | null,"updated_at"?: string,"workspace_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "filament_finishes_workspace_id_fkey"
+      columns: ["workspace_id"]
+isOneToOne: false
+      referencedRelation: "workspaces"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"filament_skus": {
+                  Row: {
+                    "active": boolean,"brand_id": string,"color_hex": string | null,"color_name": string,"created_at": string,"diameter_mm": number,"finish": string | null,"finish_id": string | null,"id": string,"is_refill": boolean,"material_id": string,"min_stock_g": number,"net_weight_g": number,"replacement_cost_per_kg": number | null,"spool_tare_g": number | null,"tray_info_idx": string | null,"updated_at": string,"workspace_id": string
+                  }
+                  Insert: {
+                    "active"?: boolean,"brand_id": string,"color_hex"?: string | null,"color_name": string,"created_at"?: string,"diameter_mm"?: number,"finish"?: string | null,"finish_id"?: string | null,"id"?: string,"is_refill"?: boolean,"material_id": string,"min_stock_g"?: number,"net_weight_g"?: number,"replacement_cost_per_kg"?: number | null,"spool_tare_g"?: number | null,"tray_info_idx"?: string | null,"updated_at"?: string,"workspace_id": string
+                  }
+                  Update: {
+                    "active"?: boolean,"brand_id"?: string,"color_hex"?: string | null,"color_name"?: string,"created_at"?: string,"diameter_mm"?: number,"finish"?: string | null,"finish_id"?: string | null,"id"?: string,"is_refill"?: boolean,"material_id"?: string,"min_stock_g"?: number,"net_weight_g"?: number,"replacement_cost_per_kg"?: number | null,"spool_tare_g"?: number | null,"tray_info_idx"?: string | null,"updated_at"?: string,"workspace_id"?: string
                   }
                   Relationships: [
                     {
@@ -153,6 +172,12 @@ isOneToOne: false
       columns: ["brand_id"]
 isOneToOne: false
       referencedRelation: "brands"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "filament_skus_finish_id_fkey"
+      columns: ["finish_id"]
+isOneToOne: false
+      referencedRelation: "filament_finishes"
       referencedColumns: ["id"]
     },{
       foreignKeyName: "filament_skus_material_id_fkey"
@@ -313,13 +338,13 @@ isOneToOne: false
                   ]
                 },"materials": {
                   Row: {
-                    "abrasive": boolean,"code": string,"created_at": string,"density_g_cm3": number | null,"hygroscopic": boolean,"id": string,"note": string | null,"updated_at": string,"workspace_id": string
+                    "abrasive": boolean,"active": boolean,"code": string,"created_at": string,"density_g_cm3": number | null,"hygroscopic": boolean,"id": string,"note": string | null,"updated_at": string,"workspace_id": string
                   }
                   Insert: {
-                    "abrasive"?: boolean,"code": string,"created_at"?: string,"density_g_cm3"?: number | null,"hygroscopic"?: boolean,"id"?: string,"note"?: string | null,"updated_at"?: string,"workspace_id": string
+                    "abrasive"?: boolean,"active"?: boolean,"code": string,"created_at"?: string,"density_g_cm3"?: number | null,"hygroscopic"?: boolean,"id"?: string,"note"?: string | null,"updated_at"?: string,"workspace_id": string
                   }
                   Update: {
-                    "abrasive"?: boolean,"code"?: string,"created_at"?: string,"density_g_cm3"?: number | null,"hygroscopic"?: boolean,"id"?: string,"note"?: string | null,"updated_at"?: string,"workspace_id"?: string
+                    "abrasive"?: boolean,"active"?: boolean,"code"?: string,"created_at"?: string,"density_g_cm3"?: number | null,"hygroscopic"?: boolean,"id"?: string,"note"?: string | null,"updated_at"?: string,"workspace_id"?: string
                   }
                   Relationships: [
                     {
@@ -678,6 +703,12 @@ isOneToOne: false
       foreignKeyName: "purchase_lines_filament_sku_id_fkey"
       columns: ["filament_sku_id"]
 isOneToOne: false
+      referencedRelation: "filament_sku_details"
+      referencedColumns: ["filament_sku_id"]
+    },{
+      foreignKeyName: "purchase_lines_filament_sku_id_fkey"
+      columns: ["filament_sku_id"]
+isOneToOne: false
       referencedRelation: "filament_sku_stock"
       referencedColumns: ["filament_sku_id"]
     },{
@@ -918,6 +949,12 @@ isOneToOne: false
       foreignKeyName: "recipe_plate_filaments_filament_sku_id_fkey"
       columns: ["filament_sku_id"]
 isOneToOne: false
+      referencedRelation: "filament_sku_details"
+      referencedColumns: ["filament_sku_id"]
+    },{
+      foreignKeyName: "recipe_plate_filaments_filament_sku_id_fkey"
+      columns: ["filament_sku_id"]
+isOneToOne: false
       referencedRelation: "filament_sku_stock"
       referencedColumns: ["filament_sku_id"]
     },{
@@ -1039,6 +1076,12 @@ isOneToOne: false
                   }
                   Relationships: [
                     {
+      foreignKeyName: "spools_filament_sku_id_fkey"
+      columns: ["filament_sku_id"]
+isOneToOne: false
+      referencedRelation: "filament_sku_details"
+      referencedColumns: ["filament_sku_id"]
+    },{
       foreignKeyName: "spools_filament_sku_id_fkey"
       columns: ["filament_sku_id"]
 isOneToOne: false
@@ -1345,6 +1388,37 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"filament_sku_details": {
+                  Row: {
+                    "abrasive": boolean | null,"abrasive_because": string | null,"active": boolean | null,"brand_id": string | null,"brand_name": string | null,"color_hex": string | null,"color_name": string | null,"filament_sku_id": string | null,"finish_id": string | null,"finish_name": string | null,"hygroscopic": boolean | null,"material_code": string | null,"material_id": string | null,"net_weight_g": number | null,"workspace_id": string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "filament_skus_brand_id_fkey"
+      columns: ["brand_id"]
+isOneToOne: false
+      referencedRelation: "brands"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "filament_skus_finish_id_fkey"
+      columns: ["finish_id"]
+isOneToOne: false
+      referencedRelation: "filament_finishes"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "filament_skus_material_id_fkey"
+      columns: ["material_id"]
+isOneToOne: false
+      referencedRelation: "materials"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "filament_skus_workspace_id_fkey"
+      columns: ["workspace_id"]
+isOneToOne: false
+      referencedRelation: "workspaces"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"filament_sku_stock": {
                   Row: {
                     "available_g": number | null,"below_minimum": boolean | null,"filament_sku_id": string | null,"min_stock_g": number | null,"on_hand_g": number | null,"reserved_g": number | null,"weighted_cost_per_gram": number | null,"workspace_id": string | null
@@ -1467,6 +1541,12 @@ isOneToOne: false
                   }
                   Relationships: [
                     {
+      foreignKeyName: "spools_filament_sku_id_fkey"
+      columns: ["filament_sku_id"]
+isOneToOne: false
+      referencedRelation: "filament_sku_details"
+      referencedColumns: ["filament_sku_id"]
+    },{
       foreignKeyName: "spools_filament_sku_id_fkey"
       columns: ["filament_sku_id"]
 isOneToOne: false

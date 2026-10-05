@@ -11,6 +11,15 @@ export interface PrinterRecord {
   initialHours: number;
   /** Real time of the successful print jobs, in hours. */
   workedHours: number;
+  /** Every job recorded on this printer, whatever its outcome. Any job makes it undeletable. */
+  jobCount: number;
+  avgPowerW: number;
+  maintenanceBudgetPerYear: number;
+  expectedHoursPerYear: number;
+  /** Null for a printer registered without its asset: its hourly rate is then incomplete. */
+  assetId: string | null;
+  assetCost: number;
+  usefulLifeHours: number;
   depreciationPerHour: number;
   maintenancePerHour: number;
   machineRatePerHour: number;
@@ -68,6 +77,19 @@ export interface PrinterWorkshop {
   logs: LogRecord[];
   components: ComponentRecord[];
   incidents: IncidentRecord[];
+}
+
+/** Everything the printer form collects: the printer itself and the asset behind its hourly rate. */
+export interface PrinterDraft {
+  name: string;
+  model: string | null;
+  status: PrinterState;
+  initialHours: number;
+  avgPowerW: number;
+  maintenanceBudgetPerYear: number;
+  expectedHoursPerYear: number;
+  assetCost: number;
+  usefulLifeHours: number;
 }
 
 export interface PlanDraft {

@@ -1,22 +1,26 @@
 import { inject, Injectable } from '@angular/core';
 import { SUPABASE } from '../../core/supabase';
 import type {
+  BrandDraft,
+  BrandRecord,
   ChannelRecord,
   CostProfileDraft,
   CostProfileRecord,
   GiftCategoryRecord,
   GiftTreatment,
+  MaterialDraft,
+  MaterialRecord,
   MemberDraft,
   MemberRecord,
   WorkshopDraft,
   WorkshopRecord,
 } from './configuracion.models';
-import { permissionError } from '../../core/friendly-error';
+import { permissionError, UserFacingError } from '../../core/friendly-error';
 import { CurrentWorkspace } from '../../core/workspace';
 
 /**
  * Data access for the settings screen: cost profiles, workshop data, members,
- * sales channels and gift categories.
+ * sales channels, gift categories, filament brands and materials.
  *
  * An update that Row Level Security rejects does not raise an error, it just
  * touches zero rows, so every update asks for the row back and treats an empty
@@ -217,4 +221,89 @@ export class ConfiguracionData {
       .insert({ ...values, workspace_id: await this.workspace.requireId() });
     if (error) throw error;
   }
+
+  async brands(): Promise<BrandRecord[]> {
+    const { data, error } = await this.supabase.from('brands').select('id, name, active').order('name');
+    if (error) throw error;
+
+    return data.map((row) => ({
+      id: row.id,
+      name: row.name,
+      active: row.active,
+    }));
+  }
+
+  async saveBrand(brandId: string | null, draft: BrandDraft): Promise<void> {
+    const values = { name: draft.name.trim(), active: draft.active };
+
+    if (brandId) {
+      const { data, error } = await this.supabase.from('brands').update(values).eq('id', brandId).select('id');
+      if (error) throw duplicateAware(error, 'brands_workspace_id_name_key', 'Ya existe una marca con ese nombre.');
+      if (data.length === 0) throw permissionError();
+      return;
+    }
+
+    const { error } = await this.supabase
+      .from('brands')
+      .insert({ ...values, workspace_id: await this.workspace.requireId() });
+    if (error) throw duplicateAware(error, 'brands_workspace_id_name_key', 'Ya existe una marca con ese nombre.');
+  }
+
+  async materials(): Promise<MaterialRecord[]> {
+    const { data, error } = await this.supabase
+      .from('materials')
+      .select('id, code, density_g_cm3, hygroscopic, abrasive, active')
+      .order('code');
+    if (error) throw error;
+
+    return (data as MaterialRow[]).map((row) => ({
+      id: row.id,
+      code: row.code,
+      densityGCm3: row.density_g_cm3 === null ? null : Number(row.density_g_cm3),
+      hygroscopic: row.hygroscopic,
+      abrasive: row.abrasive,
+      active: row.active,
+    }));
+  }
+
+  async saveMaterial(materialId: string | null, draft: MaterialDraft): Promise<void> {
+    const values = {
+      code: draft.code.trim(),
+      density_g_cm3: draft.densityGCm3,
+      hygroscopic: draft.hygroscopic,
+      abrasive: draft.abrasive,
+      active: draft.active,
+    };
+    const duplicate = 'Ya existe un material con ese código.';
+
+    if (materialId) {
+      const { data, error } = await this.supabase
+        .from('materials')
+        .update(values)
+        .eq('id', materialId)
+        .select('id');
+      if (error) throw duplicateAware(error, 'materials_workspace_id_code_key', duplicate);
+      if (data.length === 0) throw permissionError();
+      return;
+    }
+
+    const { error } = await this.supabase
+      .from('materials')
+      .insert({ ...values, workspace_id: await this.workspace.requireId() });
+    if (error) throw duplicateAware(error, 'materials_workspace_id_code_key', duplicate);
+  }
+}
+
+interface MaterialRow {
+  id: string;
+  code: string;
+  density_g_cm3: number | null;
+  hygroscopic: boolean;
+  abrasive: boolean;
+  active: boolean;
+}
+
+/** A unique violation on `constraint` becomes a sentence; anything else passes through. */
+function duplicateAware(error: { message?: string }, constraint: string, message: string): unknown {
+  return error.message?.includes(constraint) ? new UserFacingError(message) : error;
 }

@@ -70,6 +70,35 @@ export interface GiftCategoryRecord {
   treatment: GiftTreatment;
 }
 
+export interface BrandRecord {
+  id: string;
+  name: string;
+  active: boolean;
+}
+
+export type BrandDraft = Omit<BrandRecord, 'id'>;
+
+export interface MaterialRecord {
+  id: string;
+  code: string;
+  /** Null when the workshop has not measured it. */
+  densityGCm3: number | null;
+  hygroscopic: boolean;
+  abrasive: boolean;
+  active: boolean;
+}
+
+export type MaterialDraft = Omit<MaterialRecord, 'id'>;
+
+/** Column is numeric(5, 3): three decimals, below 100. */
+export const MAX_DENSITY = 99.999;
+
+export const HYGROSCOPIC_HELP =
+  'Absorbe humedad del aire y hay que secarlo antes de imprimir (PETG, TPU, nailon). Activa los avisos de secado.';
+
+export const ABRASIVE_HELP =
+  'Desgasta la boquilla de latón y conviene usar una de acero (fibra de carbono, madera, luminoso). Activa el aviso de boquilla.';
+
 export const TAX_REGIME_LABELS: Record<TaxRegime, string> = {
   none: 'Sin RUC',
   nrus: 'NRUS',
