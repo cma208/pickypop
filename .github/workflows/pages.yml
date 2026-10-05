@@ -1,0 +1,68 @@
+name: Publicar la app en GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Pages needs these; the default token is read-only.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# A push while a deploy is running should win, but never cancel a deploy
+# half way: an interrupted publish leaves the site broken.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.12.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # The money rules are shared code; if they break, nothing should publish.
+      - name: Pruebas del dominio
+        run: pnpm test
+
+      - name: Pruebas de la app
+        run: pnpm --filter @pickypop/web exec ng test --watch=false
+
+      # A project page is served from /pickypop/, so every asset path needs it.
+      - name: Compilar
+        run: pnpm --filter @pickypop/web exec ng build --base-href /pickypop/
+
+      # Pages serves 404.html for any unknown path. The router lives in the
+      # browser, so handing it index.html is what makes a deep link work.
+      - name: Dejar que el router resuelva las rutas profundas
+        run: cp apps/web/dist/web/browser/index.html apps/web/dist/web/browser/404.html
+
+      # Without this, Pages runs Jekyll and drops files starting with _.
+      - run: touch apps/web/dist/web/browser/.nojekyll
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: apps/web/dist/web/browser
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
