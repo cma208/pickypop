@@ -85,8 +85,14 @@ Resumen del día: filamentos bajo mínimo, pedidos en curso por estado, mantenim
 ### Pedidos y producción
 - **Pedidos** (`/pedidos`): lista filtrable por estado y propósito.
 - **Nuevo pedido** (`/pedidos/nuevo`): propósito (venta, uso personal o regalo con su categoría), cliente cuando es venta, líneas con variante, cantidad y precio sugerido por la escalera.
-- **Pedido** (`/pedidos/:id`): detalle, avance de estado, trabajos de impresión asociados y el resumen de estimado contra real.
+- **Pedido** (`/pedidos/:id`): detalle, avance de estado, trabajos de impresión asociados, el resumen de estimado contra real, y el **cobro**: total, cobrado, saldo y el formulario que llama a `record_payment`. Cuando la base rechaza un cobro, su mensaje se muestra tal cual, porque ya trae los importes exactos.
 - **Impresiones** (`/produccion`): cola y historial. Crear un trabajo desde una línea de pedido o suelto, iniciarlo, y **cerrarlo** indicando resultado, tiempo real y gramos por rollo. El cierre llama a `complete_print_job`, que descuenta el stock. Si falla, pide la causa.
+
+### Finanzas
+- **Cuentas** (`/finanzas/cuentas`): caja, banco y billeteras con su saldo de apertura y su saldo actual, que sale de los movimientos. Alta y edición.
+- **Movimientos de dinero** (`/finanzas/movimientos`): el libro, con filtros. Registra los cinco tipos; la transferencia es **un** formulario con dos cuentas, nunca dos registros. Un movimiento se anula con motivo, no se borra.
+- **Por cobrar** (`/finanzas/por-cobrar`): pedidos entregados con saldo pendiente y días de atraso; desde aquí también se cobra.
+- **Resultados** (`/finanzas/resultados`): estado de resultados por mes. Las compras de inventario se informan aparte porque su costo ya llega por el costo de ventas; los aportes y retiros del dueño son capital y no utilidad.
 
 ### Resto
 - **Impresoras** (`/impresoras`): fichas con horas acumuladas y hora de máquina, mantenimientos pendientes y vencidos, registrar mantenimiento, historial e incidentes.

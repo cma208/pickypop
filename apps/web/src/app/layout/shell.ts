@@ -52,6 +52,15 @@ export class Shell {
         { path: '/impresoras', label: 'Impresoras' },
       ],
     },
+    {
+      title: 'Finanzas',
+      links: [
+        { path: '/finanzas/cuentas', label: 'Cuentas' },
+        { path: '/finanzas/movimientos', label: 'Movimientos de dinero' },
+        { path: '/finanzas/por-cobrar', label: 'Por cobrar' },
+        { path: '/finanzas/resultados', label: 'Resultados' },
+      ],
+    },
     { title: 'Ajustes', links: [{ path: '/configuracion', label: 'Configuración' }] },
   ];
 

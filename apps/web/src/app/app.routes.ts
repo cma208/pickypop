@@ -34,6 +34,11 @@ export const routes: Routes = [
       { path: 'pedidos/nuevo', loadComponent: () => import('./features/pedidos/pedido-nuevo.page').then((m) => m.PedidoNuevoPage) },
       { path: 'pedidos/:id', loadComponent: () => import('./features/pedidos/pedido.page').then((m) => m.PedidoPage) },
 
+      { path: 'finanzas/cuentas', loadComponent: () => import('./features/finanzas/cuentas.page').then((m) => m.CuentasPage) },
+      { path: 'finanzas/movimientos', loadComponent: () => import('./features/finanzas/movimientos.page').then((m) => m.MovimientosFinancierosPage) },
+      { path: 'finanzas/por-cobrar', loadComponent: () => import('./features/finanzas/por-cobrar.page').then((m) => m.PorCobrarPage) },
+      { path: 'finanzas/resultados', loadComponent: () => import('./features/finanzas/resultados.page').then((m) => m.ResultadosPage) },
+
       { path: 'produccion', loadComponent: () => import('./features/produccion/produccion.page').then((m) => m.ProduccionPage) },
       { path: 'impresoras', loadComponent: () => import('./features/impresoras/impresoras.page').then((m) => m.ImpresorasPage) },
       { path: 'clientes', loadComponent: () => import('./features/clientes/clientes.page').then((m) => m.ClientesPage) },
