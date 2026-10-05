@@ -46,6 +46,8 @@ Una plataforma web open source de **gestión y finanzas** para talleres pequeño
 | 3 | [Modelo de datos](03-modelo-de-datos.md) | Tablas, relaciones y convenciones |
 | 4 | [Arquitectura](04-arquitectura.md) | Angular + Supabase, monolito modular, MCP, límites y seguridad |
 | 5 | [Decisiones](05-decisiones.md) | Registro de decisiones (ADR) |
+| 6 | [Frontend](06-frontend.md) | Contrato del frontend: estructura, diseño y pantallas |
+| 7 | [Plan de trabajo](07-plan-de-trabajo.md) | **El reparto vigente**: hitos, qué bloquea a qué y qué va en paralelo |
 
 ## Hoja de ruta
 
