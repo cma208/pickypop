@@ -76,7 +76,10 @@ export class PanelData {
 
     const ids = stock.map((row) => row.filament_sku_id).filter((id): id is string => id !== null);
     const [skus, brands, materials] = await Promise.all([
-      this.supabase.from('filament_skus').select('id, brand_id, material_id, finish, color_name, color_hex').in('id', ids),
+      this.supabase
+        .from('filament_skus')
+        .select('id, brand_id, material_id, color_name, color_hex, filament_finishes(name)')
+        .in('id', ids),
       this.supabase.from('brands').select('id, name'),
       this.supabase.from('materials').select('id, code'),
     ]);
@@ -93,7 +96,7 @@ export class PanelData {
         const sku = row.filament_sku_id ? skuById.get(row.filament_sku_id) : undefined;
         if (!sku) return null;
 
-        const name = [brandName.get(sku.brand_id), materialCode.get(sku.material_id), sku.finish, sku.color_name]
+        const name = [brandName.get(sku.brand_id), materialCode.get(sku.material_id), sku.filament_finishes?.name, sku.color_name]
           .filter(Boolean)
           .join(' ');
         return {

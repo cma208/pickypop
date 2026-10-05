@@ -1,10 +1,12 @@
 import { Component, computed, inject, input, output, signal } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { FormControl, NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Field } from '../../ui';
-import { blankToNull, invalidMessage } from './form-helpers';
+import { blankToNull, inactiveSuffix, invalidMessage, selectableOptions } from './form-helpers';
 import {
   InventarioData,
   type BrandOption,
+  type FinishOption,
   type MaterialOption,
   type SkuInput,
   type SkuSummary,
@@ -18,7 +20,11 @@ const DEFAULT_NET_WEIGHT_G = 1000;
 const HEX_PATTERN = /^#[0-9a-fA-F]{6}$/;
 const FALLBACK_PICKER_COLOR = '#888888';
 
-/** Create or edit a filament SKU. Brands and materials can be added without leaving the form. */
+/**
+ * Create or edit a filament SKU. Brands and materials can be added without
+ * leaving the form. Deactivated catalogue entries are not offered, except the
+ * one the filament being edited already uses.
+ */
 @Component({
   selector: 'app-sku-form',
   imports: [ReactiveFormsModule, Field, QuickAdd],
@@ -30,7 +36,7 @@ const FALLBACK_PICKER_COLOR = '#888888';
             <select formControlName="brandId">
               <option value="" disabled>Elige una marca</option>
               @for (brand of brands(); track brand.id) {
-                <option [value]="brand.id">{{ brand.name }}</option>
+                <option [value]="brand.id">{{ brand.name }}{{ inactiveSuffix(brand) }}</option>
               }
             </select>
           </pp-field>
@@ -42,7 +48,7 @@ const FALLBACK_PICKER_COLOR = '#888888';
             <select formControlName="materialId">
               <option value="" disabled>Elige un material</option>
               @for (material of materials(); track material.id) {
-                <option [value]="material.id">{{ material.code }}</option>
+                <option [value]="material.id">{{ material.code }}{{ inactiveSuffix(material) }}</option>
               }
             </select>
           </pp-field>
@@ -51,8 +57,13 @@ const FALLBACK_PICKER_COLOR = '#888888';
       </div>
 
       <div class="form-grid">
-        <pp-field label="Acabado" hint="Basic, Matte, Silk, CF…">
-          <input formControlName="finish" autocomplete="off" />
+        <pp-field label="Acabado">
+          <select formControlName="finishId">
+            <option value="">Sin acabado</option>
+            @for (finish of finishes(); track finish.id) {
+              <option [value]="finish.id">{{ finish.name }}{{ inactiveSuffix(finish) }}</option>
+            }
+          </select>
         </pp-field>
         <pp-field label="Nombre del color" [required]="true" [error]="msg(form.controls.colorName)">
           <input formControlName="colorName" autocomplete="off" />
@@ -70,6 +81,14 @@ const FALLBACK_PICKER_COLOR = '#888888';
           </div>
         </pp-field>
       </div>
+
+      @if (abrasiveFinish(); as finish) {
+        <!-- Said as soon as the finish is picked: it changes which nozzle the filament needs. -->
+        <p class="alert alert-warn" role="status">
+          El acabado «{{ finish.name }}» es abrasivo: desgasta la boquilla. Para imprimirlo hace falta una boquilla
+          de acero endurecido.
+        </p>
+      }
 
       <div class="form-grid">
         <pp-field label="Diámetro (mm)" [required]="true" [error]="msg(form.controls.diameterMm)">
@@ -121,23 +140,32 @@ export class SkuForm {
   readonly sku = input<SkuSummary | null>(null);
   readonly brandOptions = input.required<BrandOption[]>();
   readonly materialOptions = input.required<MaterialOption[]>();
+  readonly finishOptions = input.required<FinishOption[]>();
   readonly saved = output<void>();
   readonly cancelled = output<void>();
 
   /** Entries created from inside the form are added here so they show up at once. */
   private readonly addedBrands = signal<BrandOption[]>([]);
   private readonly addedMaterials = signal<MaterialOption[]>([]);
-  protected readonly brands = computed(() => [...this.brandOptions(), ...this.addedBrands()]);
-  protected readonly materials = computed(() => [...this.materialOptions(), ...this.addedMaterials()]);
+  // Keyed to the SAVED values, not to what is selected right now: if the person
+  // switches away from a deactivated brand, it must stay listed so they can switch back.
+  protected readonly brands = computed(() =>
+    selectableOptions([...this.brandOptions(), ...this.addedBrands()], this.sku()?.brandId ?? null),
+  );
+  protected readonly materials = computed(() =>
+    selectableOptions([...this.materialOptions(), ...this.addedMaterials()], this.sku()?.materialId ?? null),
+  );
+  protected readonly finishes = computed(() => selectableOptions(this.finishOptions(), this.sku()?.finishId ?? null));
 
   protected readonly busy = signal(false);
   protected readonly error = signal<string | null>(null);
   protected readonly msg = invalidMessage;
+  protected readonly inactiveSuffix = inactiveSuffix;
 
   protected readonly form = this.fb.group({
     brandId: ['', Validators.required],
     materialId: ['', Validators.required],
-    finish: [''],
+    finishId: [''],
     colorName: ['', [Validators.required, Validators.maxLength(60)]],
     colorHex: ['', Validators.pattern(HEX_PATTERN)],
     diameterMm: [DEFAULT_DIAMETER_MM, [Validators.required, Validators.min(0.01)]],
@@ -146,6 +174,18 @@ export class SkuForm {
     minStockG: [0, [Validators.required, Validators.min(0)]],
     replacementCostPerKg: new FormControl<number | null>(null, Validators.min(0)),
     active: [true],
+  });
+
+  private readonly pickedFinishId = toSignal(this.form.controls.finishId.valueChanges, { initialValue: '' });
+
+  /**
+   * The picked finish, only when it is abrasive. This is the finish's own flag,
+   * enough to warn while filling the form; the verdict for a saved filament
+   * (material included) is read from `filament_sku_details` on the list.
+   */
+  protected readonly abrasiveFinish = computed(() => {
+    const picked = this.finishOptions().find((finish) => finish.id === this.pickedFinishId());
+    return picked?.abrasive ? picked : null;
   });
 
   protected readonly pickerColor = computed(() => {
@@ -161,7 +201,7 @@ export class SkuForm {
       this.form.patchValue({
         brandId: sku.brandId,
         materialId: sku.materialId,
-        finish: sku.finish ?? '',
+        finishId: sku.finishId ?? '',
         colorName: sku.colorName,
         colorHex: sku.colorHex ?? '',
         diameterMm: sku.diameterMm,
@@ -221,7 +261,7 @@ export class SkuForm {
     return {
       brandId: value.brandId,
       materialId: value.materialId,
-      finish: blankToNull(value.finish),
+      finishId: blankToNull(value.finishId),
       colorName: value.colorName,
       colorHex: blankToNull(value.colorHex)?.toUpperCase() ?? null,
       diameterMm: value.diameterMm,

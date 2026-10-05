@@ -1,5 +1,5 @@
 import { Component, computed, inject, signal } from '@angular/core';
-import { AsyncState, Empty, FORMAT_PIPES, Page } from '../../ui';
+import { AsyncState, Badge, Empty, FORMAT_PIPES, Page } from '../../ui';
 import { InventarioData, type SpoolSummary } from './inventario.data';
 import { describeError } from './inventario.errors';
 import {
@@ -19,7 +19,7 @@ type Dialog = { kind: 'weigh' | 'label'; spool: SpoolSummary };
 
 @Component({
   selector: 'app-rollos',
-  imports: [Page, AsyncState, Empty, Modal, WeighForm, SpoolLabelForm, FORMAT_PIPES],
+  imports: [Page, AsyncState, Empty, Badge, Modal, WeighForm, SpoolLabelForm, FORMAT_PIPES],
   template: `
     <pp-page title="Rollos" subtitle="Cada rollo con su estado, ubicación, gramos restantes y costo real">
       @if (notice(); as text) {
@@ -85,13 +85,23 @@ type Dialog = { kind: 'weigh' | 'label'; spool: SpoolSummary };
                           <span>
                             <span class="strong">{{ spool.code ?? 'Sin código' }}</span>
                             <small class="sub only-small">{{ spool.skuLabel }}</small>
+                            @if (spool.abrasive) {
+                              <small class="sub only-small">
+                                <pp-badge tone="warn">Abrasivo</pp-badge> {{ nozzleWarning(spool) }}
+                              </small>
+                            }
                             <small class="sub only-small">
                               {{ spool.location ?? 'Sin ubicación' }} · {{ spool.unitCost | money }}
                             </small>
                           </span>
                         </span>
                       </td>
-                      <td class="hide-small">{{ spool.skuLabel }}</td>
+                      <td class="hide-small">
+                        {{ spool.skuLabel }}
+                        @if (spool.abrasive) {
+                          <small class="sub"><pp-badge tone="warn">Abrasivo</pp-badge> {{ nozzleWarning(spool) }}</small>
+                        }
+                      </td>
                       <td class="c-status">
                         <select
                           class="status"
@@ -209,6 +219,11 @@ export class RollosPage {
 
   constructor() {
     void this.load();
+  }
+
+  /** The "because of ..." part comes straight from the view; the sentence around it is all that is built here. */
+  protected nozzleWarning(spool: SpoolSummary): string {
+    return `Desgasta la boquilla por ${spool.abrasiveBecause ?? 'su composición'}.`;
   }
 
   protected hex(spool: SpoolSummary): string | null {

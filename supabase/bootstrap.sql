@@ -23,6 +23,7 @@ declare
   shop_id uuid;
   brand_id uuid;
   pla_id uuid;
+  plain_id uuid;
 begin
   select id into owner_id from auth.users where email = owner_email;
   if owner_id is null then
@@ -121,15 +122,28 @@ begin
   on conflict (workspace_id, code) do nothing;
   select id into pla_id from public.materials where workspace_id = shop_id and code = 'PLA';
 
+  insert into public.filament_finishes (workspace_id, name, abrasive, note) values
+    (shop_id, 'Básico', false, null),
+    (shop_id, 'Mate', false, null),
+    (shop_id, 'Seda', false, 'Brillo satinado. No es abrasivo, aunque lo parezca.'),
+    (shop_id, 'Translúcido', false, null),
+    (shop_id, 'Madera', true, 'Lleva partícula de madera: desgasta la boquilla.'),
+    (shop_id, 'Fibra de carbono', true, 'Muy abrasivo. Boquilla de acero endurecido.'),
+    (shop_id, 'Metálico', true, 'Lleva partícula metálica: desgasta la boquilla.'),
+    (shop_id, 'Luminoso', true, 'El fósforo que brilla en la oscuridad raya la boquilla.')
+  on conflict (workspace_id, name) do nothing;
+  select id into plain_id from public.filament_finishes
+   where workspace_id = shop_id and name = 'Básico';
+
   insert into public.filament_skus (
-    workspace_id, brand_id, material_id, finish, color_name, color_hex,
+    workspace_id, brand_id, material_id, finish_id, color_name, color_hex,
     net_weight_g, min_stock_g, replacement_cost_per_kg
   )
   values
-    (shop_id, brand_id, pla_id, 'K3D', 'Rojo', '#DE4343', 1000, 500, 50.00),
-    (shop_id, brand_id, pla_id, 'K3D', 'Rosado', '#F55A74', 1000, 500, 50.00),
-    (shop_id, brand_id, pla_id, 'K3D', 'Verde lima', '#61C680', 1000, 500, 60.00),
-    (shop_id, brand_id, pla_id, 'K3D', 'Negro', '#000000', 1000, 500, 50.00)
+    (shop_id, brand_id, pla_id, plain_id, 'Rojo', '#DE4343', 1000, 500, 50.00),
+    (shop_id, brand_id, pla_id, plain_id, 'Rosado', '#F55A74', 1000, 500, 50.00),
+    (shop_id, brand_id, pla_id, plain_id, 'Verde lima', '#61C680', 1000, 500, 60.00),
+    (shop_id, brand_id, pla_id, plain_id, 'Negro', '#000000', 1000, 500, 50.00)
   on conflict do nothing;
 
   raise notice 'Taller listo. Entra a la aplicación con %.', owner_email;

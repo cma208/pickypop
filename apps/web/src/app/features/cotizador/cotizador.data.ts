@@ -466,7 +466,7 @@ export class CotizadorData {
       this.supabase
         .from('filament_skus')
         .select(
-          'id, color_name, color_hex, finish, tray_info_idx, replacement_cost_per_kg, active, brands(name), materials(code)',
+          'id, color_name, color_hex, tray_info_idx, replacement_cost_per_kg, active, brands(name), materials(code), filament_finishes(name)',
         )
         .eq('active', true),
       this.supabase
@@ -519,7 +519,7 @@ export class CotizadorData {
 
         return {
           id: sku.id,
-          label: [brand, material, sku.finish, sku.color_name].filter(Boolean).join(' · '),
+          label: [brand, material, sku.filament_finishes?.name, sku.color_name].filter(Boolean).join(' · '),
           colorHex: sku.color_hex,
           trayInfoIdx: sku.tray_info_idx,
           availableG: num(balance?.available_g),

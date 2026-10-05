@@ -458,7 +458,7 @@ export class CatalogoData {
       this.supabase.from('materials').select('id, code').order('code'),
       this.supabase
         .from('filament_skus')
-        .select('id, material_id, color_name, color_hex, finish, active, replacement_cost_per_kg, brands(name)')
+        .select('id, material_id, color_name, color_hex, active, replacement_cost_per_kg, brands(name), filament_finishes(name)')
         .order('color_name'),
       this.supabase.from('filament_sku_stock').select('filament_sku_id, weighted_cost_per_gram'),
       this.supabase
@@ -488,7 +488,7 @@ export class CatalogoData {
         (sku): SkuOption => ({
           id: sku.id,
           materialId: sku.material_id,
-          label: [sku.brands?.name, materialCode.get(sku.material_id), sku.finish, sku.color_name]
+          label: [sku.brands?.name, materialCode.get(sku.material_id), sku.filament_finishes?.name, sku.color_name]
             .filter(Boolean)
             .join(' · '),
           colorHex: sku.color_hex,

@@ -29,26 +29,46 @@ insert into public.brands (id, workspace_id, name) values
 insert into public.materials (id, workspace_id, code, density_g_cm3, hygroscopic, abrasive) values
   ('00000000-0000-4000-8000-000000000020', '00000000-0000-4000-8000-000000000001', 'PLA', 1.24, false, false);
 
+-- Acabados de filamento. La migración los siembra para los talleres que ya
+-- existen, pero un taller nuevo nace después de que las migraciones corrieron,
+-- así que hay que sembrarlos aquí también.
+insert into public.filament_finishes (workspace_id, name, abrasive, note) values
+  ('00000000-0000-4000-8000-000000000001', 'Básico', false, null),
+  ('00000000-0000-4000-8000-000000000001', 'Mate', false, null),
+  ('00000000-0000-4000-8000-000000000001', 'Seda', false, 'Brillo satinado. No es abrasivo, aunque lo parezca.'),
+  ('00000000-0000-4000-8000-000000000001', 'Translúcido', false, null),
+  ('00000000-0000-4000-8000-000000000001', 'Madera', true, 'Lleva partícula de madera: desgasta la boquilla.'),
+  ('00000000-0000-4000-8000-000000000001', 'Fibra de carbono', true, 'Muy abrasivo. Boquilla de acero endurecido.'),
+  ('00000000-0000-4000-8000-000000000001', 'Metálico', true, 'Lleva partícula metálica: desgasta la boquilla.'),
+  ('00000000-0000-4000-8000-000000000001', 'Luminoso', true, 'El fósforo que brilla en la oscuridad raya la boquilla.');
+
 -- K3D is not in the Bambu profiles, so a sliced file will report it as a
 -- generic PLA: spools are matched by colour until tray_info_idx is mapped once.
 insert into public.filament_skus (
-  id, workspace_id, brand_id, material_id, finish, color_name, color_hex,
+  id, workspace_id, brand_id, material_id, finish_id, color_name, color_hex,
   net_weight_g, min_stock_g, replacement_cost_per_kg
-) values
-  ('00000000-0000-4000-8000-000000000031', '00000000-0000-4000-8000-000000000001',
-   '00000000-0000-4000-8000-000000000010', '00000000-0000-4000-8000-000000000020',
-   'K3D', 'Rojo', '#DE4343', 1000, 500, 50.00),
+)
+select v.id, v.workspace_id, v.brand_id, v.material_id, f.id, v.color_name, v.color_hex,
+       v.net_weight_g, v.min_stock_g, v.replacement_cost_per_kg
+from public.filament_finishes f,
+  (values
+  ('00000000-0000-4000-8000-000000000031'::uuid, '00000000-0000-4000-8000-000000000001'::uuid,
+   '00000000-0000-4000-8000-000000000010'::uuid, '00000000-0000-4000-8000-000000000020'::uuid,
+   'Rojo', '#DE4343', 1000::numeric, 500::numeric, 50.00::numeric),
   ('00000000-0000-4000-8000-000000000032', '00000000-0000-4000-8000-000000000001',
    '00000000-0000-4000-8000-000000000010', '00000000-0000-4000-8000-000000000020',
-   'K3D', 'Rosado', '#F55A74', 1000, 500, 50.00),
+   'Rosado', '#F55A74', 1000, 500, 50.00),
   -- The lime green batch came in expensive; reordering it at the same shop
   -- should cost about S/ 60, which is what quotes should assume.
   ('00000000-0000-4000-8000-000000000033', '00000000-0000-4000-8000-000000000001',
    '00000000-0000-4000-8000-000000000010', '00000000-0000-4000-8000-000000000020',
-   'K3D', 'Verde lima', '#61C680', 1000, 500, 60.00),
+   'Verde lima', '#61C680', 1000, 500, 60.00),
   ('00000000-0000-4000-8000-000000000034', '00000000-0000-4000-8000-000000000001',
    '00000000-0000-4000-8000-000000000010', '00000000-0000-4000-8000-000000000020',
-   'K3D', 'Negro', '#000000', 1000, 500, 50.00);
+   'Negro', '#000000', 1000, 500, 50.00)
+  ) as v(id, workspace_id, brand_id, material_id, color_name, color_hex,
+         net_weight_g, min_stock_g, replacement_cost_per_kg)
+where f.workspace_id = v.workspace_id and f.name = 'Básico';
 
 insert into public.suppliers (id, workspace_id, name, note) values
   ('00000000-0000-4000-8000-000000000050', '00000000-0000-4000-8000-000000000001',

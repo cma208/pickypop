@@ -46,7 +46,7 @@ export class Workshop {
 
   async filaments(): Promise<FilamentStock[]> {
     const [skus, stock] = await Promise.all([
-      this.supabase.from('filament_skus').select('id, color_name, color_hex, finish'),
+      this.supabase.from('filament_skus').select('id, color_name, color_hex'),
       this.supabase
         .from('filament_sku_stock')
         .select('filament_sku_id, on_hand_g, available_g, weighted_cost_per_gram, below_minimum'),

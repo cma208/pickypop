@@ -3,6 +3,7 @@ import { Badge, Empty, AsyncState, FORMAT_PIPES, Page } from '../../ui';
 import {
   InventarioData,
   type BrandOption,
+  type FinishOption,
   type MaterialOption,
   type SkuSummary,
 } from './inventario.data';
@@ -74,14 +75,17 @@ const COST_PER_GRAM_DIGITS = 3;
                             <span class="strong">{{ sku.colorName }}</span>
                             @if (!sku.active) { <pp-badge>Inactivo</pp-badge> }
                             <small class="sub only-small">
-                              {{ sku.brandName }} · {{ sku.materialCode }}@if (sku.finish) { · {{ sku.finish }} }
+                              {{ sku.brandName }} · {{ sku.materialCode }}@if (sku.finishName) { · {{ sku.finishName }} }
                             </small>
+                            @if (sku.abrasive) {
+                              <small class="sub"><pp-badge tone="warn">Abrasivo</pp-badge> {{ nozzleWarning(sku) }}</small>
+                            }
                           </span>
                         </span>
                       </td>
                       <td class="hide-small">{{ sku.brandName }}</td>
                       <td class="hide-small">{{ sku.materialCode }}</td>
-                      <td class="hide-small">{{ sku.finish ?? '—' }}</td>
+                      <td class="hide-small">{{ sku.finishName ?? '—' }}</td>
                       <td class="num">
                         {{ sku.availableG | grams }}
                         @if (sku.belowMinimum) {
@@ -108,6 +112,7 @@ const COST_PER_GRAM_DIGITS = 3;
             [sku]="target === 'new' ? null : target"
             [brandOptions]="brands()"
             [materialOptions]="materials()"
+            [finishOptions]="finishes()"
             (saved)="onSaved(target === 'new')"
             (cancelled)="editing.set(null)"
           />
@@ -135,6 +140,7 @@ export class FilamentosPage {
   protected readonly skus = signal<SkuSummary[]>([]);
   protected readonly brands = signal<BrandOption[]>([]);
   protected readonly materials = signal<MaterialOption[]>([]);
+  protected readonly finishes = signal<FinishOption[]>([]);
   protected readonly loading = signal(true);
   protected readonly error = signal<string | null>(null);
   protected readonly notice = signal<string | null>(null);
@@ -149,7 +155,7 @@ export class FilamentosPage {
     return this.skus().filter((sku) => {
       if (this.onlyLow() && !sku.belowMinimum) return false;
       if (!needle) return true;
-      return [sku.colorName, sku.brandName, sku.materialCode, sku.finish ?? '']
+      return [sku.colorName, sku.brandName, sku.materialCode, sku.finishName ?? '']
         .join(' ')
         .toLowerCase()
         .includes(needle);
@@ -162,6 +168,11 @@ export class FilamentosPage {
 
   protected hex(sku: SkuSummary): string | null {
     return safeHex(sku.colorHex);
+  }
+
+  /** The "because of ..." part comes straight from the view; the sentence around it is all that is built here. */
+  protected nozzleWarning(sku: SkuSummary): string {
+    return `Desgasta la boquilla por ${sku.abrasiveBecause ?? 'su composición'}.`;
   }
 
   protected onSearch(event: Event): void {
@@ -177,14 +188,16 @@ export class FilamentosPage {
   private async load(): Promise<void> {
     this.error.set(null);
     try {
-      const [skus, brands, materials] = await Promise.all([
+      const [skus, brands, materials, finishes] = await Promise.all([
         this.data.skus(),
         this.data.brands(),
         this.data.materials(),
+        this.data.finishes(),
       ]);
       this.skus.set(skus);
       this.brands.set(brands);
       this.materials.set(materials);
+      this.finishes.set(finishes);
     } catch (error) {
       this.error.set(describeError(error, 'No pudimos cargar los filamentos. Inténtalo de nuevo.'));
     } finally {

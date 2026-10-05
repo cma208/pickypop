@@ -348,7 +348,7 @@ export class CompraForm {
   };
 
   protected skuName(sku: SkuSummary): string {
-    return [sku.colorName, sku.materialCode, sku.finish, sku.brandName].filter(Boolean).join(' · ');
+    return [sku.colorName, sku.materialCode, sku.finishName, sku.brandName].filter(Boolean).join(' · ');
   }
 
   protected unitLabel(index: number): string {

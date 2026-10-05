@@ -7,14 +7,29 @@ import type { AllocationMethod, PurchasePlan } from '../../core/pricing';
 
 // ------------------------------------------------------------------ types
 
+/**
+ * Catalogue entries carry `active` because a deactivated one must stay
+ * resolvable: a filament that already uses it still has to show it when edited.
+ * Which ones to *offer* is decided by `selectableOptions`, not by the query.
+ */
 export interface BrandOption {
   id: string;
   name: string;
+  active: boolean;
 }
 
 export interface MaterialOption {
   id: string;
   code: string;
+  active: boolean;
+}
+
+export interface FinishOption {
+  id: string;
+  name: string;
+  /** The finish's own flag. Whether a *filament* wears the nozzle is read from the view. */
+  abrasive: boolean;
+  active: boolean;
 }
 
 export interface SupplierOption {
@@ -28,7 +43,11 @@ export interface SkuSummary {
   brandName: string;
   materialId: string;
   materialCode: string;
-  finish: string | null;
+  finishId: string | null;
+  finishName: string | null;
+  /** Whether it wears the nozzle, and why. Read from `filament_sku_details`, never recomputed here. */
+  abrasive: boolean;
+  abrasiveBecause: string | null;
   colorName: string;
   colorHex: string | null;
   diameterMm: number;
@@ -46,7 +65,7 @@ export interface SkuSummary {
 export interface SkuInput {
   brandId: string;
   materialId: string;
-  finish: string | null;
+  finishId: string | null;
   colorName: string;
   colorHex: string | null;
   diameterMm: number;
@@ -62,6 +81,9 @@ export interface SpoolSummary {
   code: string | null;
   skuId: string;
   skuLabel: string;
+  /** Same answer as the filament's: read from `filament_sku_details`. */
+  abrasive: boolean;
+  abrasiveBecause: string | null;
   colorHex: string | null;
   tareG: number | null;
   status: SpoolStatus;
@@ -184,6 +206,16 @@ export interface MovementPage {
   truncated: boolean;
 }
 
+/** A filament with its brand, material and finish already resolved, as `filament_sku_details` gives it. */
+interface SkuDetail {
+  colorName: string;
+  brandName: string | null;
+  materialCode: string | null;
+  finishName: string | null;
+  abrasive: boolean;
+  abrasiveBecause: string | null;
+}
+
 /** Thrown when a purchase was saved only in part. Says exactly what exists now. */
 export class PartialPurchaseError extends Error {
   constructor(
@@ -213,7 +245,7 @@ function numOrNull(value: number | string | null | undefined): number | null {
   return value === null || value === undefined ? null : Number(value);
 }
 
-function skuLabel(brand: string | undefined, material: string | undefined, finish: string | null, color: string): string {
+function skuLabel(brand: string | null, material: string | null, finish: string | null, color: string): string {
   return [color, material, finish, brand].filter(Boolean).join(' · ');
 }
 
@@ -235,13 +267,22 @@ export class InventarioData {
   // ------------------------------------------------------------ catalogues
 
   async brands(): Promise<BrandOption[]> {
-    const { data, error } = await this.supabase.from('brands').select('id, name').order('name');
+    const { data, error } = await this.supabase.from('brands').select('id, name, active').order('name');
     if (error) throw error;
     return data;
   }
 
   async materials(): Promise<MaterialOption[]> {
-    const { data, error } = await this.supabase.from('materials').select('id, code').order('code');
+    const { data, error } = await this.supabase.from('materials').select('id, code, active').order('code');
+    if (error) throw error;
+    return data;
+  }
+
+  async finishes(): Promise<FinishOption[]> {
+    const { data, error } = await this.supabase
+      .from('filament_finishes')
+      .select('id, name, abrasive, active')
+      .order('name');
     if (error) throw error;
     return data;
   }
@@ -257,7 +298,7 @@ export class InventarioData {
     const { data, error } = await this.supabase
       .from('brands')
       .insert({ workspace_id, name: name.trim() })
-      .select('id, name')
+      .select('id, name, active')
       .single();
     if (error) throw error;
     return data;
@@ -268,7 +309,7 @@ export class InventarioData {
     const { data, error } = await this.supabase
       .from('materials')
       .insert({ workspace_id, code: code.trim().toUpperCase() })
-      .select('id, code')
+      .select('id, code, active')
       .single();
     if (error) throw error;
     return data;
@@ -287,16 +328,49 @@ export class InventarioData {
 
   // -------------------------------------------------------------- filaments
 
+  /**
+   * Brand, material, finish and the abrasive verdict all come from
+   * `filament_sku_details`: the "does it wear the nozzle" rule lives in that
+   * view and nowhere else, so no screen can drift from the others.
+   */
+  private async skuDetails(): Promise<Map<string, SkuDetail>> {
+    const { data, error } = await this.supabase
+      .from('filament_sku_details')
+      .select('filament_sku_id, color_name, brand_name, material_code, finish_name, abrasive, abrasive_because');
+    if (error) throw error;
+
+    return new Map(
+      data.flatMap((row) =>
+        row.filament_sku_id
+          ? [
+              [
+                row.filament_sku_id,
+                {
+                  colorName: row.color_name ?? '',
+                  brandName: row.brand_name,
+                  materialCode: row.material_code,
+                  finishName: row.finish_name,
+                  abrasive: row.abrasive ?? false,
+                  abrasiveBecause: row.abrasive_because,
+                },
+              ] as const,
+            ]
+          : [],
+      ),
+    );
+  }
+
   async skus(): Promise<SkuSummary[]> {
-    const [skus, stock] = await Promise.all([
+    const [skus, stock, details] = await Promise.all([
       this.supabase
         .from('filament_skus')
         .select(
-          'id, brand_id, material_id, finish, color_name, color_hex, diameter_mm, net_weight_g, spool_tare_g, min_stock_g, replacement_cost_per_kg, active, brands(name), materials(code)',
+          'id, brand_id, material_id, finish_id, color_name, color_hex, diameter_mm, net_weight_g, spool_tare_g, min_stock_g, replacement_cost_per_kg, active',
         ),
       this.supabase
         .from('filament_sku_stock')
         .select('filament_sku_id, on_hand_g, available_g, weighted_cost_per_gram, below_minimum'),
+      this.skuDetails(),
     ]);
     if (skus.error) throw skus.error;
     if (stock.error) throw stock.error;
@@ -306,13 +380,17 @@ export class InventarioData {
     return skus.data
       .map((sku): SkuSummary => {
         const balance = balances.get(sku.id);
+        const detail = details.get(sku.id);
         return {
           id: sku.id,
           brandId: sku.brand_id,
-          brandName: sku.brands?.name ?? '—',
+          brandName: detail?.brandName ?? '—',
           materialId: sku.material_id,
-          materialCode: sku.materials?.code ?? '—',
-          finish: sku.finish,
+          materialCode: detail?.materialCode ?? '—',
+          finishId: sku.finish_id,
+          finishName: detail?.finishName ?? null,
+          abrasive: detail?.abrasive ?? false,
+          abrasiveBecause: detail?.abrasiveBecause ?? null,
           colorName: sku.color_name,
           colorHex: sku.color_hex,
           diameterMm: num(sku.diameter_mm),
@@ -334,7 +412,8 @@ export class InventarioData {
     const values = {
       brand_id: input.brandId,
       material_id: input.materialId,
-      finish: input.finish,
+      // `finish` (free text) is obsolete and no longer written: the id is the source of truth.
+      finish_id: input.finishId,
       color_name: input.colorName.trim(),
       color_hex: input.colorHex,
       diameter_mm: input.diameterMm,
@@ -359,13 +438,14 @@ export class InventarioData {
   // ----------------------------------------------------------------- spools
 
   async spools(): Promise<SpoolSummary[]> {
-    const [spools, balances] = await Promise.all([
+    const [spools, balances, details] = await Promise.all([
       this.supabase
         .from('spools')
         .select(
-          'id, code, filament_sku_id, status, location, opened_at, initial_weight_g, unit_cost, cost_per_gram, filament_skus(color_name, color_hex, finish, spool_tare_g, brands(name), materials(code))',
+          'id, code, filament_sku_id, status, location, opened_at, initial_weight_g, unit_cost, cost_per_gram, filament_skus(color_name, color_hex, spool_tare_g)',
         ),
       this.supabase.from('spool_balances').select('spool_id, on_hand_g'),
+      this.skuDetails(),
     ]);
     if (spools.error) throw spools.error;
     if (balances.error) throw balances.error;
@@ -375,13 +455,16 @@ export class InventarioData {
     return spools.data
       .map((spool): SpoolSummary => {
         const sku = spool.filament_skus;
+        const detail = details.get(spool.filament_sku_id);
         return {
           id: spool.id,
           code: spool.code,
           skuId: spool.filament_sku_id,
-          skuLabel: sku
-            ? skuLabel(sku.brands?.name, sku.materials?.code, sku.finish, sku.color_name)
+          skuLabel: detail
+            ? skuLabel(detail.brandName, detail.materialCode, detail.finishName, detail.colorName)
             : 'SKU desconocido',
+          abrasive: detail?.abrasive ?? false,
+          abrasiveBecause: detail?.abrasiveBecause ?? null,
           colorHex: sku?.color_hex ?? null,
           tareG: numOrNull(sku?.spool_tare_g),
           status: spool.status,
@@ -428,7 +511,7 @@ export class InventarioData {
   // -------------------------------------------------------------- purchases
 
   async purchases(): Promise<PurchaseSummary[]> {
-    const [purchases, skus, items] = await Promise.all([
+    const [purchases, details, items] = await Promise.all([
       this.supabase
         .from('purchases')
         .select(
@@ -436,15 +519,14 @@ export class InventarioData {
         )
         .order('purchased_at', { ascending: false })
         .order('created_at', { ascending: false }),
-      this.supabase.from('filament_skus').select('id, color_name, finish, brands(name), materials(code)'),
+      this.skuDetails(),
       this.supabase.from('inventory_items').select('id, name'),
     ]);
     if (purchases.error) throw purchases.error;
-    if (skus.error) throw skus.error;
     if (items.error) throw items.error;
 
     const skuNames = new Map(
-      skus.data.map((sku) => [sku.id, skuLabel(sku.brands?.name, sku.materials?.code, sku.finish, sku.color_name)]),
+      [...details].map(([id, sku]) => [id, skuLabel(sku.brandName, sku.materialCode, sku.finishName, sku.colorName)]),
     );
     const itemNames = new Map(items.data.map((item) => [item.id, item.name]));
 
