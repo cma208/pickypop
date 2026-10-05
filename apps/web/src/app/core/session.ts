@@ -1,9 +1,11 @@
 import { inject, Injectable, signal } from '@angular/core';
 import { SUPABASE } from './supabase';
+import { CurrentWorkspace } from './workspace';
 
 @Injectable({ providedIn: 'root' })
 export class Session {
   private readonly supabase = inject(SUPABASE);
+  private readonly workspace = inject(CurrentWorkspace);
 
   readonly email = signal<string | null>(null);
   readonly error = signal<string | null>(null);
@@ -33,5 +35,7 @@ export class Session {
   async signOut(): Promise<void> {
     await this.supabase.auth.signOut();
     this.email.set(null);
+    // Two people share this workshop and may share a browser.
+    this.workspace.forget();
   }
 }

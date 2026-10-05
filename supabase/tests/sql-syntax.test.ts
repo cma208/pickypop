@@ -82,6 +82,16 @@ describe('migrations', () => {
     expect(await findSyntaxError(readFileSync(migrationsDir + file, 'utf8'))).toBeNull();
   });
 
+  // Money is numeric, never floating point: half a sol has to stay half a sol
+  // after a thousand additions. Catching it here is cheaper than finding a
+  // cash balance that is off by a cent.
+  it.each(migrations)('%s declares no column as floating point', (file) => {
+    const sql = readFileSync(migrationsDir + file, 'utf8');
+    const floats = [...sql.matchAll(/^\s*\w+\s+(real|double precision|float\d*)\b/gim)];
+
+    expect(floats.map((match) => match[0].trim())).toEqual([]);
+  });
+
   it.each(migrations)('%s is idempotent about types it creates', (file) => {
     const sql = readFileSync(migrationsDir + file, 'utf8');
 

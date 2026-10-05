@@ -1,0 +1,32 @@
+<div class="shell" [class.open]="menuOpen()">
+  <aside>
+    <div class="brand">
+      <strong>Pickypop</strong>
+      <button type="button" class="ghost only-small" (click)="menuOpen.set(false)" aria-label="Cerrar menú">✕</button>
+    </div>
+
+    <nav>
+      @for (group of groups; track group.title) {
+        <p class="group">{{ group.title }}</p>
+        @for (link of group.links; track link.path) {
+          <a [routerLink]="link.path" routerLinkActive="active" (click)="menuOpen.set(false)">
+            {{ link.label }}
+          </a>
+        }
+      }
+    </nav>
+
+    <footer>
+      <span class="muted">{{ session.email() }}</span>
+      <button type="button" class="ghost" (click)="signOut()">Salir</button>
+    </footer>
+  </aside>
+
+  <div class="content">
+    <header class="topbar only-small">
+      <button type="button" class="ghost" (click)="menuOpen.set(true)" aria-label="Abrir menú">☰</button>
+      <strong>Pickypop</strong>
+    </header>
+    <router-outlet />
+  </div>
+</div>

@@ -95,14 +95,20 @@
 
 | Tabla | Columnas clave |
 |---|---|
-| `accounts` | name, kind (`cash`, `bank`, `wallet`), opening_balance |
+| `accounts` | name, kind (`cash`, `bank`, `wallet`), opening_balance, opening_balance_on, default_payment_method, active |
 | `transaction_categories` | name, direction (`income`, `expense`) |
-| `transactions` | account_id, type (`income`, `expense`, `transfer`, `owner_contribution`, `owner_draw`), category_id, amount, occurred_at, payment_method, order_id, purchase_id, maintenance_log_id, counterparty, note |
+| `transactions` | account_id, **counter_account_id**, type (`income`, `expense`, `transfer`, `owner_contribution`, `owner_draw`), category_id, amount (siempre positivo), occurred_at, payment_method, order_id, purchase_id, maintenance_log_id, counterparty, reference, note, **voided_at / void_reason** |
 | `assets` | name, acquired_at, cost, useful_life_hours, printer_id |
 | `documents` | order_id, type (`internal_note`, `boleta`, `factura`, `credit_note`), series, number, issued_at, customer_doc_type, customer_doc_number, taxable_amount, igv_amount, total, sunat_status, pdf_path, xml_path, provider_ref |
+| *vista* `transaction_entries` | El libro, cuenta por cuenta: desdobla la transferencia en sus dos patas |
 | *vista* `account_balances` | Saldo por cuenta |
+| *vista* `order_payment_summary` | Total, cobrado y saldo por pedido de venta |
 | *vista* `receivables` | Órdenes entregadas con saldo pendiente |
 | *vista* `monthly_income_statement` | Ventas, costo de ventas, gastos y utilidad por mes |
+
+Construido el 2026-10-04 (migración `20261004130000_finance.sql`). Las reglas de este módulo están en [ADR-014](05-decisiones.md): el saldo se deriva, la transferencia es **una** fila con dos cuentas, nada se borra sino que se anula con motivo, y `orders.payment_status` es una proyección que recalcula un disparador y que la aplicación nunca escribe. Queda fuera `documents` (boletas y facturas): el taller todavía no tiene RUC.
+
+Dos reglas se declaran en el esquema para que la aplicación no pueda saltárselas: un movimiento no puede apuntar a una cuenta de otro taller (clave foránea compuesta contra `accounts (id, workspace_id)`) y un ingreso no puede caer en una categoría de egreso (columna generada `expected_direction` con clave foránea compuesta contra `transaction_categories (id, direction)`).
 
 ### Transversales
 
@@ -177,3 +183,5 @@ Estas operaciones escriben en varias tablas y deben hacerlo **todo o nada**. Ser
 | `record_payment` | `transactions`, estado de la orden |
 | `log_maintenance` | `maintenance_logs`, `stock_movements` (repuestos), `transactions` |
 | `cancel_order` | Estado de la orden, liberación de reservas, reembolso si corresponde |
+
+Escritas hasta hoy: `complete_print_job` y `record_payment`. Faltan `register_purchase`, `accept_quote`, `log_maintenance` y `cancel_order`; mientras tanto, una compra se paga registrando a mano un egreso con su `purchase_id`. Nota: `purchases.account_id` figura en este documento pero nunca se creó, y hace falta si el formulario de compra va a elegir cuenta.

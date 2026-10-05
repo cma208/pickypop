@@ -168,6 +168,25 @@ Cada decisión tiene uno de estos estados: **Aceptada** (confirmada por el dueñ
 
 ---
 
+## ADR-014 · El dinero se lleva como un libro, igual que el stock
+
+**Estado:** Aceptada · 2026-10-04
+
+**Contexto.** Hacía falta el módulo de finanzas: cuentas, movimientos, cobros y reportes. Un saldo guardado en una columna se desincroniza en cuanto alguien corrige un movimiento, y una transferencia escrita como dos filas se parte en cuanto una de las dos falla o se edita sola.
+
+**Decisión.** Cuatro reglas:
+
+1. **El saldo no se guarda, se deriva.** Una cuenta tiene un saldo de apertura con su fecha; lo demás sale de sumar sus movimientos. Es lo mismo que ya se hacía con el filamento.
+2. **Una transferencia es una sola fila con dos cuentas** (`account_id` y `counter_account_id`), no dos filas. Una vista la desdobla en sus dos patas para los saldos. Así es imposible que queden descuadradas, y la suma de todos los saldos del taller no cambia al transferir.
+3. **Nada se borra, se anula**, con motivo obligatorio. Un movimiento anulado desaparece de los saldos y los reportes, y queda en el registro.
+4. **El estado de cobro de un pedido es una proyección**, recalculada por disparador desde los movimientos. Existe para poder filtrar la lista de pedidos sin recorrer el libro; los importes de verdad están en la vista.
+
+Además, las reglas que no se pueden romper se declaran en el esquema y no en la aplicación: un movimiento no puede apuntar a la cuenta de otro taller, un ingreso no puede caer en una categoría de egreso, y una transferencia no puede pagar un pedido.
+
+**Consecuencias.** Los reportes nunca mienten por un saldo olvidado, y una corrección se arregla sola en todas partes. A cambio, cada consulta de saldo recorre los movimientos de esa cuenta; con el volumen de un taller de dos personas eso no se nota, y si algún día se notara, la salida es una vista materializada, no una columna editable.
+
+---
+
 ## Pendientes
 
 | Tema | Opciones | Comentario |

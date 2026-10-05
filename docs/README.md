@@ -49,14 +49,14 @@ Una plataforma web open source de **gestión y finanzas** para talleres pequeño
 
 ## Hoja de ruta
 
-| Fase | Nombre | Alcance |
-|---|---|---|
-| 0 | Fundaciones | Esta documentación, decisiones, modelo de datos y **prueba de concepto del lector de `.gcode.3mf`** con archivos reales |
-| 1 | MVP: costear | Ingreso con Google para las dos personas, parámetros, materiales y compras (rollos), cotizador (desde archivo o manual), uso personal y regalos, registro de impresiones |
-| 2 | Operar | Pedidos y cobros, catálogo con fichas y botón "Añadir al catálogo", alertas de stock, mantenimiento de la A1 mini |
-| 3 | Finanzas + IA privada | Cuentas y movimientos de dinero, reportes, respaldos, MCP del taller (local) |
-| 4 | Clientes | MCP público de catálogo, bot, solicitudes de cotización |
-| 5 | Formalización | Régimen tributario activo, boletas y facturas mediante un proveedor electrónico, varios talleres |
+| Fase | Nombre | Alcance | Estado |
+|---|---|---|---|
+| 0 | Fundaciones | Esta documentación, decisiones, modelo de datos y **prueba de concepto del lector de `.gcode.3mf`** con archivos reales | ✅ |
+| 1 | MVP: costear | Ingreso con Google para las dos personas, parámetros, materiales y compras (rollos), cotizador (desde archivo o manual), uso personal y regalos, registro de impresiones | Hecho salvo el ingreso con Google: en local se entra con correo y contraseña |
+| 2 | Operar | Pedidos y cobros, catálogo con fichas y botón "Añadir al catálogo", alertas de stock, mantenimiento de la A1 mini | Hecho; el cobro de un pedido llegó con la fase 3 |
+| 3 | Finanzas + IA privada | Cuentas y movimientos de dinero, reportes, respaldos, MCP del taller (local) | Base de datos lista y pantallas en construcción; faltan respaldos y MCP |
+| 4 | Clientes | MCP público de catálogo, bot, solicitudes de cotización | Sin empezar |
+| 5 | Formalización | Régimen tributario activo, boletas y facturas mediante un proveedor electrónico, varios talleres | Sin empezar |
 
 ## Datos pendientes
 
@@ -71,6 +71,7 @@ Están marcados con ⚠️ dentro de los documentos. Al reemplazarlos, quitar la
 | Precio mínimo por orden | ⚠️ Pendiente | Fórmula de precio |
 | Costo del dulce | ✅ S/ 0.99 (66 g a S/ 15 el kilo) | Insumo de cada unidad |
 | Costo del empaque | ⚠️ Provisional: S/ 0.50 | Insumo de cada unidad |
+| Compra del rollo negro | ⚠️ Entró como saldo inicial a S/ 50, sin compra registrada | Costo del filamento negro en la receta de la botella |
 | Horas al año | ✅ ~2,000 h (175 h en 32 días) | Tarifa de máquina |
 | Presupuesto de mantenimiento | ⚠️ Provisional: S/ 240 al año | Tarifa de máquina. Se reemplaza con el gasto real |
 | Archivos `.gcode.3mf` de referencia | ✅ Recibidos el 2026-09-29 | [Hallazgos](01-investigacion.md#comprobado-con-archivos-laminados-2026-09-29): la purga ya viene en los gramos |

@@ -1,0 +1,270 @@
+import { Component, computed, inject, input, OnInit, output, signal } from '@angular/core';
+import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
+import { FormArray, FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { Field, FORMAT_PIPES } from '../../ui';
+import { explainError } from '../pedidos/pedidos.errors';
+import { ProduccionData, type CloseJob, type CloseOutcome, type JobItem } from './produccion.data';
+import { FAILURE_CAUSE_LABEL, FAILURE_CAUSES, type FailureCause } from './produccion.labels';
+
+const SECONDS_PER_MINUTE = 60;
+
+type CloseResult = CloseJob['result'];
+
+const RESULT_OPTIONS: { value: CloseResult; label: string }[] = [
+  { value: 'success', label: 'Exitosa' },
+  { value: 'failed', label: 'Fallida' },
+  { value: 'cancelled', label: 'Cancelada' },
+];
+
+function createUsageRow(spoolId: string, actualG: number) {
+  return new FormGroup({
+    spoolId: new FormControl(spoolId, { nonNullable: true }),
+    actualG: new FormControl(actualG, {
+      nonNullable: true,
+      validators: [Validators.required, Validators.min(0)],
+    }),
+  });
+}
+
+/**
+ * Closes a print job: result, real time and real grams per roll. Closing moves
+ * the stock and cannot be undone, so it asks for one more confirmation.
+ */
+@Component({
+  selector: 'app-print-job-close',
+  imports: [ReactiveFormsModule, Field, ...FORMAT_PIPES],
+  template: `
+    <form [formGroup]="form" (ngSubmit)="review()" novalidate class="close">
+      <fieldset class="results">
+        <legend>Resultado</legend>
+        @for (option of resultOptions; track option.value) {
+          <label [class.chosen]="result() === option.value">
+            <input type="radio" formControlName="result" [value]="option.value" />
+            {{ option.label }}
+          </label>
+        }
+      </fieldset>
+
+      @if (result() === 'failed') {
+        <pp-field label="Causa del fallo" [required]="true" [error]="causeError()">
+          <select formControlName="failureCause">
+            <option value="">Elige la causa…</option>
+            @for (cause of causes; track cause) {
+              <option [value]="cause">{{ causeLabel[cause] }}</option>
+            }
+          </select>
+        </pp-field>
+      }
+
+      @if (result() !== 'success') {
+        <pp-field label="Porcentaje completado" hint="Opcional, de 0 a 100." [error]="fieldError('percentComplete', 'Debe estar entre 0 y 100.')">
+          <input type="number" inputmode="decimal" min="0" max="100" step="1" formControlName="percentComplete" />
+        </pp-field>
+      }
+
+      <div class="grid two">
+        <pp-field
+          label="Tiempo real (minutos)"
+          [required]="result() !== 'cancelled'"
+          [hint]="job().estimatedTimeS ? 'Estimado: ' + (job().estimatedTimeS | duration) : undefined"
+          [error]="fieldError('actualMinutes', 'Escribe los minutos reales, en número entero mayor que cero.')"
+        >
+          <input type="number" inputmode="numeric" min="1" step="1" formControlName="actualMinutes" />
+        </pp-field>
+
+        @if (result() === 'success') {
+          <pp-field label="Unidades producidas" [error]="fieldError('unitsProduced', 'No puede ser negativo.')">
+            <input type="number" inputmode="decimal" min="0" step="any" formControlName="unitsProduced" />
+          </pp-field>
+        }
+      </div>
+
+      @if (result() === 'cancelled') {
+        <p class="muted">Una impresión cancelada no descuenta filamento.</p>
+      } @else {
+        <fieldset>
+          <legend>{{ result() === 'failed' ? 'Gramos desperdiciados por rollo' : 'Gramos usados por rollo' }}</legend>
+          @for (row of usage.controls; track row; let i = $index) {
+            <div [formGroup]="row" class="usage">
+              <div class="spool">
+                <strong>{{ filamentOf(i).spoolCode }}</strong>
+                <span class="muted">
+                  {{ filamentOf(i).colorName }} · estimado {{ filamentOf(i).estimatedG | grams }}
+                  @if (current()[filamentOf(i).spoolId] !== undefined) { · hay {{ current()[filamentOf(i).spoolId] | grams }} }
+                </span>
+              </div>
+              <pp-field label="Gramos reales" [error]="usageError(i)">
+                <input type="number" inputmode="decimal" min="0" step="0.01" formControlName="actualG" />
+              </pp-field>
+            </div>
+          }
+        </fieldset>
+      }
+
+      <pp-field label="Nota" hint="Opcional">
+        <input type="text" formControlName="note" autocomplete="off" />
+      </pp-field>
+
+      @if (error(); as message) { <p class="error" role="alert">{{ message }}</p> }
+
+      @if (confirming()) {
+        <div class="confirm" role="alert">
+          <p><strong>Esto no se puede deshacer.</strong> {{ summary() }}</p>
+          <div class="row">
+            <button type="button" (click)="confirm()" [disabled]="busy()">{{ busy() ? 'Cerrando…' : 'Sí, cerrar impresión' }}</button>
+            <button type="button" class="secondary" (click)="confirming.set(false)" [disabled]="busy()">Volver</button>
+          </div>
+        </div>
+      } @else {
+        <div class="row">
+          <button type="submit">Revisar y cerrar</button>
+          <button type="button" class="secondary" (click)="cancelled.emit()">No cerrar</button>
+        </div>
+      }
+    </form>
+  `,
+  styles: `
+    .close { padding-top: 0.75rem; }
+    fieldset { border: 1px solid var(--line); border-radius: 10px; padding: 0.8rem; margin: 0 0 1rem; }
+    legend { font-size: 0.85rem; font-weight: 500; padding: 0 0.4rem; }
+    .results { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+    .results label { display: flex; gap: 0.4rem; align-items: center; padding: 0.4rem 0.8rem; border: 1px solid var(--line); border-radius: 999px; cursor: pointer; }
+    .results label.chosen { border-color: var(--accent); background: var(--accent-soft); }
+    .results input { width: auto; }
+    .usage { display: grid; grid-template-columns: 1fr 9rem; gap: 0.75rem; align-items: start; }
+    .spool { display: grid; padding-top: 0.2rem; }
+    .confirm { padding: 0.8rem; border: 1px solid var(--warn); border-radius: 10px; background: var(--warn-soft); margin-bottom: 0.5rem; }
+    .confirm p { margin: 0 0 0.6rem; }
+    @media (max-width: 30rem) { .usage { grid-template-columns: 1fr; } }
+  `,
+})
+export class PrintJobClose implements OnInit {
+  private readonly data = inject(ProduccionData);
+
+  readonly job = input.required<JobItem>();
+  readonly closed = output<CloseOutcome>();
+  readonly cancelled = output<void>();
+
+  protected readonly resultOptions = RESULT_OPTIONS;
+  protected readonly causes = FAILURE_CAUSES;
+  protected readonly causeLabel = FAILURE_CAUSE_LABEL;
+
+  protected readonly form = new FormGroup({
+    result: new FormControl<CloseResult>('success', { nonNullable: true }),
+    failureCause: new FormControl<FailureCause | ''>('', { nonNullable: true }),
+    percentComplete: new FormControl<number | null>(null, [Validators.min(0), Validators.max(100)]),
+    actualMinutes: new FormControl<number | null>(null, [Validators.min(1), Validators.pattern(/^\d+$/)]),
+    unitsProduced: new FormControl<number | null>(null, [Validators.min(0)]),
+    note: new FormControl('', { nonNullable: true }),
+    usage: new FormArray<ReturnType<typeof createUsageRow>>([]),
+  });
+
+  protected readonly busy = signal(false);
+  protected readonly confirming = signal(false);
+  protected readonly error = signal<string | null>(null);
+  protected readonly submitted = signal(false);
+  protected readonly current = signal<Record<string, number>>({});
+
+  private readonly resultValue = toSignal(this.form.controls.result.valueChanges, { initialValue: 'success' as CloseResult });
+  protected readonly result = computed(() => this.resultValue());
+
+  constructor() {
+    this.form.controls.result.valueChanges.pipe(takeUntilDestroyed()).subscribe(() => this.confirming.set(false));
+  }
+
+  ngOnInit(): void {
+    const job = this.job();
+    for (const filament of job.filaments) {
+      this.usage.push(createUsageRow(filament.spoolId, filament.estimatedG));
+    }
+    if (job.estimatedTimeS) {
+      this.form.controls.actualMinutes.setValue(Math.max(1, Math.round(job.estimatedTimeS / SECONDS_PER_MINUTE)));
+    }
+    if (job.plateUnitsPerRun) this.form.controls.unitsProduced.setValue(job.plateUnitsPerRun);
+    void this.loadCurrentStock();
+  }
+
+  protected get usage(): FormArray<ReturnType<typeof createUsageRow>> {
+    return this.form.controls.usage;
+  }
+
+  protected filamentOf(index: number) {
+    return this.job().filaments[index]!;
+  }
+
+  protected causeError(): string | null {
+    const missing = this.form.controls.failureCause.value === '';
+    return missing && (this.form.controls.failureCause.touched || this.submitted()) ? 'Una impresión fallida necesita su causa.' : null;
+  }
+
+  protected fieldError(name: 'percentComplete' | 'actualMinutes' | 'unitsProduced', message: string): string | null {
+    const control = this.form.controls[name];
+    const missingTime = name === 'actualMinutes' && this.result() !== 'cancelled' && !control.value;
+    const show = control.touched || this.submitted();
+    return (control.invalid || missingTime) && show ? message : null;
+  }
+
+  protected usageError(index: number): string | null {
+    const control = this.usage.at(index).controls.actualG;
+    return control.invalid && (control.touched || this.submitted()) ? 'Los gramos no pueden ser negativos.' : null;
+  }
+
+  protected summary(): string {
+    const result = this.result();
+    const total = this.usage.getRawValue().reduce((sum, row) => sum + (row.actualG || 0), 0);
+    if (result === 'cancelled') return 'Se cerrará como cancelada y no se moverá el stock.';
+    const verb = result === 'success' ? 'Se descontarán' : 'Se registrarán como merma';
+    return `${verb} ${Math.round(total * 100) / 100} g de ${this.usage.length} rollo(s).`;
+  }
+
+  /** First step: check the form and ask for confirmation. */
+  protected review(): void {
+    this.submitted.set(true);
+    this.error.set(null);
+    this.form.markAllAsTouched();
+
+    const result = this.result();
+    const needsTime = result !== 'cancelled' && !this.form.controls.actualMinutes.value;
+    const needsCause = result === 'failed' && this.form.controls.failureCause.value === '';
+    const usageInvalid = result !== 'cancelled' && this.usage.invalid;
+
+    if (needsTime || needsCause || usageInvalid || this.form.controls.percentComplete.invalid || this.form.controls.actualMinutes.invalid) {
+      this.error.set('Revisa los campos marcados antes de cerrar.');
+      return;
+    }
+    this.confirming.set(true);
+  }
+
+  protected async confirm(): Promise<void> {
+    const value = this.form.getRawValue();
+    this.busy.set(true);
+    this.error.set(null);
+
+    try {
+      const outcome = await this.data.closeJob(this.job(), {
+        result: value.result,
+        actualTimeS: value.actualMinutes ? value.actualMinutes * SECONDS_PER_MINUTE : null,
+        usage: value.result === 'cancelled' ? [] : value.usage.map((row) => ({ spoolId: row.spoolId, actualG: row.actualG })),
+        failureCause: value.failureCause === '' ? null : value.failureCause,
+        percentComplete: value.percentComplete,
+        unitsProduced: value.unitsProduced,
+        note: value.note.trim() || null,
+      });
+      this.closed.emit(outcome);
+    } catch (error) {
+      this.confirming.set(false);
+      this.error.set(explainError(error, 'No pudimos cerrar la impresión. No se movió nada; inténtalo de nuevo.'));
+    } finally {
+      this.busy.set(false);
+    }
+  }
+
+  private async loadCurrentStock(): Promise<void> {
+    try {
+      const rows = await this.data.stockOf(this.job().filaments.map((f) => f.spoolId));
+      this.current.set(Object.fromEntries(rows.map((row) => [row.spoolId, row.beforeG])));
+    } catch {
+      // The roll stock is a convenience here; closing does not depend on it.
+    }
+  }
+}

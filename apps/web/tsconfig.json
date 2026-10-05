@@ -3,6 +3,15 @@
 {
   "compileOnSave": false,
   "compilerOptions": {
+    /* Shared packages are consumed straight from source: one formula, no build
+       step. They import each other with explicit .ts extensions, which Node can
+       run directly, so the app has to allow that too. */
+    "allowImportingTsExtensions": true,
+    "rewriteRelativeImportExtensions": true,
+    "paths": {
+      "@pickypop/domain": ["../../packages/domain/src/index.ts"],
+      "@pickypop/slicer-files": ["../../packages/slicer-files/src/index.ts"]
+    },
     "noImplicitOverride": true,
     "noPropertyAccessFromIndexSignature": true,
     "noImplicitReturns": true,

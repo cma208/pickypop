@@ -45,7 +45,10 @@ insert into public.filament_skus (
   -- should cost about S/ 60, which is what quotes should assume.
   ('00000000-0000-4000-8000-000000000033', '00000000-0000-4000-8000-000000000001',
    '00000000-0000-4000-8000-000000000010', '00000000-0000-4000-8000-000000000020',
-   'K3D', 'Verde lima', '#61C680', 1000, 500, 60.00);
+   'K3D', 'Verde lima', '#61C680', 1000, 500, 60.00),
+  ('00000000-0000-4000-8000-000000000034', '00000000-0000-4000-8000-000000000001',
+   '00000000-0000-4000-8000-000000000010', '00000000-0000-4000-8000-000000000020',
+   'K3D', 'Negro', '#000000', 1000, 500, 50.00);
 
 insert into public.suppliers (id, workspace_id, name, note) values
   ('00000000-0000-4000-8000-000000000050', '00000000-0000-4000-8000-000000000001',
@@ -82,7 +85,13 @@ insert into public.spools (
    'ROSA-01', 1000, 50.00, 'open'),
   ('00000000-0000-4000-8000-000000000083', '00000000-0000-4000-8000-000000000001',
    '00000000-0000-4000-8000-000000000033', '00000000-0000-4000-8000-000000000071',
-   'VERDE-01', 1000, 75.00, 'open');
+   'VERDE-01', 1000, 75.00, 'open'),
+  -- The black spool was already on the shelf before anything was being
+  -- recorded, so it has no purchase behind it: it comes in as an opening
+  -- balance and its cost is the replacement price until the real one is known.
+  ('00000000-0000-4000-8000-000000000084', '00000000-0000-4000-8000-000000000001',
+   '00000000-0000-4000-8000-000000000034', null,
+   'NEGRO-01', 1000, 50.00, 'open');
 
 -- Stock only exists because of its movements.
 insert into public.stock_movements (workspace_id, type, spool_id, quantity, unit_cost, source_type, note) values
@@ -91,17 +100,22 @@ insert into public.stock_movements (workspace_id, type, spool_id, quantity, unit
   ('00000000-0000-4000-8000-000000000001', 'purchase', '00000000-0000-4000-8000-000000000082',
    1000, 0.050, 'purchase', 'Ingreso del rollo'),
   ('00000000-0000-4000-8000-000000000001', 'purchase', '00000000-0000-4000-8000-000000000083',
-   1000, 0.075, 'purchase', 'Ingreso del rollo');
+   1000, 0.075, 'purchase', 'Ingreso del rollo'),
+  ('00000000-0000-4000-8000-000000000001', 'adjustment', '00000000-0000-4000-8000-000000000084',
+   1000, 0.050, 'opening_balance',
+   'Saldo inicial. TODO: pesar el rollo negro y corregir, y registrar su compra real');
 
 -- ------------------------------------------------------- other supplies
 
-insert into public.inventory_items (workspace_id, kind, name, unit, min_stock, perishable, note) values
+insert into public.inventory_items (
+  workspace_id, kind, name, unit, min_stock, perishable, standard_cost, note
+) values
   -- S/ 15 a kilo, about 66 g go inside each product: roughly S/ 0.99 a unit.
-  ('00000000-0000-4000-8000-000000000001', 'supply', 'Dulces surtidos', 'g', 1000, true,
+  ('00000000-0000-4000-8000-000000000001', 'supply', 'Dulces surtidos', 'g', 1000, true, 0.0150,
    'S/ 15.00 el kilo. 66 g por producto. TODO: registrar el vencimiento de cada lote'),
-  ('00000000-0000-4000-8000-000000000001', 'packaging', 'Bolsa con etiqueta', 'unidad', 50, false,
-   'TODO: costo real'),
-  ('00000000-0000-4000-8000-000000000001', 'spare_part', 'Boquilla 0.4 acero', 'unidad', 1, false, null);
+  ('00000000-0000-4000-8000-000000000001', 'packaging', 'Bolsa con etiqueta', 'unidad', 50, false, 0.5000,
+   'TODO: costo real, todavía están viendo opciones de empaque'),
+  ('00000000-0000-4000-8000-000000000001', 'spare_part', 'Boquilla 0.4 acero', 'unidad', 1, false, null, null);
 
 -- --------------------------------------------------------------- printer
 
@@ -188,13 +202,12 @@ insert into public.recipe_plate_filaments (
 ) values
   ('00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000094', 1,
    '00000000-0000-4000-8000-000000000020', '#F55A74', '00000000-0000-4000-8000-000000000032', 5.69),
-  -- TODO: no hay rollo negro registrado todavía, por eso va sin SKU.
   ('00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000094', 3,
-   '00000000-0000-4000-8000-000000000020', '#000000', null, 4.63),
+   '00000000-0000-4000-8000-000000000020', '#000000', '00000000-0000-4000-8000-000000000034', 4.63),
   ('00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000094', 4,
    '00000000-0000-4000-8000-000000000020', '#DE4343', '00000000-0000-4000-8000-000000000031', 1.02),
   ('00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000095', 1,
-   '00000000-0000-4000-8000-000000000020', '#000000', null, 15.00);
+   '00000000-0000-4000-8000-000000000020', '#000000', '00000000-0000-4000-8000-000000000034', 15.00);
 
 insert into public.recipe_items (workspace_id, recipe_id, inventory_item_id, quantity_per_unit)
 select '00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000093', i.id,
@@ -251,3 +264,33 @@ insert into public.gift_categories (workspace_id, name, treatment) values
   ('00000000-0000-4000-8000-000000000001', 'Empresa', 'marketing'),
   ('00000000-0000-4000-8000-000000000001', 'Personal', 'owner_draw'),
   ('00000000-0000-4000-8000-000000000001', 'Otros', 'other');
+
+-- ---------------------------------------------------------------- finanzas
+--
+-- Las cuatro formas de cobrar y pagar que usa el taller. El saldo de apertura
+-- queda en cero a propósito: es un dato real que todavía no nos pasaron, y
+-- poner un número inventado haría que todos los reportes mientan.
+
+insert into public.accounts (
+  workspace_id, name, kind, opening_balance, opening_balance_on, default_payment_method, note
+) values
+  ('00000000-0000-4000-8000-000000000001', 'Efectivo', 'cash', 0, date '2026-09-01', 'cash',
+   'TODO: cuánto había en la caja el día que empezaron a registrar'),
+  ('00000000-0000-4000-8000-000000000001', 'Yape', 'wallet', 0, date '2026-09-01', 'yape',
+   'TODO: saldo inicial'),
+  ('00000000-0000-4000-8000-000000000001', 'Plin', 'wallet', 0, date '2026-09-01', 'plin',
+   'TODO: saldo inicial'),
+  ('00000000-0000-4000-8000-000000000001', 'Cuenta bancaria', 'bank', 0, date '2026-09-01', 'transfer',
+   'TODO: banco y saldo inicial');
+
+insert into public.transaction_categories (workspace_id, name, direction) values
+  ('00000000-0000-4000-8000-000000000001', 'Venta de productos', 'income'),
+  ('00000000-0000-4000-8000-000000000001', 'Trabajos por encargo', 'income'),
+  ('00000000-0000-4000-8000-000000000001', 'Filamento', 'expense'),
+  ('00000000-0000-4000-8000-000000000001', 'Dulces y empaque', 'expense'),
+  ('00000000-0000-4000-8000-000000000001', 'Repuestos y herramientas', 'expense'),
+  ('00000000-0000-4000-8000-000000000001', 'Mantenimiento', 'expense'),
+  ('00000000-0000-4000-8000-000000000001', 'Envíos', 'expense'),
+  ('00000000-0000-4000-8000-000000000001', 'Comisiones de venta', 'expense'),
+  ('00000000-0000-4000-8000-000000000001', 'Publicidad', 'expense'),
+  ('00000000-0000-4000-8000-000000000001', 'Luz', 'expense');

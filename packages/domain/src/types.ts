@@ -139,6 +139,11 @@ export interface BatchPlateBreakdown {
   /** Extra pieces the last run leaves over. They are paid for anyway. */
   spareUnits: number;
   printHours: number;
+  /**
+   * Material per filament for ALL the runs of this plate, so `grams` is one
+   * run's grams times `runs`. The costs add up to `material` exactly.
+   */
+  materialByFilament: MaterialLine[];
   material: number;
 }
 
