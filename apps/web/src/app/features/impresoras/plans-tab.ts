@@ -33,7 +33,9 @@ import { PlanForm } from './plan-form';
     }
 
     @if (plans().length === 0) {
-      <pp-empty message="Esta impresora aún no tiene planes de mantenimiento." />
+      <pp-empty
+        message="Esta impresora aún no tiene planes de mantenimiento. Un plan avisa por horas de uso o por calendario, lo que llegue primero."
+      />
     } @else {
       <ul class="items">
         @for (plan of plans(); track plan.id) {

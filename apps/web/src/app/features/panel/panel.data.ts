@@ -5,7 +5,17 @@ import { ConfiguracionData } from '../configuracion/configuracion.data';
 import type { CostProfileRecord } from '../configuracion/configuracion.models';
 import { pickCurrent } from '../configuracion/cost-profile-lines';
 import { fetchAll } from '../../core/fetch-all';
-import { todayLocal } from '../../core/dates';
+import { daysBetween, localDate, todayLocal } from '../../core/dates';
+import {
+  byUrgency,
+  dueWording,
+  LOOKAHEAD_DAYS,
+  openPrintWording,
+  owingWording,
+  STALE_PRINT_DAYS,
+  urgencyForDueDate,
+  type TodayTask,
+} from './panel.tasks';
 import { ImpresorasData } from '../impresoras/impresoras.data';
 import { totalHours } from '../impresoras/impresoras.models';
 import { dueStatuses, needsAttention, type DueState } from '../impresoras/maintenance-due';
@@ -56,6 +66,7 @@ export const IN_PROGRESS_STATUSES: OrderStatus[] = [
 ];
 
 const WEEK_DAYS = 7;
+const TASK_LIMIT = 12;
 const MS_PER_DAY = 86_400_000;
 const ALERT_LIMIT = 6;
 
@@ -181,6 +192,107 @@ export class PanelData {
       .sort((a, b) => a.urgency - b.urgency)
       .slice(0, ALERT_LIMIT)
       .map(({ urgency: _urgency, ...alert }) => alert);
+  }
+
+  /**
+   * The queue the owner actually works from: everything that is late or due in
+   * the next few days, newest problem first. The cards below answer "how is the
+   * shop doing"; this answers "what do I do now", which is a different question
+   * and the one he was asking when he opened the app and did not know where to
+   * start.
+   *
+   * Low filament is deliberately NOT here. It is a condition, not a deadline:
+   * it has its own card and repeating it would drown the things that do expire.
+   */
+  async todayTasks(): Promise<TodayTask[]> {
+    const today = todayLocal();
+    const [orders, prints, unpaid, maintenance] = await Promise.all([
+      this.dueOrders(today),
+      this.openPrints(today),
+      this.unpaidDeliveries(),
+      this.maintenanceAlerts(),
+    ]);
+
+    const overdueMaintenance = maintenance
+      .filter((alert) => alert.state === 'overdue')
+      .map((alert): TodayTask => ({
+        key: `maintenance:${alert.key}`,
+        urgency: 'late',
+        title: alert.task,
+        detail: `${alert.printerName} · ${alert.summary}`,
+        route: '/impresoras',
+      }));
+
+    return [...orders, ...prints, ...unpaid, ...overdueMaintenance]
+      .sort(byUrgency)
+      .slice(0, TASK_LIMIT);
+  }
+
+  /** Orders still in the shop whose delivery date is here or nearly here. */
+  private async dueOrders(today: string): Promise<TodayTask[]> {
+    const { data, error } = await this.supabase
+      .from('orders')
+      .select('id, number, due_date, status')
+      .in('status', IN_PROGRESS_STATUSES)
+      .not('due_date', 'is', null)
+      .order('due_date');
+    if (error) throw error;
+
+    return (data ?? [])
+      .filter((order) => order.due_date !== null && daysBetween(today, order.due_date) <= LOOKAHEAD_DAYS)
+      .map((order): TodayTask => {
+        const days = daysBetween(today, order.due_date as string);
+        return {
+          key: `order:${order.id}`,
+          urgency: urgencyForDueDate(days),
+          title: `Pedido ${order.number}`,
+          detail: dueWording(days),
+          route: `/pedidos/${order.id}`,
+        };
+      });
+  }
+
+  /** A print that says it is printing but nobody closed: its cost never landed. */
+  private async openPrints(today: string): Promise<TodayTask[]> {
+    const { data, error } = await this.supabase
+      .from('print_jobs')
+      .select('id, label, started_at')
+      .eq('status', 'printing')
+      .order('started_at');
+    if (error) throw error;
+
+    return (data ?? []).map((job): TodayTask => {
+      const startedOn = job.started_at ? localDate(job.started_at) : null;
+      const days = startedOn ? daysBetween(startedOn, today) : 0;
+      return {
+        key: `print:${job.id}`,
+        urgency: days >= STALE_PRINT_DAYS ? 'late' : 'today',
+        title: `Impresión sin cerrar${job.label ? ` · ${job.label}` : ''}`,
+        detail: openPrintWording(days),
+        route: '/produccion',
+      };
+    });
+  }
+
+  /** Delivered and still owing. Money already earned that nobody went to collect. */
+  private async unpaidDeliveries(): Promise<TodayTask[]> {
+    const { data, error } = await this.supabase
+      .from('order_payment_summary')
+      .select('order_id, number, balance, status')
+      .in('status', ['delivered', 'closed'])
+      .gt('balance', 0)
+      .order('balance', { ascending: false });
+    if (error) throw error;
+
+    return (data ?? [])
+      .filter((row) => row.order_id !== null)
+      .map((row): TodayTask => ({
+        key: `payment:${row.order_id}`,
+        urgency: 'late',
+        title: `Cobrar el pedido ${row.number}`,
+        detail: owingWording(Number(row.balance ?? 0)),
+        route: '/finanzas/por-cobrar',
+      }));
   }
 
   async currentProfile(): Promise<CostProfileRecord | null> {

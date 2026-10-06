@@ -34,7 +34,9 @@ import { COMPONENT_LABELS, type ComponentRecord } from './impresoras.models';
     }
 
     @if (components().length === 0) {
-      <pp-empty message="Aún no hay componentes registrados en esta impresora." />
+      <pp-empty
+        message="Aún no hay componentes registrados. Son las piezas que se gastan —boquilla, placa, correas— y registrarlas permite avisar cuándo toca cambiarlas."
+      />
     } @else {
       <ul class="items">
         @for (component of components(); track component.id) {

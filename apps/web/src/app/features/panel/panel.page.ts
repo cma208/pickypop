@@ -4,9 +4,22 @@ import { AsyncState, Badge, Card, Empty, FORMAT_PIPES, Page } from '../../ui';
 import { SECTION_STYLES } from '../../core/styles';
 import { DUE_LABELS, DUE_TONES } from '../impresoras/maintenance-due';
 import { PanelData } from './panel.data';
+import type { TaskUrgency } from './panel.tasks';
 import { FAILURE_CAUSE_LABELS, ORDER_STATUS_LABELS } from './panel.labels';
 
 const HIGH_SUCCESS = 0.9;
+
+const URGENCY_LABELS: Record<TaskUrgency, string> = {
+  late: 'Atrasado',
+  today: 'Hoy',
+  soon: 'Pronto',
+};
+
+const URGENCY_TONES: Record<TaskUrgency, 'bad' | 'warn' | 'info'> = {
+  late: 'bad',
+  today: 'warn',
+  soon: 'info',
+};
 
 const TODAY = new Intl.DateTimeFormat('es-PE', {
   weekday: 'long',
@@ -21,6 +34,16 @@ const TODAY = new Intl.DateTimeFormat('es-PE', {
   styles: [
     SECTION_STYLES,
     `
+      .queue { margin-bottom: 1.25rem; }
+      .task {
+        display: flex; align-items: center; gap: 0.75rem;
+        padding: 0.6rem 0; border-top: 1px solid var(--line);
+      }
+      .task:first-of-type { border-top: 0; }
+      .task .grow { flex: 1; min-width: 0; }
+      .task .grow small { display: block; color: var(--muted); }
+      .task a { font-weight: 600; text-decoration: none; }
+      .task a:hover { text-decoration: underline; }
       .cards { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr)); }
       .row-item { display: flex; align-items: center; gap: 0.6rem; padding: 0.45rem 0; border-top: 1px solid var(--line); }
       .row-item:first-of-type { border-top: 0; }
@@ -40,6 +63,24 @@ const TODAY = new Intl.DateTimeFormat('es-PE', {
   ],
   template: `
     <pp-page title="Hoy" [subtitle]="today">
+      <pp-card class="queue" heading="Lo que vence">
+        <pp-async [loading]="tasks.isLoading()" [error]="problem(tasks.error(), 'los pendientes')">
+          @if ((tasks.value() ?? []).length === 0) {
+            <p class="positive">Nada vencido ni por vencer. Lo de abajo es cómo va el taller.</p>
+          } @else {
+            @for (task of tasks.value(); track task.key) {
+              <div class="task">
+                <pp-badge [tone]="urgencyTones[task.urgency]">{{ urgencyLabels[task.urgency] }}</pp-badge>
+                <span class="grow">
+                  <a [routerLink]="task.route">{{ task.title }}</a>
+                  <small>{{ task.detail }}</small>
+                </span>
+              </div>
+            }
+          }
+        </pp-async>
+      </pp-card>
+
       <div class="cards">
         <pp-card heading="Filamentos bajo mínimo">
           <a card-actions routerLink="/inventario/filamentos">Ver filamentos</a>
@@ -154,6 +195,10 @@ export class PanelPage {
   protected readonly dueTones = DUE_TONES;
   protected readonly dueLabels = DUE_LABELS;
 
+  protected readonly urgencyLabels = URGENCY_LABELS;
+  protected readonly urgencyTones = URGENCY_TONES;
+
+  protected readonly tasks = resource({ loader: () => this.data.todayTasks() });
   protected readonly low = resource({ loader: () => this.data.lowFilaments() });
   protected readonly orders = resource({ loader: () => this.data.ordersInProgress() });
   protected readonly maintenance = resource({ loader: () => this.data.maintenanceAlerts() });

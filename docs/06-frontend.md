@@ -64,8 +64,12 @@ Clases útiles: `.muted`, `.error`, `.num` (números alineados a la derecha), `.
 
 ## 6.6 Pantallas
 
-### Panel (`/panel`)
-Resumen del día: filamentos bajo mínimo, pedidos en curso por estado, mantenimientos vencidos, impresiones de la semana con su tasa de éxito, y los parámetros vigentes. Cada bloque enlaza a su pantalla.
+### Hoy (`/hoy`)
+Dos mitades que responden preguntas distintas. Arriba, **Lo que vence**: la cola de trabajo, ordenada por urgencia, con todo lo que está atrasado o vence en los próximos días —pedidos por entregar, impresiones sin cerrar, pedidos entregados sin cobrar y mantenimiento vencido—. Cada fila enlaza a donde se resuelve. Abajo, las tarjetas de estado: filamentos bajo mínimo, pedidos en curso por estado, mantenimiento, impresiones de la semana con su tasa de éxito, y los parámetros vigentes.
+
+El filamento bajo mínimo **no** entra en la cola de arriba: es una condición, no un vencimiento, y repetirlo ahogaría lo que sí caduca. Las partes puras (el texto de cada fila y el orden) viven en `panel.tasks.ts`, con pruebas: "se entregaba ayer" y "se entrega hoy" se diferencian en un día.
+
+`/panel` redirige aquí.
 
 ### Inventario
 - **Filamentos** (`/inventario/filamentos`): una sola pantalla para las dos mitades de lo mismo. La tabla lista los filamentos con su stock disponible, costo por gramo ponderado, mínimo y aviso de bajo stock; cada fila **se despliega** y muestra dentro los rollos físicos de ese filamento, con su código, estado, ubicación, gramos restantes y costo. Alta y edición del filamento; sobre cada rollo: cambiar estado, registrar pesaje (crea un ajuste) y cambiar ubicación.
