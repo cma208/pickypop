@@ -1,6 +1,6 @@
 import { Component, inject, resource } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { AsyncState, Badge, Card, Empty, FORMAT_PIPES, Page } from '../../ui';
+import { AsyncState, Badge, Card, FORMAT_PIPES, Page } from '../../ui';
 import { SECTION_STYLES } from '../../core/styles';
 import { DUE_LABELS, DUE_TONES } from '../impresoras/maintenance-due';
 import { PanelData } from './panel.data';
@@ -30,7 +30,7 @@ const TODAY = new Intl.DateTimeFormat('es-PE', {
 
 @Component({
   selector: 'app-panel',
-  imports: [RouterLink, Page, Card, Badge, Empty, AsyncState, FORMAT_PIPES],
+  imports: [RouterLink, Page, Card, Badge, AsyncState, FORMAT_PIPES],
   styles: [
     SECTION_STYLES,
     `
@@ -55,9 +55,6 @@ const TODAY = new Intl.DateTimeFormat('es-PE', {
       .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; margin: 0.75rem 0; text-align: center; }
       .stats span { display: block; font-size: 1.1rem; font-weight: 600; font-variant-numeric: tabular-nums; }
       .stats small { color: var(--muted); }
-      .params { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem 1rem; margin: 0; }
-      .params dt { font-size: 0.75rem; color: var(--muted); }
-      .params dd { margin: 0; font-weight: 600; }
       .positive { margin: 0; color: var(--good); }
     `,
   ],
@@ -162,27 +159,7 @@ const TODAY = new Intl.DateTimeFormat('es-PE', {
           </pp-async>
         </pp-card>
 
-        <pp-card heading="Parámetros vigentes">
-          <a card-actions routerLink="/configuracion">Ver configuración</a>
-          <pp-async [loading]="profile.isLoading()" [error]="problem(profile.error(), 'los parámetros')">
-            @if (profile.value(); as p) {
-              <p class="muted">Desde el {{ p.validFrom | fecha }}</p>
-              <dl class="params">
-                <div><dt>Margen objetivo</dt><dd>{{ p.targetMargin | percent1 }}</dd></div>
-                <div><dt>Tasa de fallo</dt><dd>{{ p.failureRate | percent1 }}</dd></div>
-                <div><dt>Hora de trabajo</dt><dd>{{ p.laborRatePerHour | money }}</dd></div>
-                <div><dt>Luz por kWh</dt><dd>{{ p.energyRatePerKwh | money: 4 }}</dd></div>
-                <div><dt>Merma</dt><dd>{{ p.materialWasteRate | percent1 }}</dd></div>
-                <div><dt>IGV</dt><dd>{{ p.igvRate | percent1 }}</dd></div>
-              </dl>
-            } @else {
-              <pp-empty message="Aún no hay parámetros vigentes. Sin ellos no se puede cotizar.">
-                <a routerLink="/configuracion">Crear parámetros</a>
-              </pp-empty>
-            }
-          </pp-async>
-        </pp-card>
-      </div>
+     </div>
     </pp-page>
   `,
 })
@@ -203,7 +180,6 @@ export class PanelPage {
   protected readonly orders = resource({ loader: () => this.data.ordersInProgress() });
   protected readonly maintenance = resource({ loader: () => this.data.maintenanceAlerts() });
   protected readonly prints = resource({ loader: () => this.data.weekPrints() });
-  protected readonly profile = resource({ loader: () => this.data.currentProfile() });
 
   protected isHealthy(rate: number | null): boolean {
     return (rate ?? 0) >= HIGH_SUCCESS;

@@ -19,8 +19,8 @@ import { Component, input } from '@angular/core';
     :host { display: block; max-width: 72rem; margin: 0 auto; padding: 1.5rem 1rem 4rem; }
     .head { display: flex; align-items: flex-start; gap: 1rem; margin-bottom: 1.5rem; }
     .head > div:first-child { flex: 1; }
-    h1 { margin: 0 0 0.25rem; font-size: 1.4rem; }
-    p { margin: 0; font-size: 0.9rem; }
+    h1 { margin: 0 0 0.2rem; font-size: 1.65rem; font-weight: 650; letter-spacing: -0.02em; }
+    p { margin: 0; font-size: 0.9rem; max-width: 46rem; }
     .actions { display: flex; gap: 0.5rem; }
   `,
 })

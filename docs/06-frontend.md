@@ -33,6 +33,10 @@ apps/web/src/app/
 
 ## 6.4 Sistema de diseño
 
+**La jerarquía la dan el peso y la densidad, no el color.** El título de página pesa y es grande; las tarjetas respiran; las tablas aprietan. Esa diferencia es deliberada: las pantallas de trabajo son tablas y rinden cuando entran más filas, y las de resumen son tarjetas y rinden cuando se leen de un vistazo. No se "arregla" igualándolas.
+
+Los iconos del menú viven en `layout/nav-icons.ts`, como un sprite SVG en línea: diecisiete trazos de 24×24, sin relleno, que toman color y grosor de donde estén, así que el estado activo enciende el icono y la palabra a la vez. Son dibujados a mano a propósito: una fuente de iconos sería una dependencia y una petición de red para diecisiete figuras. Si hace falta uno nuevo, se agrega ahí y tiene que ser legible a 18 px, que es el único tamaño al que se dibujan.
+
 Tokens en `styles.scss`, con claro y oscuro automáticos: `--bg`, `--surface`, `--text`, `--muted`, `--line`, `--accent`, `--danger`, `--good`, `--warn` y sus variantes `-soft`.
 
 Componentes en `ui/`:

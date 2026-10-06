@@ -114,14 +114,23 @@ insert into public.spools (
    'NEGRO-01', 1000, 50.00, 'open');
 
 -- Stock only exists because of its movements.
-insert into public.stock_movements (workspace_id, type, spool_id, quantity, unit_cost, source_type, note) values
-  ('00000000-0000-4000-8000-000000000001', 'purchase', '00000000-0000-4000-8000-000000000081',
+--
+-- Each one is dated when it actually happened, and in Lima time. Without the
+-- date they all landed on "now" and the kardex showed the opening stock as if
+-- it had arrived today; without the time zone they land a day early, because
+-- midnight UTC is the previous evening here.
+insert into public.stock_movements (workspace_id, occurred_at, type, spool_id, quantity, unit_cost, source_type, note) values
+  ('00000000-0000-4000-8000-000000000001', timestamp '2026-09-01 10:00' at time zone 'America/Lima',
+   'purchase', '00000000-0000-4000-8000-000000000081',
    1000, 0.050, 'purchase', 'Ingreso del rollo'),
-  ('00000000-0000-4000-8000-000000000001', 'purchase', '00000000-0000-4000-8000-000000000082',
+  ('00000000-0000-4000-8000-000000000001', timestamp '2026-09-01 10:00' at time zone 'America/Lima',
+   'purchase', '00000000-0000-4000-8000-000000000082',
    1000, 0.050, 'purchase', 'Ingreso del rollo'),
-  ('00000000-0000-4000-8000-000000000001', 'purchase', '00000000-0000-4000-8000-000000000083',
+  ('00000000-0000-4000-8000-000000000001', timestamp '2026-09-10 10:00' at time zone 'America/Lima',
+   'purchase', '00000000-0000-4000-8000-000000000083',
    1000, 0.075, 'purchase', 'Ingreso del rollo'),
-  ('00000000-0000-4000-8000-000000000001', 'adjustment', '00000000-0000-4000-8000-000000000084',
+  ('00000000-0000-4000-8000-000000000001', timestamp '2026-09-01 10:00' at time zone 'America/Lima',
+   'adjustment', '00000000-0000-4000-8000-000000000084',
    1000, 0.050, 'opening_balance',
    'Saldo inicial. TODO: pesar el rollo negro y corregir, y registrar su compra real');
 
@@ -314,3 +323,346 @@ insert into public.transaction_categories (workspace_id, name, direction) values
   ('00000000-0000-4000-8000-000000000001', 'Comisiones de venta', 'expense'),
   ('00000000-0000-4000-8000-000000000001', 'Publicidad', 'expense'),
   ('00000000-0000-4000-8000-000000000001', 'Luz', 'expense');
+
+-- =====================================================================
+-- DATOS DE DEMOSTRACIÓN
+-- =====================================================================
+--
+-- Todo lo de arriba es el taller real tal como se conoce. Lo de aquí abajo
+-- es inventado, y existe para una sola cosa: que al levantar el entorno
+-- local se puedan ver **todos** los flujos con datos encima, en vez de
+-- pantallas vacías que no enseñan nada y que obligan a cargar a mano lo
+-- mismo cada vez.
+--
+-- Nunca llega a producción: este archivo solo lo corre el CLI en local.
+-- Un proyecto alojado arranca con supabase/bootstrap.sql, que no lo incluye.
+--
+-- **Las fechas son relativas a hoy**, a propósito. Con fechas fijas, a la
+-- semana el entorno muestra todo vencido y deja de parecerse a un taller
+-- en marcha; peor, deja de ejercitar los avisos de "vence hoy".
+
+-- ------------------------------------------------------------- clientes
+
+insert into public.customers (id, workspace_id, kind, name, doc_type, doc_number, phone, email, note) values
+  ('00000000-0000-4000-8000-000000000101', '00000000-0000-4000-8000-000000000001',
+   'person', 'Ana Quispe', 'dni', '45872103', '987654321', 'ana.quispe@example.com', 'Compra para cumpleaños.'),
+  ('00000000-0000-4000-8000-000000000102', '00000000-0000-4000-8000-000000000001',
+   'company', 'Colegio San Martín', 'ruc', '20512345678', '014567890', 'compras@sanmartin.example',
+   'Pide por lote y paga por transferencia a 15 días.'),
+  ('00000000-0000-4000-8000-000000000103', '00000000-0000-4000-8000-000000000001',
+   'person', 'Lucía Ramos', 'dni', '70112233', '999111222', null, null),
+  ('00000000-0000-4000-8000-000000000104', '00000000-0000-4000-8000-000000000001',
+   'company', 'Café Lima', 'ruc', '20600112233', '015551234', 'hola@cafelima.example',
+   'Recuerdos para sus clientes en fechas especiales.'),
+  ('00000000-0000-4000-8000-000000000105', '00000000-0000-4000-8000-000000000001',
+   'person', 'Diego Flores', 'none', null, '911222333', null, 'Llegó por Instagram.');
+
+-- --------------------------------------------------------- cotizaciones
+--
+-- Las tres situaciones en las que vive una cotización: una aceptada que ya
+-- es pedido, una enviada esperando respuesta, y un borrador a medio hacer.
+
+insert into public.quotes (
+  id, workspace_id, number, version, customer_id, channel_id, status,
+  issued_on, valid_until, subtotal, discount, igv, total, note
+)
+select v.id, '00000000-0000-4000-8000-000000000001', v.number, 1, v.customer_id, c.id, v.status,
+       v.issued_on, v.valid_until, v.subtotal, 0, 0, v.subtotal, v.note
+from public.sales_channels c,
+  (values
+  ('00000000-0000-4000-8000-000000000111'::uuid, 'COT-0001', '00000000-0000-4000-8000-000000000102'::uuid,
+   'accepted'::public.quote_status, current_date - 25, current_date - 10, 255.00::numeric,
+   'Aceptada. Se convirtió en el pedido PED-0001.'),
+  ('00000000-0000-4000-8000-000000000112', 'COT-0002', '00000000-0000-4000-8000-000000000104',
+   'sent', current_date - 4, current_date + 10, 180.00, 'Enviada por WhatsApp. Sin respuesta todavía.'),
+  ('00000000-0000-4000-8000-000000000113', 'COT-0003', '00000000-0000-4000-8000-000000000105',
+   'draft', current_date, current_date + 15, 85.00, 'Falta confirmar colores con el cliente.')
+  ) as v(id, number, customer_id, status, issued_on, valid_until, subtotal, note)
+where c.workspace_id = '00000000-0000-4000-8000-000000000001' and c.name = 'Directo';
+
+insert into public.quote_lines (
+  workspace_id, quote_id, position, kind, variant_id, description, quantity,
+  setup_minutes, minutes_per_unit, unit_cost, unit_price
+) values
+  ('00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000111', 1, 'catalog',
+   '00000000-0000-4000-8000-000000000091', 'Botella de poción con dulces surtidos', 30, 10, 5, 4.22, 8.50),
+  ('00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000112', 1, 'catalog',
+   '00000000-0000-4000-8000-000000000092', 'Botella de poción con chocolates premium', 10, 10, 5, 9.10, 18.00),
+  ('00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000113', 1, 'catalog',
+   '00000000-0000-4000-8000-000000000091', 'Botella de poción con dulces surtidos', 10, 10, 5, 4.22, 8.50);
+
+-- -------------------------------------------------------------- pedidos
+--
+-- Uno por cada estado del tablero, para que la pantalla de pedidos y la cola
+-- de "Hoy" se vean como se verán de verdad: con cosas atrasadas, cosas de
+-- hoy y cosas que todavía no apuran.
+
+insert into public.orders (
+  id, workspace_id, number, purpose, gift_category_id, recipient, customer_id,
+  channel_id, quote_id, status, ordered_on, due_date, total, note
+)
+select v.id, '00000000-0000-4000-8000-000000000001', v.number, v.purpose::public.order_purpose,
+       case when v.purpose = 'gift' then g.id end, v.recipient, v.customer_id,
+       c.id, v.quote_id, v.status::public.order_status, v.ordered_on, v.due_date, v.total, v.note
+from public.sales_channels c
+  cross join public.gift_categories g,
+  (values
+  ('00000000-0000-4000-8000-000000000121'::uuid, 'PED-0001', 'sale', null::text,
+   '00000000-0000-4000-8000-000000000102'::uuid, '00000000-0000-4000-8000-000000000111'::uuid,
+   'closed', current_date - 24, current_date - 18, 255.00::numeric, 'Entregado y cobrado completo.'),
+  ('00000000-0000-4000-8000-000000000122', 'PED-0002', 'sale', null,
+   '00000000-0000-4000-8000-000000000104', null,
+   'delivered', current_date - 12, current_date - 8, 90.00, 'Entregado. Quedaron en pagar por transferencia.'),
+  ('00000000-0000-4000-8000-000000000123', 'PED-0003', 'sale', null,
+   '00000000-0000-4000-8000-000000000101', null,
+   'printing', current_date - 6, current_date - 1, 85.00, 'Se atrasó por una impresión fallida.'),
+  ('00000000-0000-4000-8000-000000000124', 'PED-0004', 'sale', null,
+   '00000000-0000-4000-8000-000000000103', null,
+   'queued', current_date - 3, current_date, 42.50, null),
+  ('00000000-0000-4000-8000-000000000125', 'PED-0005', 'sale', null,
+   '00000000-0000-4000-8000-000000000105', null,
+   'confirmed', current_date - 1, current_date + 2, 51.00, null),
+  ('00000000-0000-4000-8000-000000000126', 'PED-0006', 'sale', null,
+   '00000000-0000-4000-8000-000000000102', null,
+   'post_processing', current_date - 5, current_date + 5, 170.00, 'Falta pegar las etiquetas.'),
+  ('00000000-0000-4000-8000-000000000127', 'PED-0007', 'sale', null,
+   '00000000-0000-4000-8000-000000000101', null,
+   'ready', current_date - 4, current_date + 1, 27.00, 'Listo para recoger.'),
+  ('00000000-0000-4000-8000-000000000128', 'PED-0008', 'sale', null,
+   '00000000-0000-4000-8000-000000000104', null,
+   'on_hold', current_date - 9, current_date + 10, 144.00, 'En pausa: el cliente está decidiendo el color.'),
+  ('00000000-0000-4000-8000-000000000129', 'PED-0009', 'sale', null,
+   '00000000-0000-4000-8000-000000000103', null,
+   'cancelled', current_date - 15, current_date - 5, 0.00, 'El cliente se arrepintió antes de imprimir.'),
+  ('00000000-0000-4000-8000-00000000012a', 'PED-0010', 'gift', 'Feria del colegio',
+   null, null,
+   'delivered', current_date - 7, current_date - 7, 0.00, 'Muestras para la feria. No se cobra.')
+  ) as v(id, number, purpose, recipient, customer_id, quote_id, status, ordered_on, due_date, total, note)
+where c.workspace_id = '00000000-0000-4000-8000-000000000001' and c.name = 'Directo'
+  and g.workspace_id = '00000000-0000-4000-8000-000000000001' and g.name = 'Empresa';
+
+insert into public.order_lines (
+  workspace_id, order_id, position, variant_id, description, quantity, unit_price, estimated_unit_cost
+) values
+  ('00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000121', 1,
+   '00000000-0000-4000-8000-000000000091', 'Botella de poción con dulces surtidos', 30, 8.50, 4.22),
+  ('00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000122', 1,
+   '00000000-0000-4000-8000-000000000091', 'Botella de poción con dulces surtidos', 10, 9.00, 4.22),
+  ('00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000123', 1,
+   '00000000-0000-4000-8000-000000000091', 'Botella de poción con dulces surtidos', 10, 8.50, 4.22),
+  ('00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000124', 1,
+   '00000000-0000-4000-8000-000000000091', 'Botella de poción con dulces surtidos', 5, 8.50, 4.22),
+  ('00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000125', 1,
+   '00000000-0000-4000-8000-000000000091', 'Botella de poción con dulces surtidos', 6, 8.50, 4.22),
+  ('00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000126', 1,
+   '00000000-0000-4000-8000-000000000091', 'Botella de poción con dulces surtidos', 20, 8.50, 4.22),
+  ('00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000127', 1,
+   '00000000-0000-4000-8000-000000000091', 'Botella de poción con dulces surtidos', 3, 9.00, 4.22),
+  ('00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000128', 1,
+   '00000000-0000-4000-8000-000000000092', 'Botella de poción con chocolates premium', 8, 18.00, 9.10),
+  ('00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-00000000012a', 1,
+   '00000000-0000-4000-8000-000000000091', 'Muestras para la feria', 4, 0.00, 4.22);
+
+-- ---------------------------------------------------------- impresiones
+--
+-- Una semana de taller: la mayoría salen bien, una falla, y una quedó
+-- abierta hace dos días, que es el caso que la cola de "Hoy" tiene que
+-- pescar porque su costo todavía no entró a ningún lado.
+
+insert into public.print_jobs (
+  id, workspace_id, printer_id, order_line_id, recipe_plate_id, label, status,
+  started_at, finished_at, estimated_time_s, actual_time_s, units_produced,
+  failure_cause, percent_complete, material_cost, energy_cost, machine_cost, note
+)
+select v.id, '00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000041',
+       l.id, '00000000-0000-4000-8000-000000000094', v.label, v.status::public.print_job_status,
+       v.started_at, v.finished_at, v.estimated_time_s, v.actual_time_s, v.units_produced,
+       v.failure_cause::public.print_failure_cause, v.percent_complete,
+       v.material_cost, v.energy_cost, v.machine_cost, v.note
+from (values
+  ('00000000-0000-4000-8000-000000000131'::uuid, '00000000-0000-4000-8000-000000000121'::uuid,
+   'Botellas 1/3', 'success', now() - interval '20 days', now() - interval '20 days' + interval '43 min',
+   2586, 2610, 10::numeric, null::text, 100::numeric, 5.73::numeric, 0.03::numeric, 0.21::numeric, null::text),
+  ('00000000-0000-4000-8000-000000000132', '00000000-0000-4000-8000-000000000121',
+   'Botellas 2/3', 'success', now() - interval '19 days', now() - interval '19 days' + interval '44 min',
+   2586, 2640, 10, null, 100, 5.73, 0.03, 0.21, null),
+  ('00000000-0000-4000-8000-000000000133', '00000000-0000-4000-8000-000000000121',
+   'Botellas 3/3', 'failed', now() - interval '19 days', now() - interval '19 days' + interval '12 min',
+   2586, 720, 0, 'spaghetti', 28, 1.60, 0.01, 0.06,
+   'Se despegó de la placa a los 12 minutos. Se volvió a imprimir.'),
+  ('00000000-0000-4000-8000-000000000134', '00000000-0000-4000-8000-000000000121',
+   'Botellas 3/3 (repetida)', 'success', now() - interval '18 days', now() - interval '18 days' + interval '43 min',
+   2586, 2595, 10, null, 100, 5.73, 0.03, 0.21, null),
+  ('00000000-0000-4000-8000-000000000135', '00000000-0000-4000-8000-000000000122',
+   'Botellas del Café Lima', 'success', now() - interval '11 days', now() - interval '11 days' + interval '45 min',
+   2586, 2700, 10, null, 100, 5.73, 0.04, 0.22, null),
+  ('00000000-0000-4000-8000-000000000136', '00000000-0000-4000-8000-000000000123',
+   'Botellas de Ana', 'failed', now() - interval '4 days', now() - interval '4 days' + interval '25 min',
+   2586, 1500, 0, 'clog', 58, 3.20, 0.02, 0.12,
+   'Se tapó la boquilla. Hubo que limpiarla antes de seguir.'),
+  ('00000000-0000-4000-8000-000000000137', '00000000-0000-4000-8000-000000000123',
+   'Botellas de Ana (repetida)', 'printing', now() - interval '2 days', null,
+   2586, null, 0, null, 65, 0, 0, 0,
+   'Quedó abierta: nadie la cerró al terminar.')
+  ) as v(id, order_id, label, status, started_at, finished_at, estimated_time_s,
+         actual_time_s, units_produced, failure_cause, percent_complete,
+         material_cost, energy_cost, machine_cost, note)
+join public.order_lines l on l.order_id = v.order_id and l.position = 1;
+
+-- El filamento que se fue en esas impresiones. El stock no se guarda: sale de
+-- aquí. El verde lima queda por debajo de su mínimo a propósito, para que el
+-- aviso de bajo stock tenga algo que avisar.
+
+insert into public.stock_movements (workspace_id, occurred_at, type, spool_id, quantity, unit_cost, source_type, note) values
+  ('00000000-0000-4000-8000-000000000001', now() - interval '20 days', 'consumption',
+   '00000000-0000-4000-8000-000000000082', -114.50, 0.050, 'print_job', 'Botellas 1/3'),
+  ('00000000-0000-4000-8000-000000000001', now() - interval '19 days', 'consumption',
+   '00000000-0000-4000-8000-000000000082', -114.50, 0.050, 'print_job', 'Botellas 2/3'),
+  ('00000000-0000-4000-8000-000000000001', now() - interval '19 days', 'waste',
+   '00000000-0000-4000-8000-000000000082', -32.00, 0.050, 'print_job', 'Impresión fallida: se despegó'),
+  ('00000000-0000-4000-8000-000000000001', now() - interval '18 days', 'consumption',
+   '00000000-0000-4000-8000-000000000082', -114.50, 0.050, 'print_job', 'Botellas 3/3 repetida'),
+  ('00000000-0000-4000-8000-000000000001', now() - interval '20 days', 'consumption',
+   '00000000-0000-4000-8000-000000000084', -138.90, 0.050, 'print_job', 'Negro de las botellas'),
+  ('00000000-0000-4000-8000-000000000001', now() - interval '11 days', 'consumption',
+   '00000000-0000-4000-8000-000000000083', -620.00, 0.075, 'print_job',
+   'Pedido grande en verde lima: dejó el rollo bajo el mínimo'),
+  ('00000000-0000-4000-8000-000000000001', now() - interval '4 days', 'waste',
+   '00000000-0000-4000-8000-000000000081', -64.00, 0.050, 'print_job', 'Boquilla tapada: material perdido');
+
+-- ------------------------------------------------------- mantenimiento
+--
+-- La limpieza diaria se hizo ayer, así que está al día. La semanal se hizo
+-- hace nueve días, así que aparece vencida. Es la combinación que hace que
+-- la pantalla de impresoras muestre los dos estados a la vez.
+
+insert into public.maintenance_logs (
+  workspace_id, printer_id, plan_id, performed_at, printer_hours_at, duration_min, cost, performed_by, checklist_done, note
+)
+select '00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000041', p.id,
+       v.performed_at, v.hours, v.duration_min, v.cost,
+       '00000000-0000-4000-8000-0000000000aa', p.checklist, v.note
+from public.maintenance_plans p
+join (values
+  ('Limpiar la placa y retirar la purga', (now() - interval '1 day')::timestamptz, 182::numeric, 8::numeric, 0::numeric, null::text),
+  ('Limpieza semanal del hotend, cortador y ventiladores', (now() - interval '9 days')::timestamptz, 170, 25, 0, null),
+  ('Revisión mensual', (now() - interval '20 days')::timestamptz, 158, 40, 0, 'Todo en orden.')
+  ) as v(task, performed_at, hours, duration_min, cost, note) on v.task = p.task
+where p.workspace_id = '00000000-0000-4000-8000-000000000001';
+
+-- Un incidente real: la boquilla tapada de hace cuatro días, con su repuesto.
+insert into public.maintenance_logs (
+  workspace_id, printer_id, plan_id, performed_at, printer_hours_at, duration_min, cost, performed_by, note
+) values (
+  '00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000041', null,
+  now() - interval '4 days', 176, 35, 25.00, '00000000-0000-4000-8000-0000000000aa',
+  'Boquilla tapada a mitad de impresión. Se limpió y se dejó una de repuesto lista.'
+);
+
+-- ------------------------------------------------------------- insumos
+--
+-- Una compra real de dulces y bolsas, para que el costo de los insumos salga
+-- de una compra y no del costo estándar. Son 2.5 kg a S/ 15 el kilo.
+
+insert into public.purchases (id, workspace_id, supplier_id, purchased_at, shipping_cost, note) values
+  ('00000000-0000-4000-8000-000000000141', '00000000-0000-4000-8000-000000000001',
+   '00000000-0000-4000-8000-000000000050', current_date - 14, 8.00, 'Dulces y empaque del mes');
+
+insert into public.purchase_lines (
+  workspace_id, purchase_id, inventory_item_id, description, quantity, unit_price, allocated_extra_cost, expires_on
+)
+select '00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000141', i.id,
+       v.description, v.quantity, v.unit_price, v.extra, v.expires_on
+from public.inventory_items i
+join (values
+  ('Dulces surtidos', 'Dulces surtidos, 2.5 kg', 2500::numeric, 0.0150::numeric, 6.00::numeric, (current_date + 120)::date),
+  ('Bolsa con etiqueta', 'Bolsas con etiqueta, ciento', 100, 0.5000, 2.00, null)
+  ) as v(name, description, quantity, unit_price, extra, expires_on) on v.name = i.name
+where i.workspace_id = '00000000-0000-4000-8000-000000000001';
+
+insert into public.stock_movements (workspace_id, occurred_at, type, inventory_item_id, quantity, unit_cost, source_type, note)
+select '00000000-0000-4000-8000-000000000001',
+       ((current_date - 14)::timestamp + interval '10 hours') at time zone 'America/Lima',
+       v.type::public.stock_movement_type,
+       i.id, v.quantity, v.unit_cost, v.source, v.note
+from public.inventory_items i
+join (values
+  ('Dulces surtidos', 'purchase', 2500::numeric, 0.0174::numeric, 'purchase', 'Compra del mes'),
+  ('Dulces surtidos', 'consumption', -1980, 0.0174, 'order', 'Dulces que se fueron en los pedidos del mes'),
+  ('Bolsa con etiqueta', 'purchase', 100, 0.5200, 'purchase', 'Compra del mes'),
+  ('Bolsa con etiqueta', 'consumption', -30, 0.5200, 'order', 'Bolsas de los pedidos entregados'),
+  ('Boquilla 0.4 acero', 'purchase', 2, 25.00, 'purchase', 'Repuestos en el cajón'),
+  ('Boquilla 0.4 acero', 'maintenance', -1, 25.00, 'maintenance', 'Cambio por boquilla tapada')
+  ) as v(name, type, quantity, unit_cost, source, note) on v.name = i.name
+where i.workspace_id = '00000000-0000-4000-8000-000000000001';
+
+-- ------------------------------------------------------------- finanzas
+--
+-- El mes en dinero. Incluye a propósito un pedido entregado y sin cobrar
+-- (PED-0002), que es lo que alimenta "por cobrar" y la cola de "Hoy", y
+-- una transferencia entre cuentas, que es **una sola fila** con dos
+-- cuentas y no debe cambiar el total del taller.
+
+insert into public.transactions (
+  workspace_id, account_id, counter_account_id, type, category_id, amount,
+  occurred_at, payment_method, order_id, purchase_id, counterparty, reference, note
+)
+select '00000000-0000-4000-8000-000000000001', a.id, b.id, v.type::public.transaction_type,
+       cat.id, v.amount, v.occurred_at, v.method::public.payment_method,
+       v.order_id, v.purchase_id, v.counterparty, v.reference, v.note
+from (values
+  -- Con qué arrancaron. Va como aporte de los dueños y no como saldo de
+  -- apertura a propósito: el saldo de apertura de las cuentas reales sigue
+  -- en cero esperando el dato verdadero, y no se toca desde aquí.
+  ('Efectivo', null::text, 'owner_contribution', null::text, 300.00::numeric,
+   ((current_date - 32)::timestamp + interval '9 hours') at time zone 'America/Lima', 'cash', null::uuid, null::uuid,
+   null::text, null::text, 'Con lo que arrancó la caja.'),
+  ('Yape', null, 'owner_contribution', null, 500.00,
+   ((current_date - 32)::timestamp + interval '9 hours') at time zone 'America/Lima', 'yape', null, null,
+   null, null, 'Aporte inicial para las primeras compras.'),
+  -- Cobro completo del pedido del colegio, en dos partes: adelanto y saldo.
+  ('Cuenta bancaria', null, 'income', 'Venta de productos', 127.50,
+   ((current_date - 24)::timestamp + interval '15 hours') at time zone 'America/Lima', 'transfer', '00000000-0000-4000-8000-000000000121', null,
+   'Colegio San Martín', 'Adelanto 50%', null),
+  ('Cuenta bancaria', null, 'income', 'Venta de productos', 127.50,
+   ((current_date - 17)::timestamp + interval '15 hours') at time zone 'America/Lima', 'transfer', '00000000-0000-4000-8000-000000000121', null,
+   'Colegio San Martín', 'Saldo', null),
+  -- Pedidos chicos cobrados en el momento.
+  ('Yape', null, 'income', 'Venta de productos', 27.00,
+   ((current_date - 3)::timestamp + interval '15 hours') at time zone 'America/Lima', 'yape', '00000000-0000-4000-8000-000000000127', null,
+   'Ana Quispe', null, 'Pagado al reservar.'),
+  ('Efectivo', null, 'income', 'Venta de productos', 42.50,
+   ((current_date - 2)::timestamp + interval '15 hours') at time zone 'America/Lima', 'cash', '00000000-0000-4000-8000-000000000124', null,
+   'Lucía Ramos', null, null),
+  -- Las compras del mes.
+  ('Efectivo', null, 'expense', 'Dulces y empaque', 58.00,
+   ((current_date - 14)::timestamp + interval '15 hours') at time zone 'America/Lima', 'cash', null, '00000000-0000-4000-8000-000000000141',
+   'Tienda local', null, 'Dulces, bolsas y el envío.'),
+  ('Yape', null, 'expense', 'Filamento', 100.00,
+   ((current_date - 30)::timestamp + interval '15 hours') at time zone 'America/Lima', 'yape', null, '00000000-0000-4000-8000-000000000060',
+   'Tienda local', null, 'Rojo y rosado.'),
+  ('Yape', null, 'expense', 'Repuestos y herramientas', 50.00,
+   ((current_date - 13)::timestamp + interval '15 hours') at time zone 'America/Lima', 'yape', null, null,
+   'Tienda local', null, 'Dos boquillas de acero.'),
+  ('Efectivo', null, 'expense', 'Luz', 18.00,
+   ((current_date - 8)::timestamp + interval '15 hours') at time zone 'America/Lima', 'cash', null, null,
+   'Luz del Sur', null, 'Parte de la impresora en el recibo del mes.'),
+  ('Yape', null, 'expense', 'Publicidad', 30.00,
+   ((current_date - 6)::timestamp + interval '15 hours') at time zone 'America/Lima', 'yape', null, null,
+   'Meta', null, 'Publicación promocionada en Instagram.'),
+  -- Una transferencia: una fila, dos cuentas, el total del taller no cambia.
+  ('Yape', 'Cuenta bancaria', 'transfer', null, 150.00,
+   ((current_date - 5)::timestamp + interval '15 hours') at time zone 'America/Lima', 'transfer', null, null,
+   null, null, 'Pasar lo acumulado en Yape al banco.'),
+  -- Y un retiro de los dueños.
+  ('Efectivo', null, 'owner_draw', null, 80.00,
+   ((current_date - 2)::timestamp + interval '15 hours') at time zone 'America/Lima', 'cash', null, null,
+   null, null, 'Retiro de los dueños.')
+  ) as v(account, counter_account, type, category, amount, occurred_at, method,
+         order_id, purchase_id, counterparty, reference, note)
+join public.accounts a
+  on a.workspace_id = '00000000-0000-4000-8000-000000000001' and a.name = v.account
+left join public.accounts b
+  on b.workspace_id = '00000000-0000-4000-8000-000000000001' and b.name = v.counter_account
+left join public.transaction_categories cat
+  on cat.workspace_id = '00000000-0000-4000-8000-000000000001' and cat.name = v.category;

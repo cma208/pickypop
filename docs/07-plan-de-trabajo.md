@@ -106,6 +106,8 @@ Configuración          marcas, materiales, acabados, parámetros, usuarios
 
 **No hacer:** repintar la paleta. Los tokens de `styles.scss` se quedan.
 
+**Cerrado el 2026-10-06.** Las tres tareas están hechas y la paleta quedó intacta. Los iconos son un sprite en línea (`layout/nav-icons.ts`), no una librería.
+
 ---
 
 ## M4 · Piezas, composición y costeo exacto
@@ -253,6 +255,18 @@ Generar un PDF desde el navegador con jsPDF, sin servidor. Debe llevar: el talle
 **Terminado cuando:** el dueño invita a alguien desde la aplicación, esa persona entra con el rol que le tocó, y una llamada directa a la API con su sesión es rechazada en lo que no le corresponde. **Probar lo segundo, no solo lo primero.**
 
 ---
+
+## 7.3.1 Datos de demostración en local
+
+`supabase/seed.sql` termina con un bloque de datos inventados que existe para que el entorno local muestre **todos** los flujos con datos encima: cinco clientes, tres cotizaciones en sus tres estados, diez pedidos —uno por cada estado del tablero, incluido un regalo y uno cancelado—, siete impresiones con sus fallas, mantenimiento al día y vencido, compras de insumos y un mes de movimientos de dinero.
+
+**Las fechas son relativas a `current_date`**, a propósito: con fechas fijas, a la semana el entorno muestra todo vencido y deja de ejercitar los avisos de "vence hoy".
+
+Dos trampas que ya mordieron y están resueltas ahí; si agregas datos, cuidado:
+- Un movimiento **sin** `occurred_at` cae en `now()`, y el kardex muestra el stock de apertura como si hubiera llegado hoy.
+- `(current_date - 14)::timestamptz` es medianoche **UTC**, que en Lima es la tarde anterior: la fila aparece un día antes. Hay que escribirlo como `((current_date - 14)::timestamp + interval '10 hours') at time zone 'America/Lima'`.
+
+Nunca llega a producción: el CLI solo corre este archivo en local, y un proyecto alojado arranca con `supabase/bootstrap.sql`.
 
 ## 7.4 Decisiones ya tomadas
 

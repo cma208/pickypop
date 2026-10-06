@@ -9,30 +9,56 @@ aside {
   background: var(--surface);
 }
 
-.brand { display: flex; align-items: center; padding: 0.25rem 0.5rem 0.5rem; }
-.brand strong { flex: 1; font-size: 1.05rem; }
+.brand { display: flex; align-items: center; padding: 0.35rem 0.6rem 0.6rem; }
+.brand strong { flex: 1; font-size: 1.1rem; letter-spacing: -0.01em; }
 
 nav { display: grid; gap: 0.15rem; }
 
 .group {
-  margin: 0.9rem 0 0.25rem;
-  padding: 0 0.5rem;
-  font-size: 0.7rem;
+  margin: 1.1rem 0 0.3rem;
+  padding: 0 0.6rem;
+  font-size: 0.68rem;
+  font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.08em;
   color: var(--muted);
 }
+nav > .group:first-child { margin-top: 0; }
 
 nav a {
-  padding: 0.4rem 0.5rem;
-  border-radius: 7px;
-  color: inherit;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.42rem 0.6rem;
+  border-radius: 8px;
+  color: var(--muted);
   font-size: 0.9rem;
   text-decoration: none;
 }
 
-nav a:hover { background: var(--line); }
-nav a.active { background: var(--accent-soft); color: var(--accent); font-weight: 500; }
+/* The icon takes its colour and weight from the link, so the active state
+   lights up both at once instead of only the words. */
+.ic {
+  width: 1.1rem;
+  height: 1.1rem;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.75;
+}
+
+nav a:hover { background: var(--line); color: var(--text); }
+nav a:hover .ic { opacity: 1; }
+
+nav a.active {
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 600;
+}
+nav a.active .ic { opacity: 1; stroke-width: 1.9; }
 
 aside footer {
   display: grid;

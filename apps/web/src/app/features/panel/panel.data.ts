@@ -1,9 +1,6 @@
 import { inject, Injectable } from '@angular/core';
 import type { Database } from '../../core/database.types';
 import { SUPABASE } from '../../core/supabase';
-import { ConfiguracionData } from '../configuracion/configuracion.data';
-import type { CostProfileRecord } from '../configuracion/configuracion.models';
-import { pickCurrent } from '../configuracion/cost-profile-lines';
 import { fetchAll } from '../../core/fetch-all';
 import { daysBetween, localDate, todayLocal } from '../../core/dates';
 import {
@@ -75,7 +72,6 @@ const ALERT_LIMIT = 6;
 export class PanelData {
   private readonly supabase = inject(SUPABASE);
   private readonly printers = inject(ImpresorasData);
-  private readonly settings = inject(ConfiguracionData);
 
   async lowFilaments(): Promise<LowFilament[]> {
     const { data: stock, error } = await this.supabase
@@ -295,7 +291,4 @@ export class PanelData {
       }));
   }
 
-  async currentProfile(): Promise<CostProfileRecord | null> {
-    return pickCurrent(await this.settings.costProfiles(), todayLocal());
-  }
 }

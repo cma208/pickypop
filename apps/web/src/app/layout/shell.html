@@ -1,4 +1,7 @@
 <div class="shell" [class.open]="menuOpen()">
+  <!-- The icon sprite: defined once, referenced by every link below. -->
+  <app-nav-icons />
+
   <aside>
     <div class="brand">
       <strong>Pickypop</strong>
@@ -10,7 +13,8 @@
         <p class="group">{{ group.title }}</p>
         @for (link of group.links; track link.path) {
           <a [routerLink]="link.path" routerLinkActive="active" (click)="menuOpen.set(false)">
-            {{ link.label }}
+            <svg class="ic" aria-hidden="true"><use [attr.href]="'#' + link.icon" /></svg>
+            <span>{{ link.label }}</span>
           </a>
         }
       }

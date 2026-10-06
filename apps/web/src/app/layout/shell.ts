@@ -1,10 +1,13 @@
 import { Component, inject, signal } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { Session } from '../core/session';
+import { NavIcons } from './nav-icons';
 
 interface NavLink {
   path: string;
   label: string;
+  /** Id of a symbol in NAV_ICON_SPRITE, without the hash. */
+  icon: string;
 }
 
 interface NavGroup {
@@ -14,7 +17,7 @@ interface NavGroup {
 
 @Component({
   selector: 'app-shell',
-  imports: [RouterOutlet, RouterLink, RouterLinkActive],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, NavIcons],
   templateUrl: './shell.html',
   styleUrl: './shell.scss',
 })
@@ -30,43 +33,43 @@ export class Shell {
    * screen exists: a link to an empty page is worse than no link.
    */
   protected readonly groups: NavGroup[] = [
-    { title: 'Taller', links: [{ path: '/hoy', label: 'Hoy' }] },
+    { title: 'Taller', links: [{ path: '/hoy', label: 'Hoy', icon: 'ic-today' }] },
     {
       title: 'Ventas',
       links: [
-        { path: '/cotizador', label: 'Cotizador' },
-        { path: '/cotizaciones', label: 'Cotizaciones' },
-        { path: '/pedidos', label: 'Pedidos' },
-        { path: '/clientes', label: 'Clientes' },
+        { path: '/cotizador', label: 'Cotizador', icon: 'ic-calculator' },
+        { path: '/cotizaciones', label: 'Cotizaciones', icon: 'ic-doc' },
+        { path: '/pedidos', label: 'Pedidos', icon: 'ic-bag' },
+        { path: '/clientes', label: 'Clientes', icon: 'ic-users' },
       ],
     },
     {
       title: 'Producción',
       links: [
-        { path: '/produccion', label: 'Cola de impresión' },
-        { path: '/catalogo', label: 'Catálogo y recetas' },
-        { path: '/impresoras', label: 'Impresoras' },
+        { path: '/produccion', label: 'Cola de impresión', icon: 'ic-layers' },
+        { path: '/catalogo', label: 'Catálogo y recetas', icon: 'ic-grid' },
+        { path: '/impresoras', label: 'Impresoras', icon: 'ic-printer' },
       ],
     },
     {
       title: 'Inventario',
       links: [
-        { path: '/inventario/filamentos', label: 'Filamentos' },
-        { path: '/inventario/insumos', label: 'Insumos y empaque' },
-        { path: '/inventario/compras', label: 'Compras' },
-        { path: '/inventario/movimientos', label: 'Kardex' },
+        { path: '/inventario/filamentos', label: 'Filamentos', icon: 'ic-spool' },
+        { path: '/inventario/insumos', label: 'Insumos y empaque', icon: 'ic-box' },
+        { path: '/inventario/compras', label: 'Compras', icon: 'ic-cart' },
+        { path: '/inventario/movimientos', label: 'Kardex', icon: 'ic-ledger' },
       ],
     },
     {
       title: 'Finanzas',
       links: [
-        { path: '/finanzas/cuentas', label: 'Cuentas' },
-        { path: '/finanzas/movimientos', label: 'Caja' },
-        { path: '/finanzas/por-cobrar', label: 'Por cobrar' },
-        { path: '/finanzas/resultados', label: 'Resultados' },
+        { path: '/finanzas/cuentas', label: 'Cuentas', icon: 'ic-wallet' },
+        { path: '/finanzas/movimientos', label: 'Caja', icon: 'ic-cash' },
+        { path: '/finanzas/por-cobrar', label: 'Por cobrar', icon: 'ic-clock' },
+        { path: '/finanzas/resultados', label: 'Resultados', icon: 'ic-chart' },
       ],
     },
-    { title: 'Ajustes', links: [{ path: '/configuracion', label: 'Configuración' }] },
+    { title: 'Ajustes', links: [{ path: '/configuracion', label: 'Configuración', icon: 'ic-sliders' }] },
   ];
 
   protected async signOut(): Promise<void> {

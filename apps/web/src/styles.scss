@@ -54,15 +54,23 @@ h1, h2, h3 { line-height: 1.25; }
 /* Tables: plain markup, consistent look. */
 table { width: 100%; border-collapse: collapse; }
 
-th, td { padding: 0.5rem 0.7rem; border-bottom: 1px solid var(--line); text-align: left; }
+/* Work screens are tables, and tables earn their keep by fitting more rows
+   on the screen. The airy half of the app is the cards. */
+th, td { padding: 0.42rem 0.7rem; border-bottom: 1px solid var(--line); text-align: left; }
 
 th {
-  font-size: 0.72rem;
+  padding-top: 0.3rem;
+  padding-bottom: 0.3rem;
+  font-size: 0.68rem;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.07em;
   color: var(--muted);
   font-weight: 600;
 }
+
+/* The first thing in a row is what you scan for, so it carries the weight. */
+td .strong { font-weight: 600; }
+td small.sub { display: block; font-size: 0.78rem; color: var(--muted); }
 
 tbody tr:hover { background: var(--accent-soft); }
 
