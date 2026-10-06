@@ -1,9 +1,11 @@
 import { Component, inject, signal } from '@angular/core';
 import { AsyncState, Badge, Empty, FORMAT_PIPES, Page } from '../../ui';
-import { CompraForm } from './compra-form';
+import { CompraForm, type SavedPurchase } from './compra-form';
+import { CompraPago } from './compra-pago';
 import {
   InventarioData,
   type InventoryItemSummary,
+  type PaymentAccount,
   type PurchaseSummary,
   type SkuSummary,
   type SupplierOption,
@@ -14,7 +16,7 @@ import { INVENTORY_STYLES } from './inventario.styles';
 
 @Component({
   selector: 'app-compras',
-  imports: [Page, AsyncState, Empty, Badge, CompraForm, FORMAT_PIPES, INVENTORY_PIPES],
+  imports: [Page, AsyncState, Empty, Badge, CompraForm, CompraPago, FORMAT_PIPES, INVENTORY_PIPES],
   template: `
     <pp-page
       [title]="creating() ? 'Nueva compra' : 'Compras'"
@@ -27,6 +29,9 @@ import { INVENTORY_STYLES } from './inventario.styles';
       @if (notice(); as text) {
         <p class="notice" role="status">{{ text }}</p>
       }
+      @if (warning(); as text) {
+        <p class="alert alert-warn" role="alert">{{ text }}</p>
+      }
 
       <pp-async [loading]="loading()" [error]="error()">
         @if (creating()) {
@@ -34,6 +39,7 @@ import { INVENTORY_STYLES } from './inventario.styles';
             [skuOptions]="skus()"
             [itemOptions]="items()"
             [supplierOptions]="suppliers()"
+            [accountOptions]="accounts()"
             (saved)="onSaved($event)"
             (cancelled)="creating.set(false)"
           />
@@ -50,6 +56,7 @@ import { INVENTORY_STYLES } from './inventario.styles';
                   <th>Proveedor</th>
                   <th class="hide-small">Documento</th>
                   <th class="num">Total</th>
+                  <th>Pago</th>
                   <th class="num hide-small">Rollos</th>
                   <th><span class="sr-only">Detalle</span></th>
                 </tr>
@@ -67,6 +74,15 @@ import { INVENTORY_STYLES } from './inventario.styles';
                     </td>
                     <td class="hide-small">{{ purchase.documentRef ?? '—' }}</td>
                     <td class="num">{{ purchase.total | money }}</td>
+                    <td>
+                      @if (purchase.pending <= 0) {
+                        <pp-badge tone="good">Pagada</pp-badge>
+                      } @else if (purchase.paid > 0) {
+                        <pp-badge tone="warn">Falta {{ purchase.pending | money }}</pp-badge>
+                      } @else {
+                        <pp-badge tone="warn">Por pagar</pp-badge>
+                      }
+                    </td>
                     <td class="num hide-small">{{ purchase.spoolCount }}</td>
                     <td class="actions-cell">
                       <button
@@ -81,7 +97,7 @@ import { INVENTORY_STYLES } from './inventario.styles';
                   </tr>
                   @if (expandedId() === purchase.id) {
                     <tr class="detail">
-                      <td colspan="6">
+                      <td colspan="7">
                         <ul>
                           @for (line of purchase.lines; track line.id) {
                             <li>
@@ -99,6 +115,11 @@ import { INVENTORY_STYLES } from './inventario.styles';
                           <pp-badge>{{ purchase.allocation === 'by_weight' ? 'por peso' : 'por monto' }}</pp-badge>
                           @if (purchase.note) { · {{ purchase.note }} }
                         </p>
+                        @if (purchase.pending > 0) {
+                          <app-compra-pago [purchase]="purchase" [accounts]="accounts()" (paid)="onPaid()" />
+                        } @else {
+                          <p class="muted meta">Pagada: {{ purchase.paid | money }}.</p>
+                        }
                       </td>
                     </tr>
                   }
@@ -132,6 +153,8 @@ export class ComprasPage {
   protected readonly skus = signal<SkuSummary[]>([]);
   protected readonly items = signal<InventoryItemSummary[]>([]);
   protected readonly suppliers = signal<SupplierOption[]>([]);
+  protected readonly accounts = signal<PaymentAccount[]>([]);
+  protected readonly warning = signal<string | null>(null);
   protected readonly loading = signal(true);
   protected readonly error = signal<string | null>(null);
   protected readonly notice = signal<string | null>(null);
@@ -144,6 +167,7 @@ export class ComprasPage {
 
   protected startNew(): void {
     this.notice.set(null);
+    this.warning.set(null);
     this.creating.set(true);
   }
 
@@ -151,26 +175,40 @@ export class ComprasPage {
     this.expandedId.set(this.expandedId() === id ? null : id);
   }
 
-  protected async onSaved(rolls: number): Promise<void> {
+  protected async onSaved(saved: SavedPurchase): Promise<void> {
+    const { rolls, paymentFailed } = saved;
     this.creating.set(false);
     this.notice.set(
       rolls > 0
         ? `Compra registrada. Se crearon ${rolls} ${rolls === 1 ? 'rollo' : 'rollos'} con su costo final.`
         : 'Compra registrada. El stock de insumos ya subió.',
     );
+    this.warning.set(
+      paymentFailed
+        ? 'No pudimos registrar el pago, así que la compra quedó «por pagar». Ábrela con «Detalle» y regístralo ahí.'
+        : null,
+    );
+    await this.load();
+  }
+
+  protected async onPaid(): Promise<void> {
+    this.warning.set(null);
+    this.notice.set('Pago registrado. Ya figura en Caja, ligado a la compra.');
     await this.load();
   }
 
   private async load(): Promise<void> {
     this.error.set(null);
     try {
-      const [purchases, skus, items, suppliers] = await Promise.all([
+      const [purchases, skus, items, suppliers, accounts] = await Promise.all([
         this.data.purchases(),
         this.data.skus(),
         this.data.items(),
         this.data.suppliers(),
+        this.data.paymentAccounts(),
       ]);
       this.purchases.set(purchases);
+      this.accounts.set(accounts);
       this.skus.set(skus);
       this.items.set(items);
       this.suppliers.set(suppliers);

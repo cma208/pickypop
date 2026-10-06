@@ -1,7 +1,9 @@
 import { inject, Injectable } from '@angular/core';
 import { sumMoney } from '../../core/pricing';
 import { SUPABASE } from '../../core/supabase';
+import { fetchAll } from '../../core/fetch-all';
 import { CurrentWorkspace } from '../../core/workspace';
+import type { PaymentMethod } from '../finanzas/finanzas.models';
 import { dayEnd, dayStart, todayIso, type ItemKind, type MovementType, type SpoolStatus } from './inventario.format';
 import type { AllocationMethod, PurchasePlan } from '../../core/pricing';
 
@@ -122,6 +124,10 @@ export interface PurchaseSummary {
   allocation: AllocationMethod;
   note: string | null;
   total: number;
+  /** Money already paid for it, from the expenses tied to it. */
+  paid: number;
+  /** What is still owed. Zero once it is paid in full. */
+  pending: number;
   spoolCount: number;
   lines: PurchaseLineView[];
 }
@@ -146,6 +152,35 @@ export interface PurchaseDraft {
   note: string | null;
   lines: PurchaseDraftLine[];
   plan: PurchasePlan;
+  /** How it was paid. Null when it is still to be paid. */
+  payment: PurchasePayment | null;
+}
+
+export interface PurchasePayment {
+  accountId: string;
+  /** Null uses the account's own method. */
+  method: PaymentMethod | null;
+}
+
+export interface PaymentAccount {
+  id: string;
+  name: string;
+  defaultMethod: PaymentMethod | null;
+}
+
+export interface PurchasePaymentInput extends PurchasePayment {
+  purchaseId: string;
+  amount: number;
+  occurredAt: string;
+}
+
+export interface RegisteredPurchase {
+  id: string;
+  /**
+   * The stock went in but the payment could not be written. The purchase then
+   * shows as still to be paid, where it can be paid from the list.
+   */
+  paymentFailed: boolean;
 }
 
 export interface InventoryItemSummary {
@@ -214,6 +249,15 @@ interface SkuDetail {
   finishName: string | null;
   abrasive: boolean;
   abrasiveBecause: string | null;
+}
+
+/**
+ * When a purchase dated `purchasedAt` happened: now if it is today, noon in
+ * Lima otherwise. A bare date would land at midnight UTC, which in Lima is the
+ * evening before, and the movement would show up a day early.
+ */
+function purchaseMoment(purchasedAt: string): string {
+  return purchasedAt === todayIso() ? new Date().toISOString() : `${purchasedAt}${NOON_LIMA_OFFSET}`;
 }
 
 /** Thrown when a purchase was saved only in part. Says exactly what exists now. */
@@ -511,7 +555,7 @@ export class InventarioData {
   // -------------------------------------------------------------- purchases
 
   async purchases(): Promise<PurchaseSummary[]> {
-    const [purchases, details, items] = await Promise.all([
+    const [purchases, details, items, payments] = await Promise.all([
       this.supabase
         .from('purchases')
         .select(
@@ -521,9 +565,13 @@ export class InventarioData {
         .order('created_at', { ascending: false }),
       this.skuDetails(),
       this.supabase.from('inventory_items').select('id, name'),
+      fetchAll((from, to) =>
+        this.supabase.from('purchase_payment_status').select('purchase_id, paid, pending').range(from, to),
+      ),
     ]);
     if (purchases.error) throw purchases.error;
     if (items.error) throw items.error;
+    const paymentOf = new Map(payments.map((row) => [row.purchase_id, row]));
 
     const skuNames = new Map(
       [...details].map(([id, sku]) => [id, skuLabel(sku.brandName, sku.materialCode, sku.finishName, sku.colorName)]),
@@ -562,10 +610,39 @@ export class InventarioData {
           num(purchase.shipping_cost),
           num(purchase.other_costs),
         ]),
+        paid: num(paymentOf.get(purchase.id)?.paid),
+        pending: num(paymentOf.get(purchase.id)?.pending),
         spoolCount,
         lines,
       };
     });
+  }
+
+  /** Accounts that money can leave from, with the method each one uses by default. */
+  async paymentAccounts(): Promise<PaymentAccount[]> {
+    const { data, error } = await this.supabase
+      .from('accounts')
+      .select('id, name, default_payment_method')
+      .eq('active', true)
+      .order('name');
+    if (error) throw error;
+    return data.map((row) => ({ id: row.id, name: row.name, defaultMethod: row.default_payment_method }));
+  }
+
+  /**
+   * Pays for a purchase through the database rule, which writes the expense and
+   * refuses to pay more than is owed. Its refusals are worded for the person,
+   * with the exact amounts, so they travel as they are.
+   */
+  async recordPurchasePayment(input: PurchasePaymentInput): Promise<void> {
+    const { error } = await this.supabase.rpc('record_purchase_payment', {
+      p_purchase_id: input.purchaseId,
+      p_account_id: input.accountId,
+      p_amount: input.amount,
+      p_payment_method: input.method ?? undefined,
+      p_occurred_at: input.occurredAt,
+    });
+    if (error) throw error;
   }
 
   /**
@@ -574,7 +651,7 @@ export class InventarioData {
    * shelf. Ids are generated here so each step is a single bulk insert. If a
    * step fails, the error says what already exists.
    */
-  async registerPurchase(draft: PurchaseDraft): Promise<string> {
+  async registerPurchase(draft: PurchaseDraft): Promise<RegisteredPurchase> {
     const workspace_id = await this.workspaceId();
     const spoolCodes = await this.nextSpoolCodes(draft.lines);
 
@@ -635,7 +712,36 @@ export class InventarioData {
       throw new PartialPurchaseError(exists ? purchaseId : null, spoolIds, created, step, error);
     }
 
-    return purchaseId;
+    if (draft.payment === null) return { id: purchaseId, paymentFailed: false };
+
+    // Last, and outside the undo above: by now the stock is on the shelf and
+    // the purchase is real. If the payment fails it stays "por pagar", which
+    // is true, and can be paid from the list.
+    try {
+      await this.payInFull(purchaseId, draft.payment, purchaseMoment(draft.purchasedAt));
+      return { id: purchaseId, paymentFailed: false };
+    } catch (error) {
+      console.error(error);
+      return { id: purchaseId, paymentFailed: true };
+    }
+  }
+
+  /**
+   * Pays whatever the database says the purchase costs. The form adds it up in
+   * its own way (each line rounded to cents first), and a single cent between
+   * the two would be refused as an overpayment.
+   */
+  private async payInFull(purchaseId: string, payment: PurchasePayment, occurredAt: string): Promise<void> {
+    const { data, error } = await this.supabase
+      .from('purchase_payment_status')
+      .select('pending')
+      .eq('purchase_id', purchaseId)
+      .single();
+    if (error) throw error;
+
+    const amount = num(data.pending);
+    if (amount <= 0) return;
+    await this.recordPurchasePayment({ purchaseId, ...payment, amount, occurredAt });
   }
 
   /** Removes what a failed `registerPurchase` left behind: movements, spools, then the purchase (lines cascade). */
@@ -681,8 +787,7 @@ export class InventarioData {
     workspace_id: string,
   ) {
     // Always explicit: a bulk insert with `undefined` here is sent as null and rejected.
-    const occurred_at =
-      draft.purchasedAt === todayIso() ? new Date().toISOString() : `${draft.purchasedAt}${NOON_LIMA_OFFSET}`;
+    const occurred_at = purchaseMoment(draft.purchasedAt);
 
     const spoolMovements = spools.map((spool) => ({
       workspace_id,

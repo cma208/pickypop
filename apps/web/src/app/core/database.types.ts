@@ -1516,6 +1516,11 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"purchase_payment_status": {
+                  Row: {
+                    "last_paid_at": string | null,"paid": number | null,"pending": number | null,"purchase_id": string | null,"total": number | null,"workspace_id": string | null
+                  }
+                  Relationships: []
                 },"receivables": {
                   Row: {
                     "balance": number | null,"customer_id": string | null,"customer_name": string | null,"customer_phone": string | null,"days_overdue": number | null,"due_date": string | null,"last_payment_at": string | null,"number": string | null,"order_id": string | null,"ordered_on": string | null,"paid": number | null,"payment_status": Database["public"]['Enums']["order_payment_status"] | null,"status": Database["public"]['Enums']["order_status"] | null,"total": number | null,"workspace_id": string | null
@@ -1634,6 +1639,37 @@ isOneToOne: false
                            },
 "record_payment":
 { Args: { "p_account_id": string,"p_amount": number,"p_category_id"?: string,"p_note"?: string,"p_occurred_at"?: string,"p_order_id": string,"p_payment_method"?: Database["public"]['Enums']["payment_method"],"p_reference"?: string }; Returns: {
+              "account_id": string,
+"amount": number,
+"category_id": string | null,
+"counter_account_id": string | null,
+"counterparty": string | null,
+"created_at": string,
+"created_by": string | null,
+"expected_direction": Database["public"]['Enums']["transaction_direction"] | null,
+"id": string,
+"maintenance_log_id": string | null,
+"note": string | null,
+"occurred_at": string,
+"order_id": string | null,
+"payment_method": Database["public"]['Enums']["payment_method"],
+"purchase_id": string | null,
+"reference": string | null,
+"type": Database["public"]['Enums']["transaction_type"],
+"updated_at": string,
+"void_reason": string | null,
+"voided_at": string | null,
+"voided_by": string | null,
+"workspace_id": string
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "transactions"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
+"record_purchase_payment":
+{ Args: { "p_account_id": string,"p_amount": number,"p_note"?: string,"p_occurred_at"?: string,"p_payment_method"?: Database["public"]['Enums']["payment_method"],"p_purchase_id": string,"p_reference"?: string }; Returns: {
               "account_id": string,
 "amount": number,
 "category_id": string | null,
