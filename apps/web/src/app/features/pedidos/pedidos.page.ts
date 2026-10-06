@@ -26,7 +26,7 @@ const FINISHED: OrderStatus[] = ['delivered', 'closed', 'cancelled'];
   imports: [RouterLink, Page, Badge, AsyncState, Empty, ...FORMAT_PIPES],
   template: `
     <pp-page title="Pedidos" subtitle="Ventas, uso personal y regalos">
-      <a actions routerLink="/pedidos/nuevo"><button type="button">Nuevo pedido</button></a>
+      <a actions class="button" routerLink="/pedidos/nuevo">+ Nuevo pedido</a>
 
       <div class="filters">
         <label>
@@ -53,7 +53,7 @@ const FINISHED: OrderStatus[] = ['delivered', 'closed', 'cancelled'];
       <pp-async [loading]="loading()" [error]="error()">
         @if (visible().length === 0) {
           <pp-empty [message]="emptyMessage()">
-            <a routerLink="/pedidos/nuevo"><button type="button">Crear un pedido</button></a>
+            <a class="button" routerLink="/pedidos/nuevo">Crear un pedido</a>
           </pp-empty>
         } @else {
           <ul class="orders">

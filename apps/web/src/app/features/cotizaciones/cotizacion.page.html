@@ -1,6 +1,6 @@
 <pp-page [title]="quote() ? quote()!.number : 'Cotización'" [subtitle]="statusLabel()">
   <div actions>
-    <a routerLink="/cotizaciones"><button type="button" class="secondary">Volver</button></a>
+    <a class="button secondary" routerLink="/cotizaciones">Volver</a>
   </div>
 
   <pp-async [loading]="loading()" [error]="error()">
@@ -39,8 +39,8 @@
               Rechazada
             </button>
           }
-          <a [routerLink]="['/cotizador']" [queryParams]="{ nuevaVersionDe: q.id }">
-            <button type="button" class="secondary">Crear versión nueva</button>
+          <a class="button secondary" [routerLink]="['/cotizador']" [queryParams]="{ nuevaVersionDe: q.id }">
+            Crear versión nueva
           </a>
         </div>
 

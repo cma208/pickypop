@@ -26,7 +26,7 @@ import {
   imports: [RouterLink, Page, Card, Badge, AsyncState, Empty, PrintJobCard, PrintJobForm, PedidoCobro, ...FORMAT_PIPES],
   template: `
     <pp-page [title]="order()?.number ?? 'Pedido'" [subtitle]="subtitle()">
-      <a actions routerLink="/pedidos"><button type="button" class="secondary">Volver</button></a>
+      <a actions class="button secondary" routerLink="/pedidos">Volver</a>
 
       <pp-async [loading]="loading()" [error]="error()">
         @if (order(); as o) {
@@ -191,7 +191,7 @@ import {
           </div>
         } @else {
           <pp-empty message="No encontramos este pedido.">
-            <a routerLink="/pedidos"><button type="button" class="secondary">Ir a pedidos</button></a>
+            <a class="button secondary" routerLink="/pedidos">Ir a pedidos</a>
           </pp-empty>
         }
       </pp-async>

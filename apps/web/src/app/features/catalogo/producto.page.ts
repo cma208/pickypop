@@ -37,7 +37,7 @@ import { VarianteForm } from './variante-form';
   ],
   template: `
     <pp-page [title]="product()?.name ?? 'Producto'" [subtitle]="product() ? 'Ficha del producto' : undefined">
-      <button actions type="button" class="secondary" [routerLink]="['/catalogo']">Volver al catálogo</button>
+      <a actions class="button secondary" [routerLink]="['/catalogo']">Volver al catálogo</a>
 
       <pp-async [loading]="loading()" [error]="loadError()">
         @if (product(); as current) {
@@ -94,7 +94,7 @@ import { VarianteForm } from './variante-form';
           </div>
         } @else if (!loading()) {
           <pp-empty message="No encontramos este producto. Puede que ya no exista.">
-            <button type="button" class="secondary" [routerLink]="['/catalogo']">Volver al catálogo</button>
+            <a class="button secondary" [routerLink]="['/catalogo']">Volver al catálogo</a>
           </pp-empty>
         }
       </pp-async>
