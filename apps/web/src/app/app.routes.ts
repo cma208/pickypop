@@ -28,6 +28,8 @@ export const routes: Routes = [
       { path: 'catalogo', title: 'Catálogo y recetas', loadComponent: () => import('./features/catalogo/catalogo.page').then((m) => m.CatalogoPage) },
       { path: 'catalogo/:id', title: 'Producto', loadComponent: () => import('./features/catalogo/producto.page').then((m) => m.ProductoPage) },
 
+      { path: 'oportunidades', title: 'Oportunidades', loadComponent: () => import('./features/oportunidades/oportunidades.page').then((m) => m.OportunidadesPage) },
+
       { path: 'cotizador', title: 'Cotizador', loadComponent: () => import('./features/cotizador/cotizador.page').then((m) => m.CotizadorPage) },
       { path: 'cotizaciones', title: 'Cotizaciones', loadComponent: () => import('./features/cotizaciones/cotizaciones.page').then((m) => m.CotizacionesPage) },
       { path: 'cotizaciones/:id', title: 'Cotización', loadComponent: () => import('./features/cotizaciones/cotizacion.page').then((m) => m.CotizacionPage) },

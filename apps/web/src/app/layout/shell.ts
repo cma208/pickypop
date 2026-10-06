@@ -42,6 +42,7 @@ export class Shell {
     {
       title: 'Ventas',
       links: [
+        { path: '/oportunidades', label: 'Oportunidades', icon: 'ic-funnel' },
         { path: '/cotizador', label: 'Cotizador', icon: 'ic-calculator' },
         { path: '/cotizaciones', label: 'Cotizaciones', icon: 'ic-doc' },
         { path: '/pedidos', label: 'Pedidos', icon: 'ic-bag' },

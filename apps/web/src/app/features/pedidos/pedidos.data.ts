@@ -78,6 +78,14 @@ export interface NewPayment {
   reference: string | null;
 }
 
+export interface StatusChange {
+  fromStatus: OrderStatus | null;
+  toStatus: OrderStatus;
+  changedAt: Date;
+  changedByName: string | null;
+  note: string | null;
+}
+
 export interface CustomerOption {
   id: string;
   name: string;
@@ -269,9 +277,43 @@ export class PedidosData {
     if (error) throw error;
   }
 
-  async setStatus(orderId: string, status: OrderStatus): Promise<void> {
-    const { error } = await this.supabase.from('orders').update({ status }).eq('id', orderId);
+  /**
+   * Cambia el estado por la función de la base y no escribiendo la columna: el
+   * motivo viaja con el cambio, y es un disparador —no esta pantalla— quien
+   * escribe el historial. La base rechaza un retroceso sin motivo con un
+   * mensaje ya escrito para una persona, así que viaja tal cual.
+   */
+  async setStatus(orderId: string, status: OrderStatus, reason: string | null = null): Promise<void> {
+    const { error } = await this.supabase.rpc('set_order_status', {
+      p_order_id: orderId,
+      p_status: status,
+      p_reason: reason?.trim() || undefined,
+    });
+    if (error?.code === RAISED_BY_DATABASE) throw new UserFacingError(error.message);
     if (error) throw error;
+  }
+
+  /** Por dónde ha pasado el pedido, lo más reciente primero. */
+  async statusHistory(orderId: string): Promise<StatusChange[]> {
+    const [history, members] = await Promise.all([
+      this.supabase
+        .from('order_status_history')
+        .select('from_status, to_status, changed_at, changed_by, note')
+        .eq('order_id', orderId)
+        .order('changed_at', { ascending: false }),
+      this.supabase.from('workspace_members').select('user_id, display_name'),
+    ]);
+    if (history.error) throw history.error;
+    if (members.error) throw members.error;
+
+    const names = new Map(members.data.map((row) => [row.user_id, row.display_name ?? 'Sin nombre']));
+    return history.data.map((row) => ({
+      fromStatus: row.from_status,
+      toStatus: row.to_status,
+      changedAt: new Date(row.changed_at),
+      changedByName: row.changed_by ? (names.get(row.changed_by) ?? null) : null,
+      note: row.note,
+    }));
   }
 
   async customers(): Promise<CustomerOption[]> {

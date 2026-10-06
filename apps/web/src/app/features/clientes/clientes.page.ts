@@ -4,6 +4,7 @@ import { friendlyError } from '../../core/friendly-error';
 import { SECTION_STYLES } from '../../core/styles';
 import { ClientesData } from './clientes.data';
 import { DOC_TYPE_LABELS, KIND_LABELS, type CustomerRecord } from './clientes.models';
+import { ClienteHistoria } from './cliente-historia';
 import { CustomerForm } from './customer-form';
 
 /** Lowercase and strip accents so "perez" finds "Pérez". */
@@ -13,18 +14,23 @@ function normalize(text: string): string {
 
 @Component({
   selector: 'app-clientes.page',
-  imports: [Page, AsyncState, Empty, Badge, CustomerForm],
+  imports: [Page, AsyncState, Empty, Badge, CustomerForm, ClienteHistoria],
   styles: [
     SECTION_STYLES,
     `
       .search { max-width: 24rem; }
       td small { display: block; color: var(--muted); overflow-wrap: anywhere; }
       .edit { margin-top: 0.4rem; padding: 0.2rem 0.6rem; font-size: 0.85rem; }
+      tr.picked { background: var(--accent-soft); }
     `,
   ],
   template: `
     <pp-page title="Clientes" subtitle="A quién le vendes, cómo contactarlo y cuántos pedidos tiene">
       <button actions type="button" (click)="openForm(null)">Nuevo cliente</button>
+
+      @if (showing(); as customer) {
+        <app-cliente-historia [customerId]="customer.id" [name]="customer.name" />
+      }
 
       @if (formOpen()) {
         <!-- Keyed by customer so the form restarts when another one is picked. -->
@@ -65,7 +71,7 @@ function normalize(text: string): string {
                 </thead>
                 <tbody>
                   @for (customer of visible(); track customer.id) {
-                    <tr>
+                    <tr [class.picked]="showingId() === customer.id">
                       <td>
                         {{ customer.name }}
                         <small>
@@ -73,6 +79,9 @@ function normalize(text: string): string {
                           @if (!customer.active) { · <pp-badge>Inactivo</pp-badge> }
                         </small>
                         <button type="button" class="secondary edit" (click)="openForm(customer)">Editar</button>
+                        <button type="button" class="ghost edit" (click)="toggleStory(customer)">
+                          {{ showingId() === customer.id ? 'Ocultar historia' : 'Ver historia' }}
+                        </button>
                       </td>
                       <td>
                         @if (customer.docType === 'none') {
@@ -104,6 +113,8 @@ export class ClientesPage {
   protected readonly query = signal('');
   protected readonly formOpen = signal(false);
   protected readonly editing = signal<CustomerRecord | null>(null);
+  /** Qué cliente tiene la ficha abierta. Solo una a la vez: es una lectura, no un panel. */
+  protected readonly showingId = signal<string | null>(null);
 
   protected readonly kindLabels = KIND_LABELS;
   protected readonly docLabels = DOC_TYPE_LABELS;
@@ -119,8 +130,16 @@ export class ClientesPage {
     );
   });
 
+  protected readonly showing = computed(
+    () => this.customers().find((customer) => customer.id === this.showingId()) ?? null,
+  );
+
   constructor() {
     void this.reload();
+  }
+
+  protected toggleStory(customer: CustomerRecord): void {
+    this.showingId.set(this.showingId() === customer.id ? null : customer.id);
   }
 
   protected openForm(customer: CustomerRecord | null): void {
