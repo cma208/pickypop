@@ -131,3 +131,42 @@ Primero la base visual y las fotos en las 26 pantallas; después los cimientos y
 
 - **A favor:** el cambio se nota de inmediato.
 - **En contra:** las pantallas quedan pulidas encima de un estante que miente. Cinco de los seis informes lo desaconsejan, y el visual pide su base antes de los bloques nuevos, no antes que los arreglos de datos.
+
+## Estado de la etapa 1 (2026-10-06, noche)
+
+Hay tres ramas en juego, ninguna publicada:
+
+- **`etapa1-estante`**, que sale de `nav-y-plan`: la base de datos y los flujos. Dos commits, `30ed61d` (base) y `70d3323` (pantallas).
+- **`etapa1-visual`**: la base visual, la hace un agente en su propio worktree (`.claude/worktrees/`). Se integra cuando termine.
+- **`nav-y-plan`**: recibe las dos al final.
+
+**Hecho y probado contra la base** (en transacciones que se deshacen, con los casos que importan y sus mensajes de error):
+
+| | Qué | Dónde |
+|---|---|---|
+| R1 | Cerrar una impresión registra lo que salió de verdad, en una sola llamada (piezas, porcentaje y nota). Las piezas entran como `production` | `20261010110000_plate_outputs.sql`, `produccion.data.ts` (`outputsOf`) |
+| — | Una placa produce una **lista** de piezas (`recipe_plate_outputs`). El costo se reparte por igual entre todo lo que salió | misma migración; `placa-editor.ts` y `salida-fila.ts` |
+| R2, R3 | Armar rechaza una receta vacía y bloquea lo que va a consumir | `20261010130000_assembly_guards.sql` |
+| — | La receta dice si el producto se arma (`recipes.assembled`). Lo que no se arma no aparece en Armar | misma migración; `receta-editor.ts` |
+| R4 | Una impresora imprime una placa a la vez | `20261010120000_one_print_at_a_time.sql` |
+| — | `deliver_order`: entregar saca del estante, también por partes, y guarda cuánto costó lo que salió. Lo que no se arma descuenta directo sus piezas y su empaque | `20261010140000_deliveries.sql` |
+| — | "Entregado" y "Cerrado" no se alcanzan a mano mientras quede algo por entregar | `20261010150000_delivered_means_delivered.sql` |
+| R5 | `production_needs` cuenta lo que falta **entregar** en todo pedido abierto, incluidos los "listos" | `20261010140000_deliveries.sql` |
+| — | Movimiento `delivery` ("Entrega"), y el kardex nombra en español "Armado" y "Entrega de pedido" | `20261010100000`, `inventario.format.ts` |
+
+**Falta para cerrar la etapa 1:**
+
+1. **El botón "Entregar" en la ficha del pedido.** Muestra las líneas con lo pendiente, ya lleno con el total (lo parcial a un clic), y debajo la historia de entregas. Al terminar ofrece cobrar el saldo. El paso a "Entregado" pasa por `deliver_order`: la base ya rechaza hacerlo a mano.
+2. **Cerrar una placa mixta pieza por pieza,** con la foto de cada pieza. Hoy el formulario pide un solo número, y en una placa mixta cuenta el rendimiento completo.
+3. **Importar el `.gcode.3mf` como corresponde:** la miniatura `Metadata/plate_N.png` recortada a lo que no es transparente y guardada en `recipe_plates.thumbnail_path`; y las piezas y cantidades propuestas a partir de `Metadata/plate_N.json` (`bbox_objects[].name`, descartando `wipe_tower`).
+4. **Verificar en la aplicación** el editor de placas con su lista, la pregunta "¿Cómo se entrega?" y el cierre de 7 tapas de 9.
+5. **Integrar `etapa1-visual`.** Va a chocar en las plantillas de `pedidos/pedido.page.ts`, `produccion/` y quizás `inventario.format.ts`.
+6. **Documentar:** un ADR-020 con las decisiones de la etapa (lista de piezas por placa, reparto del costo por igual, cómo se valoriza lo entregado, `recipes.assembled`, la regla de "entregado"), el modelo de datos en `docs/03` y las trampas nuevas en `AGENTS.md`.
+
+**Trampas nuevas que hay que pasar a `AGENTS.md`:**
+
+- `sum()` de un `bigint` devuelve `numeric`, y recrear una vista con ese cambio de tipo falla. Hay que castear.
+- La prueba de sintaxis de SQL parte por cada `;`: un punto y coma dentro de un comentario `/* … */` la rompe.
+- Una tabla temporal dentro de una función que llama la API depende de permisos del proyecto alojado. Mejor una variable `jsonb`.
+- En una prueba, una consulta de afuera no ve lo que una función creó o cambió dentro de la misma instrucción. Hay que leerlo en otra.
+- Mientras existan worktrees de agentes, las pruebas de la raíz se corren con `pnpm exec vitest run --exclude "**/.claude/**" --exclude "**/node_modules/**" --exclude "**/dist/**" --exclude "apps/**"`.
