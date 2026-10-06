@@ -86,6 +86,8 @@ Configuración          marcas, materiales, acabados, parámetros, usuarios
 
 **Terminado cuando:** alguien que no construyó el sistema puede, sin que le expliquen, registrar una compra de filamento, cotizar un producto y cerrar una impresión.
 
+**Cerrado el 2026-10-06.** Las cuatro tareas están hechas. Sobre la 3: al auditar los 35 estados vacíos resultó que casi todos ya tenían su botón y su explicación en la tarjeta; solo dos de impresoras decían qué faltaba sin decir para qué sirve. El hueco real estaba en "Hoy", no en los estados vacíos.
+
 ---
 
 ## M3 · Identidad visual
