@@ -270,16 +270,34 @@ isOneToOne: false
                   ]
                 },"inventory_items": {
                   Row: {
-                    "active": boolean,"created_at": string,"id": string,"image_path": string | null,"kind": Database["public"]['Enums']["inventory_item_kind"],"min_stock": number,"name": string,"note": string | null,"perishable": boolean,"standard_cost": number | null,"unit": string,"updated_at": string,"workspace_id": string
+                    "active": boolean,"created_at": string,"id": string,"image_path": string | null,"kind": Database["public"]['Enums']["inventory_item_kind"],"min_stock": number,"name": string,"note": string | null,"perishable": boolean,"product_variant_id": string | null,"standard_cost": number | null,"unit": string,"updated_at": string,"workspace_id": string
                   }
                   Insert: {
-                    "active"?: boolean,"created_at"?: string,"id"?: string,"image_path"?: string | null,"kind": Database["public"]['Enums']["inventory_item_kind"],"min_stock"?: number,"name": string,"note"?: string | null,"perishable"?: boolean,"standard_cost"?: number | null,"unit"?: string,"updated_at"?: string,"workspace_id": string
+                    "active"?: boolean,"created_at"?: string,"id"?: string,"image_path"?: string | null,"kind": Database["public"]['Enums']["inventory_item_kind"],"min_stock"?: number,"name": string,"note"?: string | null,"perishable"?: boolean,"product_variant_id"?: string | null,"standard_cost"?: number | null,"unit"?: string,"updated_at"?: string,"workspace_id": string
                   }
                   Update: {
-                    "active"?: boolean,"created_at"?: string,"id"?: string,"image_path"?: string | null,"kind"?: Database["public"]['Enums']["inventory_item_kind"],"min_stock"?: number,"name"?: string,"note"?: string | null,"perishable"?: boolean,"standard_cost"?: number | null,"unit"?: string,"updated_at"?: string,"workspace_id"?: string
+                    "active"?: boolean,"created_at"?: string,"id"?: string,"image_path"?: string | null,"kind"?: Database["public"]['Enums']["inventory_item_kind"],"min_stock"?: number,"name"?: string,"note"?: string | null,"perishable"?: boolean,"product_variant_id"?: string | null,"standard_cost"?: number | null,"unit"?: string,"updated_at"?: string,"workspace_id"?: string
                   }
                   Relationships: [
                     {
+      foreignKeyName: "inventory_items_product_variant_id_fkey"
+      columns: ["product_variant_id"]
+isOneToOne: false
+      referencedRelation: "product_variants"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "inventory_items_product_variant_id_fkey"
+      columns: ["product_variant_id"]
+isOneToOne: false
+      referencedRelation: "production_needs"
+      referencedColumns: ["variant_id"]
+    },{
+      foreignKeyName: "inventory_items_product_variant_id_fkey"
+      columns: ["product_variant_id"]
+isOneToOne: false
+      referencedRelation: "variant_available_colors"
+      referencedColumns: ["variant_id"]
+    },{
       foreignKeyName: "inventory_items_workspace_id_fkey"
       columns: ["workspace_id"]
 isOneToOne: false
@@ -487,6 +505,12 @@ isOneToOne: false
       foreignKeyName: "order_lines_variant_id_fkey"
       columns: ["variant_id"]
 isOneToOne: false
+      referencedRelation: "production_needs"
+      referencedColumns: ["variant_id"]
+    },{
+      foreignKeyName: "order_lines_variant_id_fkey"
+      columns: ["variant_id"]
+isOneToOne: false
       referencedRelation: "variant_available_colors"
       referencedColumns: ["variant_id"]
     },{
@@ -618,6 +642,12 @@ isOneToOne: false
 isOneToOne: false
       referencedRelation: "product_variants"
       referencedColumns: ["id"]
+    },{
+      foreignKeyName: "price_tiers_variant_id_fkey"
+      columns: ["variant_id"]
+isOneToOne: false
+      referencedRelation: "production_needs"
+      referencedColumns: ["variant_id"]
     },{
       foreignKeyName: "price_tiers_variant_id_fkey"
       columns: ["variant_id"]
@@ -795,6 +825,12 @@ isOneToOne: false
       foreignKeyName: "product_media_variant_id_fkey"
       columns: ["variant_id"]
 isOneToOne: false
+      referencedRelation: "production_needs"
+      referencedColumns: ["variant_id"]
+    },{
+      foreignKeyName: "product_media_variant_id_fkey"
+      columns: ["variant_id"]
+isOneToOne: false
       referencedRelation: "variant_available_colors"
       referencedColumns: ["variant_id"]
     },{
@@ -951,6 +987,12 @@ isOneToOne: false
 isOneToOne: false
       referencedRelation: "product_variants"
       referencedColumns: ["id"]
+    },{
+      foreignKeyName: "quote_lines_variant_id_fkey"
+      columns: ["variant_id"]
+isOneToOne: false
+      referencedRelation: "production_needs"
+      referencedColumns: ["variant_id"]
     },{
       foreignKeyName: "quote_lines_variant_id_fkey"
       columns: ["variant_id"]
@@ -1233,6 +1275,12 @@ isOneToOne: false
 isOneToOne: false
       referencedRelation: "product_variants"
       referencedColumns: ["id"]
+    },{
+      foreignKeyName: "recipes_variant_id_fkey"
+      columns: ["variant_id"]
+isOneToOne: false
+      referencedRelation: "production_needs"
+      referencedColumns: ["variant_id"]
     },{
       foreignKeyName: "recipes_variant_id_fkey"
       columns: ["variant_id"]
@@ -1599,6 +1647,12 @@ isOneToOne: false
       foreignKeyName: "order_lines_variant_id_fkey"
       columns: ["variant_id"]
 isOneToOne: false
+      referencedRelation: "production_needs"
+      referencedColumns: ["variant_id"]
+    },{
+      foreignKeyName: "order_lines_variant_id_fkey"
+      columns: ["variant_id"]
+isOneToOne: false
       referencedRelation: "variant_available_colors"
       referencedColumns: ["variant_id"]
     },{
@@ -1812,6 +1866,19 @@ isOneToOne: false
                   Relationships: [
                     {
       foreignKeyName: "printers_workspace_id_fkey"
+      columns: ["workspace_id"]
+isOneToOne: false
+      referencedRelation: "workspaces"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"production_needs": {
+                  Row: {
+                    "assembled_units": number | null,"committed_units": number | null,"first_due_date": string | null,"image_path": string | null,"missing_units": number | null,"order_count": number | null,"product_name": string | null,"variant_id": string | null,"variant_name": string | null,"workspace_id": string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "orders_workspace_id_fkey"
       columns: ["workspace_id"]
 isOneToOne: false
       referencedRelation: "workspaces"
@@ -2048,7 +2115,7 @@ isOneToOne: false
       } }
           }
           Enums: {
-            "account_kind": "cash"|"bank"|"wallet","component_kind": "nozzle"|"hotend"|"plate"|"ptfe"|"cutter"|"fan"|"ams"|"other","cost_allocation": "by_amount"|"by_weight","customer_doc_type": "none"|"dni"|"ruc"|"ce","customer_kind": "person"|"company","gift_treatment": "marketing"|"owner_draw"|"other","inventory_item_kind": "supply"|"packaging"|"spare_part"|"finished_good"|"part","material_valuation": "weighted_avg"|"last_cost"|"replacement","member_role": "owner"|"operator"|"viewer","opportunity_stage": "new"|"quoted"|"negotiating"|"won"|"closed"|"lost","order_payment_status": "not_applicable"|"unpaid"|"partial"|"paid","order_purpose": "sale"|"personal"|"gift","order_status": "confirmed"|"queued"|"printing"|"post_processing"|"ready"|"delivered"|"closed"|"on_hold"|"cancelled","payment_method": "cash"|"yape"|"plin"|"transfer","print_failure_cause": "adhesion"|"clog"|"spaghetti"|"layer_shift"|"filament_runout"|"power_loss"|"wrong_settings"|"other","print_job_status": "planned"|"printing"|"success"|"failed"|"cancelled","printer_status": "active"|"maintenance"|"retired","product_status": "draft"|"published"|"archived","quote_line_kind": "catalog"|"custom"|"service","quote_status": "draft"|"sent"|"accepted"|"rejected"|"expired","request_status": "new"|"awaiting_slicing"|"quoted"|"discarded","spool_status": "sealed"|"open"|"in_use"|"empty"|"discarded","stock_movement_type": "purchase"|"consumption"|"waste"|"adjustment"|"maintenance"|"reservation"|"release","tax_regime": "none"|"nrus"|"rer"|"rmt"|"general","transaction_direction": "income"|"expense","transaction_type": "income"|"expense"|"transfer"|"owner_contribution"|"owner_draw"
+            "account_kind": "cash"|"bank"|"wallet","component_kind": "nozzle"|"hotend"|"plate"|"ptfe"|"cutter"|"fan"|"ams"|"other","cost_allocation": "by_amount"|"by_weight","customer_doc_type": "none"|"dni"|"ruc"|"ce","customer_kind": "person"|"company","gift_treatment": "marketing"|"owner_draw"|"other","inventory_item_kind": "supply"|"packaging"|"spare_part"|"finished_good"|"part","material_valuation": "weighted_avg"|"last_cost"|"replacement","member_role": "owner"|"operator"|"viewer","opportunity_stage": "new"|"quoted"|"negotiating"|"won"|"closed"|"lost","order_payment_status": "not_applicable"|"unpaid"|"partial"|"paid","order_purpose": "sale"|"personal"|"gift","order_status": "confirmed"|"queued"|"printing"|"post_processing"|"ready"|"delivered"|"closed"|"on_hold"|"cancelled","payment_method": "cash"|"yape"|"plin"|"transfer","print_failure_cause": "adhesion"|"clog"|"spaghetti"|"layer_shift"|"filament_runout"|"power_loss"|"wrong_settings"|"other","print_job_status": "planned"|"printing"|"success"|"failed"|"cancelled","printer_status": "active"|"maintenance"|"retired","product_status": "draft"|"published"|"archived","quote_line_kind": "catalog"|"custom"|"service","quote_status": "draft"|"sent"|"accepted"|"rejected"|"expired","request_status": "new"|"awaiting_slicing"|"quoted"|"discarded","spool_status": "sealed"|"open"|"in_use"|"empty"|"discarded","stock_movement_type": "purchase"|"consumption"|"waste"|"adjustment"|"maintenance"|"reservation"|"release"|"production","tax_regime": "none"|"nrus"|"rer"|"rmt"|"general","transaction_direction": "income"|"expense","transaction_type": "income"|"expense"|"transfer"|"owner_contribution"|"owner_draw"
           }
           CompositeTypes: {
             [_ in never]: never
@@ -2168,7 +2235,7 @@ export const Constants = {
           }
         },"public": {
           Enums: {
-            "account_kind": ["cash", "bank", "wallet"],"component_kind": ["nozzle", "hotend", "plate", "ptfe", "cutter", "fan", "ams", "other"],"cost_allocation": ["by_amount", "by_weight"],"customer_doc_type": ["none", "dni", "ruc", "ce"],"customer_kind": ["person", "company"],"gift_treatment": ["marketing", "owner_draw", "other"],"inventory_item_kind": ["supply", "packaging", "spare_part", "finished_good", "part"],"material_valuation": ["weighted_avg", "last_cost", "replacement"],"member_role": ["owner", "operator", "viewer"],"opportunity_stage": ["new", "quoted", "negotiating", "won", "closed", "lost"],"order_payment_status": ["not_applicable", "unpaid", "partial", "paid"],"order_purpose": ["sale", "personal", "gift"],"order_status": ["confirmed", "queued", "printing", "post_processing", "ready", "delivered", "closed", "on_hold", "cancelled"],"payment_method": ["cash", "yape", "plin", "transfer"],"print_failure_cause": ["adhesion", "clog", "spaghetti", "layer_shift", "filament_runout", "power_loss", "wrong_settings", "other"],"print_job_status": ["planned", "printing", "success", "failed", "cancelled"],"printer_status": ["active", "maintenance", "retired"],"product_status": ["draft", "published", "archived"],"quote_line_kind": ["catalog", "custom", "service"],"quote_status": ["draft", "sent", "accepted", "rejected", "expired"],"request_status": ["new", "awaiting_slicing", "quoted", "discarded"],"spool_status": ["sealed", "open", "in_use", "empty", "discarded"],"stock_movement_type": ["purchase", "consumption", "waste", "adjustment", "maintenance", "reservation", "release"],"tax_regime": ["none", "nrus", "rer", "rmt", "general"],"transaction_direction": ["income", "expense"],"transaction_type": ["income", "expense", "transfer", "owner_contribution", "owner_draw"]
+            "account_kind": ["cash", "bank", "wallet"],"component_kind": ["nozzle", "hotend", "plate", "ptfe", "cutter", "fan", "ams", "other"],"cost_allocation": ["by_amount", "by_weight"],"customer_doc_type": ["none", "dni", "ruc", "ce"],"customer_kind": ["person", "company"],"gift_treatment": ["marketing", "owner_draw", "other"],"inventory_item_kind": ["supply", "packaging", "spare_part", "finished_good", "part"],"material_valuation": ["weighted_avg", "last_cost", "replacement"],"member_role": ["owner", "operator", "viewer"],"opportunity_stage": ["new", "quoted", "negotiating", "won", "closed", "lost"],"order_payment_status": ["not_applicable", "unpaid", "partial", "paid"],"order_purpose": ["sale", "personal", "gift"],"order_status": ["confirmed", "queued", "printing", "post_processing", "ready", "delivered", "closed", "on_hold", "cancelled"],"payment_method": ["cash", "yape", "plin", "transfer"],"print_failure_cause": ["adhesion", "clog", "spaghetti", "layer_shift", "filament_runout", "power_loss", "wrong_settings", "other"],"print_job_status": ["planned", "printing", "success", "failed", "cancelled"],"printer_status": ["active", "maintenance", "retired"],"product_status": ["draft", "published", "archived"],"quote_line_kind": ["catalog", "custom", "service"],"quote_status": ["draft", "sent", "accepted", "rejected", "expired"],"request_status": ["new", "awaiting_slicing", "quoted", "discarded"],"spool_status": ["sealed", "open", "in_use", "empty", "discarded"],"stock_movement_type": ["purchase", "consumption", "waste", "adjustment", "maintenance", "reservation", "release", "production"],"tax_regime": ["none", "nrus", "rer", "rmt", "general"],"transaction_direction": ["income", "expense"],"transaction_type": ["income", "expense", "transfer", "owner_contribution", "owner_draw"]
           }
         }
 } as const

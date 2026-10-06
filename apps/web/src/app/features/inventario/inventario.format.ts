@@ -7,6 +7,7 @@ const TIME_ZONE = 'America/Lima';
 export type SpoolStatus = 'sealed' | 'open' | 'in_use' | 'empty' | 'discarded';
 export type MovementType =
   | 'purchase'
+  | 'production'
   | 'consumption'
   | 'waste'
   | 'adjustment'
@@ -35,6 +36,7 @@ export const SPOOL_STATUSES = Object.keys(SPOOL_STATUS_LABELS) as SpoolStatus[];
 
 export const MOVEMENT_TYPE_LABELS: Record<MovementType, string> = {
   purchase: 'Compra',
+  production: 'Producción',
   consumption: 'Consumo',
   waste: 'Merma',
   adjustment: 'Ajuste',
