@@ -20,7 +20,7 @@ import {
   type ValidationErrors,
 } from '@angular/forms';
 import { map } from 'rxjs';
-import { Card, Field, FORMAT_PIPES } from '../../ui';
+import { Card, Field, FORMAT_PIPES, ItemPicker, type PickerOption } from '../../ui';
 import { blankToNull, invalidMessage } from './form-helpers';
 import {
   InventarioData,
@@ -33,7 +33,7 @@ import {
 } from './inventario.data';
 import { describeError } from './inventario.errors';
 import { INVENTORY_STYLES } from './inventario.styles';
-import { todayIso } from './inventario.format';
+import { ITEM_KIND_LABELS, todayIso } from './inventario.format';
 import { planPurchase, type AllocationMethod, type PlanLineInput } from '../../core/pricing';
 import { PurchasePreview, type PreviewRow } from './purchase-preview';
 import { QuickAdd } from './quick-add';
@@ -78,7 +78,7 @@ function notInTheFuture(control: AbstractControl): ValidationErrors | null {
  */
 @Component({
   selector: 'app-compra-form',
-  imports: [ReactiveFormsModule, Card, Field, QuickAdd, PurchasePreview, FORMAT_PIPES],
+  imports: [ReactiveFormsModule, Card, Field, ItemPicker, QuickAdd, PurchasePreview, FORMAT_PIPES],
   template: `
     <form [formGroup]="form" (ngSubmit)="askConfirmation()" novalidate class="stack">
       <pp-card heading="Datos de la compra">
@@ -107,23 +107,12 @@ function notInTheFuture(control: AbstractControl): ValidationErrors | null {
         @for (line of lines.controls; track line; let i = $index) {
           <div class="line" [formGroup]="line">
             <pp-field label="Producto" [required]="true" [error]="msg(line.controls.target)">
-              <select formControlName="target">
-                <option value="" disabled>Elige un filamento o insumo</option>
-                @if (skus().length > 0) {
-                  <optgroup label="Filamentos">
-                    @for (sku of skus(); track sku.id) {
-                      <option [value]="skuPrefix + sku.id">{{ skuName(sku) }}</option>
-                    }
-                  </optgroup>
-                }
-                @if (items().length > 0) {
-                  <optgroup label="Insumos y repuestos">
-                    @for (item of items(); track item.id) {
-                      <option [value]="itemPrefix + item.id">{{ item.name }} ({{ item.unit }})</option>
-                    }
-                  </optgroup>
-                }
-              </select>
+              <pp-item-picker
+                placeholder="Elige un filamento o insumo"
+                [options]="pickerOptions()"
+                [value]="line.controls.target.value"
+                (chosen)="line.controls.target.setValue($event); line.controls.target.markAsTouched()"
+              />
             </pp-field>
             <div class="numbers">
               <pp-field
@@ -260,6 +249,28 @@ export class CompraForm {
 
   protected readonly skus = computed(() => this.skuOptions().filter((sku) => sku.active));
   protected readonly items = computed(() => this.itemOptions().filter((item) => item.active));
+
+  /**
+   * Todo lo que se puede comprar, en una sola lista buscable. Un filamento
+   * lleva su color y un insumo su foto, que es como se reconocen de verdad: la
+   * lista va a crecer mucho más que la paciencia de quien la recorre.
+   */
+  protected readonly pickerOptions = computed<PickerOption[]>(() => [
+    ...this.skus().map((sku) => ({
+      value: SKU_PREFIX + sku.id,
+      label: this.skuName(sku),
+      hint: 'Filamento',
+      color: sku.colorHex,
+      group: 'Filamentos',
+    })),
+    ...this.items().map((item) => ({
+      value: ITEM_PREFIX + item.id,
+      label: item.name,
+      hint: item.unit,
+      imagePath: item.imagePath,
+      group: ITEM_KIND_LABELS[item.kind],
+    })),
+  ]);
   private readonly addedSuppliers = signal<SupplierOption[]>([]);
   protected readonly suppliers = computed(() => [...this.supplierOptions(), ...this.addedSuppliers()]);
 

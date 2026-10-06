@@ -6,4 +6,5 @@ export { Empty } from './empty';
 export { Field } from './field';
 export { Thumb } from './thumb';
 export { ImageField } from './image-field';
+export { ItemPicker, type PickerOption } from './item-picker';
 export { FORMAT_PIPES, MoneyPipe, GramsPipe, DurationPipe, DatePipe, PercentPipe } from './format.pipes';
