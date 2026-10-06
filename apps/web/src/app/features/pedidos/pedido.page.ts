@@ -207,7 +207,7 @@ import {
     .flow { list-style: none; display: flex; flex-wrap: wrap; gap: 0.35rem; padding: 0; margin: 0 0 1rem; }
     .flow li { padding: 0.2rem 0.6rem; border: 1px solid var(--line); border-radius: 999px; font-size: 0.8rem; color: var(--muted); }
     .flow li.done { color: var(--good); border-color: var(--good); }
-    .flow li.current { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+    .flow li.current { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 600; }
     .scroll { overflow-x: auto; }
     .jobs { display: grid; gap: 0.6rem; }
     .note { font-size: 0.82rem; margin: 0.75rem 0 0; }

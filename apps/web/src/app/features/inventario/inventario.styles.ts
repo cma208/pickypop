@@ -20,7 +20,7 @@ export const INVENTORY_STYLES = `
     th, td { padding: 0.5rem 0.4rem; }
   }
   .actions-cell { white-space: nowrap; text-align: right; }
-  .notice, .alert { margin: 0 0 1rem; padding: 0.6rem 0.9rem; border-radius: 8px; }
+  .notice, .alert { margin: 0 0 1rem; padding: 0.6rem 0.9rem; border-radius: var(--radius-sm); }
   .notice { background: var(--good-soft); color: var(--good); }
   .alert { background: var(--danger-soft); color: var(--danger); }
   .alert-warn { background: var(--warn-soft); color: var(--warn); }

@@ -3,18 +3,20 @@ import { Card } from '../../ui';
 import { SECTION_STYLES } from '../../core/styles';
 import {
   Appearance,
+  PALETTE_OPTIONS,
   type AppearanceSettings,
   type DensityChoice,
-  type ThemeChoice,
+  type ModeChoice,
+  type PaletteChoice,
 } from '../../core/appearance';
 
-interface ThemeOption {
-  id: ThemeChoice;
+interface ModeOption {
+  id: ModeChoice;
   label: string;
   hint: string;
 }
 
-const THEME_OPTIONS: ThemeOption[] = [
+const MODE_OPTIONS: ModeOption[] = [
   { id: 'auto', label: 'Automático', hint: 'Sigue a tu sistema: claro de día, oscuro de noche.' },
   { id: 'light', label: 'Claro', hint: 'Siempre claro, sin importar el sistema.' },
   { id: 'dark', label: 'Oscuro', hint: 'Siempre oscuro, sin importar el sistema.' },
@@ -26,13 +28,15 @@ const DENSITY_OPTIONS: { id: DensityChoice; label: string; hint: string }[] = [
 ];
 
 /**
- * How the app looks. Everything here is a draft until Guardar: cambiar el tema
- * bajo los pies de quien lo está eligiendo hace imposible comparar, que es
- * justo lo que la miniatura resuelve.
+ * How the app looks. Everything here is a draft until Guardar: changing the
+ * colours under the feet of whoever is comparing them makes comparing
+ * impossible, which is exactly what the thumbnails are for.
  *
- * Las miniaturas no son capturas: son el mismo marcado que el resto de la
- * aplicación con los colores del tema forzados encima, así que si la paleta
- * cambia, cambian solas.
+ * The thumbnails are not screenshots and they are not a copy of the palette
+ * either: each one carries `data-palette` and `data-mode`, so the real rules
+ * in the stylesheet paint it. Retouching a colour there retouches these too,
+ * which is the whole point — with five palettes, a second copy would start
+ * lying the first week.
  */
 @Component({
   selector: 'app-appearance-section',
@@ -44,14 +48,14 @@ const DENSITY_OPTIONS: { id: DensityChoice; label: string; hint: string }[] = [
     fieldset { margin: 0; padding: 0; border: 0; }
     legend { padding: 0; margin-bottom: 0.6rem; font-size: 0.85rem; font-weight: 600; }
 
-    .options { display: grid; gap: 0.75rem; grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr)); }
+    .options { display: grid; gap: 0.75rem; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); }
 
     .option {
       display: grid;
       gap: 0.5rem;
       padding: 0.6rem;
       border: 1.5px solid var(--line);
-      border-radius: 10px;
+      border-radius: var(--radius);
       cursor: pointer;
       background: none;
       text-align: left;
@@ -63,27 +67,32 @@ const DENSITY_OPTIONS: { id: DensityChoice; label: string; hint: string }[] = [
     .option .name { font-weight: 600; font-size: 0.9rem; }
     .option .hint { font-size: 0.78rem; color: var(--muted); }
 
-    /* The thumbnail. Hard-coded palettes on purpose: it has to show a theme
-       that is NOT the one in force, so it cannot read the live tokens. */
+    /* The thumbnail wears its own palette, so everything inside it reads the
+       tokens of the theme being previewed and not the one in force. */
     .thumb {
       display: grid;
-      grid-template-columns: 1.6rem 1fr;
+      grid-template-columns: 1.7rem 1fr;
       height: 4.2rem;
       border: 1px solid var(--line);
-      border-radius: 7px;
+      border-radius: var(--radius-sm);
       overflow: hidden;
+      background: var(--bg);
     }
-    .thumb .side { padding: 0.25rem 0.2rem; display: grid; gap: 0.2rem; align-content: start; }
-    .thumb .side i { display: block; height: 0.3rem; border-radius: 2px; }
-    .thumb .body { padding: 0.35rem; display: grid; gap: 0.25rem; align-content: start; }
-    .thumb .body b { display: block; height: 0.42rem; width: 55%; border-radius: 2px; }
-    .thumb .body i { display: block; height: 0.28rem; border-radius: 2px; }
-    .thumb.split { position: relative; }
-    .thumb.split .half {
-      position: absolute; inset: 0 0 0 50%;
-      border-left: 1px solid rgba(128, 128, 128, 0.35);
-      display: grid; grid-template-columns: 1.6rem 1fr;
-    }
+    .thumb .side { background: var(--surface); border-right: 1px solid var(--line); padding: 0.28rem 0.22rem; display: grid; gap: 0.22rem; align-content: start; }
+    .thumb .side i { display: block; height: 0.3rem; border-radius: 2px; background: var(--line); }
+    .thumb .side i.on { background: var(--accent); }
+    .thumb .body { padding: 0.38rem; display: grid; gap: 0.26rem; align-content: start; }
+    .thumb .body b { display: block; height: 0.42rem; width: 55%; border-radius: 2px; background: var(--text); }
+    .thumb .body i { display: block; height: 0.28rem; border-radius: 2px; background: var(--line); }
+    .thumb .body i.soft { background: var(--accent-soft); width: 70%; }
+    /* A button, because the accent on a filled surface is the colour you
+       actually end up looking at all day. */
+    .thumb .body i.btn { background: var(--accent); height: 0.5rem; width: 2.1rem; border-radius: 3px; margin-top: 0.1rem; }
+
+    /* "Automático" is the only one that shows two things at once, because it
+       is the only one that means two things. */
+    .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--line); border-radius: var(--radius-sm); overflow: hidden; }
+    .pair .thumb { border: 0; border-radius: 0; }
 
     .rows { display: grid; gap: 0.2rem; }
     .rows i { display: block; border-radius: 2px; background: var(--line); }
@@ -97,57 +106,63 @@ const DENSITY_OPTIONS: { id: DensityChoice; label: string; hint: string }[] = [
     <div class="stack">
       <pp-card heading="Tema">
         <p class="muted">
-          Se guarda en este navegador, no en tu cuenta: puedes tener oscuro en la laptop y claro en la tablet del
-          taller. Si comparten el navegador, comparten esta preferencia.
+          Los colores de toda la aplicación. La miniatura es de verdad: está pintada con el tema que muestra, no es
+          un dibujo.
         </p>
         <fieldset>
           <legend class="sr-only">Tema</legend>
           <div class="options">
-            @for (option of themes; track option.id) {
+            @for (option of palettes; track option.id) {
               <button
                 type="button"
                 class="option"
                 [attr.aria-label]="'Tema ' + option.label"
-                [attr.aria-pressed]="draft().theme === option.id"
-                (click)="setTheme(option.id)"
+                [attr.aria-pressed]="draft().palette === option.id"
+                (click)="setPalette(option.id)"
+              >
+                <span class="thumb" aria-hidden="true" [attr.data-palette]="option.id" [attr.data-mode]="shownMode()">
+                  <span class="side"><i class="on"></i><i></i><i></i></span>
+                  <span class="body"><b></b><i class="soft"></i><i class="btn"></i></span>
+                </span>
+                <span class="name">{{ option.label }}</span>
+                <span class="hint">{{ option.hint }}</span>
+              </button>
+            }
+          </div>
+        </fieldset>
+      </pp-card>
+
+      <pp-card heading="Claro u oscuro">
+        <p class="muted">
+          Se guarda en este navegador, no en tu cuenta: puedes tener oscuro en la laptop y claro en la tablet del
+          taller. Si comparten el navegador, comparten esta preferencia.
+        </p>
+        <fieldset>
+          <legend class="sr-only">Claro u oscuro</legend>
+          <div class="options">
+            @for (option of modes; track option.id) {
+              <button
+                type="button"
+                class="option"
+                [attr.aria-label]="option.label"
+                [attr.aria-pressed]="draft().mode === option.id"
+                (click)="setMode(option.id)"
               >
                 @if (option.id === 'auto') {
-                  <span class="thumb split" aria-hidden="true">
-                    <span class="side" [style.background]="light.surface">
-                      <i [style.background]="light.accent"></i>
-                      <i [style.background]="light.line"></i>
-                      <i [style.background]="light.line"></i>
+                  <span class="pair" aria-hidden="true">
+                    <span class="thumb" [attr.data-palette]="draft().palette" data-mode="light">
+                      <span class="side"><i class="on"></i><i></i><i></i></span>
+                      <span class="body"><b></b><i class="soft"></i><i class="btn"></i></span>
                     </span>
-                    <span class="body" [style.background]="light.bg">
-                      <b [style.background]="light.text"></b>
-                      <i [style.background]="light.line"></i>
-                      <i [style.background]="light.line"></i>
-                    </span>
-                    <span class="half">
-                      <span class="side" [style.background]="dark.surface">
-                        <i [style.background]="dark.accent"></i>
-                        <i [style.background]="dark.line"></i>
-                        <i [style.background]="dark.line"></i>
-                      </span>
-                      <span class="body" [style.background]="dark.bg">
-                        <b [style.background]="dark.text"></b>
-                        <i [style.background]="dark.line"></i>
-                        <i [style.background]="dark.line"></i>
-                      </span>
+                    <span class="thumb" [attr.data-palette]="draft().palette" data-mode="dark">
+                      <span class="side"><i class="on"></i><i></i><i></i></span>
+                      <span class="body"><b></b><i class="soft"></i><i class="btn"></i></span>
                     </span>
                   </span>
                 } @else {
-                  <span class="thumb" aria-hidden="true">
-                    <span class="side" [style.background]="palette(option.id).surface">
-                      <i [style.background]="palette(option.id).accent"></i>
-                      <i [style.background]="palette(option.id).line"></i>
-                      <i [style.background]="palette(option.id).line"></i>
-                    </span>
-                    <span class="body" [style.background]="palette(option.id).bg">
-                      <b [style.background]="palette(option.id).text"></b>
-                      <i [style.background]="palette(option.id).line"></i>
-                      <i [style.background]="palette(option.id).line"></i>
-                    </span>
+                  <span class="thumb" aria-hidden="true" [attr.data-palette]="draft().palette" [attr.data-mode]="option.id">
+                    <span class="side"><i class="on"></i><i></i><i></i></span>
+                    <span class="body"><b></b><i class="soft"></i><i class="btn"></i></span>
                   </span>
                 }
                 <span class="name">{{ option.label }}</span>
@@ -217,38 +232,35 @@ const DENSITY_OPTIONS: { id: DensityChoice; label: string; hint: string }[] = [
 export class AppearanceSection {
   private readonly appearance = inject(Appearance);
 
-  protected readonly themes = THEME_OPTIONS;
+  protected readonly modes = MODE_OPTIONS;
+  protected readonly palettes = PALETTE_OPTIONS;
   protected readonly densities = DENSITY_OPTIONS;
-
-  /** Same values as the tokens in styles.scss. The thumbnail has to be able to
-   *  paint a theme that is not the one in force, so it cannot read them live. */
-  protected readonly light = {
-    bg: '#fbfaf9',
-    surface: '#ffffff',
-    text: '#1c1b1a',
-    line: '#e4e1dd',
-    accent: '#b4532a',
-  };
-  protected readonly dark = {
-    bg: '#17161a',
-    surface: '#201f24',
-    text: '#ece9e6',
-    line: '#34323a',
-    accent: '#e0855c',
-  };
 
   protected readonly draft = signal<AppearanceSettings>({ ...this.appearance.settings() });
   protected readonly collapsedNow = computed(() => this.appearance.settings().sidebarCollapsed);
   protected readonly justSaved = signal(false);
 
+  /** What the system is asking for, so "automático" can be previewed as a real mode. */
+  private readonly systemDark = signal(systemPrefersDark());
+
+  /** The palette thumbnails show the mode being drafted, not the one in force. */
+  protected readonly shownMode = computed<'light' | 'dark'>(() => {
+    const mode = this.draft().mode;
+    if (mode !== 'auto') return mode;
+    return this.systemDark() ? 'dark' : 'light';
+  });
+
   protected readonly dirty = computed(() => {
     const saved = this.appearance.settings();
     const draft = this.draft();
-    return saved.theme !== draft.theme || saved.density !== draft.density;
+    return saved.mode !== draft.mode || saved.palette !== draft.palette || saved.density !== draft.density;
   });
 
-  protected palette(theme: ThemeChoice): typeof this.light {
-    return theme === 'dark' ? this.dark : this.light;
+  constructor() {
+    // Someone may flip their system to dark while this screen is open; the
+    // preview would otherwise keep showing the mode they just left.
+    const query = window.matchMedia?.('(prefers-color-scheme: dark)');
+    query?.addEventListener('change', (event) => this.systemDark.set(event.matches));
   }
 
   /** Just a count, so the thumbnail shows that compact fits more rows. */
@@ -256,9 +268,14 @@ export class AppearanceSection {
     return density === 'compact' ? [1, 2, 3, 4, 5, 6] : [1, 2, 3, 4];
   }
 
-  protected setTheme(theme: ThemeChoice): void {
+  protected setMode(mode: ModeChoice): void {
     this.justSaved.set(false);
-    this.draft.update((current) => ({ ...current, theme }));
+    this.draft.update((current) => ({ ...current, mode }));
+  }
+
+  protected setPalette(palette: PaletteChoice): void {
+    this.justSaved.set(false);
+    this.draft.update((current) => ({ ...current, palette }));
   }
 
   protected setDensity(density: DensityChoice): void {
@@ -271,6 +288,8 @@ export class AppearanceSection {
   }
 
   protected save(): void {
+    // The menu toggle applies on the spot, so the live value wins over the
+    // one this form picked up when it opened.
     this.appearance.save({ ...this.draft(), sidebarCollapsed: this.appearance.settings().sidebarCollapsed });
     this.justSaved.set(true);
   }
@@ -279,4 +298,8 @@ export class AppearanceSection {
     this.draft.set({ ...this.appearance.settings() });
     this.justSaved.set(false);
   }
+}
+
+function systemPrefersDark(): boolean {
+  return window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false;
 }

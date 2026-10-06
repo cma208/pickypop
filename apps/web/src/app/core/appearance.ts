@@ -1,29 +1,59 @@
 import { Injectable, signal } from '@angular/core';
 
-export type ThemeChoice = 'auto' | 'light' | 'dark';
+/**
+ * Light or dark. `auto` follows the system, and is stored as the absence of a
+ * choice so the media query keeps deciding.
+ */
+export type ModeChoice = 'auto' | 'light' | 'dark';
+
+/**
+ * The colour palette. These ids are the one thing shared with `_palettes.scss`
+ * by hand: the colours themselves live only there, and an id that does not
+ * match a palette simply falls back to the default, visibly and harmlessly.
+ */
+export type PaletteChoice = 'terracota' | 'indigo' | 'turquesa' | 'ciruela' | 'grafito';
+
 export type DensityChoice = 'comfortable' | 'compact';
 
 export interface AppearanceSettings {
-  theme: ThemeChoice;
+  mode: ModeChoice;
+  palette: PaletteChoice;
   density: DensityChoice;
   /** Whether the side menu starts as a rail of icons. */
   sidebarCollapsed: boolean;
 }
 
+export interface PaletteOption {
+  id: PaletteChoice;
+  label: string;
+  hint: string;
+}
+
+/** Names and descriptions only. Not a single colour: those are in the stylesheet. */
+export const PALETTE_OPTIONS: PaletteOption[] = [
+  { id: 'terracota', label: 'Terracota', hint: 'La de siempre: barro sobre crema.' },
+  { id: 'indigo', label: 'Índigo', hint: 'Fría y seria, de tinta azul.' },
+  { id: 'turquesa', label: 'Turquesa', hint: 'Fresca, de taller limpio.' },
+  { id: 'ciruela', label: 'Ciruela', hint: 'La más alegre, de dulce de feria.' },
+  { id: 'grafito', label: 'Grafito', hint: 'Sin color propio: lo pone el contenido.' },
+];
+
 export const DEFAULT_APPEARANCE: AppearanceSettings = {
-  theme: 'auto',
+  mode: 'auto',
+  palette: 'terracota',
   density: 'comfortable',
   sidebarCollapsed: false,
 };
 
 /**
  * Where it is stored, read in two places: here, and by the small script in
- * index.html that applies the theme before Angular boots. Without that script
- * the app paints light and then flips, which looks broken.
+ * index.html that applies it before Angular boots. Without that script the app
+ * paints in the default palette and then flips, which looks broken.
  */
 export const APPEARANCE_KEY = 'pickypop.appearance';
 
-const THEMES: ThemeChoice[] = ['auto', 'light', 'dark'];
+const MODES: ModeChoice[] = ['auto', 'light', 'dark'];
+const PALETTES: PaletteChoice[] = PALETTE_OPTIONS.map((option) => option.id);
 const DENSITIES: DensityChoice[] = ['comfortable', 'compact'];
 
 /**
@@ -67,8 +97,9 @@ export class Appearance {
   private apply(settings: AppearanceSettings): void {
     const root = document.documentElement;
     // "auto" is the absence of a choice, so the media query can do its job.
-    if (settings.theme === 'auto') delete root.dataset['theme'];
-    else root.dataset['theme'] = settings.theme;
+    if (settings.mode === 'auto') delete root.dataset['mode'];
+    else root.dataset['mode'] = settings.mode;
+    root.dataset['palette'] = settings.palette;
     root.dataset['density'] = settings.density;
   }
 }
@@ -76,14 +107,23 @@ export class Appearance {
 /** Anything unknown or corrupt falls back to the default, one field at a time. */
 export function parseAppearance(raw: unknown): AppearanceSettings {
   if (typeof raw !== 'object' || raw === null) return DEFAULT_APPEARANCE;
-  const value = raw as Partial<Record<keyof AppearanceSettings, unknown>>;
+  const value = raw as Record<string, unknown>;
+  // Until 2026-10-06 the mode was stored as `theme`, before palettes existed
+  // and made that name a lie. Reading the old key keeps whoever had chosen
+  // dark on dark instead of silently resetting them.
+  const mode = value['mode'] ?? value['theme'];
   return {
-    theme: THEMES.includes(value.theme as ThemeChoice) ? (value.theme as ThemeChoice) : DEFAULT_APPEARANCE.theme,
-    density: DENSITIES.includes(value.density as DensityChoice)
-      ? (value.density as DensityChoice)
+    mode: MODES.includes(mode as ModeChoice) ? (mode as ModeChoice) : DEFAULT_APPEARANCE.mode,
+    palette: PALETTES.includes(value['palette'] as PaletteChoice)
+      ? (value['palette'] as PaletteChoice)
+      : DEFAULT_APPEARANCE.palette,
+    density: DENSITIES.includes(value['density'] as DensityChoice)
+      ? (value['density'] as DensityChoice)
       : DEFAULT_APPEARANCE.density,
     sidebarCollapsed:
-      typeof value.sidebarCollapsed === 'boolean' ? value.sidebarCollapsed : DEFAULT_APPEARANCE.sidebarCollapsed,
+      typeof value['sidebarCollapsed'] === 'boolean'
+        ? value['sidebarCollapsed']
+        : DEFAULT_APPEARANCE.sidebarCollapsed,
   };
 }
 

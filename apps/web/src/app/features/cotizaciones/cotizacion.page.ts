@@ -41,7 +41,7 @@ const A_CENT = 0.005;
   styles: `
     :host { display: block; }
     pp-card { display: block; margin-bottom: 1rem; }
-    .banner { margin: 0 0 0.75rem; padding: 0.6rem 0.8rem; border-radius: 8px; font-size: 0.9rem; }
+    .banner { margin: 0 0 0.75rem; padding: 0.6rem 0.8rem; border-radius: var(--radius-sm); font-size: 0.9rem; }
     .banner.warn { background: var(--warn-soft); color: var(--warn); }
     .banner.bad { background: var(--danger-soft); color: var(--danger); }
     .banner.info { background: var(--accent-soft); color: var(--accent); }

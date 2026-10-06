@@ -235,7 +235,7 @@ function notInTheFuture(control: AbstractControl): ValidationErrors | null {
       .subtotal { display: grid; gap: 0.2rem; margin-bottom: 0.9rem; font-size: 0.9rem; }
       .danger-text { color: var(--danger); justify-self: start; align-self: end; margin-bottom: 0.9rem; }
       textarea { resize: vertical; }
-      .confirm { padding: 1rem; border: 2px solid var(--accent); border-radius: 12px; background: var(--accent-soft); }
+      .confirm { padding: 1rem; border: 2px solid var(--accent); border-radius: var(--radius); background: var(--accent-soft); }
       .confirm p { margin: 0; }
       .alert p { margin: 0 0 0.5rem; }
     `,

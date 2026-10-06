@@ -1,64 +1,51 @@
-@mixin light-tokens {
-  --bg: #fbfaf9;
-  --surface: #ffffff;
-  --text: #1c1b1a;
-  --muted: #6f6b66;
-  --line: #e4e1dd;
-  --accent: #b4532a;
-  --accent-soft: #f7ebe5;
-  --danger: #b3261e;
-  --danger-soft: #fae9e8;
-  --good: #1f6b43;
-  --good-soft: #e5f2ea;
-  --warn: #8a5a00;
-  --warn-soft: #fbf0db;
-}
+@use 'palettes' as p;
 
-@mixin dark-tokens {
-  --bg: #17161a;
-  --surface: #201f24;
-  --text: #ece9e6;
-  --muted: #a09b95;
-  --line: #34323a;
-  --accent: #e0855c;
-  --accent-soft: #3a2a23;
-  --danger: #f2b8b5;
-  --danger-soft: #3d2320;
-  --good: #87d6a8;
-  --good-soft: #1f3528;
-  --warn: #e5bf73;
-  --warn-soft: #39301c;
-}
+/* Where the colors come from is `_palettes.scss`; this is only the plumbing
+   that decides which set wins.
 
-/* The theme is a choice with three values, and "automatic" is the absence of
-   the attribute so the media query can still decide. The explicit rules come
-   after the media query on purpose: they have the same specificity, so order
-   is what makes a deliberate choice beat the system preference. */
+   Two attributes on <html>: `data-mode` (claro, oscuro, o ausente para
+   automático) and `data-palette`. "Automático" is the **absence** of the
+   attribute, so the media query can still decide.
+
+   Order matters more than it looks. All these selectors weigh the same, so
+   what makes an explicit choice beat the system preference is that it is
+   written afterwards. And the palette rules are keyed by `[data-palette]`
+   rather than `:root[data-palette]` on purpose: that way a preview element
+   inside a page can wear a palette that is not the one in force, painted by
+   these very rules instead of by a copy of the colors. */
+
 :root {
-  @include light-tokens;
+  @include p.paint(p.$default, light);
   color-scheme: light dark;
 
   /* Row height, so the density setting has one place to change. */
   --row-pad: 0.5rem;
+
+  /* One scale of corners and one shadow, so nothing looks borrowed from
+     another application. */
+  --radius: 10px;
+  --radius-sm: 8px;
+  --shadow: 0 1px 2px rgb(0 0 0 / 0.04), 0 1px 8px rgb(0 0 0 / 0.04);
 }
 
 :root[data-density='compact'] { --row-pad: 0.32rem; }
 
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme='light']) {
-    @include dark-tokens;
-    color-scheme: dark;
+  :root:not([data-mode='light']) { @include p.paint(p.$default, dark); }
+}
+
+:root[data-mode='light'] { @include p.paint(p.$default, light); }
+:root[data-mode='dark'] { @include p.paint(p.$default, dark); }
+
+@each $name, $palette in p.$palettes {
+  [data-palette='#{$name}'] { @include p.paint($name, light); }
+
+  @media (prefers-color-scheme: dark) {
+    [data-palette='#{$name}']:not([data-mode='light']) { @include p.paint($name, dark); }
   }
-}
 
-:root[data-theme='light'] {
-  @include light-tokens;
-  color-scheme: light;
-}
-
-:root[data-theme='dark'] {
-  @include dark-tokens;
-  color-scheme: dark;
+  [data-palette='#{$name}'][data-mode='light'] { @include p.paint($name, light); }
+  [data-palette='#{$name}'][data-mode='dark'] { @include p.paint($name, dark); }
 }
 
 * { box-sizing: border-box; }
@@ -106,24 +93,28 @@ tbody tr:hover { background: var(--accent-soft); }
 button {
   padding: 0.45rem 0.85rem;
   border: 1px solid transparent;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
   font: inherit;
   cursor: pointer;
 }
 
 button:disabled { opacity: 0.55; cursor: not-allowed; }
-button.secondary { background: transparent; border-color: var(--line); color: inherit; }
+button.secondary { background: transparent; border-color: var(--line-strong); color: inherit; }
 button.ghost { background: transparent; border-color: transparent; color: inherit; padding: 0.3rem 0.5rem; }
 button.ghost:hover, button.secondary:hover { background: var(--line); }
 button.danger { background: var(--danger); }
 
+/* A field says "you can type here" with its edge, so it uses the stronger
+   line: the hairline that separates two table rows is too faint for that, and
+   making the hairline darker to compensate would turn every table into a
+   grid. */
 input, select, textarea {
   width: 100%;
   padding: 0.45rem 0.6rem;
-  border: 1px solid var(--line);
-  border-radius: 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
   background: var(--bg);
   color: inherit;
   font: inherit;

@@ -305,6 +305,19 @@ Esa aclaración cambia el modelo que hay hoy, y es lo primero que hay que entend
 
 **No hacer:** meter una librería de componentes, agregar fuentes sin acordarlo, ni tocar el flujo. Esto es cómo se ve, no cómo se trabaja.
 
+### Lo hecho el 2026-10-06, y lo que falta
+
+Hechas las tareas 1, 2, 3, 4 y 6, y **a medias la 5**, que es la que el dueño nombró primero.
+
+- Los dos ejes están separados: `data-mode` y `data-palette` en `<html>`, con `mode` leyendo el `theme` viejo para no resetear a quien ya había elegido oscuro. Hay prueba de esa migración.
+- Cinco paletas —**Terracota** (la predeterminada), Índigo, Turquesa, Ciruela y Grafito—, cada una completa y en sus dos modos, en `apps/web/src/_palettes.scss`, **el único archivo del proyecto donde hay un color escrito**.
+- Las miniaturas **no copian** los colores: cada una lleva su `data-palette` y su `data-mode`, así que las pinta la hoja de estilos de verdad. Era la única forma de que cinco paletas no se desincronizaran.
+- Dos tokens nuevos que salieron de mirar el contraste: **`on-accent`** (la tinta que va encima del acento, que no puede ser blanca en modo oscuro, y así estaba) y **`line-strong`** (el borde de un campo, que necesita 3:1 cuando la raya entre dos filas de tabla necesita desaparecer).
+- Contraste comprobado con cálculo, no a ojo: texto, apagado, acento, semánticos y bordes de campo en las diez combinaciones. Todo por encima de AA.
+- Radios unificados a `--radius` y `--radius-sm`: ya no hay 8, 10 y 12 px conviviendo.
+
+**Falta la tarea 5 entera:** la pasada pantalla por pantalla. Lo que se hizo fue lo transversal —radios, bordes de campo, tinta sobre el acento—, no revisar cada pantalla a 1440 y 400 px buscando lo que no encaja. Hay un token `--shadow` definido y todavía sin usar: decidir si las tarjetas llevan profundidad o se quedan planas es parte de esa pasada.
+
 ---
 
 ## 7.3.1 Datos de demostración en local

@@ -40,7 +40,7 @@ import {
         gap: 0.5rem;
         padding: 0.6rem;
         border: 1px solid var(--line);
-        border-radius: 12px;
+        border-radius: var(--radius);
         background: var(--bg);
       }
       .column.over { border-color: var(--accent); background: var(--accent-soft); }
@@ -55,7 +55,7 @@ import {
         width: 100%;
         padding: 0.6rem;
         border: 1px solid var(--line);
-        border-radius: 10px;
+        border-radius: var(--radius);
         background: var(--surface);
         text-align: left;
         font: inherit;

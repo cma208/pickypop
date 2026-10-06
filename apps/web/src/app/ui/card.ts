@@ -16,7 +16,7 @@ import { Component, input } from '@angular/core';
       display: block;
       padding: 1.35rem 1.4rem;
       border: 1px solid var(--line);
-      border-radius: 12px;
+      border-radius: var(--radius);
       background: var(--surface);
     }
     header { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem; }

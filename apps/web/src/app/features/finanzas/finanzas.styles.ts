@@ -18,9 +18,9 @@ export const FINANCE_STYLES = `
   .amount-cell { white-space: nowrap; font-weight: 600; }
   .voided td { opacity: 0.6; }
   .voided .amount-cell { text-decoration: line-through; font-weight: 400; }
-  .alert { margin: 0 0 1rem; padding: 0.6rem 0.9rem; border-radius: 8px; background: var(--danger-soft); color: var(--danger); }
+  .alert { margin: 0 0 1rem; padding: 0.6rem 0.9rem; border-radius: var(--radius-sm); background: var(--danger-soft); color: var(--danger); }
   .alert-warn { background: var(--warn-soft); color: var(--warn); }
-  .explainer { margin: 0 0 0.9rem; padding: 0.6rem 0.9rem; border-radius: 8px; background: var(--accent-soft); font-size: 0.85rem; }
+  .explainer { margin: 0 0 0.9rem; padding: 0.6rem 0.9rem; border-radius: var(--radius-sm); background: var(--accent-soft); font-size: 0.85rem; }
   .explainer p { margin: 0 0 0.35rem; }
   .explainer p:last-child { margin: 0; }
   .block { display: block; }

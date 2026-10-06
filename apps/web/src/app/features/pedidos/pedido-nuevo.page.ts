@@ -141,12 +141,12 @@ import { PURPOSE_HELP, PURPOSE_LABEL, PURPOSES, type OrderPurpose } from './pedi
     legend { font-size: 0.85rem; margin-bottom: 0.4rem; padding: 0; }
     .purpose {
       display: flex; gap: 0.6rem; align-items: flex-start; padding: 0.7rem 0.8rem;
-      border: 1px solid var(--line); border-radius: 10px; cursor: pointer;
+      border: 1px solid var(--line); border-radius: var(--radius); cursor: pointer;
     }
     .purpose.chosen { border-color: var(--accent); background: var(--accent-soft); }
     .purpose input { width: auto; margin-top: 0.25rem; }
     .purpose span { display: grid; gap: 0.1rem; }
-    .quick { padding: 0.9rem; margin-bottom: 0.9rem; border: 1px dashed var(--line); border-radius: 10px; }
+    .quick { padding: 0.9rem; margin-bottom: 0.9rem; border: 1px dashed var(--line); border-radius: var(--radius); }
     .lines { display: grid; gap: 0.75rem; margin-bottom: 0.75rem; }
     .sum { display: flex; justify-content: space-between; gap: 1rem; margin: 0 0 0.4rem; }
     .note { font-size: 0.85rem; margin: 0.5rem 0 1rem; }

@@ -11,7 +11,7 @@ import { Component, input } from '@angular/core';
       display: block;
       padding: 2rem 1rem;
       border: 1px dashed var(--line);
-      border-radius: 10px;
+      border-radius: var(--radius);
       text-align: center;
       color: var(--muted);
     }

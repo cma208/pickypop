@@ -123,7 +123,7 @@ function createFilamentRow(spoolId = '', estimatedG = 0, slot: number | null = n
     </pp-card>
   `,
   styles: `
-    fieldset { border: 1px solid var(--line); border-radius: 10px; padding: 0.9rem; margin: 0 0 1rem; }
+    fieldset { border: 1px solid var(--line); border-radius: var(--radius); padding: 0.9rem; margin: 0 0 1rem; }
     legend { font-size: 0.85rem; font-weight: 500; padding: 0 0.4rem; }
     .spool { display: grid; grid-template-columns: 1fr 8rem auto; gap: 0.5rem; align-items: start; }
     .spool button { margin-top: 1.55rem; }

@@ -105,7 +105,7 @@ export function createOrderLineForm(): OrderLineForm {
     </div>
   `,
   styles: `
-    .line { padding: 1rem; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); }
+    .line { padding: 1rem; border: 1px solid var(--line); border-radius: var(--radius); background: var(--bg); }
     .head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; }
     .numbers { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: 0.75rem; }
     .notes { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 0.75rem; font-size: 0.8rem; }

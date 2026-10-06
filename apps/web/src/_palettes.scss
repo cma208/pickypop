@@ -1,0 +1,98 @@
+// The colors of the application, and the only place they are written.
+//
+// Two axes, deliberately separate: the **mode** (light or dark) is what the
+// surroundings ask for, and the **palette** is what the person likes. Every
+// palette therefore exists in both modes; a palette that only looked right in
+// one of them would make the mode switch a trap.
+//
+// Every palette defines the same names. A palette that only changed the accent
+// would look cheap precisely because the rest would not follow it.
+//
+// Nothing else in the app writes a color. The preview thumbnails in Settings
+// read these very rules by carrying `data-palette` and `data-mode` themselves,
+// so there is no second copy to keep in step.
+
+@use 'sass:map';
+
+// Semantic colors (danger, good, warn) barely move between palettes: red means
+// stop everywhere, and tinting it per palette would cost legibility for
+// nothing. What changes is the ground the app stands on.
+$semantic-light: (
+  danger: #b3261e,
+  danger-soft: #fae9e8,
+  good: #1f6b43,
+  good-soft: #e5f2ea,
+  warn: #8a5a00,
+  warn-soft: #fbf0db,
+);
+
+$semantic-dark: (
+  danger: #f2b8b5,
+  danger-soft: #3d2320,
+  good: #87d6a8,
+  good-soft: #1f3528,
+  warn: #e5bf73,
+  warn-soft: #39301c,
+);
+
+// `line-strong` is the border of something you can type into or click. It is a
+// separate token because the hairline that separates two table rows and the
+// edge of a text field want opposite things: the first has to disappear, and
+// the second has to be visible enough to say "this is a field" (3:1, which the
+// hairline does not reach and does not need to).
+//
+// `on-accent` is the ink that goes on top of the accent, and it is a token
+// because it cannot be white everywhere: a light accent in dark mode needs
+// dark text on it. White on a pale accent is the usual way a dark theme ends
+// up with unreadable buttons.
+$palettes: (
+  terracota: (
+    label: 'Terracota',
+    hint: 'La de siempre: barro sobre crema.',
+    light: (bg: #fbfaf9, surface: #ffffff, text: #1c1b1a, muted: #6f6b66, line: #e4e1dd, line-strong: #8e8880, accent: #b4532a, accent-soft: #f7ebe5, on-accent: #ffffff),
+    dark: (bg: #17161a, surface: #201f24, text: #ece9e6, muted: #a09b95, line: #34323a, line-strong: #6f6c76, accent: #e0855c, accent-soft: #3a2a23, on-accent: #241410),
+  ),
+  indigo: (
+    label: 'Índigo',
+    hint: 'Fría y seria, de tinta azul.',
+    light: (bg: #f9f9fd, surface: #ffffff, text: #1a1b22, muted: #666a7a, line: #e1e2ec, line-strong: #8a8d9c, accent: #4b52c0, accent-soft: #e9eafb, on-accent: #ffffff),
+    dark: (bg: #15161c, surface: #1e1f27, text: #e8e9f0, muted: #9a9db0, line: #32343f, line-strong: #6d7080, accent: #9ba3f5, accent-soft: #272a44, on-accent: #14162c),
+  ),
+  turquesa: (
+    label: 'Turquesa',
+    hint: 'Fresca, de taller limpio.',
+    light: (bg: #f7fbfb, surface: #ffffff, text: #17201f, muted: #5f7273, line: #dbe7e7, line-strong: #7f8d8e, accent: #0e6e78, accent-soft: #e0f1f3, on-accent: #ffffff),
+    dark: (bg: #11191a, surface: #1a2325, text: #e4eded, muted: #93a6a7, line: #2c3a3c, line-strong: #687b7d, accent: #5ec8d2, accent-soft: #15343a, on-accent: #06242a),
+  ),
+  ciruela: (
+    label: 'Ciruela',
+    hint: 'La más alegre, de dulce de feria.',
+    light: (bg: #fcf8fc, surface: #ffffff, text: #211b21, muted: #6f6572, line: #e9dfe9, line-strong: #8d838c, accent: #8a3f86, accent-soft: #f6e8f5, on-accent: #ffffff),
+    dark: (bg: #191419, surface: #221c22, text: #efe7ee, muted: #a99ca8, line: #3a2f39, line-strong: #786e77, accent: #d79fd2, accent-soft: #352438, on-accent: #2a0f28),
+  ),
+  grafito: (
+    label: 'Grafito',
+    hint: 'Sin color propio: todo el color lo pone el contenido.',
+    light: (bg: #f7f8f9, surface: #ffffff, text: #1a1c1f, muted: #697079, line: #e2e5e9, line-strong: #848a92, accent: #3f4a5a, accent-soft: #e8ebef, on-accent: #ffffff),
+    dark: (bg: #16181b, surface: #1f2226, text: #e9ebee, muted: #9aa1ab, line: #32363c, line-strong: #6d737b, accent: #aab6c6, accent-soft: #272c33, on-accent: #15191f),
+  ),
+);
+
+/// The palette used when nobody has chosen one. It is the workshop's identity,
+/// so it is not just the first of the list by accident.
+$default: terracota;
+
+/// Writes one set of tokens as custom properties.
+@mixin tokens($ground, $semantic) {
+  @each $name, $value in map.merge($ground, $semantic) {
+    --#{$name}: #{$value};
+  }
+}
+
+/// The ground colors of a palette in one mode, with the semantic ones merged in.
+@mixin paint($palette, $mode) {
+  $ground: map.get($palettes, $palette, $mode);
+  $semantic: if($mode == light, $semantic-light, $semantic-dark);
+  @include tokens($ground, $semantic);
+  color-scheme: $mode;
+}

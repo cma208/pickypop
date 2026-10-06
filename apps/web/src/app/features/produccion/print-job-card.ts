@@ -71,7 +71,7 @@ import { FAILURE_CAUSE_LABEL, isClosed, JOB_STATUS_LABEL, JOB_STATUS_TONE } from
     </article>
   `,
   styles: `
-    article { padding: 0.9rem 1rem; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+    article { padding: 0.9rem 1rem; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
     header { display: flex; align-items: center; flex-wrap: wrap; gap: 0.5rem; }
     header strong { flex: 1; min-width: 8rem; }
     p { margin: 0.25rem 0; }

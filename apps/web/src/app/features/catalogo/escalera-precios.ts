@@ -17,7 +17,7 @@ import { VariantCostModel } from './variant-cost.model';
       .low td:first-child { box-shadow: inset 3px 0 0 var(--danger); }
       form { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; gap: 0.5rem; align-items: end; margin-top: 1rem; }
       label { display: grid; gap: 0.15rem; font-size: 0.72rem; color: var(--muted); }
-      .alert { margin-top: 0.75rem; padding: 0.6rem 0.8rem; border-radius: 8px; background: var(--danger-soft); color: var(--danger); font-size: 0.85rem; }
+      .alert { margin-top: 0.75rem; padding: 0.6rem 0.8rem; border-radius: var(--radius-sm); background: var(--danger-soft); color: var(--danger); font-size: 0.85rem; }
       .alert ul { margin: 0.3rem 0 0; padding-left: 1.1rem; }
       .alert p { margin: 0; }
       @media (max-width: 30rem) { form { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } form button { grid-column: 1 / -1; } }

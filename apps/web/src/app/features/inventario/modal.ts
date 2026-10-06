@@ -24,7 +24,7 @@ import { afterNextRender, Component, ElementRef, input, output, viewChild } from
       max-height: calc(100dvh - 1rem);
       padding: 0;
       border: 1px solid var(--line);
-      border-radius: 12px;
+      border-radius: var(--radius);
       background: var(--surface);
       color: var(--text);
     }

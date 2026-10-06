@@ -8,19 +8,33 @@ import { DEFAULT_APPEARANCE, parseAppearance } from './appearance';
  */
 describe('parseAppearance', () => {
   it('keeps what is valid', () => {
-    expect(parseAppearance({ theme: 'dark', density: 'compact', sidebarCollapsed: true })).toEqual({
-      theme: 'dark',
-      density: 'compact',
-      sidebarCollapsed: true,
-    });
+    expect(
+      parseAppearance({ mode: 'dark', palette: 'indigo', density: 'compact', sidebarCollapsed: true }),
+    ).toEqual({ mode: 'dark', palette: 'indigo', density: 'compact', sidebarCollapsed: true });
   });
 
   it('falls back field by field, not all at once', () => {
-    expect(parseAppearance({ theme: 'neon', density: 'compact' })).toEqual({
-      theme: DEFAULT_APPEARANCE.theme,
+    expect(parseAppearance({ mode: 'neon', palette: 'fucsia', density: 'compact' })).toEqual({
+      mode: DEFAULT_APPEARANCE.mode,
+      palette: DEFAULT_APPEARANCE.palette,
       density: 'compact',
       sidebarCollapsed: DEFAULT_APPEARANCE.sidebarCollapsed,
     });
+  });
+
+  it('reads the old `theme` as the mode', () => {
+    // Before palettes existed the mode was called `theme`. Whoever had chosen
+    // dark back then must stay in dark, not be reset without being asked.
+    expect(parseAppearance({ theme: 'dark', density: 'compact' })).toEqual({
+      mode: 'dark',
+      palette: DEFAULT_APPEARANCE.palette,
+      density: 'compact',
+      sidebarCollapsed: DEFAULT_APPEARANCE.sidebarCollapsed,
+    });
+  });
+
+  it('prefers the new field when both are stored', () => {
+    expect(parseAppearance({ mode: 'light', theme: 'dark' }).mode).toBe('light');
   });
 
   it('survives anything that is not an object', () => {

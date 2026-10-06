@@ -29,7 +29,7 @@ const TABS: { id: TabId; label: string }[] = [
   ],
   styles: `
     .tabs { display: flex; gap: 0.25rem; flex-wrap: wrap; margin-bottom: 1.25rem; border-bottom: 1px solid var(--line); }
-    .tabs button { border-radius: 8px 8px 0 0; }
+    .tabs button { border-radius: var(--radius-sm) var(--radius-sm) 0 0; }
     .tabs button[aria-selected='true'] { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
     .stack { display: grid; gap: 1rem; }
   `,

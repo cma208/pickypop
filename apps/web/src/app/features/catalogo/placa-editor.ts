@@ -16,7 +16,7 @@ const SECONDS_PER_MINUTE = 60;
   styles: [
     SHARED_STYLES,
     `
-      section { padding: 0.9rem; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); }
+      section { padding: 0.9rem; border: 1px solid var(--line); border-radius: var(--radius); background: var(--bg); }
       h4 { margin: 0 0 0.6rem; font-size: 0.95rem; }
       label { display: grid; gap: 0.15rem; font-size: 0.72rem; color: var(--muted); }
       .plate { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1.2fr) minmax(0, 0.9fr) minmax(0, 0.9fr) auto; gap: 0.5rem; align-items: end; }

@@ -94,8 +94,8 @@ const NO_METHOD = '';
     dd { margin: 0; }
     .balance { font-weight: 600; }
     .balance.owed { color: var(--warn); }
-    .notice { margin: 0 0 1rem; padding: 0.6rem 0.8rem; border-radius: 8px; background: var(--good-soft); color: var(--good); font-size: 0.85rem; }
-    .form-box { padding: 1rem; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); }
+    .notice { margin: 0 0 1rem; padding: 0.6rem 0.8rem; border-radius: var(--radius-sm); background: var(--good-soft); color: var(--good); font-size: 0.85rem; }
+    .form-box { padding: 1rem; border: 1px solid var(--line); border-radius: var(--radius); background: var(--bg); }
     .form-box h3 { margin: 0 0 0.75rem; font-size: 0.95rem; }
     .form-actions { display: flex; gap: 0.5rem; }
   `,

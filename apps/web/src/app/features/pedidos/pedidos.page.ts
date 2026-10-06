@@ -89,7 +89,7 @@ const FINISHED: OrderStatus[] = ['delivered', 'closed', 'cancelled'];
     .orders { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.6rem; }
     .orders a {
       display: grid; grid-template-columns: 1fr auto; gap: 0.15rem 1rem;
-      padding: 0.8rem 1rem; border: 1px solid var(--line); border-radius: 10px;
+      padding: 0.8rem 1rem; border: 1px solid var(--line); border-radius: var(--radius);
       background: var(--surface); color: inherit; text-decoration: none;
     }
     .orders a:hover, .orders a:focus-visible { border-color: var(--accent); }

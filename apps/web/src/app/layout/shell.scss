@@ -36,7 +36,7 @@ nav a {
   align-items: center;
   gap: 0.6rem;
   padding: 0.42rem 0.6rem;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   color: var(--muted);
   font-size: 0.9rem;
   text-decoration: none;

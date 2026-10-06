@@ -33,7 +33,7 @@ const HOURS = new Intl.NumberFormat('es-PE', { maximumFractionDigits: 1 });
       .facts dd { margin: 0; font-size: 1.1rem; font-weight: 600; font-variant-numeric: tabular-nums; }
       .facts dd small { display: block; font-size: 0.75rem; font-weight: 400; color: var(--muted); }
       .tabs { display: flex; gap: 0.25rem; flex-wrap: wrap; margin: 1rem 0; border-bottom: 1px solid var(--line); }
-      .tabs button { border-radius: 8px 8px 0 0; }
+      .tabs button { border-radius: var(--radius-sm) var(--radius-sm) 0 0; }
       .tabs button[aria-selected='true'] { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
       .count { margin-left: 0.3rem; }
     `,

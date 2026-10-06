@@ -10,7 +10,7 @@ export const SHARED_STYLES = `
   .bar { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; margin-top: 0.5rem; }
   .bar .grow { flex: 1; }
   .scroll { overflow-x: auto; }
-  .notice { padding: 0.6rem 0.8rem; border-radius: 8px; background: var(--warn-soft); color: var(--warn); font-size: 0.85rem; }
+  .notice { padding: 0.6rem 0.8rem; border-radius: var(--radius-sm); background: var(--warn-soft); color: var(--warn); font-size: 0.85rem; }
   .notice p, .notice ul { margin: 0; }
   .notice ul { padding-left: 1.1rem; }
   .ok { color: var(--good); font-size: 0.85rem; }

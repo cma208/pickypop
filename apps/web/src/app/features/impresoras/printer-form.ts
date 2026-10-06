@@ -27,7 +27,7 @@ const STATES = Object.keys(PRINTER_STATE_LABELS) as PrinterState[];
   styles: [
     SECTION_STYLES,
     `
-      .rate { margin: 0 0 1rem; padding: 0.75rem 0.9rem; border-radius: 10px; background: var(--accent-soft); }
+      .rate { margin: 0 0 1rem; padding: 0.75rem 0.9rem; border-radius: var(--radius); background: var(--accent-soft); }
       .rate strong { font-size: 1.1rem; font-variant-numeric: tabular-nums; }
       .rate ul { margin: 0.4rem 0 0; padding-left: 1.2rem; font-size: 0.85rem; color: var(--warn); }
     `,

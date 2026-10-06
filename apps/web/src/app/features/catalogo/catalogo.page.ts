@@ -29,7 +29,7 @@ const FILTERS: { value: StatusFilter; label: string }[] = [
     SHARED_STYLES,
     `
       .filters { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 0.75rem; margin-bottom: 1rem; }
-      .product { display: block; padding: 1rem 1.25rem; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+      .product { display: block; padding: 1rem 1.25rem; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
       .product header { display: flex; align-items: flex-start; flex-wrap: wrap; gap: 0.5rem 0.75rem; }
       .product h2 { flex: 1; min-width: 12rem; margin: 0; font-size: 1.05rem; }
       .product h2 a { color: inherit; text-decoration: none; }

@@ -125,7 +125,7 @@ function createUsageRow(spoolId: string, actualG: number) {
   `,
   styles: `
     .close { padding-top: 0.75rem; }
-    fieldset { border: 1px solid var(--line); border-radius: 10px; padding: 0.8rem; margin: 0 0 1rem; }
+    fieldset { border: 1px solid var(--line); border-radius: var(--radius); padding: 0.8rem; margin: 0 0 1rem; }
     legend { font-size: 0.85rem; font-weight: 500; padding: 0 0.4rem; }
     .results { display: flex; flex-wrap: wrap; gap: 0.5rem; }
     .results label { display: flex; gap: 0.4rem; align-items: center; padding: 0.4rem 0.8rem; border: 1px solid var(--line); border-radius: 999px; cursor: pointer; }
@@ -133,7 +133,7 @@ function createUsageRow(spoolId: string, actualG: number) {
     .results input { width: auto; }
     .usage { display: grid; grid-template-columns: 1fr 9rem; gap: 0.75rem; align-items: start; }
     .spool { display: grid; padding-top: 0.2rem; }
-    .confirm { padding: 0.8rem; border: 1px solid var(--warn); border-radius: 10px; background: var(--warn-soft); margin-bottom: 0.5rem; }
+    .confirm { padding: 0.8rem; border: 1px solid var(--warn); border-radius: var(--radius); background: var(--warn-soft); margin-bottom: 0.5rem; }
     .confirm p { margin: 0 0 0.6rem; }
     @media (max-width: 30rem) { .usage { grid-template-columns: 1fr; } }
   `,

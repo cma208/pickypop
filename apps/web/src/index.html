@@ -8,12 +8,17 @@
   <link rel="icon" type="image/x-icon" href="favicon.ico">
   <script>
     /* Apply the saved appearance before the app paints. Without this the page
-       renders light and then flips to dark, which reads as a bug. Must stay in
-       step with core/appearance.ts. */
+       renders in the default palette and then flips, which reads as a bug.
+       Must stay in step with core/appearance.ts: same key, same field names,
+       same fallback to the old `theme` for whoever stored one. */
     try {
       var saved = JSON.parse(localStorage.getItem('pickypop.appearance') || '{}');
-      if (saved.theme === 'light' || saved.theme === 'dark') {
-        document.documentElement.dataset.theme = saved.theme;
+      var mode = saved.mode || saved.theme;
+      if (mode === 'light' || mode === 'dark') {
+        document.documentElement.dataset.mode = mode;
+      }
+      if (typeof saved.palette === 'string' && /^[a-z]+$/.test(saved.palette)) {
+        document.documentElement.dataset.palette = saved.palette;
       }
       if (saved.density === 'compact' || saved.density === 'comfortable') {
         document.documentElement.dataset.density = saved.density;
