@@ -380,9 +380,26 @@
             </p>
           }
 
+          @if (calculated.costBased; as fromCost) {
+            <p class="banner info">
+              Es un producto del catálogo: va a su precio de lista para {{ calculated.cost.units }}
+              {{ calculated.cost.units === 1 ? 'unidad' : 'unidades' }},
+              <strong>{{ calculated.price.total | money }} c/u</strong>, el mismo que cobra el pedido. Según el
+              costo saldría {{ fromCost.total | money }}. El descuento, el recargo y la comisión del canal se
+              aplican solo a lo hecho a medida.
+            </p>
+            @if (calculated.price.marginAmount < 0) {
+              <p class="banner bad">
+                El precio de catálogo no cubre el costo: se pierden
+                {{ -calculated.price.marginAmount | money }} por unidad.
+              </p>
+            }
+          }
+
           <pp-desglose
             [cost]="calculated.cost"
             [price]="calculated.price"
+            [fromCatalog]="calculated.costBased !== null"
             [materials]="materials()"
             [profile]="ctx.profile"
           />

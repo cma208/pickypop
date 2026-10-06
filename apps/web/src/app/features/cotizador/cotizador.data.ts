@@ -1,5 +1,6 @@
 import { inject, Injectable } from '@angular/core';
 import type { PostgrestError } from '@supabase/supabase-js';
+import { todayLocal } from '../../core/dates';
 import { SUPABASE } from '../../core/supabase';
 import { CurrentWorkspace, type WorkspaceInfo } from '../../core/workspace';
 import type { Database } from '../../core/database.types';
@@ -579,7 +580,13 @@ export class CotizadorData {
         .from('product_variants')
         .select('id, product_id, name, list_price')
         .eq('active', true),
-      this.supabase.from('price_tiers').select('variant_id, min_quantity, unit_price'),
+      // Only the tiers already in force, latest first, so that among two tiers
+      // with the same minimum the newer one wins: what `price_for_quantity` does.
+      this.supabase
+        .from('price_tiers')
+        .select('variant_id, min_quantity, unit_price')
+        .lte('valid_from', todayLocal())
+        .order('valid_from', { ascending: false }),
     ]);
 
     fail(products.error, 'No pudimos leer el catálogo.');

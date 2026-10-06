@@ -53,3 +53,34 @@ export function calculatePrice(
     effectiveMarginRate: saleValue > 0 ? (saleValue - cost) / saleValue : 0,
   };
 }
+
+/**
+ * The breakdown of a price decided elsewhere, by the catalog's price list,
+ * instead of derived from the cost. It answers the same questions as
+ * `calculatePrice` — how much of it is tax, how much is left as margin — so a
+ * catalog line and a custom one read the same way.
+ *
+ * A price list is what the customer pays, so IGV, under a regime that charges
+ * it, is already inside the total: it is taken out, not added on top.
+ */
+export function breakdownForPrice(cost: number, total: number, profile: CostProfile): PriceBreakdown {
+  if (!Number.isFinite(total) || total < 0) {
+    throw new RangeError('total must be a non-negative number');
+  }
+
+  const igv = chargesIgv(profile.taxRegime) ? roundMoney(total - total / (1 + profile.igvRate)) : 0;
+  const saleValue = roundMoney(total - igv);
+
+  return {
+    cost,
+    basePrice: saleValue,
+    adjustedPrice: saleValue,
+    afterMinimum: saleValue,
+    saleValue,
+    igv,
+    totalBeforeRounding: total,
+    total,
+    marginAmount: roundMoney(saleValue - cost),
+    effectiveMarginRate: saleValue > 0 ? (saleValue - cost) / saleValue : 0,
+  };
+}

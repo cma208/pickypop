@@ -1,10 +1,13 @@
 import {
+  breakdownForPrice,
   calculateBatchCost,
   calculatePrice,
+  priceForQuantity,
   type BatchCostBreakdown,
   type BatchInput,
   type CostProfile,
   type PriceBreakdown,
+  type PriceTier,
   type PrinterProfile,
   type SlicedPlate,
 } from '../../core/pricing';
@@ -212,6 +215,34 @@ export interface LineResult {
   price: PriceBreakdown;
   /** Filaments still without a SKU, so the material cost is understated. */
   missingSkus: number;
+  /**
+   * Set when the catalog's price list decided `price`: what the cost alone
+   * would have asked, so the screen can show both. Null for custom work.
+   */
+  costBased: PriceBreakdown | null;
+}
+
+/** What the catalog sells a variant at. */
+export interface CatalogPricing {
+  listPrice: number | null;
+  /** Only the tiers already in force, latest first among equal minimums. */
+  tiers: PriceTier[];
+}
+
+/**
+ * The catalog's unit price for this many units, by the same rule orders use
+ * (`price_for_quantity` in the database): the tier with the highest minimum
+ * that is reached, else the list price. Null when the catalog has no price for
+ * that quantity, and the line is then priced from its cost.
+ */
+export function catalogUnitPrice(catalog: CatalogPricing | null, units: number): number | null {
+  if (catalog === null) return null;
+
+  try {
+    return priceForQuantity(catalog.tiers, units, catalog.listPrice ?? undefined);
+  } catch {
+    return null;
+  }
 }
 
 export interface PriceSettings {
@@ -267,23 +298,31 @@ export function calculateLine(
   profile: CostProfile,
   printer: PrinterProfile,
   settings: PriceSettings,
+  catalog: CatalogPricing | null = null,
 ): LineResult | null {
   if (line.plates.length === 0) return null;
   if (line.plates.some((plate) => plate.unitsPerRun <= 0)) return null;
 
   try {
     const cost = calculateBatchCost(toBatchInput(line, skus), profile, printer);
-    const price = calculatePrice(cost.costPerUnit, profile, {
+    const fromCost = calculatePrice(cost.costPerUnit, profile, {
       volumeDiscountRate: settings.volumeDiscountRate,
       urgencySurchargeRate: settings.urgencySurchargeRate,
       channelCommissionRate: settings.channelCommissionRate,
     });
 
+    // A catalog product is sold at its price list, the same one the order
+    // charges. Quoting it from the cost made the same bottle S/ 17.00 in the
+    // quote and S/ 10.00 in the order. Discounts, surcharges and the channel's
+    // commission belong to custom work: the tier already is the volume price.
+    const listed = line.variantId === null ? null : catalogUnitPrice(catalog, cost.units);
+    const price = listed === null ? fromCost : breakdownForPrice(cost.costPerUnit, listed, profile);
+
     const missingSkus = line.plates
       .flatMap((plate) => plate.filaments)
       .filter((filament) => filament.grams > 0 && filament.filamentSkuId === null).length;
 
-    return { cost, price, missingSkus };
+    return { cost, price, missingSkus, costBased: listed === null ? null : fromCost };
   } catch {
     return null;
   }
