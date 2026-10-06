@@ -76,6 +76,33 @@ export function isFinal(status: OrderStatus): boolean {
 }
 
 /**
+ * "Entregado" y "Cerrado" se alcanzan entregando, no eligiéndolos: mientras
+ * quede algo por entregar, la base rechaza ponerlos a mano
+ * (`orders_delivered_means_delivered`), porque el estante seguiría teniendo lo
+ * que el pedido dice que ya se llevó el cliente.
+ */
+export const REACHED_BY_DELIVERING: readonly OrderStatus[] = ['delivered', 'closed'];
+
+/** Lo que ofrece la ficha como paso siguiente: cambiar de estado, o entregar. */
+export type NextStep = { kind: 'status'; status: OrderStatus } | { kind: 'deliver' };
+
+/**
+ * El paso que sigue, sin ofrecer nunca uno que la base va a rechazar: si el
+ * siguiente es "Entregado" y queda algo por entregar, el paso es entregar.
+ */
+export function nextStep(status: OrderStatus, hasPending: boolean): NextStep | null {
+  const next = nextStatus(status);
+  if (next === null) return null;
+  if (hasPending && REACHED_BY_DELIVERING.includes(next)) return { kind: 'deliver' };
+  return { kind: 'status', status: next };
+}
+
+/** Dónde se puede retomar un pedido en espera, por la misma regla. */
+export function resumeTargets(hasPending: boolean): OrderStatus[] {
+  return hasPending ? STATUS_FLOW.filter((step) => !REACHED_BY_DELIVERING.includes(step)) : [...STATUS_FLOW];
+}
+
+/**
  * Posición en el camino normal, o null para los que se salen de él. Es el
  * mismo orden que `app.order_status_rank` en la base, que es quien manda: lo
  * de aquí solo sirve para pedir el motivo antes de que lo exija la base, y no

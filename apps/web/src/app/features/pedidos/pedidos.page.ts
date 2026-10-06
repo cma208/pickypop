@@ -71,6 +71,9 @@ const FINISHED: OrderStatus[] = ['delivered', 'closed', 'cancelled'];
                   <div class="who">{{ subject(order) }}</div>
                   <div class="meta muted">
                     @if (order.dueDate) { Entrega {{ order.dueDate | fecha }} } @else { Sin fecha de entrega }
+                    @if (order.partialDelivery; as part) {
+                      · Entregado en parte: {{ part.delivered }} de {{ part.ordered }}
+                    }
                   </div>
                   <div class="total num">
                     @if (order.purpose === 'sale') { {{ order.total | money }} } @else { <span class="muted">Sin precio</span> }
