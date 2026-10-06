@@ -38,7 +38,15 @@ M4 Piezas, composición ───┬── M5 Disponible para prometer
 M6 Oportunidades (kanban) ── CERRADO
 M8 PDF de cotización ─────── CERRADO · falta la segunda vuelta
 M9 Usuarios y roles ─────────────── (independiente)
+
+M11 Imágenes en todo ──┬── M12 Cola e historial de impresión
+                       ├── M13 Catálogo y recetas
+                       └── M14 Armar productos
+
+M15 Lo que se carga por la base ─── (independiente y chico)
 ```
+
+**La tanda del 2026-10-06, por la tarde.** El dueño recorrió el sistema y trajo una lista de fricciones reales. Salieron M11 a M15 y la tarea 5 de M10. **M11 va primero porque las otras tres lo necesitan**, y porque la regla que dejó —*todo lo que sea un producto lleva su foto*— no es de una pantalla, es del sistema entero.
 
 **Lo que queda, y se puede hacer a la vez:** M5, M7, M9, M10 y la segunda vuelta del PDF. M5 y M7 comparten el modelo de recetas, así que conviene que no los tomen dos agentes distintos al mismo tiempo; los demás no se pisan con nadie.
 
@@ -317,6 +325,112 @@ Hechas las tareas 1, 2, 3, 4 y 6, y **a medias la 5**, que es la que el dueño n
 - Radios unificados a `--radius` y `--radius-sm`: ya no hay 8, 10 y 12 px conviviendo.
 
 **Falta la tarea 5 entera:** la pasada pantalla por pantalla. Lo que se hizo fue lo transversal —radios, bordes de campo, tinta sobre el acento—, no revisar cada pantalla a 1440 y 400 px buscando lo que no encaja. Hay un token `--shadow` definido y todavía sin usar: decidir si las tarjetas llevan profundidad o se quedan planas es parte de esa pasada.
+
+**Y esa pasada ya tiene lista de pendientes**, salida de que el dueño recorriera el sistema: M11 a M15. Lo visual de este hito y lo de esos cuatro es la misma cosa vista desde dos sitios —aquí los tokens, allá las pantallas—, así que conviene cerrarlos en ese orden y no al revés.
+
+---
+
+## M11 · Imágenes en todo
+
+**Por qué.** El dueño lo dejó como **regla, no como pedido**: *"quiero que todo tenga imágenes, guarda esto como regla, todo producto en el sistema debe ir acompañado de su imagen para su rápida identificación en todas partes de la aplicación"*.
+
+No es decoración. En un taller donde casi todo es "la botella roja", "la tapa chica" y "la bolsa de 10×15", el nombre escrito es el peor identificador posible: se lee despacio y se confunde. Una lista de insumos con foto se escanea de un vistazo. Y es la pieza que falta para que el armado y el formulario de compra dejen de ser listas desplegables de texto.
+
+**Bloquea a:** M12, M13 y M14, que son principalmente visuales. Va primero.
+
+### Tareas
+
+1. **Un sitio donde vivan los archivos.** Supabase Storage, cubo `media`, con política por taller: la ruta empieza por el `workspace_id` y la política solo deja entrar a esa carpeta. El plan gratuito da 1 GB; una foto de producto comprimida pesa 80–150 kB, así que no es una preocupación todavía, pero sí hay que **redimensionar en el navegador antes de subir** (lado mayor 1024 px): una foto de celular son 4 MB y nadie quiere esperar eso en el taller.
+
+2. **Qué lleva imagen.** `catalog_products`, `product_variants` e `inventory_items` —y eso cubre insumos, empaque, repuestos y **piezas impresas**—. La variante cae a la imagen del producto cuando no tiene una propia: el dueño dijo que la foto del producto terminado *"puede variar del producto o productos impresos"*, así que las dos capas hacen falta, pero obligar a cargar una por variante sería pesado.
+
+3. **Un componente y uno solo.** `<pp-thumb>` para mostrar y `<pp-image-field>` para cargar. El marcador de posición cuando no hay foto tiene que ser evidente y no feo: inicial del nombre sobre el color del acento, no un icono roto.
+
+4. **Usarlo en todas partes:** catálogo, ficha de producto, piezas impresas, insumos, empaque, armado, líneas de pedido y de cotización, y el selector de compra.
+
+**Terminado cuando:** se sube una foto desde el celular en el taller, se ve en menos de un segundo en todas las listas donde aparece ese artículo, y una lista de veinte insumos se puede recorrer sin leer un solo nombre.
+
+**Ojo:** las imágenes son del taller, no del mundo. El cubo es privado y se sirve con URL firmada.
+
+---
+
+## M12 · Producción: la cola y el historial son dos cosas
+
+**Por qué.** Hoy `/produccion` mezcla tres cosas en una pantalla: lo que está por imprimirse, lo que ya se imprimió y unas métricas. El dueño lo dijo claro: *"cola de impresión y lo que es historial de impresión deberían ser items separados"*. Son dos preguntas distintas —*¿qué hago ahora?* y *¿qué pasó?*— y cada una quiere su orden, sus columnas y su sitio en el menú.
+
+**Depende de:** M11 para las fotos. Lo demás se puede empezar antes.
+
+### Tareas
+
+1. **Partir en dos pantallas**, con su entrada propia en Producción: **Cola de impresión** (lo pendiente y lo que está corriendo) e **Historial de impresiones** (lo cerrado, con su resultado).
+
+2. **Sacar las métricas de ahí.** Tasa de éxito y causa de fallo más común no son trabajo pendiente: son observación. Van a una pantalla de **métricas** que todavía no existe y que hay que acordar con el dueño antes de inventarla. Mientras tanto, fuera.
+
+3. **La cola tiene que decir lo que falta para decidir:**
+   - **Avance** de lo que está corriendo, en porcentaje. La columna `percent_complete` ya existe en `print_jobs` y la pantalla no la muestra.
+   - **Si va contra un pedido o no**, con cuál y para cuándo. Un trabajo suelto y uno que sostiene una entrega del viernes no se miran igual.
+   - **La foto** del resultado esperado.
+
+4. **Lo que falta imprimir para cumplir los pedidos.** Es lo que el dueño llamó *"la cuota que me pide ventas"*: para los pedidos comprometidos y no entregados, cuántas unidades faltan después de descontar lo armado y las piezas en stock, y por lo tanto qué placas hay que lanzar. **Es la misma cuenta de M5 vista del otro lado**: M5 le dice al que vende qué puede prometer; esto le dice al taller qué tiene que producir. Que la cuenta viva en un solo sitio.
+
+**Terminado cuando:** el dueño entra a la cola por la mañana y sabe, sin abrir nada más, qué está corriendo y en qué porcentaje, qué falta lanzar para no quedar mal con un pedido, y qué es trabajo para stock que puede esperar.
+
+---
+
+## M13 · Catálogo y recetas: que cargar un producto no duela
+
+**Por qué.** Es la pantalla donde se define todo lo demás, y es la que más fricción tiene. El dueño encontró cinco cosas seguidas, y todas son ciertas.
+
+**Depende de:** M11 para las fotos.
+
+### Tareas
+
+1. **La placa se carga del archivo laminado, no a mano.** `packages/slicer-files` ya lee un `.gcode.3mf` en el navegador, y el **cotizador ya lo usa**: de ahí salen los minutos y los gramos por filamento. La receta, que es donde ese dato debería vivir para siempre, los pide escritos a mano. Es el mismo lector, la misma caja de arrastrar: reutilizarlo en el editor de placas. **Esta es la tarea de más valor del hito.**
+
+2. **Clonar una variante.** *"Va a ahorrar bastante tiempo"*, y tiene razón: dos variantes de la misma botella se diferencian en el color y en poco más, y hoy hay que volver a cargar la receta entera. Botón *Duplicar*, que copia receta y escalera y abre la copia para editar.
+
+3. **La pantalla no debe saltar al cambiar de variante.** Una variante con más datos que otra hace que todo se mueva un instante. Reservar la altura o mantener el bloque montado.
+
+4. **Explicar el SKU o quitarlo.** `product_variants.sku_code` es un código interno para identificar la variante de un vistazo —en una etiqueta, en una caja del estante—, es opcional y hoy no lo explica nada. O lleva una ayuda que lo diga y una sugerencia automática, o se va. **Preguntarle si usa códigos en el estante.**
+
+5. **El plazo de entrega se va del formulario.** El dueño preguntó para qué está, y la pregunta es mejor que el campo: el plazo real **se deriva** del stock disponible, y si no hay stock, del tiempo de impresión más la cola del momento. Un número escrito a mano en el catálogo va a estar mal el día que la cola crezca. La columna se queda (las migraciones son de ida), pero deja de pedirse y de mostrarse hasta que M5 pueda calcular el plazo de verdad.
+
+**Terminado cuando:** cargar una botella nueva con sus tres variantes se hace arrastrando tres archivos laminados y duplicando dos veces, sin escribir un solo gramo a mano.
+
+---
+
+## M14 · Armar productos: que se vea lo que se está armando
+
+**Por qué.** La pantalla de piezas impresas mezcla dos cosas —un inventario y una operación— y la operación quedó como un formulario de dos campos. El dueño pidió lo contrario: *"estoy buscando una experiencia bastante visual e interactiva aquí"*. Tiene razón en que el orden está invertido: hoy se elige una variante de una lista y la pantalla responde si alcanza; lo natural es **elegir el producto terminado, decir cuántos, y que la pantalla enseñe la lista de lo que se va a consumir, con foto, y marque lo que no alcanza**.
+
+**Depende de:** M11.
+
+### Tareas
+
+1. **Separar inventario de operación.** *Piezas impresas* se queda como inventario de piezas. **Armar** es su propia pantalla, a la que también se llega desde el producto y desde el pedido.
+
+2. **El armado, de arriba hacia abajo:** se elige el producto terminado (con su foto), se dice la cantidad, y la pantalla muestra la receta explotada con la foto de cada componente, lo que hace falta, lo que hay, y en rojo lo que falta. El botón solo se habilita si alcanza, y si no alcanza dice cuánto falta de qué. La base ya lo calcula —`app.assemble_product` es todo o nada y devuelve el faltante—, pero hoy eso solo se descubre al pulsar.
+
+3. **Decir a dónde va lo armado.** Hoy no se ve que el producto armado entra al inventario de terminados. Después de armar, enseñar el stock nuevo.
+
+4. **Separar insumos de empaque** en el menú de Inventario. Hoy son pocos y conviven; cuando sean cuarenta, una bolsa y un pegamento no se buscan en la misma lista.
+
+5. **El selector de artículos, con foto y con búsqueda.** Lo pidió para el formulario de compra —*"la lista de productos que se puede comprar va a crecer enormemente"*— y vale para la receta, el armado y las líneas de pedido. Un solo componente compartido, en `ui/`.
+
+**Terminado cuando:** alguien que nunca usó el sistema puede armar diez botellas eligiendo la foto correcta, y entiende por qué no puede armar veinte sin que nadie se lo explique.
+
+---
+
+## M15 · Lo que todavía se carga por la base
+
+**Por qué.** El dueño sospechó bien: *"creo que hay cosas que estás cargando por base de datos y no creándose desde el mismo sistema"*. Comprobado en el código, son dos:
+
+- **Acabados** (`filament_finishes`). Configuración dice administrar "marcas, materiales, acabados", y `friendlyError` hasta tiene preparado el mensaje de nombre repetido, pero **no hay forma de crear uno**. Se quedó a medias en M1.
+- **Categorías de movimiento** (`transaction_categories`). Las de la semilla son las únicas que van a existir nunca. El día que quieran anotar un gasto de publicidad, no pueden.
+
+Ninguna de las dos es grande. Las dos son de las que se descubren en el peor momento.
+
+**Terminado cuando:** una búsqueda de `insert` por tabla no deja ninguna tabla de catálogo fuera, y eso se comprueba, no se supone.
 
 ---
 

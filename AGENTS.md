@@ -26,6 +26,8 @@ Está **en producción** desde el 2026-10-05, con datos reales entrando. Las pan
 
 **Una pieza impresa no se compra: se produce.** Su costo sale del promedio ponderado de los movimientos de producción, **no** de `inventory_item_costs`, que deriva de las compras y para una pieza devuelve nada. Es la única excepción a "un insumo cuesta lo que dice la vista", y ya costó dos errores: piezas sin costo en pantalla y armados que consumían stock valorizado en cero.
 
+**Todo lo que es un artículo lleva su foto.** Producto, variante, pieza impresa, insumo, empaque, repuesto: en cualquier lista donde aparezca, aparece con su imagen. Es regla del dueño y es de sentido práctico: en un taller donde casi todo se llama "la botella roja" o "la tapa chica", el nombre escrito es el peor identificador que hay. Si agregas una pantalla que lista artículos y no muestra la foto, está incompleta.
+
 **Nada se borra: se anula.** Los movimientos de dinero se anulan con motivo obligatorio y desaparecen de los reportes dejando rastro.
 
 **Las migraciones son de ida.** Una migración ya aplicada **jamás** se edita: se corrige con otra encima. `supabase/seed.sql` corre **solo en local**; el proyecto alojado se arranca con `supabase/bootstrap.sql`.
