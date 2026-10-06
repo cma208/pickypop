@@ -3,6 +3,8 @@
 > Estado: vigente · Reescrito el 2026-10-05 tras la conversación de flujos con el dueño · Actualizado el 2026-10-06
 > Este documento es el reparto de trabajo. Está escrito para que lo pueda tomar cualquier agente (Claude, Codex, o un subagente de cualquiera de los dos) sin haber estado en las conversaciones previas.
 
+> **Desde el 2026-10-06 el plan vigente es el del barrido:** [`docs/barrido/sintesis.md`](barrido/sintesis.md), camino 1 (la verdad primero, después la fluidez), con las decisiones del dueño que trae. Lo que sigue en este documento es la historia de los hitos y los pendientes que el barrido no tocó; donde los dos se contradigan, manda la síntesis.
+
 ## 7.1 Cómo leer esto
 
 Cada hito tiene: **por qué existe**, **qué hay que hacer** con los archivos concretos, **cómo se sabe que terminó**, y **de qué depende**. Un hito no está terminado si solo compila: hay que haberlo usado en el navegador contra la base real.
