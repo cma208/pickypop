@@ -352,6 +352,8 @@ No es decoración. En un taller donde casi todo es "la botella roja", "la tapa c
 
 **Ojo:** las imágenes son del taller, no del mundo. El cubo es privado y se sirve con URL firmada.
 
+**Cerrado el 2026-10-06.** Cubo privado por taller, `<pp-thumb>` y `<pp-image-field>`, y las firmas de una misma tanda se piden en una sola llamada. Comprobado: 1.8 MB de foto entraron y se guardaron 9 kB. **Falta llevar la foto a las líneas de pedido y de cotización**, y a las tarjetas de impresión: el dueño pidió que cada trabajo se vea con la imagen de lo que produce.
+
 ---
 
 ## M12 · Producción: la cola y el historial son dos cosas
@@ -375,6 +377,8 @@ No es decoración. En un taller donde casi todo es "la botella roja", "la tapa c
 
 **Terminado cuando:** el dueño entra a la cola por la mañana y sabe, sin abrir nada más, qué está corriendo y en qué porcentaje, qué falta lanzar para no quedar mal con un pedido, y qué es trabajo para stock que puede esperar.
 
+**Cerrado el 2026-10-06, salvo la foto.** Dos pantallas, métricas fuera, avance calculado del tiempo transcurrido contra lo estimado, y la vista `production_needs` con lo que falta producir. **Queda pendiente la imagen en cada tarjeta de impresión**, que depende de saber qué variante produce cada trabajo.
+
 ---
 
 ## M13 · Catálogo y recetas: que cargar un producto no duela
@@ -396,6 +400,8 @@ No es decoración. En un taller donde casi todo es "la botella roja", "la tapa c
 5. **El plazo de entrega se va del formulario.** El dueño preguntó para qué está, y la pregunta es mejor que el campo: el plazo real **se deriva** del stock disponible, y si no hay stock, del tiempo de impresión más la cola del momento. Un número escrito a mano en el catálogo va a estar mal el día que la cola crezca. La columna se queda (las migraciones son de ida), pero deja de pedirse y de mostrarse hasta que M5 pueda calcular el plazo de verdad.
 
 **Terminado cuando:** cargar una botella nueva con sus tres variantes se hace arrastrando tres archivos laminados y duplicando dos veces, sin escribir un solo gramo a mano.
+
+**Cerrado el 2026-10-06.** Las cinco tareas están hechas: la placa se carga del `.gcode.3mf` (el lector y la conjetura del rollo se mudaron a `core/`, porque ahora los usan dos pantallas), se duplica una variante entera desde la base, la pantalla ya no salta al cambiar de variante, el SKU se explica y se sugiere, y el plazo de entrega salió del formulario. **Queda preguntarle si usa códigos en el estante**: si no los usa, el campo sobra del todo.
 
 ---
 
@@ -419,6 +425,10 @@ No es decoración. En un taller donde casi todo es "la botella roja", "la tapa c
 
 **Terminado cuando:** alguien que nunca usó el sistema puede armar diez botellas eligiendo la foto correcta, y entiende por qué no puede armar veinte sin que nadie se lo explique.
 
+**Cerrado el 2026-10-06.** Pantalla propia, elección por foto, receta explotada con el faltante en rojo, insumos separados de empaque y el selector buscable en `ui/`. **Falta llevar ese selector a los otros tres sitios** —receta, líneas de pedido y de cotización—, donde hoy sigue habiendo un `select`.
+
+**Y apareció un defecto de fondo al mirarlo:** armar consumía la receta y **no metía el producto terminado a ningún inventario**. Está corregido (ver ADR-018): ahora entra valorizado en lo que costó armarlo, y existe el tipo de movimiento `production`.
+
 ---
 
 ## M15 · Lo que todavía se carga por la base
@@ -431,6 +441,8 @@ No es decoración. En un taller donde casi todo es "la botella roja", "la tapa c
 Ninguna de las dos es grande. Las dos son de las que se descubren en el peor momento.
 
 **Terminado cuando:** una búsqueda de `insert` por tabla no deja ninguna tabla de catálogo fuera, y eso se comprueba, no se supone.
+
+**Cerrado el 2026-10-06.** Las dos se administran desde Configuración, y se desactivan en vez de borrarse.
 
 ---
 
@@ -489,6 +501,15 @@ No volver a abrirlas sin hablar con el dueño:
 
 **Y aparte:** la pantalla **Hoy** pasó a ser una cola de trabajo ordenada por urgencia, el entorno local se siembra con un taller entero de ejemplo (7.3.1), y Configuración tiene una pestaña **Apariencia**.
 
+## 7.5.1 Lo que queda de la tanda del 2026-10-06
+
+M11 a M15 están cerrados salvo cuatro cabos, todos chicos y todos anotados en su hito:
+
+1. **La foto en las líneas de pedido y de cotización**, y en las tarjetas de la cola de impresión. Lo último necesita saber qué variante produce cada trabajo.
+2. **El selector buscable en los otros tres sitios**: receta, líneas de pedido y de cotización. El componente ya existe en `ui/`.
+3. **El formulario de compra todavía pide el precio unitario ya calculado** (viene de M4). Debería aceptar "compré una bolsa de 500 g a S/ 15".
+4. **Decidir si `complete_print_job` pasa a usar `production`** para las piezas que produce. Mientras no se haga, el kardex mezcla dos criterios (ADR-018).
+
 ## 7.6 Dudas abiertas para el dueño
 
 Ninguna de estas la debe decidir quien implementa:
@@ -502,4 +523,6 @@ Ninguna de estas la debe decidir quien implementa:
 7. **Aprobar `jspdf@^4.2.1`**, la dependencia que entró con M8.
 8. **Silenciar o no las ~10 advertencias de CommonJS** que emite el build por dependencias opcionales de jspdf. Rompen el criterio de "build sin advertencias nuevas" de `docs/06-frontend.md`. Se apagan con `allowedCommonJsDependencies` en `angular.json`, **que es configuración y necesita su permiso**.
 9. **Qué entra en el PDF** de la segunda vuelta (ver M8).
-10. **Integrar `nav-y-plan` a `main` y desplegar.** Todo lo del 2026-10-06 está commiteado y **sin publicar** por pedido suyo; lo que está en producción va muy por detrás.
+10. **¿Usa códigos en el estante?** Si no etiqueta cajas, el campo SKU de la variante sobra y conviene quitarlo en vez de explicarlo (M13).
+11. **La pantalla de métricas.** Tasa de éxito y causa de fallo salieron de la cola de impresión porque son observación, no trabajo pendiente. Falta acordar qué más va ahí antes de inventarla (M12).
+12. **Integrar `nav-y-plan` a `main` y desplegar.** Todo lo del 2026-10-06 está commiteado y **sin publicar** por pedido suyo; lo que está en producción va muy por detrás.

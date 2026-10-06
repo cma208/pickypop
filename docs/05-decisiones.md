@@ -238,6 +238,24 @@ Y una regla de interacción: **el tema y la densidad no se aplican hasta Guardar
 
 ---
 
+## ADR-018 · Armar produce stock, y producir no es comprar
+
+**Estado:** Aceptada · 2026-10-06
+
+**Contexto.** `assemble_product` consumía las piezas, los dulces y la bolsa de una receta, y ahí terminaba. El producto terminado no entraba a ningún inventario: el taller armaba diez botellas, el sistema descontaba todo lo que costaron, y las diez botellas no existían en ningún saldo. Nadie podía notarlo desde la pantalla, porque la pantalla de armado tampoco mostraba el resultado.
+
+La causa de fondo era una columna que la documentación daba por existente y nunca se creó: `inventory_items` tenía el tipo `finished_good` desde el principio y **ninguna forma de saber a qué variante correspondía**.
+
+**Decisión.** Tres cosas:
+
+1. **`inventory_items.product_variant_id`**, con un índice único parcial: una variante tiene un solo artículo terminado, o el stock se parte en dos sitios y ninguno dice la verdad. Lo crea `app.finished_good_for` la primera vez que hace falta: es contabilidad interna, no una decisión del dueño.
+2. **Armar hace las dos mitades en una sola orden**, con `insert` que leen lo que devolvió el anterior: lo que sale y lo que entra. El producto entra valorizado en lo que costó armarlo repartido entre las unidades, que es la misma regla con la que una impresión valoriza las piezas que produce (ADR-016).
+3. **Un tipo de movimiento `production`.** Las piezas impresas entraban al estante como `purchase`, porque era el único tipo que sumaba stock. En el kardex eso se lee como "compramos nueve tapas", que es falso justo para quien está intentando entender por qué el stock dice lo que dice.
+
+**Consecuencias.** El inventario de terminados existe, y con él la pregunta que el taller hace todos los días —cuántas hay armadas— tiene respuesta. Los movimientos viejos de piezas siguen con tipo `purchase`: no se migran hacia atrás, por la misma razón de siempre. Queda abierto si `complete_print_job` debe pasar a `production` para las piezas nuevas; mientras no se haga, el kardex mezcla dos criterios.
+
+---
+
 ## Pendientes
 
 | Tema | Opciones | Comentario |

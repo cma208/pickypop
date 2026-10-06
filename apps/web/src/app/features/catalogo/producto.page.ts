@@ -28,6 +28,11 @@ import { VarianteForm } from './variante-form';
       .tabs button[aria-pressed='true'] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
       .tabs .off { opacity: 0.65; }
       h2.section { margin: 2rem 0 0.75rem; font-size: 1.1rem; }
+      /* Una variante con receta larga y otra sin receta tienen alturas muy
+         distintas, y al cambiar de pestaña la página se desplomaba y volvía a
+         crecer: un salto que se lee como un error. Reservar el alto hace que
+         el contenido cambie y el resto se quede quieto. */
+      .variant-area { min-height: 32rem; }
     `,
   ],
   template: `
@@ -65,6 +70,7 @@ import { VarianteForm } from './variante-form';
             </div>
           }
 
+          <div class="variant-area">
           @if (creating()) {
             <app-variante-form
               [productId]="current.id"
@@ -85,6 +91,7 @@ import { VarianteForm } from './variante-form';
               />
             }
           }
+          </div>
         } @else if (!loading()) {
           <pp-empty message="No encontramos este producto. Puede que ya no exista.">
             <button type="button" class="secondary" [routerLink]="['/catalogo']">Volver al catálogo</button>
