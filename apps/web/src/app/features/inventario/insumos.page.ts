@@ -108,6 +108,7 @@ type Dialog = { kind: 'edit'; item: InventoryItemSummary | null } | { kind: 'mov
           <app-modal [heading]="current.item ? 'Editar artículo' : 'Nuevo artículo'" (closed)="dialog.set(null)">
             <app-item-form
               [item]="current.item"
+              [kinds]="kindsHere()"
               (saved)="onSaved(current.item ? 'Cambios guardados.' : 'Artículo creado.')"
               (cancelled)="dialog.set(null)"
             />

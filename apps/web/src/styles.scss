@@ -214,6 +214,12 @@ a { color: var(--accent); }
 
 .only-small { display: none !important; }
 
+/* With room to spare, the article keeps its name on one line: it is what the
+   row is read by, and the numbers can afford to give way first. */
+@media (min-width: 40.01rem) {
+  td > pp-item[data-size] { min-width: 13rem; }
+}
+
 @media (max-width: 40rem) {
   .only-small { display: block !important; }
   .hide-small { display: none !important; }

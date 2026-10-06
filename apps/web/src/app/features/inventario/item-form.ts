@@ -1,7 +1,9 @@
-import { Component, inject, input, output, signal } from '@angular/core';
+import { Component, computed, inject, input, OnDestroy, output, signal } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { Media } from '../../core/media';
 import { Field, ImageField } from '../../ui';
-import { blankToNull, invalidMessage } from './form-helpers';
+import { blankToNull, invalidMessage, photosToDelete } from './form-helpers';
 import { InventarioData, type InventoryItemSummary } from './inventario.data';
 import { describeError } from './inventario.errors';
 import { ITEM_KINDS, ITEM_KIND_LABELS, type ItemKind } from './inventario.format';
@@ -10,28 +12,40 @@ import { INVENTORY_STYLES } from './inventario.styles';
 const DEFAULT_UNIT = 'unidad';
 const UNIT_SUGGESTIONS = ['unidad', 'g', 'ml', 'm', 'par', 'caja'];
 
-/** Create or edit a supply, packaging, spare part or finished good. */
+/**
+ * Create or edit a supply, packaging, spare part, printed part or finished good.
+ *
+ * Each screen says which kinds it holds. It used to offer all five and start
+ * on "Insumo", so a bag created from Empaque landed in Insumos and vanished
+ * from the list where it was created; and a printed part had no screen at all
+ * where it could get its photo.
+ */
 @Component({
   selector: 'app-item-form',
   imports: [ReactiveFormsModule, Field, ImageField],
   template: `
     <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
+      <pp-field label="Foto" hint="Para reconocerlo en la lista sin leer el nombre.">
+        <pp-image-field
+          folder="articulos"
+          removesPrevious="false"
+          [path]="imagePath()"
+          [name]="form.controls.name.value"
+          [kind]="kind()"
+          (changed)="onPhoto($event)"
+        />
+      </pp-field>
+
       <div class="form-grid">
-        <pp-field label="Tipo" [required]="true">
-          <select formControlName="kind">
-            @for (kind of kinds; track kind) {
-              <option [value]="kind">{{ labels[kind] }}</option>
-            }
-          </select>
-        </pp-field>
-        <pp-field label="Foto" hint="Para reconocerlo en la lista sin leer el nombre.">
-          <pp-image-field
-            folder="articulos"
-            [path]="imagePath()"
-            [name]="form.controls.name.value"
-            (changed)="imagePath.set($event)"
-          />
-        </pp-field>
+        @if (kinds().length > 1) {
+          <pp-field label="Tipo" [required]="true">
+            <select formControlName="kind">
+              @for (kind of kinds(); track kind) {
+                <option [value]="kind">{{ labels[kind] }}</option>
+              }
+            </select>
+          </pp-field>
+        }
         <pp-field label="Nombre" [required]="true" [error]="msg(form.controls.name)">
           <input formControlName="name" autocomplete="off" />
         </pp-field>
@@ -48,10 +62,12 @@ const UNIT_SUGGESTIONS = ['unidad', 'g', 'ml', 'm', 'par', 'caja'];
         </pp-field>
       </div>
 
-      <label class="check">
-        <input type="checkbox" formControlName="perishable" />
-        Es perecible (dulces, pegamentos, pinturas…)
-      </label>
+      @if (kind() !== 'part') {
+        <label class="check">
+          <input type="checkbox" formControlName="perishable" />
+          Es perecible (dulces, pegamentos, pinturas…)
+        </label>
+      }
 
       <pp-field label="Nota">
         <textarea formControlName="note" rows="2"></textarea>
@@ -76,21 +92,33 @@ const UNIT_SUGGESTIONS = ['unidad', 'g', 'ml', 'm', 'par', 'caja'];
   `,
   styles: [INVENTORY_STYLES, `textarea { resize: vertical; }`],
 })
-export class ItemForm {
+export class ItemForm implements OnDestroy {
   private readonly data = inject(InventarioData);
+  private readonly media = inject(Media);
   private readonly fb = inject(NonNullableFormBuilder);
 
   readonly item = input<InventoryItemSummary | null>(null);
+  /** The kinds this screen holds. The first one is where a new article starts. */
+  readonly kinds = input<readonly ItemKind[]>(ITEM_KINDS);
   readonly saved = output<void>();
   readonly cancelled = output<void>();
 
-  protected readonly kinds = ITEM_KINDS;
   protected readonly labels = ITEM_KIND_LABELS;
   protected readonly units = UNIT_SUGGESTIONS;
   protected readonly msg = invalidMessage;
   protected readonly busy = signal(false);
   protected readonly error = signal<string | null>(null);
   protected readonly imagePath = signal<string | null>(null);
+
+  /**
+   * Every picture uploaded while this form is open. Until Save, the article
+   * still points at the one it had, so nothing can be deleted yet: on Save the
+   * old one and the discarded tries go, on Cancel the tries go and the old one
+   * stays. Without this, cancelling after changing the photo left the article
+   * pointing at a file that no longer existed.
+   */
+  private readonly uploaded = new Set<string>();
+  private settled = false;
 
   protected readonly form = this.fb.group({
     kind: ['supply' as ItemKind, Validators.required],
@@ -102,9 +130,15 @@ export class ItemForm {
     active: [true],
   });
 
+  private readonly kindValue = toSignal(this.form.controls.kind.valueChanges);
+  protected readonly kind = computed(() => this.kindValue() ?? this.form.controls.kind.value);
+
   ngOnInit(): void {
     const item = this.item();
-    if (!item) return;
+    if (!item) {
+      this.form.controls.kind.setValue(this.kinds()[0] ?? 'supply');
+      return;
+    }
     this.imagePath.set(item.imagePath);
     this.form.setValue({
       kind: item.kind,
@@ -117,6 +151,18 @@ export class ItemForm {
     });
   }
 
+  /** Closing the dialog any way but Save throws away what was uploaded here. */
+  ngOnDestroy(): void {
+    if (this.settled) return;
+    const original = this.item()?.imagePath ?? null;
+    for (const path of photosToDelete(this.uploaded, original, this.imagePath(), false)) void this.media.remove(path);
+  }
+
+  protected onPhoto(path: string | null): void {
+    if (path) this.uploaded.add(path);
+    this.imagePath.set(path);
+  }
+
   protected async submit(): Promise<void> {
     this.form.markAllAsTouched();
     if (this.form.invalid || this.busy()) return;
@@ -127,9 +173,12 @@ export class ItemForm {
     try {
       await this.data.saveItem(this.item()?.id ?? null, {
         ...value,
+        perishable: value.kind === 'part' ? false : value.perishable,
         note: blankToNull(value.note),
         imagePath: this.imagePath(),
       });
+      this.settled = true;
+      await this.forgetReplacedPhotos();
       this.saved.emit();
     } catch (error) {
       this.error.set(
@@ -142,5 +191,12 @@ export class ItemForm {
     } finally {
       this.busy.set(false);
     }
+  }
+
+  /** Once saved, only the picture in use is worth keeping. */
+  private async forgetReplacedPhotos(): Promise<void> {
+    const original = this.item()?.imagePath ?? null;
+    const unused = photosToDelete(this.uploaded, original, this.imagePath(), true);
+    await Promise.all(unused.map((path) => this.media.remove(path)));
   }
 }
