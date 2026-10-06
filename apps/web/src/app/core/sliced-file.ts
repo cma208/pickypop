@@ -1,4 +1,4 @@
-import { parseSliceInfo, type SliceInfo } from '../../core/pricing';
+import { parseSliceInfo, type SliceInfo } from './pricing';
 import { readTextEntry, ZipError } from './zip';
 
 /**

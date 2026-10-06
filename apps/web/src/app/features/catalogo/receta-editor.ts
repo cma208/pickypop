@@ -2,7 +2,9 @@ import { Component, computed, effect, inject, input, output, signal, untracked }
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Card, Field, FORMAT_PIPES } from '../../ui';
 import { CatalogoData } from './catalogo.data';
-import type { Lookups, Recipe } from './catalogo.models';
+import { readSlicedFile, SlicedFileError } from '../../core/sliced-file';
+import { suggestFilamentSku } from '../../core/filament-match';
+import type { ImportedPlate, Lookups, Recipe } from './catalogo.models';
 import { SHARED_STYLES } from './catalogo.styles';
 import { messageOf } from './catalogo.util';
 import { PlacaEditor } from './placa-editor';
@@ -21,6 +23,13 @@ const MINUTES_PER_HOUR = 60;
       .explain p { margin: 0 0 0.4rem; }
       .explain p:last-child { margin: 0; }
       h3 { margin: 1.25rem 0 0.5rem; font-size: 0.95rem; }
+      .import { display: grid; gap: 0.4rem; justify-items: start; margin-bottom: 0.9rem; }
+      .import .pick { position: relative; display: inline-block; }
+      .import .pick input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+      .import .as-button { display: inline-block; padding: 0.45rem 0.85rem; border: 1px solid var(--line-strong); border-radius: var(--radius-sm); cursor: pointer; font-size: 0.9rem; }
+      .import .pick:hover .as-button { background: var(--accent-soft); }
+      .import .ok { color: var(--good); font-size: 0.85rem; margin: 0; }
+      .import code { font-size: 0.85em; }
     `,
   ],
   template: `
@@ -71,6 +80,19 @@ const MINUTES_PER_HOUR = 60;
             Un producto puede salir de varias placas (la botella en una, las tapas en otra). Los gramos son los de
             una corrida de la placa, con la purga que reporta el laminador.
           </p>
+
+          <div class="import">
+            <label class="pick">
+              <input type="file" accept=".3mf,.gcode.3mf" (change)="importFile($event, current.id)" [disabled]="importing()" />
+              <span class="as-button">{{ importing() ? 'Leyendo…' : 'Cargar desde archivo laminado' }}</span>
+            </label>
+            <span class="muted hint">
+              El <code>.gcode.3mf</code> de Bambu Studio. Trae los minutos y los gramos de cada placa, y propone el
+              rollo del taller que más se le parece. Se lee en tu computadora: no se sube a ningún sitio.
+            </span>
+            @if (importNote(); as message) { <p class="ok" role="status">{{ message }}</p> }
+            @if (importError(); as message) { <p class="error" role="alert">{{ message }}</p> }
+          </div>
           <div class="stack">
             @for (plate of current.plates; track plate.id) {
               <app-placa-editor [recipeId]="current.id" [plate]="plate" [lookups]="lookupData" (changed)="changed.emit()" />
@@ -105,6 +127,9 @@ export class RecetaEditor {
   protected readonly minutesPerHour = MINUTES_PER_HOUR;
   protected readonly busy = signal(false);
   protected readonly error = signal<string | null>(null);
+  protected readonly importing = signal(false);
+  protected readonly importNote = signal<string | null>(null);
+  protected readonly importError = signal<string | null>(null);
 
   protected readonly nextPlateIndex = computed(
     () => Math.max(0, ...(this.recipe()?.plates.map((plate) => plate.plateIndex) ?? [])) + 1,
@@ -112,6 +137,72 @@ export class RecetaEditor {
   protected readonly usedSupplyIds = computed(
     () => this.recipe()?.supplies.map((supply) => supply.inventoryItemId) ?? [],
   );
+
+  /**
+   * Lee un `.gcode.3mf` y crea las placas que trae, con sus filamentos.
+   *
+   * El lector es el mismo del cotizador, sobre el mismo archivo. Las unidades
+   * por corrida quedan en 1 **a propósito**: el laminador sabe cuánto pesa y
+   * cuánto tarda la placa, pero no cuántas piezas vendibles salen de ella.
+   * Eso lo sabe quien la armó, y ponerlo en 1 obliga a mirarlo en vez de
+   * heredar un número inventado.
+   */
+  protected async importFile(event: Event, recipeId: string): Promise<void> {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = '';
+    if (!file) return;
+
+    this.importing.set(true);
+    this.importError.set(null);
+    this.importNote.set(null);
+
+    try {
+      const { fileName, info } = await readSlicedFile(file);
+      const skus = this.lookups()?.skus ?? [];
+
+      const plates: ImportedPlate[] = info.plates.map((plate, offset) => ({
+        label: plateLabel(plate.objectNames[0], offset),
+        unitsPerRun: 1,
+        printTimeS: plate.predictionSeconds ?? 0,
+        sourceFileName: fileName,
+        filaments: plate.filaments
+          .filter((filament) => (filament.usedGrams ?? 0) > 0)
+          .map((filament) => {
+            const skuId = suggestFilamentSku(filament, skus);
+            return {
+              slot: filament.id,
+              grams: filament.usedGrams ?? 0,
+              colorHex: filament.colorHex,
+              materialId: skus.find((sku) => sku.id === skuId)?.materialId ?? null,
+              skuId,
+            };
+          }),
+      }));
+
+      if (plates.length === 0) {
+        this.importError.set('Ese archivo no trae placas con material. Revisa que esté laminado.');
+        return;
+      }
+
+      const created = await this.data.importPlates(recipeId, this.nextPlateIndex(), plates);
+      const unmatched = plates.reduce(
+        (total, plate) => total + plate.filaments.filter((filament) => filament.skuId === null).length,
+        0,
+      );
+      this.importNote.set(
+        `Se cargaron ${created} placa(s) de «${fileName}». Revisa las unidades por corrida` +
+          (unmatched > 0 ? ` y elige el rollo de ${unmatched} filamento(s) que no reconocimos.` : '.'),
+      );
+      this.changed.emit();
+    } catch (error) {
+      this.importError.set(
+        error instanceof SlicedFileError ? error.message : messageOf(error, 'No pudimos leer el archivo.'),
+      );
+    } finally {
+      this.importing.set(false);
+    }
+  }
 
   protected readonly header = new FormGroup({
     setupMinutes: new FormControl<number | null>(0, [Validators.required, Validators.min(0)]),
@@ -174,4 +265,20 @@ export class RecetaEditor {
       this.busy.set(false);
     }
   }
+}
+
+/**
+ * "thermoformed potion bottle - frontal shape.stl" es el nombre del archivo,
+ * no una etiqueta. Se limpia y se corta: la etiqueta se lee en una fila de
+ * tabla, y de todos modos el dueño la va a reescribir.
+ */
+function plateLabel(objectName: string | undefined, offset: number): string {
+  const clean = (objectName ?? '')
+    .replace(/\.(stl|3mf|step|obj)$/i, '')
+    .replace(/[_-]+/g, ' ')
+    .trim();
+  if (clean === '') return `Placa ${offset + 1}`;
+
+  const short = clean.length > 36 ? `${clean.slice(0, 35).trimEnd()}…` : clean;
+  return short.charAt(0).toUpperCase() + short.slice(1);
 }

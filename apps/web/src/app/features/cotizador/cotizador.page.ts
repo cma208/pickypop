@@ -32,7 +32,7 @@ import {
   type PriceSettings,
   type SupplyScope,
 } from './quote-model';
-import { readSlicedFile, SlicedFileError } from './sliced-file';
+import { readSlicedFile, SlicedFileError } from '../../core/sliced-file';
 import { lacksRecordedCost } from './supply-costs';
 
 /** A line already added to the quote being built. */

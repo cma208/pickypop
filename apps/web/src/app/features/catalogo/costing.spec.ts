@@ -16,9 +16,9 @@ const filament = (overrides: Partial<RecipeFilament> = {}): RecipeFilament => ({
 const lookups = (): Lookups => ({
   materials: [{ id: 'pla', code: 'PLA' }],
   skus: [
-    { id: 'red', materialId: 'pla', label: 'Rojo', colorHex: null, active: true, stockCostPerGram: 0.05, replacementCostPerGram: 0.06 },
-    { id: 'blue', materialId: 'pla', label: 'Azul', colorHex: null, active: true, stockCostPerGram: null, replacementCostPerGram: 0.07 },
-    { id: 'green', materialId: 'pla', label: 'Verde', colorHex: null, active: true, stockCostPerGram: null, replacementCostPerGram: null },
+    { id: 'red', materialId: 'pla', label: 'Rojo', colorHex: null, trayInfoIdx: null, active: true, stockCostPerGram: 0.05, replacementCostPerGram: 0.06 },
+    { id: 'blue', materialId: 'pla', label: 'Azul', colorHex: null, trayInfoIdx: null, active: true, stockCostPerGram: null, replacementCostPerGram: 0.07 },
+    { id: 'green', materialId: 'pla', label: 'Verde', colorHex: null, trayInfoIdx: null, active: true, stockCostPerGram: null, replacementCostPerGram: null },
   ],
   supplies: [{ id: 'bag', name: 'Bolsa', unit: 'unidad', costPerUnit: null }],
 });

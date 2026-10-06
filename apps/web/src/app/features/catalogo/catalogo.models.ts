@@ -113,6 +113,24 @@ export interface RecipePlateInput {
   printTimeS: number;
 }
 
+/** Una placa recién leída de un archivo laminado, lista para guardarse. */
+export interface ImportedPlate {
+  label: string | null;
+  unitsPerRun: number;
+  printTimeS: number;
+  sourceFileName: string;
+  filaments: ImportedFilament[];
+}
+
+export interface ImportedFilament {
+  slot: number;
+  grams: number;
+  colorHex: string | null;
+  materialId: string | null;
+  /** Null cuando ningún rollo del taller se parece lo bastante. */
+  skuId: string | null;
+}
+
 export interface RecipeSupply {
   id: string;
   inventoryItemId: string;
@@ -154,6 +172,8 @@ export interface SkuOption {
   materialId: string;
   label: string;
   colorHex: string | null;
+  /** Perfil de Bambu (GFA00…): con el color, es lo que permite adivinar el rollo. */
+  trayInfoIdx: string | null;
   active: boolean;
   /** Weighted cost per gram of what is on the shelf, when there is stock. */
   stockCostPerGram: number | null;

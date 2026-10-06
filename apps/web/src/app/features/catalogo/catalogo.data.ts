@@ -6,6 +6,7 @@ import type { CostProfile, PrinterProfile } from '../../core/pricing';
 import type { Json } from '../../core/database.types';
 import type {
   CostContext,
+  ImportedPlate,
   Lookups,
   Pair,
   PriceTierRow,
@@ -391,6 +392,60 @@ export class CatalogoData {
     if (error) fail(error, 'No pudimos agregar la placa.', 'Ya existe una placa con ese número.');
   }
 
+  /**
+   * Carga placas enteras desde un archivo ya laminado.
+   *
+   * Es el mismo lector que usa el cotizador, sobre el mismo archivo, para la
+   * misma pregunta: cuántos minutos y cuántos gramos. Que la receta —que es
+   * donde ese dato vive para siempre— lo pidiera escrito a mano era pedirle a
+   * una persona que copiara números de una pantalla a otra.
+   *
+   * Si algo falla a medio camino, lo ya creado se queda: son placas visibles y
+   * borrables, y deshacerlas a mano desde aquí sería adivinar qué quería la
+   * persona. El error dice en cuál se quedó.
+   */
+  async importPlates(recipeId: string, firstIndex: number, plates: ImportedPlate[]): Promise<number> {
+    const workspaceId = await this.workspaceId();
+    let created = 0;
+
+    for (const [offset, plate] of plates.entries()) {
+      const { data, error } = await this.supabase
+        .from('recipe_plates')
+        .insert({
+          workspace_id: workspaceId,
+          recipe_id: recipeId,
+          plate_index: firstIndex + offset,
+          label: blankToNull(plate.label),
+          produces_item_id: null,
+          units_per_run: plate.unitsPerRun,
+          print_time_s: plate.printTimeS,
+          source_file_name: plate.sourceFileName,
+        })
+        .select('id')
+        .single();
+      if (error) fail(error, `No pudimos crear la placa ${firstIndex + offset}.`, 'Ya existe una placa con ese número.');
+
+      if (plate.filaments.length > 0) {
+        const { error: filamentError } = await this.supabase.from('recipe_plate_filaments').insert(
+          plate.filaments.map((filament) => ({
+            workspace_id: workspaceId,
+            recipe_plate_id: data.id,
+            slot: filament.slot,
+            material_id: filament.materialId,
+            color_hex: filament.colorHex,
+            filament_sku_id: filament.skuId,
+            grams: filament.grams,
+          })),
+        );
+        if (filamentError) fail(filamentError, `No pudimos cargar los filamentos de la placa ${firstIndex + offset}.`);
+      }
+
+      created += 1;
+    }
+
+    return created;
+  }
+
   async updatePlate(id: string, input: RecipePlateInput): Promise<void> {
     const { error } = await this.supabase
       .from('recipe_plates')
@@ -509,7 +564,7 @@ export class CatalogoData {
       this.supabase.from('materials').select('id, code').order('code'),
       this.supabase
         .from('filament_skus')
-        .select('id, material_id, color_name, color_hex, active, replacement_cost_per_kg, brands(name), filament_finishes(name)')
+        .select('id, material_id, color_name, color_hex, tray_info_idx, active, replacement_cost_per_kg, brands(name), filament_finishes(name)')
         .order('color_name'),
       this.supabase.from('filament_sku_stock').select('filament_sku_id, weighted_cost_per_gram'),
       this.supabase
@@ -543,6 +598,7 @@ export class CatalogoData {
             .filter(Boolean)
             .join(' · '),
           colorHex: sku.color_hex,
+          trayInfoIdx: sku.tray_info_idx,
           active: sku.active,
           stockCostPerGram: stockCost.get(sku.id) ?? null,
           replacementCostPerGram:
