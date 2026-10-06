@@ -69,7 +69,7 @@ type Dialog = { kind: 'edit'; item: InventoryItemSummary | null } | { kind: 'mov
                     <tr [class.inactive]="!item.active">
                       <td>
                         <span class="with-thumb">
-                          <pp-thumb size="sm" [path]="item.imagePath" [name]="item.name" />
+                          <pp-thumb size="row" [kind]="item.kind" [path]="item.imagePath" [name]="item.name" />
                           <span class="strong">{{ item.name }}</span>
                         </span>
                         @if (!item.active) { <pp-badge>Inactivo</pp-badge> }

@@ -36,7 +36,7 @@ import { INVENTORY_STYLES } from './inventario.styles';
                 [attr.aria-pressed]="chosen()?.variantId === option.variantId"
                 (click)="choose(option)"
               >
-                <pp-thumb size="lg" [path]="option.imagePath" [name]="option.productName" />
+                <pp-thumb size="fill" kind="product" [path]="option.imagePath" [name]="option.productName" />
                 <span class="name">{{ option.productName }}</span>
                 <span class="variant muted">{{ option.variantName }}</span>
                 <span class="stock">
@@ -97,7 +97,7 @@ import { INVENTORY_STYLES } from './inventario.styles';
                         <tr [class.short]="row.missing > 0">
                           <td>
                             <span class="with-thumb">
-                              <pp-thumb size="sm" [path]="row.component.imagePath" [name]="row.component.name" />
+                              <pp-thumb size="row" [kind]="row.component.kind" [path]="row.component.imagePath" [name]="row.component.name" />
                               <span>
                                 <span class="strong">{{ row.component.name }}</span>
                                 <small class="sub">{{ kindLabel[row.component.kind] }}</small>

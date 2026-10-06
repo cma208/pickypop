@@ -63,7 +63,7 @@ const COST_DIGITS = 3;
                       <tr>
                         <td>
                           <span class="with-thumb">
-                            <pp-thumb size="sm" [path]="part.imagePath" [name]="part.name" />
+                            <pp-thumb size="row" kind="part" [path]="part.imagePath" [name]="part.name" />
                             <span class="strong">{{ part.name }}</span>
                           </span>
                         </td>

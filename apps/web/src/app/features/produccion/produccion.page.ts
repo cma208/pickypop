@@ -53,7 +53,7 @@ interface JobGroup {
                   <tr>
                     <td>
                       <span class="with-thumb">
-                        <pp-thumb size="sm" [path]="need.imagePath" [name]="need.productName" />
+                        <pp-thumb size="lead" kind="product" [path]="need.imagePath" [name]="need.productName" />
                         <span>
                           <span class="strong">{{ need.productName }}</span>
                           <small class="sub">{{ need.variantName }} · {{ need.orderCount }} pedido(s)</small>

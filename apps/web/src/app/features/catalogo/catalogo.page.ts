@@ -88,7 +88,7 @@ const FILTERS: { value: StatusFilter; label: string }[] = [
             @for (product of visible(); track product.id) {
               <article class="product">
                 <header>
-                  <pp-thumb [path]="product.imagePath" [name]="product.name" />
+                  <pp-thumb size="row" kind="product" [path]="product.imagePath" [name]="product.name" />
                   <h2><a [routerLink]="['/catalogo', product.id]">{{ product.name }}</a></h2>
                   <pp-badge [tone]="tones[product.status]">{{ labels[product.status] }}</pp-badge>
                   <button type="button" class="secondary" [routerLink]="['/catalogo', product.id]">Abrir ficha</button>
@@ -115,7 +115,8 @@ const FILTERS: { value: StatusFilter; label: string }[] = [
                     @for (variant of product.variants; track variant.id) {
                       <li [class.off]="!variant.active">
                         <pp-thumb
-                          size="sm"
+                          size="option"
+                          kind="product"
                           [path]="variant.imagePath ?? product.imagePath"
                           [name]="variant.name"
                         />

@@ -1,4 +1,5 @@
-import { ChangeDetectionStrategy, Component, inject, input, output, signal } from '@angular/core';
+import { booleanAttribute, ChangeDetectionStrategy, Component, inject, input, output, signal } from '@angular/core';
+import type { ArticleKind } from '../core/article-photos';
 import { Media, type MediaFolder } from '../core/media';
 import { friendlyError } from '../core/friendly-error';
 import { Thumb } from './thumb';
@@ -10,6 +11,12 @@ import { Thumb } from './thumb';
  * the photo they just took before deciding anything else, and a file that
  * ends up unused costs a few kilobytes in a bucket. Waiting for a save would
  * cost a round trip at the worst moment.
+ *
+ * What happens to the picture it replaces depends on the form. One that saves
+ * on every change (a product) lets this field delete the old file at once
+ * (`removesPrevious`, the default). One with a Save and a Cancel must not: if
+ * the person cancels, the article still points at the old file. Those forms
+ * turn it off and delete the loser themselves once they know which one it is.
  */
 @Component({
   selector: 'pp-image-field',
@@ -17,11 +24,11 @@ import { Thumb } from './thumb';
   imports: [Thumb],
   template: `
     <div class="box">
-      <pp-thumb size="lg" [path]="path()" [name]="name()"></pp-thumb>
+      <pp-thumb size="bed" [path]="path()" [name]="name()" [kind]="kind()" />
       <div class="side">
-        <label class="pick">
+        <label class="pick button secondary">
           <input type="file" accept="image/*" (change)="choose($event)" [disabled]="busy()" />
-          <span class="as-button">{{ path() ? 'Cambiar foto' : 'Subir foto' }}</span>
+          {{ path() ? 'Cambiar foto' : 'Subir foto' }}
         </label>
         @if (path() && !busy()) {
           <button type="button" class="ghost" (click)="clear()">Quitar</button>
@@ -36,19 +43,11 @@ import { Thumb } from './thumb';
     `
     .box { display: flex; gap: 0.9rem; align-items: flex-start; }
     .side { display: grid; gap: 0.4rem; justify-items: start; }
-    .pick input { position: absolute; width: 1px; height: 1px; opacity: 0; }
-    .pick { position: relative; display: inline-block; }
-    .as-button {
-      display: inline-block;
-      padding: 0.45rem 0.85rem;
-      border: 1px solid var(--line-strong);
-      border-radius: var(--radius-sm);
-      cursor: pointer;
-      font-size: 0.9rem;
-    }
-    .pick:hover .as-button { background: var(--accent-soft); }
-    .hint { font-size: 0.78rem; }
-    .error { color: var(--danger); font-size: 0.85rem; }
+    .pick { position: relative; }
+    .pick input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+    .pick:focus-within { outline: 2px solid var(--accent); outline-offset: 1px; }
+    .hint { font-size: var(--fs-xs); }
+    .error { color: var(--danger); font-size: var(--fs-sm); }
   `,
   ],
 })
@@ -56,6 +55,10 @@ export class ImageField {
   readonly path = input<string | null>(null);
   readonly name = input<string>('');
   readonly folder = input.required<MediaFolder>();
+  /** The icon shown while there is no picture. */
+  readonly kind = input<ArticleKind | null>(null);
+  /** Off for forms that can still be cancelled; see the class comment. */
+  readonly removesPrevious = input(true, { transform: booleanAttribute });
 
   /** The new path, or null when the picture was removed. */
   readonly changed = output<string | null>();
@@ -78,7 +81,7 @@ export class ImageField {
       this.changed.emit(path);
       // Only once the new one is in place, so a failed upload leaves the old
       // picture where it was.
-      await this.media.remove(previous);
+      if (this.removesPrevious()) await this.media.remove(previous);
     } catch (error) {
       this.error.set(friendlyError(error, 'No pudimos subir la imagen.'));
     } finally {
@@ -89,6 +92,6 @@ export class ImageField {
   protected async clear(): Promise<void> {
     const previous = this.path();
     this.changed.emit(null);
-    await this.media.remove(previous);
+    if (this.removesPrevious()) await this.media.remove(previous);
   }
 }
