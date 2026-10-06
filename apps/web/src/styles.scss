@@ -159,7 +159,7 @@ button.inline-link {
 button.inline-link:hover { background: none; }
 
 /* Inside a row the row sets the rhythm, not the button. */
-td button, td .button { min-height: var(--control-h-compact); padding-block: 0.2rem; }
+td button, td .button { min-height: var(--control-h-compact); padding-block: 0.2rem; white-space: nowrap; }
 
 /* A field says "you can type here" with its edge, so it uses the stronger
    line: the hairline that separates two table rows is too faint for that, and

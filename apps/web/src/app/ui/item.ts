@@ -34,7 +34,6 @@ import { Thumb, type ThumbSize } from './thumb';
         [photo]="photo()"
         [kind]="kind()"
         [color]="color()"
-        [name]="name()"
       />
       <span class="text">
         @if (link(); as target) {

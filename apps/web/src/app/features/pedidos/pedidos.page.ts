@@ -58,7 +58,7 @@ const FINISHED: OrderStatus[] = ['delivered', 'closed', 'cancelled'];
             @for (order of visible(); track order.id) {
               <li>
                 <a [routerLink]="['/pedidos', order.id]">
-                  <pp-thumb size="row" [photo]="{ kind: 'order', id: order.id }" [name]="subject(order)" />
+                  <pp-thumb size="row" [photo]="{ kind: 'order', id: order.id }" />
                   <div class="body">
                     <div class="top">
                       <strong class="who">{{ subject(order) }}</strong>

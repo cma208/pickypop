@@ -83,6 +83,9 @@ aside footer {
 .shell.rail nav a { justify-content: center; padding-inline: 0; }
 .shell.rail .only-rail { display: inline; }
 .shell.rail aside footer { justify-items: center; }
+/* Buttons centre their label everywhere else; "Salir" lines up with the menu. */
+aside footer button { justify-content: flex-start; }
+.shell.rail aside footer button { justify-content: center; }
 /* Without the headings the groups run together, so a hairline separates them. */
 .shell.rail nav a[data-group-start='true'] { margin-top: 0.5rem; }
 

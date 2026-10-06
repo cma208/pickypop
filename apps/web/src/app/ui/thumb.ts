@@ -70,11 +70,11 @@ type State = 'loading' | 'shown' | 'none';
   host: { '[attr.data-size]': 'size()', '[class.cover]': "fit() === 'cover'", '[class.swatch]': '!!color()' },
   template: `
     @if (color(); as hex) {
-      <span class="chip" [style.background]="hex" role="img" [attr.aria-label]="name()"></span>
+      <span class="chip" [style.background]="hex" aria-hidden="true"></span>
     } @else if (src(); as url) {
       <img [src]="url" [alt]="name()" loading="lazy" decoding="async" (error)="failed()" />
     } @else if (state() === 'none') {
-      <svg class="icon" viewBox="0 0 24 24" role="img" [attr.aria-label]="name() || null">
+      <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
         @for (d of icon(); track $index) { <path [attr.d]="d" /> }
       </svg>
     }
@@ -121,7 +121,10 @@ export class Thumb {
   readonly kind = input<ArticleKind | null | undefined>(null);
   /** For things whose picture is a colour, like a spool of filament. */
   readonly color = input<string | null | undefined>(null);
-  /** The alt text. */
+  /**
+   * The alt text. Leave it empty when the name is written right next to the
+   * picture, as in pp-item: a screen reader would otherwise say it twice.
+   */
   readonly name = input<string>('');
   readonly size = input<ThumbSize>('row');
   /** `cover` crops to fill the square; only for gallery cards, and on purpose. */

@@ -71,7 +71,6 @@ export interface PickerOption {
             [photo]="option.photo"
             [kind]="option.kind"
             [color]="option.color"
-            [name]="option.label"
           />
           <span class="text">
             <span class="label">{{ option.label }}</span>
@@ -123,7 +122,6 @@ export interface PickerOption {
                       [photo]="option.photo"
                       [kind]="option.kind"
                       [color]="option.color"
-                      [name]="option.label"
                     />
                     <span class="text">
                       <span class="label">{{ option.label }}</span>
