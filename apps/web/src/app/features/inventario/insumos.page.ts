@@ -1,5 +1,5 @@
 import { Component, computed, inject, input, signal } from '@angular/core';
-import { AsyncState, Badge, Empty, FORMAT_PIPES, Page, Thumb } from '../../ui';
+import { AsyncState, Badge, Empty, FORMAT_PIPES, Item, Page } from '../../ui';
 import { InventarioData, type InventoryItemSummary } from './inventario.data';
 import { describeError } from './inventario.errors';
 import { INVENTORY_PIPES, ITEM_KINDS, ITEM_KIND_LABELS, type ItemKind } from './inventario.format';
@@ -12,7 +12,7 @@ type Dialog = { kind: 'edit'; item: InventoryItemSummary | null } | { kind: 'mov
 
 @Component({
   selector: 'app-insumos',
-  imports: [Page, AsyncState, Empty, Badge, Thumb, Modal, ItemForm, ItemMovementForm, FORMAT_PIPES, INVENTORY_PIPES],
+  imports: [Page, AsyncState, Empty, Badge, Item, Modal, ItemForm, ItemMovementForm, FORMAT_PIPES, INVENTORY_PIPES],
   template: `
     <pp-page [title]="heading()" [subtitle]="subtitle()">
       <button actions type="button" (click)="dialog.set({ kind: 'edit', item: null })">+ Nuevo artículo</button>
@@ -68,14 +68,16 @@ type Dialog = { kind: 'edit'; item: InventoryItemSummary | null } | { kind: 'mov
                   @for (item of visible(); track item.id) {
                     <tr [class.inactive]="!item.active">
                       <td>
-                        <span class="with-thumb">
-                          <pp-thumb size="row" [kind]="item.kind" [path]="item.imagePath" [name]="item.name" />
-                          <span class="strong">{{ item.name }}</span>
-                        </span>
-                        @if (!item.active) { <pp-badge>Inactivo</pp-badge> }
-                        <small class="sub only-small">
-                          {{ labels[item.kind] }}@if (item.perishable) { · Perecible }
-                        </small>
+                        <pp-item [kind]="item.kind" [path]="item.imagePath" [name]="item.name">
+                          <span sub>
+                            <span class="only-small">{{ labels[item.kind] }}@if (item.perishable) { · Perecible }</span>
+                            @if (!item.imagePath) {
+                              Sin foto ·
+                              <button type="button" class="inline-link" (click)="dialog.set({ kind: 'edit', item })">Agregar</button>
+                            }
+                          </span>
+                          @if (!item.active) { <pp-badge>Inactivo</pp-badge> }
+                        </pp-item>
                       </td>
                       <td class="hide-small">{{ labels[item.kind] }}</td>
                       <td class="num">
@@ -127,10 +129,6 @@ type Dialog = { kind: 'edit'; item: InventoryItemSummary | null } | { kind: 'mov
     `
       .inactive { opacity: 0.6; }
       .low { margin-bottom: 0.4rem; }
-      .sr-only {
-        position: absolute; width: 1px; height: 1px; overflow: hidden;
-        clip-path: inset(50%); white-space: nowrap;
-      }
     `,
   ],
 })
