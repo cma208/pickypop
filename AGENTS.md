@@ -26,6 +26,8 @@ Está **en producción** desde el 2026-10-05, con datos reales entrando. Las pan
 
 **Una pieza impresa no se compra: se produce.** Su costo sale del promedio ponderado de los movimientos de producción, **no** de `inventory_item_costs`, que deriva de las compras y para una pieza devuelve nada. Es la única excepción a "un insumo cuesta lo que dice la vista", y ya costó dos errores: piezas sin costo en pantalla y armados que consumían stock valorizado en cero.
 
+**El estante solo se mueve por sus flujos** (ADR-020). Cerrar una impresión mete las piezas que salieron de verdad; armar las consume y mete el producto; entregar lo saca. Un pedido llega a «Entregado» porque se entregó, no porque alguien cambió el estado: la base rechaza el atajo. Si una pantalla tuya mueve stock por fuera de `complete_print_job`, `assemble_product` o `deliver_order`, detente.
+
 **Todo lo que es un artículo lleva su foto.** Producto, variante, pieza impresa, insumo, empaque, repuesto: en cualquier lista donde aparezca, aparece con su imagen. Es regla del dueño y es de sentido práctico: en un taller donde casi todo se llama "la botella roja" o "la tapa chica", el nombre escrito es el peor identificador que hay. Si agregas una pantalla que lista artículos y no muestra la foto, está incompleta.
 
 **Nada se borra: se anula.** Los movimientos de dinero se anulan con motivo obligatorio y desaparecen de los reportes dejando rastro.
@@ -75,7 +77,7 @@ Si creas datos de prueba, **bórralos al terminar** y di cuáles fueron.
 | `docs/02-dominio.md` | Modelo de negocio, fórmula de costo y precio, ejemplos con números reales |
 | `docs/03-modelo-de-datos.md` | Todas las tablas y vistas |
 | `docs/04-arquitectura.md` | Cómo encaja, y por qué el coste de operación es cero |
-| `docs/05-decisiones.md` | 19 decisiones de arquitectura, con su porqué |
+| `docs/05-decisiones.md` | 20 decisiones de arquitectura, con su porqué |
 | `docs/06-frontend.md` | Contrato del frontend: estructura, diseño, pantallas |
 | `docs/07-plan-de-trabajo.md` | **El reparto de trabajo vigente** |
 | `packages/domain` | Las reglas de dinero |
@@ -92,4 +94,9 @@ Si creas datos de prueba, **bórralos al terminar** y di cuáles fueron.
 - **Un valor nuevo de `enum` no se puede usar en la misma transacción que lo creó.** Va solo en su migración.
 - **Las fechas se escriben en hora de Lima.** `(current_date - 14)::timestamptz` es medianoche **UTC**, que aquí es la tarde anterior, y la fila aparece un día antes. Va `((current_date - 14)::timestamp + interval '10 hours') at time zone 'America/Lima'`. Un movimiento sin `occurred_at` cae en `now()`.
 - **`P0001` es un `raise exception` escrito a mano, para una persona.** `friendlyError` lo deja pasar tal cual: la base sabe más del caso que cualquier regla del navegador.
+- **`sum()` de un `bigint` devuelve `numeric`.** Recrear una vista cuya columna cambia de tipo así falla; hay que castear (`sum(x)::bigint`).
+- **La prueba de sintaxis de las migraciones parte el archivo por cada `;`.** Un punto y coma dentro de un comentario `/* … */` la rompe aunque el SQL esté bien.
+- **Nada de tablas temporales dentro de una función que llama la API.** Dependen de permisos que el proyecto alojado no da. Usa una variable `jsonb`.
+- **En una prueba de SQL, una consulta de afuera no ve lo que una función hizo dentro de la misma instrucción.** Lee el resultado en otra instrucción, o vas a perseguir un error que no existe.
+- **Con worktrees de agentes en `.claude/worktrees/`, `pnpm test` también corre sus copias.** Usa `pnpm exec vitest run --exclude "**/.claude/**" --exclude "**/node_modules/**" --exclude "**/dist/**" --exclude "apps/**"`.
 - Vender **una** unidad suelta es antieconómico: para una tapa se imprime una placa de nueve. Por eso existe la escalera de precios y por eso el hito M4 importa.

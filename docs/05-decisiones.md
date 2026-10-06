@@ -275,6 +275,41 @@ La causa de fondo era una columna que la documentación daba por existente y nun
 
 ---
 
+## ADR-020 · El estante dice la verdad: lo que sale de la placa y lo que sale del taller
+
+**Estado:** Aceptada · 2026-10-06 · en la rama `etapa1-estante`, sin publicar
+
+**Contexto.** El barrido del 2026-10-06 eligió el camino «la verdad primero, después la fluidez», y la etapa 1 es que el estante diga lo que de verdad hay. Hasta hoy:
+
+1. **Una impresión de 9 tapas metía 9 tapas,** aunque salieran 7. El formulario de cierre preguntaba cuántas salieron, pero el dato no llegaba al stock.
+2. **Una placa solo podía producir una pieza** (`recipe_plates.produces_item_id`). El archivo real del dueño (`Skull_-_AMS.gcode.3mf`) lo desmintió: su placa 6 lleva 7 tapas y 7 cuerpos.
+3. **Armar aceptaba una receta vacía** y no bloqueaba lo que consumía, así que dos armados a la vez podían gastar la misma pieza.
+4. **Una impresora podía tener dos trabajos imprimiendo a la vez.**
+5. **Entregar era solo un estado.** El pedido cambiaba de columna y el estante seguía igual: armar producía stock (ADR-018) y nada lo consumía. La vista de lo que falta producir descontaba pociones que ya se habían llevado: decía que faltaban 31 cuando faltaban 41.
+6. **Una pieza que se vende suelta,** como un llavero, tenía que pasar por «Armar» para poder entregarse.
+
+**Decisión.**
+
+1. **Una placa produce una lista de piezas** (`recipe_plate_outputs`): cada fila es una pieza y cuántas da una corrida. `produces_item_id` desaparece y sus datos pasan a la lista. `units_per_run` de la placa sigue siendo «productos por corrida» para el costeo, que es otra pregunta.
+2. **Cerrar una impresión registra lo que salió de verdad, en una sola llamada:** las piezas de cada tipo, el porcentaje al que llegó y una nota. Solo una impresión exitosa pone piezas en el estante. Una pieza que la placa no da, o más de las que da, se rechaza: es un error de tipeo, y aquí un error de tipeo se convierte en stock que no existe.
+3. **El costo de la placa se reparte por igual entre todas las unidades que salieron,** sean de la pieza que sean. El archivo laminado no dice cuántos gramos pesa cada objeto. Para un producto hecho de una pieza de cada tipo, el reparto no cambia lo que cuesta el producto; solo el costo por separado de una tapa y de un cuerpo es aproximado.
+4. **Una impresora imprime un trabajo a la vez.** Un disparador bloquea la fila de la impresora y rechaza el segundo trabajo, con un mensaje que nombra el que está corriendo.
+5. **Armar rechaza una receta vacía y lo que no se arma, y bloquea lo que va a consumir** en un orden fijo, para que dos armados a la vez no choquen ni se crucen.
+6. **La receta dice si el producto se arma** (`recipes.assembled`, decisión del dueño). Lo que no se arma no aparece en «Armar» y se entrega descontando directo sus piezas y su empaque. Lo que vale una unidad entregada así es lo mismo que si se hubiera armado: se comprobó en la base con la poción, S/ 2.402025 por los dos caminos.
+7. **Entregar saca las cosas del estante** (`deliver_order`), también por partes: 6 de 10 hoy y 4 el viernes. Cada entrega guarda qué salió y lo que costó cada unidad, al promedio de lo que había en el estante. Todo o nada: si falta algo, no mueve nada y dice qué falta.
+8. **«Entregado» lo pone la entrega, no una persona.** Un disparador rechaza pasar un pedido a «Entregado» o «Cerrado» a mano mientras quede algo por entregar. Un pedido que ya estaba entregado antes de esta regla cuenta como entregado entero.
+9. **Lo que falta producir se mide contra lo que falta entregar** (`production_needs`), en todo pedido abierto que no esté en espera, incluidos los listos.
+
+**Lo que esta decisión todavía no hace.** Resultados sigue sacando el costo de ventas de la receta (ADR-019). El dato con que se va a reemplazar ya existe: `order_delivery_lines.unit_cost`. El cambio se hace en una etapa siguiente, y tiene que publicarse junto con dejar de atar los trabajos de catálogo a un pedido, como pide el ADR-019.
+
+**Consecuencias.**
+
+- Los pedidos que hoy están «listos» o «en producción» tienen que entregarse con el botón «Entregar» para llegar a «Entregado». Si en el estante no hay con qué entregarlos (porque nunca se registró lo armado), hay que armar o ajustar el stock primero.
+- Una placa sin piezas en su lista no pone nada en el estante al cerrarse. Hay que cargar la lista en el editor de la receta o desde el archivo laminado.
+- El costo por separado de las piezas de una placa mixta es aproximado (el punto 3).
+
+---
+
 ## Pendientes
 
 | Tema | Opciones | Comentario |

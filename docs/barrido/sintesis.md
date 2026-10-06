@@ -159,9 +159,9 @@ Hay tres ramas en juego, ninguna publicada:
 1. **El botón "Entregar" en la ficha del pedido.** Muestra las líneas con lo pendiente, ya lleno con el total (lo parcial a un clic), y debajo la historia de entregas. Al terminar ofrece cobrar el saldo. El paso a "Entregado" pasa por `deliver_order`: la base ya rechaza hacerlo a mano.
 2. **Cerrar una placa mixta pieza por pieza,** con la foto de cada pieza. Hoy el formulario pide un solo número, y en una placa mixta cuenta el rendimiento completo.
 3. **Importar el `.gcode.3mf` como corresponde:** la miniatura `Metadata/plate_N.png` recortada a lo que no es transparente y guardada en `recipe_plates.thumbnail_path`; y las piezas y cantidades propuestas a partir de `Metadata/plate_N.json` (`bbox_objects[].name`, descartando `wipe_tower`).
-4. **Verificar en la aplicación** el editor de placas con su lista, la pregunta "¿Cómo se entrega?" y el cierre de 7 tapas de 9.
+4. **Verificar en la aplicación** el editor de placas con su lista, la pregunta "¿Cómo se entrega?" y el cierre de 7 tapas de 9. *Hecho en el navegador el editor de placas (guardar una salida) y «¿Cómo se entrega?» (la variante sale de «Armar» y vuelve). El cierre se verifica cuando entre el trabajo del agente B, que rehace ese formulario.*
 5. **Integrar `etapa1-visual`.** Va a chocar en las plantillas de `pedidos/pedido.page.ts`, `produccion/` y quizás `inventario.format.ts`.
-6. **Documentar:** un ADR-020 con las decisiones de la etapa (lista de piezas por placa, reparto del costo por igual, cómo se valoriza lo entregado, `recipes.assembled`, la regla de "entregado"), el modelo de datos en `docs/03` y las trampas nuevas en `AGENTS.md`.
+6. *Hecho:* ADR-020, `docs/03` y las trampas en `AGENTS.md`. **Documentar:** un ADR-020 con las decisiones de la etapa (lista de piezas por placa, reparto del costo por igual, cómo se valoriza lo entregado, `recipes.assembled`, la regla de "entregado"), el modelo de datos en `docs/03` y las trampas nuevas en `AGENTS.md`.
 
 **Trampas nuevas que hay que pasar a `AGENTS.md`:**
 
