@@ -66,6 +66,7 @@ export const routes: Routes = [
       { path: 'finanzas/resultados', title: 'Resultados', loadComponent: () => import('./features/finanzas/resultados.page').then((m) => m.ResultadosPage) },
 
       { path: 'produccion', title: 'Cola de impresión', loadComponent: () => import('./features/produccion/produccion.page').then((m) => m.ProduccionPage) },
+      { path: 'produccion/historial', title: 'Historial de impresiones', loadComponent: () => import('./features/produccion/historial.page').then((m) => m.HistorialPage) },
       { path: 'impresoras', title: 'Impresoras', loadComponent: () => import('./features/impresoras/impresoras.page').then((m) => m.ImpresorasPage) },
       { path: 'clientes', title: 'Clientes', loadComponent: () => import('./features/clientes/clientes.page').then((m) => m.ClientesPage) },
       { path: 'configuracion', title: 'Configuración', loadComponent: () => import('./features/configuracion/configuracion.page').then((m) => m.ConfiguracionPage) },

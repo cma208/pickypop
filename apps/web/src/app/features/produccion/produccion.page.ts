@@ -3,59 +3,79 @@ import { AsyncState, Card, Empty, FORMAT_PIPES, Page } from '../../ui';
 import { explainError } from '../pedidos/pedidos.errors';
 import { PrintJobCard } from './print-job-card';
 import { PrintJobForm } from './print-job-form';
+import { RouterLink } from '@angular/router';
+import { Thumb } from '../../ui';
 import {
   ProduccionData,
   type CloseOutcome,
-  type FailureSummary,
   type JobItem,
+  type ProductionNeed,
 } from './produccion.data';
-import {
-  FAILURE_CAUSE_LABEL,
-  JOB_STATUS_LABEL,
-  JOB_STATUS_ORDER,
-  type JobStatus,
-} from './produccion.labels';
+import { JOB_STATUS_LABEL, type JobStatus } from './produccion.labels';
 
 const EFFECTS_ID = 'stock-effects';
-const ACTIVE_STATUSES: JobStatus[] = ['printing', 'planned'];
+const QUEUE_STATUSES: JobStatus[] = ['printing', 'planned'];
 
 interface JobGroup {
   status: JobStatus;
   jobs: JobItem[];
-  /** Closed jobs: kept folded so the queue stays the first thing you see. */
-  history: boolean;
 }
 
 @Component({
   selector: 'app-produccion',
-  imports: [Page, Card, AsyncState, Empty, PrintJobCard, PrintJobForm, ...FORMAT_PIPES],
+  imports: [Page, Card, AsyncState, Empty, Thumb, RouterLink, PrintJobCard, PrintJobForm, ...FORMAT_PIPES],
   template: `
-    <pp-page title="Cola de impresión" subtitle="Los trabajos del taller y el cierre de cada uno">
+    <pp-page title="Cola de impresión" subtitle="Lo que está corriendo, lo que sigue y lo que falta producir">
       <button actions type="button" (click)="creating.set(!creating())">
         {{ creating() ? 'Cerrar formulario' : 'Nuevo trabajo' }}
       </button>
 
       <pp-async [loading]="loading()" [error]="error()">
-        <section class="summary" aria-label="Resumen de impresiones">
-          <pp-card heading="Tasa de éxito">
-            @if (summary(); as stats) {
-              @if (stats.failureRate !== null) {
-                <p class="big">{{ 1 - stats.failureRate | percent1 }}</p>
-                <p class="muted">{{ stats.closedJobs - stats.failedJobs }} de {{ stats.closedJobs }} impresiones cerradas salieron bien</p>
-              } @else {
-                <p class="muted">Todavía no hay impresiones cerradas.</p>
-              }
-            }
+        @if (needs().length > 0) {
+          <pp-card heading="Falta producir para los pedidos">
+            <a card-actions routerLink="/pedidos">Ver pedidos</a>
+            <p class="muted">
+              Unidades comprometidas en pedidos sin entregar que todavía no están armadas. No descuenta piezas
+              sueltas ni lo que ya está en la cola, así que pide de más antes que de menos.
+            </p>
+            <table>
+              <thead>
+                <tr>
+                  <th>Producto</th>
+                  <th class="num">Faltan</th>
+                  <th class="num hide-small">Vendidas</th>
+                  <th class="num hide-small">Armadas</th>
+                  <th>Primera entrega</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (need of needs(); track need.variantId) {
+                  <tr>
+                    <td>
+                      <span class="with-thumb">
+                        <pp-thumb size="sm" [path]="need.imagePath" [name]="need.productName" />
+                        <span>
+                          <span class="strong">{{ need.productName }}</span>
+                          <small class="sub">{{ need.variantName }} · {{ need.orderCount }} pedido(s)</small>
+                        </span>
+                      </span>
+                    </td>
+                    <td class="num"><strong>{{ need.missingUnits }}</strong></td>
+                    <td class="num hide-small">{{ need.committedUnits }}</td>
+                    <td class="num hide-small">{{ need.assembledUnits }}</td>
+                    <td>
+                      @if (need.firstDueDate) {
+                        {{ need.firstDueDate | fecha }}
+                      } @else {
+                        <span class="muted">Sin fecha</span>
+                      }
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
           </pp-card>
-          <pp-card heading="Causa de fallo más común">
-            @if (summary()?.mostCommonCause; as cause) {
-              <p class="big small">{{ causeLabel[cause] }}</p>
-              <p class="muted">{{ summary()!.failedJobs }} impresión(es) fallida(s) en total</p>
-            } @else {
-              <p class="muted">Sin fallos registrados.</p>
-            }
-          </pp-card>
-        </section>
+        }
 
         @if (effects(); as result) {
           <pp-card heading="Stock que quedó" [id]="effectsId">
@@ -85,32 +105,21 @@ interface JobGroup {
           <app-print-job-form (saved)="onCreated()" (cancelled)="creating.set(false)" />
         }
 
-        @if (jobs().length === 0) {
-          <pp-empty message="Todavía no hay trabajos de impresión.">
-            <button type="button" (click)="creating.set(true)">Crear el primer trabajo</button>
+        @if (queue().length === 0) {
+          <pp-empty message="No hay nada en la cola. Todo lo cerrado está en el historial.">
+            <button type="button" (click)="creating.set(true)">Crear un trabajo</button>
           </pp-empty>
         }
 
         @for (group of groups(); track group.status) {
-          @if (group.history) {
-            <details class="group">
-              <summary>{{ statusLabel[group.status] }} <span class="muted">({{ group.jobs.length }})</span></summary>
-              <div class="jobs">
-                @for (job of group.jobs; track job.id) {
-                  <app-print-job-card [job]="job" (changed)="onChanged($event)" />
-                }
-              </div>
-            </details>
-          } @else {
-            <section class="group">
-              <h2>{{ statusLabel[group.status] }} <span class="muted">({{ group.jobs.length }})</span></h2>
-              <div class="jobs">
-                @for (job of group.jobs; track job.id) {
-                  <app-print-job-card [job]="job" (changed)="onChanged($event)" />
-                }
-              </div>
-            </section>
-          }
+          <section class="group">
+            <h2>{{ statusLabel[group.status] }} <span class="muted">({{ group.jobs.length }})</span></h2>
+            <div class="jobs">
+              @for (job of group.jobs; track job.id) {
+                <app-print-job-card [job]="job" (changed)="onChanged($event)" />
+              }
+            </div>
+          </section>
         }
       </pp-async>
     </pp-page>
@@ -134,20 +143,21 @@ export class ProduccionPage {
 
   protected readonly effectsId = EFFECTS_ID;
   protected readonly statusLabel = JOB_STATUS_LABEL;
-  protected readonly causeLabel = FAILURE_CAUSE_LABEL;
 
   protected readonly jobs = signal<JobItem[]>([]);
-  protected readonly summary = signal<FailureSummary | null>(null);
+  protected readonly needs = signal<ProductionNeed[]>([]);
   protected readonly loading = signal(true);
   protected readonly error = signal<string | null>(null);
   protected readonly creating = signal(false);
   protected readonly effects = signal<CloseOutcome | null>(null);
 
+  /** Lo cerrado vive en el historial: aquí solo lo que todavía da trabajo. */
+  protected readonly queue = computed(() => this.jobs().filter((job) => QUEUE_STATUSES.includes(job.status)));
+
   protected readonly groups = computed<JobGroup[]>(() =>
-    JOB_STATUS_ORDER.map((status) => ({
+    QUEUE_STATUSES.map((status) => ({
       status,
-      jobs: this.jobs().filter((job) => job.status === status),
-      history: !ACTIVE_STATUSES.includes(status),
+      jobs: this.queue().filter((job) => job.status === status),
     })).filter((group) => group.jobs.length > 0),
   );
 
@@ -171,9 +181,9 @@ export class ProduccionPage {
   /** Reloads quietly: the page keeps what it shows while the new data arrives. */
   private async load(): Promise<void> {
     try {
-      const [jobs, summary] = await Promise.all([this.data.jobs(), this.data.failureSummary()]);
+      const [jobs, needs] = await Promise.all([this.data.jobs(), this.data.productionNeeds()]);
       this.jobs.set(jobs);
-      this.summary.set(summary);
+      this.needs.set(needs);
       this.error.set(null);
     } catch (error) {
       this.error.set(explainError(error, 'No pudimos leer las impresiones. Inténtalo de nuevo.'));

@@ -9,6 +9,12 @@ interface NavLink {
   label: string;
   /** Id of a symbol in NAV_ICON_SPRITE, without the hash. */
   icon: string;
+  /**
+   * Only for a link whose path is the start of another one's. Sin esto,
+   * "Cola de impresión" se queda encendida dentro del historial, y dos
+   * secciones encendidas a la vez no señalan ninguna.
+   */
+  exact?: boolean;
 }
 
 interface NavGroup {
@@ -52,7 +58,8 @@ export class Shell {
     {
       title: 'Producción',
       links: [
-        { path: '/produccion', label: 'Cola de impresión', icon: 'ic-layers' },
+        { path: '/produccion', label: 'Cola de impresión', icon: 'ic-layers', exact: true },
+        { path: '/produccion/historial', label: 'Historial de impresiones', icon: 'ic-clock' },
         { path: '/catalogo', label: 'Catálogo y recetas', icon: 'ic-grid' },
         { path: '/impresoras', label: 'Impresoras', icon: 'ic-printer' },
       ],

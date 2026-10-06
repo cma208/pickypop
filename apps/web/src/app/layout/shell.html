@@ -25,6 +25,7 @@
           <a
             [routerLink]="link.path"
             routerLinkActive="active"
+            [routerLinkActiveOptions]="{ exact: link.exact ?? false }"
             [title]="collapsed() ? link.label : ''"
             (click)="menuOpen.set(false)"
           >

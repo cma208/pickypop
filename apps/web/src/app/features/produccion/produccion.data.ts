@@ -86,6 +86,19 @@ export interface JobItem {
   filaments: JobFilament[];
 }
 
+/** Lo que hay que producir para cumplir con lo ya vendido. */
+export interface ProductionNeed {
+  variantId: string;
+  productName: string;
+  variantName: string;
+  imagePath: string | null;
+  committedUnits: number;
+  assembledUnits: number;
+  missingUnits: number;
+  firstDueDate: string | null;
+  orderCount: number;
+}
+
 export interface FailureSummary {
   closedJobs: number;
   failedJobs: number;
@@ -191,6 +204,30 @@ export class ProduccionData {
   }
 
   /** Success rate and the most common cause, from the `failure_stats` view. */
+  /**
+   * Lo que el dueño llama "la cuota que me pide ventas": unidades
+   * comprometidas en pedidos sin entregar que todavía no están armadas.
+   */
+  async productionNeeds(): Promise<ProductionNeed[]> {
+    const { data, error } = await this.supabase
+      .from('production_needs')
+      .select('variant_id, product_name, variant_name, image_path, committed_units, assembled_units, missing_units, first_due_date, order_count')
+      .order('first_due_date', { nullsFirst: false });
+    if (error) throw error;
+
+    return (data ?? []).map((row) => ({
+      variantId: row.variant_id!,
+      productName: row.product_name!,
+      variantName: row.variant_name!,
+      imagePath: row.image_path,
+      committedUnits: Number(row.committed_units ?? 0),
+      assembledUnits: Number(row.assembled_units ?? 0),
+      missingUnits: Number(row.missing_units ?? 0),
+      firstDueDate: row.first_due_date,
+      orderCount: Number(row.order_count ?? 0),
+    }));
+  }
+
   async failureSummary(): Promise<FailureSummary> {
     const [stats, failed] = await Promise.all([
       this.supabase.from('failure_stats').select('closed_jobs, failed_jobs'),
