@@ -1,4 +1,4 @@
-:root {
+@mixin light-tokens {
   --bg: #fbfaf9;
   --surface: #ffffff;
   --text: #1c1b1a;
@@ -12,25 +12,53 @@
   --good-soft: #e5f2ea;
   --warn: #8a5a00;
   --warn-soft: #fbf0db;
-  color-scheme: light dark;
 }
 
+@mixin dark-tokens {
+  --bg: #17161a;
+  --surface: #201f24;
+  --text: #ece9e6;
+  --muted: #a09b95;
+  --line: #34323a;
+  --accent: #e0855c;
+  --accent-soft: #3a2a23;
+  --danger: #f2b8b5;
+  --danger-soft: #3d2320;
+  --good: #87d6a8;
+  --good-soft: #1f3528;
+  --warn: #e5bf73;
+  --warn-soft: #39301c;
+}
+
+/* The theme is a choice with three values, and "automatic" is the absence of
+   the attribute so the media query can still decide. The explicit rules come
+   after the media query on purpose: they have the same specificity, so order
+   is what makes a deliberate choice beat the system preference. */
+:root {
+  @include light-tokens;
+  color-scheme: light dark;
+
+  /* Row height, so the density setting has one place to change. */
+  --row-pad: 0.5rem;
+}
+
+:root[data-density='compact'] { --row-pad: 0.32rem; }
+
 @media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #17161a;
-    --surface: #201f24;
-    --text: #ece9e6;
-    --muted: #a09b95;
-    --line: #34323a;
-    --accent: #e0855c;
-    --accent-soft: #3a2a23;
-    --danger: #f2b8b5;
-    --danger-soft: #3d2320;
-    --good: #87d6a8;
-    --good-soft: #1f3528;
-    --warn: #e5bf73;
-    --warn-soft: #39301c;
+  :root:not([data-theme='light']) {
+    @include dark-tokens;
+    color-scheme: dark;
   }
+}
+
+:root[data-theme='light'] {
+  @include light-tokens;
+  color-scheme: light;
+}
+
+:root[data-theme='dark'] {
+  @include dark-tokens;
+  color-scheme: dark;
 }
 
 * { box-sizing: border-box; }
@@ -56,7 +84,7 @@ table { width: 100%; border-collapse: collapse; }
 
 /* Work screens are tables, and tables earn their keep by fitting more rows
    on the screen. The airy half of the app is the cards. */
-th, td { padding: 0.42rem 0.7rem; border-bottom: 1px solid var(--line); text-align: left; }
+th, td { padding: var(--row-pad) 0.7rem; border-bottom: 1px solid var(--line); text-align: left; }
 
 th {
   padding-top: 0.3rem;

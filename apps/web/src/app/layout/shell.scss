@@ -1,5 +1,9 @@
 .shell { display: grid; grid-template-columns: 15rem 1fr; min-height: 100dvh; }
 
+/* Collapsed, the menu keeps only the icons. They were drawn to carry the
+   meaning on their own, and the label survives as a tooltip. */
+.shell.rail { grid-template-columns: 3.75rem 1fr; }
+
 aside {
   display: flex;
   flex-direction: column;
@@ -10,7 +14,9 @@ aside {
 }
 
 .brand { display: flex; align-items: center; padding: 0.35rem 0.6rem 0.6rem; }
-.brand strong { flex: 1; font-size: 1.1rem; letter-spacing: -0.01em; }
+.brand .name { flex: 1; font-size: 1.1rem; letter-spacing: -0.01em; white-space: nowrap; overflow: hidden; }
+.collapse { padding: 0.15rem 0.4rem; font-size: 0.9rem; line-height: 1; }
+.only-rail { display: none; }
 
 nav { display: grid; gap: 0.15rem; }
 
@@ -68,6 +74,18 @@ aside footer {
   font-size: 0.8rem;
 }
 
+/* Rail mode: hide the words, centre what is left. */
+.shell.rail aside { padding-inline: 0.5rem; }
+.shell.rail .brand { justify-content: center; padding-inline: 0; }
+.shell.rail .brand .name,
+.shell.rail .group,
+.shell.rail .label { display: none; }
+.shell.rail nav a { justify-content: center; padding-inline: 0; }
+.shell.rail .only-rail { display: inline; }
+.shell.rail aside footer { justify-items: center; }
+/* Without the headings the groups run together, so a hairline separates them. */
+.shell.rail nav a[data-group-start='true'] { margin-top: 0.5rem; }
+
 .content { min-width: 0; }
 .topbar { display: none; align-items: center; gap: 0.75rem; padding: 0.6rem 1rem; border-bottom: 1px solid var(--line); }
 .only-small { display: none; }
@@ -77,4 +95,15 @@ aside footer {
   aside { position: fixed; inset: 0 auto 0 0; z-index: 20; width: 15rem; transform: translateX(-100%); transition: transform 0.15s ease; }
   .shell.open aside { transform: none; }
   .topbar, .only-small { display: flex; }
+  .only-wide { display: none; }
+  /* On a phone the slide-over is always the full menu: a rail inside a
+     drawer would be the worst of both. */
+  .shell.rail { grid-template-columns: 1fr; }
+  .shell.rail aside { width: 15rem; padding-inline: 0.75rem; }
+  .shell.rail .brand { justify-content: flex-start; }
+  .shell.rail .brand .name,
+  .shell.rail .group,
+  .shell.rail .label { display: initial; }
+  .shell.rail nav a { justify-content: flex-start; padding-inline: 0.6rem; }
+  .shell.rail .only-rail { display: none; }
 }

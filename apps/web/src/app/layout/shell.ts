@@ -1,6 +1,7 @@
 import { Component, inject, signal } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { Session } from '../core/session';
+import { Appearance } from '../core/appearance';
 import { NavIcons } from './nav-icons';
 
 interface NavLink {
@@ -23,8 +24,12 @@ interface NavGroup {
 })
 export class Shell {
   private readonly router = inject(Router);
+  private readonly appearance = inject(Appearance);
   protected readonly session = inject(Session);
+
+  /** The slide-over on a phone. Separate from the rail, which is for wide screens. */
   protected readonly menuOpen = signal(false);
+  protected readonly collapsed = signal(this.appearance.settings().sidebarCollapsed);
 
   /**
    * Grouped by the part of the business you are in, not by the part of the
@@ -71,6 +76,13 @@ export class Shell {
     },
     { title: 'Ajustes', links: [{ path: '/configuracion', label: 'Configuración', icon: 'ic-sliders' }] },
   ];
+
+  /** Collapsing is a direct action, so it is remembered on the spot. */
+  protected toggleCollapsed(): void {
+    const next = !this.collapsed();
+    this.collapsed.set(next);
+    this.appearance.setSidebarCollapsed(next);
+  }
 
   protected async signOut(): Promise<void> {
     await this.session.signOut();

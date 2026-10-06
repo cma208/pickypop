@@ -105,7 +105,11 @@ El filamento bajo mínimo **no** entra en la cola de arriba: es una condición, 
 ### Resto
 - **Impresoras** (`/impresoras`): fichas con horas acumuladas y hora de máquina, mantenimientos pendientes y vencidos, registrar mantenimiento, historial e incidentes.
 - **Clientes** (`/clientes`): lista y alta con documento, contacto y notas.
-- **Configuración** (`/configuracion`): parámetros de costo con vigencia (crear una versión nueva, nunca editar la vigente), datos del taller y régimen tributario, miembros con su tarifa por hora, canales de venta y categorías de regalo.
+- **Configuración** (`/configuracion`): parámetros de costo con vigencia (crear una versión nueva, nunca editar la vigente), datos del taller y régimen tributario, miembros con su tarifa por hora, canales de venta, categorías de regalo, marcas, materiales y **apariencia**.
+
+  La pestaña **Apariencia** controla tema (automático, claro, oscuro), densidad de las tablas y si el menú arranca contraído. Vive en `core/appearance.ts` y se guarda en `localStorage`, **no en la base**: la apariencia es una propiedad de la pantalla que estás mirando, no de quién eres, y además tiene que poder aplicarse antes de que cargue nada. Por eso hay un script de seis líneas en `index.html` que lee la preferencia antes de que arranque Angular; sin él la página pinta en claro y luego salta, que se lee como un error. **Si cambias la clave o el formato, los dos sitios tienen que ir a la par.**
+
+  El tema y la densidad se eligen con miniatura y **no se aplican hasta Guardar**: cambiarlos bajo los pies de quien los está comparando hace imposible compararlos. Lo del menú sí se aplica al instante, porque es la misma acción que el botón « y verlo moverse es la única forma de saber si te gusta.
 
 ## 6.7 Cómo se reparte el trabajo
 

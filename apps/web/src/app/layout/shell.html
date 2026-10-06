@@ -1,10 +1,20 @@
-<div class="shell" [class.open]="menuOpen()">
+<div class="shell" [class.open]="menuOpen()" [class.rail]="collapsed()">
   <!-- The icon sprite: defined once, referenced by every link below. -->
   <app-nav-icons />
 
   <aside>
     <div class="brand">
-      <strong>Pickypop</strong>
+      <strong class="name">Pickypop</strong>
+      <button
+        type="button"
+        class="ghost collapse only-wide"
+        [attr.aria-label]="collapsed() ? 'Expandir el menú' : 'Contraer el menú'"
+        [attr.aria-expanded]="!collapsed()"
+        [title]="collapsed() ? 'Expandir el menú' : 'Contraer el menú'"
+        (click)="toggleCollapsed()"
+      >
+        <span aria-hidden="true">{{ collapsed() ? '»' : '«' }}</span>
+      </button>
       <button type="button" class="ghost only-small" (click)="menuOpen.set(false)" aria-label="Cerrar menú">✕</button>
     </div>
 
@@ -12,17 +22,25 @@
       @for (group of groups; track group.title) {
         <p class="group">{{ group.title }}</p>
         @for (link of group.links; track link.path) {
-          <a [routerLink]="link.path" routerLinkActive="active" (click)="menuOpen.set(false)">
+          <a
+            [routerLink]="link.path"
+            routerLinkActive="active"
+            [title]="collapsed() ? link.label : ''"
+            (click)="menuOpen.set(false)"
+          >
             <svg class="ic" aria-hidden="true"><use [attr.href]="'#' + link.icon" /></svg>
-            <span>{{ link.label }}</span>
+            <span class="label">{{ link.label }}</span>
           </a>
         }
       }
     </nav>
 
     <footer>
-      <span class="muted">{{ session.email() }}</span>
-      <button type="button" class="ghost" (click)="signOut()">Salir</button>
+      <span class="muted label">{{ session.email() }}</span>
+      <button type="button" class="ghost" [title]="collapsed() ? 'Salir' : ''" (click)="signOut()">
+        <span class="label">Salir</span>
+        <span class="only-rail" aria-hidden="true">⎋</span>
+      </button>
     </footer>
   </aside>
 
