@@ -4,7 +4,7 @@ import { explainError } from '../pedidos/pedidos.errors';
 import { PrintJobCard } from './print-job-card';
 import { PrintJobForm } from './print-job-form';
 import { RouterLink } from '@angular/router';
-import { Thumb } from '../../ui';
+import { Item } from '../../ui';
 import {
   ProduccionData,
   type CloseOutcome,
@@ -23,7 +23,7 @@ interface JobGroup {
 
 @Component({
   selector: 'app-produccion',
-  imports: [Page, Card, AsyncState, Empty, Thumb, RouterLink, PrintJobCard, PrintJobForm, ...FORMAT_PIPES],
+  imports: [Page, Card, AsyncState, Empty, Item, RouterLink, PrintJobCard, PrintJobForm, ...FORMAT_PIPES],
   template: `
     <pp-page title="Cola de impresión" subtitle="Lo que está corriendo, lo que sigue y lo que falta producir">
       <button actions type="button" (click)="creating.set(!creating())">
@@ -38,6 +38,7 @@ interface JobGroup {
               Unidades comprometidas en pedidos sin entregar que todavía no están armadas. No descuenta piezas
               sueltas ni lo que ya está en la cola, así que pide de más antes que de menos.
             </p>
+            <div class="table-wrap">
             <table>
               <thead>
                 <tr>
@@ -52,13 +53,13 @@ interface JobGroup {
                 @for (need of needs(); track need.variantId) {
                   <tr>
                     <td>
-                      <span class="with-thumb">
-                        <pp-thumb size="lead" kind="product" [path]="need.imagePath" [name]="need.productName" />
-                        <span>
-                          <span class="strong">{{ need.productName }}</span>
-                          <small class="sub">{{ need.variantName }} · {{ need.orderCount }} pedido(s)</small>
-                        </span>
-                      </span>
+                      <pp-item
+                        size="lead"
+                        kind="product"
+                        [path]="need.imagePath"
+                        [name]="need.productName"
+                        [sub]="need.variantName + ' · ' + need.orderCount + (need.orderCount === 1 ? ' pedido' : ' pedidos')"
+                      />
                     </td>
                     <td class="num"><strong>{{ need.missingUnits }}</strong></td>
                     <td class="num hide-small">{{ need.committedUnits }}</td>
@@ -74,6 +75,7 @@ interface JobGroup {
                 }
               </tbody>
             </table>
+            </div>
           </pp-card>
         }
 
