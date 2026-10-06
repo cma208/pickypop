@@ -510,6 +510,33 @@ M11 a M15 están cerrados salvo cuatro cabos, todos chicos y todos anotados en s
 3. **El formulario de compra todavía pide el precio unitario ya calculado** (viene de M4). Debería aceptar "compré una bolsa de 500 g a S/ 15".
 4. **Decidir si `complete_print_job` pasa a usar `production`** para las piezas que produce. Mientras no se haga, el kardex mezcla dos criterios (ADR-018).
 
+## 7.7 Qué revisar antes de publicar
+
+El 2026-10-06 entraron veinticinco commits en un día, varios de ellos tocando el modelo de datos. Nada de eso está publicado. Antes de integrar `nav-y-plan` a `main` conviene una revisión, y **esto es dónde está concentrado el riesgo**, no una lista de deseos.
+
+**Lo que ya mordió una vez, por si quedó más:**
+
+- **`security_invoker` en las vistas.** Una vista de Postgres corre con los permisos de quien la creó, así que **esquiva la seguridad por fila** salvo que lo lleve. Cuatro vistas nuevas no lo llevaban y se corrigió; con un solo taller no se notaba nada. Comprobar que **todas** lo tienen, y que cualquier vista futura nazca con él:
+  ```sql
+  select c.relname,
+         coalesce((select option_value from pg_options_to_table(c.reloptions)
+                   where option_name = 'security_invoker'), 'off')
+  from pg_class c join pg_namespace n on n.oid = c.relnamespace
+  where n.nspname = 'public' and c.relkind = 'v' order by 2, 1;
+  ```
+- **Las políticas del cubo `media`.** La frontera entre talleres es la primera carpeta de la ruta. Vale la pena intentar romperla: subir a una carpeta ajena, leer una ruta de otro taller, subir algo que no sea una imagen.
+- **`app.assemble_product` es todo o nada**, y ahora hace dos cosas: consume y produce. Revisar que no haya camino por el que consuma sin producir, o produzca dos veces.
+- **`app.duplicate_variant` copia seis tablas.** Revisar que no deje nada a medias y que no copie lo que no debe (el código interno se excluye a propósito).
+
+**Lo que nunca se ejercitó con datos de verdad:**
+
+- Un taller con **dos personas a la vez** tocando el mismo stock.
+- `production_needs` **sobreestima a propósito**: no descuenta piezas sueltas ni trabajos en cola. Confirmar que eso sigue siendo lo que se quiere cuando exista M5.
+- El kardex **mezcla dos criterios**: las piezas impresas entran como `purchase` y los productos armados como `production` (ADR-018).
+- Una **restauración desde el repositorio de respaldos**. Sigue sin probarse desde M0.
+
+**Dónde mirar con ojos de usuario, no de código:** el armado con stock justo en el límite, la carga de un `.gcode.3mf` con varias placas, y una compra con diez líneas usando el selector nuevo.
+
 ## 7.6 Dudas abiertas para el dueño
 
 Ninguna de estas la debe decidir quien implementa:
