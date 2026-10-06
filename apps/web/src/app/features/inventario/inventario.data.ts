@@ -270,7 +270,25 @@ export interface PartStock {
 
 export interface AssemblyOption {
   variantId: string;
-  label: string;
+  productName: string;
+  variantName: string;
+  imagePath: string | null;
+  /** Unidades ya armadas en el estante. */
+  assembledOnHand: number;
+  /** Cuántas más alcanzan a armarse con el stock de hoy. */
+  buildableUnits: number;
+  componentCount: number;
+}
+
+/** Un renglón de la receta, con lo que hay y lo que hace falta. */
+export interface AssemblyComponent {
+  inventoryItemId: string;
+  name: string;
+  unit: string;
+  kind: ItemKind;
+  imagePath: string | null;
+  quantityPerUnit: number;
+  onHand: number;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -903,33 +921,45 @@ export class InventarioData {
   }
 
   /** Las variantes que tienen receta: lo único que se puede armar. */
+  /** Lo que se puede armar, con cuántas hay y cuántas más alcanzan. */
   async assemblyOptions(): Promise<AssemblyOption[]> {
     const { data, error } = await this.supabase
-      .from('recipes')
-      .select('variant_id, product_variants(name, catalog_products(name))')
-      .order('variant_id');
+      .from('assembly_options')
+      .select('variant_id, product_name, variant_name, image_path, assembled_on_hand, buildable_units, component_count')
+      .order('product_name');
     if (error) throw error;
 
-    const seen = new Set<string>();
-    const options: AssemblyOption[] = [];
-    for (const row of data ?? []) {
-      const variantId = row.variant_id;
-      if (!variantId || seen.has(variantId)) continue;
-      seen.add(variantId);
-      const variant = row.product_variants;
-      const product = variant?.catalog_products;
-      options.push({
-        variantId,
-        label: [product?.name, variant?.name].filter(Boolean).join(' · ') || 'Variante',
-      });
-    }
-    return options.sort((a, b) => a.label.localeCompare(b.label, 'es'));
+    return (data ?? []).map((row) => ({
+      variantId: row.variant_id!,
+      productName: row.product_name ?? 'Producto',
+      variantName: row.variant_name ?? '',
+      imagePath: row.image_path,
+      assembledOnHand: num(row.assembled_on_hand),
+      buildableUnits: num(row.buildable_units),
+      componentCount: num(row.component_count),
+    }));
   }
 
-  /**
-   * Arma unidades de una variante. La base valida que alcance y, si no,
-   * devuelve un mensaje escrito para una persona que se muestra tal cual.
-   */
+  /** La receta vigente de una variante, con el stock de cada componente. */
+  async assemblyComponents(variantId: string): Promise<AssemblyComponent[]> {
+    const { data, error } = await this.supabase
+      .from('assembly_components')
+      .select('inventory_item_id, name, unit, kind, image_path, quantity_per_unit, on_hand')
+      .eq('variant_id', variantId)
+      .order('name');
+    if (error) throw error;
+
+    return (data ?? []).map((row) => ({
+      inventoryItemId: row.inventory_item_id!,
+      name: row.name ?? '',
+      unit: row.unit ?? 'unidad',
+      kind: (row.kind ?? 'supply') as ItemKind,
+      imagePath: row.image_path,
+      quantityPerUnit: num(row.quantity_per_unit),
+      onHand: num(row.on_hand),
+    }));
+  }
+
   async assemble(variantId: string, units: number): Promise<void> {
     const { error } = await this.supabase.rpc('assemble_product', {
       p_variant_id: variantId,

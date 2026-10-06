@@ -1,6 +1,7 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
+import { RouterLink } from '@angular/router';
 import { AsyncState, Badge, Card, Empty, FORMAT_PIPES, Page, Thumb } from '../../ui';
-import { InventarioData, type AssemblyOption, type PartStock } from './inventario.data';
+import { InventarioData, type PartStock } from './inventario.data';
 import { describeError } from './inventario.errors';
 import { INVENTORY_STYLES } from './inventario.styles';
 
@@ -15,7 +16,7 @@ const COST_DIGITS = 3;
  */
 @Component({
   selector: 'app-piezas',
-  imports: [Page, Card, AsyncState, Empty, Badge, Thumb, FORMAT_PIPES],
+  imports: [Page, Card, AsyncState, Empty, Badge, Thumb, RouterLink, FORMAT_PIPES],
   styles: [
     INVENTORY_STYLES,
     `
@@ -28,51 +29,16 @@ const COST_DIGITS = 3;
   ],
   template: `
     <pp-page title="Piezas impresas" subtitle="Lo que sale de las placas y espera en el estante para armar un producto">
-      @if (notice(); as text) {
-        <p class="notice" role="status">{{ text }}</p>
-      }
       @if (actionError(); as text) {
         <p class="alert" role="alert">{{ text }}</p>
       }
 
       <div class="stack">
-        <pp-card heading="Armar un producto">
-          <p class="muted">
-            Consume las piezas y los insumos de su receta, todo o nada. Si falta algo, no se arma nada y te dice
-            exactamente qué y cuánto falta.
-          </p>
-          <pp-async [loading]="loading()" [error]="error()">
-            @if (options().length === 0) {
-              <pp-empty message="Ninguna variante tiene receta todavía. La receta es la que dice con qué se arma." />
-            } @else {
-              <div class="assemble">
-                <label>
-                  Producto
-                  <select [value]="variantId()" (change)="onVariant($event)">
-                    <option value="">Elige una variante…</option>
-                    @for (option of options(); track option.variantId) {
-                      <option [value]="option.variantId">{{ option.label }}</option>
-                    }
-                  </select>
-                </label>
-                <label>
-                  Unidades
-                  <input
-                    type="number"
-                    min="1"
-                    step="1"
-                    inputmode="numeric"
-                    [value]="units()"
-                    (input)="onUnits($event)"
-                  />
-                </label>
-                <button type="button" [disabled]="!canAssemble() || busy()" (click)="assemble()">
-                  {{ busy() ? 'Armando…' : 'Armar' }}
-                </button>
-              </div>
-            }
-          </pp-async>
-        </pp-card>
+        <p class="muted">
+          Para juntar estas piezas con sus dulces y su empaque, ve a
+          <a routerLink="/inventario/armar">Armar productos</a>: ahí se elige el producto terminado y se ve antes
+          qué se va a consumir.
+        </p>
 
         <pp-card heading="En el estante">
           <pp-async [loading]="loading()" [error]="error()">
@@ -133,16 +99,9 @@ export class PiezasPage {
 
   protected readonly costDigits = COST_DIGITS;
   protected readonly parts = signal<PartStock[]>([]);
-  protected readonly options = signal<AssemblyOption[]>([]);
   protected readonly loading = signal(true);
   protected readonly error = signal<string | null>(null);
-  protected readonly notice = signal<string | null>(null);
   protected readonly actionError = signal<string | null>(null);
-  protected readonly busy = signal(false);
-  protected readonly variantId = signal('');
-  protected readonly units = signal(1);
-
-  protected readonly canAssemble = computed(() => this.variantId() !== '' && this.units() > 0);
 
   constructor() {
     void this.load();
@@ -160,39 +119,10 @@ export class PiezasPage {
     return 'Sin registrar';
   }
 
-  protected onVariant(event: Event): void {
-    this.variantId.set((event.target as HTMLSelectElement).value);
-  }
-
-  protected onUnits(event: Event): void {
-    this.units.set(Number((event.target as HTMLInputElement).value));
-  }
-
-  protected async assemble(): Promise<void> {
-    if (!this.canAssemble() || this.busy()) return;
-
-    this.busy.set(true);
-    this.notice.set(null);
-    this.actionError.set(null);
-    try {
-      await this.data.assemble(this.variantId(), this.units());
-      const label = this.options().find((option) => option.variantId === this.variantId())?.label ?? 'producto';
-      this.notice.set(`Armadas ${this.units()} de ${label}. Las piezas y los insumos ya salieron del stock.`);
-      await this.load();
-    } catch (error) {
-      // El mensaje de la base dice qué falta y cuánto: se muestra tal cual.
-      this.actionError.set(describeError(error, 'No pudimos armar el producto.'));
-    } finally {
-      this.busy.set(false);
-    }
-  }
-
   private async load(): Promise<void> {
     this.error.set(null);
     try {
-      const [parts, options] = await Promise.all([this.data.partStock(), this.data.assemblyOptions()]);
-      this.parts.set(parts);
-      this.options.set(options);
+      this.parts.set(await this.data.partStock());
     } catch (error) {
       this.error.set(describeError(error, 'No pudimos cargar las piezas. Inténtalo de nuevo.'));
     } finally {

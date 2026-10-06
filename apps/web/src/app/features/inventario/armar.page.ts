@@ -1,0 +1,248 @@
+import { Component, computed, inject, signal } from '@angular/core';
+import { AsyncState, Badge, Card, Empty, FORMAT_PIPES, Page, Thumb } from '../../ui';
+import { friendlyError } from '../../core/friendly-error';
+import { InventarioData, type AssemblyComponent, type AssemblyOption } from './inventario.data';
+import { INVENTORY_PIPES, ITEM_KIND_LABELS } from './inventario.format';
+import { INVENTORY_STYLES } from './inventario.styles';
+
+/**
+ * Armar un producto terminado.
+ *
+ * El orden importa y antes estaba al revés: se elegía una variante de una
+ * lista de texto, se escribía una cantidad y recién al pulsar el botón la base
+ * contestaba si alcanzaba. Aquí se elige el producto por su foto, se dice
+ * cuántos, y la pantalla enseña **antes** qué va a consumir y qué falta.
+ *
+ * La base sigue siendo la que decide: `assemble_product` es todo o nada y
+ * vuelve a comprobar el stock. Esto no reemplaza esa comprobación, la
+ * adelanta, que es distinto —entre que se mira y se pulsa, alguien pudo
+ * consumir una tapa—.
+ */
+@Component({
+  selector: 'app-armar',
+  imports: [Page, Card, AsyncState, Empty, Badge, Thumb, ...FORMAT_PIPES, ...INVENTORY_PIPES],
+  template: `
+    <pp-page title="Armar productos" subtitle="Juntar piezas, dulces y empaque en un producto terminado">
+      <pp-async [loading]="loading()" [error]="error()">
+        @if (options().length === 0) {
+          <pp-empty message="Todavía no hay productos con receta. Se definen en Catálogo y recetas." />
+        } @else {
+          <div class="picker">
+            @for (option of options(); track option.variantId) {
+              <button
+                type="button"
+                class="option"
+                [class.chosen]="chosen()?.variantId === option.variantId"
+                [attr.aria-pressed]="chosen()?.variantId === option.variantId"
+                (click)="choose(option)"
+              >
+                <pp-thumb size="lg" [path]="option.imagePath" [name]="option.productName" />
+                <span class="name">{{ option.productName }}</span>
+                <span class="variant muted">{{ option.variantName }}</span>
+                <span class="stock">
+                  @if (option.componentCount === 0) {
+                    <pp-badge tone="warn">Sin receta cargada</pp-badge>
+                  } @else if (option.buildableUnits > 0) {
+                    <pp-badge tone="good">Alcanza para {{ option.buildableUnits }}</pp-badge>
+                  } @else {
+                    <pp-badge tone="bad">No alcanza</pp-badge>
+                  }
+                </span>
+                <span class="muted small">{{ option.assembledOnHand }} armadas en el estante</span>
+              </button>
+            }
+          </div>
+
+          @if (chosen(); as option) {
+            <pp-card [heading]="'Armar ' + option.productName + ' · ' + option.variantName">
+              <div class="qty">
+                <label>
+                  ¿Cuántas?
+                  <input
+                    type="number"
+                    min="1"
+                    step="1"
+                    inputmode="numeric"
+                    [value]="units()"
+                    (input)="onUnits($event)"
+                  />
+                </label>
+                <button type="button" [disabled]="!canAssemble()" (click)="assemble()">
+                  {{ busy() ? 'Armando…' : 'Armar ' + units() }}
+                </button>
+                @if (!enough() && !busy()) {
+                  <span class="muted">Falta stock para {{ units() }}. Alcanza para {{ option.buildableUnits }}.</span>
+                }
+              </div>
+
+              @if (componentsError(); as message) {
+                <p class="alert" role="alert">{{ message }}</p>
+              }
+
+              @if (components().length === 0) {
+                <pp-empty message="Esta variante no tiene componentes en su receta. Cárgalos en Catálogo y recetas." />
+              } @else {
+                <div class="table-wrap">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Componente</th>
+                        <th class="num">Hace falta</th>
+                        <th class="num">Hay</th>
+                        <th>Estado</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      @for (row of needs(); track row.component.inventoryItemId) {
+                        <tr [class.short]="row.missing > 0">
+                          <td>
+                            <span class="with-thumb">
+                              <pp-thumb size="sm" [path]="row.component.imagePath" [name]="row.component.name" />
+                              <span>
+                                <span class="strong">{{ row.component.name }}</span>
+                                <small class="sub">{{ kindLabel[row.component.kind] }}</small>
+                              </span>
+                            </span>
+                          </td>
+                          <td class="num">{{ row.needed | qty: row.component.unit }}</td>
+                          <td class="num">{{ row.component.onHand | qty: row.component.unit }}</td>
+                          <td>
+                            @if (row.missing > 0) {
+                              <pp-badge tone="bad">Faltan {{ row.missing | qty: row.component.unit }}</pp-badge>
+                            } @else {
+                              <pp-badge tone="good">Alcanza</pp-badge>
+                            }
+                          </td>
+                        </tr>
+                      }
+                    </tbody>
+                  </table>
+                </div>
+              }
+
+              @if (result(); as message) {
+                <p class="notice" role="status">{{ message }}</p>
+              }
+              @if (assembleError(); as message) {
+                <p class="alert" role="alert">{{ message }}</p>
+              }
+            </pp-card>
+          }
+        }
+      </pp-async>
+    </pp-page>
+  `,
+  styles: [
+    INVENTORY_STYLES,
+    `
+    .picker { display: grid; grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr)); gap: 0.75rem; margin-bottom: 1.25rem; }
+    .option {
+      display: grid; justify-items: start; gap: 0.3rem;
+      padding: 0.7rem; border: 1.5px solid var(--line); border-radius: var(--radius);
+      background: var(--surface); color: inherit; font: inherit; text-align: left; cursor: pointer;
+    }
+    .option:hover { border-color: var(--muted); }
+    .option.chosen { border-color: var(--accent); background: var(--accent-soft); }
+    .option .name { font-weight: 600; }
+    .option .variant { font-size: 0.85rem; }
+    .option .small { font-size: 0.78rem; }
+    .qty { display: flex; align-items: flex-end; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 0.9rem; }
+    .qty label { display: grid; gap: 0.25rem; font-size: 0.85rem; }
+    .qty input { width: 7rem; }
+    tr.short td { background: var(--danger-soft); }
+  `,
+  ],
+})
+export class ArmarPage {
+  private readonly data = inject(InventarioData);
+
+  protected readonly kindLabel = ITEM_KIND_LABELS;
+
+  protected readonly options = signal<AssemblyOption[]>([]);
+  protected readonly components = signal<AssemblyComponent[]>([]);
+  protected readonly chosen = signal<AssemblyOption | null>(null);
+  protected readonly units = signal(1);
+  protected readonly loading = signal(true);
+  protected readonly busy = signal(false);
+  protected readonly error = signal<string | null>(null);
+  protected readonly componentsError = signal<string | null>(null);
+  protected readonly assembleError = signal<string | null>(null);
+  protected readonly result = signal<string | null>(null);
+
+  /** Lo que haría falta para la cantidad pedida, y cuánto falta de cada cosa. */
+  protected readonly needs = computed(() =>
+    this.components().map((component) => {
+      const needed = component.quantityPerUnit * this.units();
+      return { component, needed, missing: Math.max(0, needed - component.onHand) };
+    }),
+  );
+
+  protected readonly enough = computed(
+    () => this.components().length > 0 && this.needs().every((row) => row.missing === 0),
+  );
+
+  protected readonly canAssemble = computed(() => this.enough() && this.units() > 0 && !this.busy());
+
+  constructor() {
+    void this.load();
+  }
+
+  protected onUnits(event: Event): void {
+    const value = Number.parseInt((event.target as HTMLInputElement).value, 10);
+    this.units.set(Number.isFinite(value) && value > 0 ? value : 1);
+    this.result.set(null);
+    this.assembleError.set(null);
+  }
+
+  protected async choose(option: AssemblyOption): Promise<void> {
+    this.chosen.set(option);
+    this.components.set([]);
+    this.result.set(null);
+    this.assembleError.set(null);
+    this.componentsError.set(null);
+
+    try {
+      this.components.set(await this.data.assemblyComponents(option.variantId));
+    } catch (error) {
+      this.componentsError.set(friendlyError(error, 'No pudimos leer la receta de este producto.'));
+    }
+  }
+
+  protected async assemble(): Promise<void> {
+    const option = this.chosen();
+    if (!option || !this.canAssemble()) return;
+
+    this.busy.set(true);
+    this.assembleError.set(null);
+    this.result.set(null);
+
+    try {
+      const units = this.units();
+      await this.data.assemble(option.variantId, units);
+      this.result.set(
+        `Listo: ${units} unidad(es) de ${option.productName} entraron al inventario de terminados. ` +
+          'Los componentes salieron del stock.',
+      );
+      await this.load();
+      // La tarjeta elegida trae ahora otros números, y la receta otros saldos.
+      const refreshed = this.options().find((row) => row.variantId === option.variantId);
+      if (refreshed) await this.choose(refreshed);
+    } catch (error) {
+      // La base escribe aquí qué falta y cuánto: es mejor mensaje que cualquiera de aquí.
+      this.assembleError.set(friendlyError(error, 'No pudimos armar el producto.'));
+    } finally {
+      this.busy.set(false);
+    }
+  }
+
+  private async load(): Promise<void> {
+    try {
+      this.options.set(await this.data.assemblyOptions());
+      this.error.set(null);
+    } catch (error) {
+      this.error.set(friendlyError(error, 'No pudimos cargar los productos que se pueden armar.'));
+    } finally {
+      this.loading.set(false);
+    }
+  }
+}

@@ -283,6 +283,12 @@ isOneToOne: false
       foreignKeyName: "inventory_items_product_variant_id_fkey"
       columns: ["product_variant_id"]
 isOneToOne: false
+      referencedRelation: "assembly_options"
+      referencedColumns: ["variant_id"]
+    },{
+      foreignKeyName: "inventory_items_product_variant_id_fkey"
+      columns: ["product_variant_id"]
+isOneToOne: false
       referencedRelation: "product_variants"
       referencedColumns: ["id"]
     },{
@@ -499,6 +505,12 @@ isOneToOne: false
       foreignKeyName: "order_lines_variant_id_fkey"
       columns: ["variant_id"]
 isOneToOne: false
+      referencedRelation: "assembly_options"
+      referencedColumns: ["variant_id"]
+    },{
+      foreignKeyName: "order_lines_variant_id_fkey"
+      columns: ["variant_id"]
+isOneToOne: false
       referencedRelation: "product_variants"
       referencedColumns: ["id"]
     },{
@@ -637,6 +649,12 @@ isOneToOne: false
                   }
                   Relationships: [
                     {
+      foreignKeyName: "price_tiers_variant_id_fkey"
+      columns: ["variant_id"]
+isOneToOne: false
+      referencedRelation: "assembly_options"
+      referencedColumns: ["variant_id"]
+    },{
       foreignKeyName: "price_tiers_variant_id_fkey"
       columns: ["variant_id"]
 isOneToOne: false
@@ -819,6 +837,12 @@ isOneToOne: false
       foreignKeyName: "product_media_variant_id_fkey"
       columns: ["variant_id"]
 isOneToOne: false
+      referencedRelation: "assembly_options"
+      referencedColumns: ["variant_id"]
+    },{
+      foreignKeyName: "product_media_variant_id_fkey"
+      columns: ["variant_id"]
+isOneToOne: false
       referencedRelation: "product_variants"
       referencedColumns: ["id"]
     },{
@@ -905,6 +929,12 @@ isOneToOne: false
       foreignKeyName: "purchase_lines_inventory_item_id_fkey"
       columns: ["inventory_item_id"]
 isOneToOne: false
+      referencedRelation: "assembly_components"
+      referencedColumns: ["inventory_item_id"]
+    },{
+      foreignKeyName: "purchase_lines_inventory_item_id_fkey"
+      columns: ["inventory_item_id"]
+isOneToOne: false
       referencedRelation: "inventory_balances"
       referencedColumns: ["inventory_item_id"]
     },{
@@ -981,6 +1011,12 @@ isOneToOne: false
 isOneToOne: false
       referencedRelation: "quotes"
       referencedColumns: ["id"]
+    },{
+      foreignKeyName: "quote_lines_variant_id_fkey"
+      columns: ["variant_id"]
+isOneToOne: false
+      referencedRelation: "assembly_options"
+      referencedColumns: ["variant_id"]
     },{
       foreignKeyName: "quote_lines_variant_id_fkey"
       columns: ["variant_id"]
@@ -1120,6 +1156,12 @@ isOneToOne: false
       foreignKeyName: "recipe_items_inventory_item_id_fkey"
       columns: ["inventory_item_id"]
 isOneToOne: false
+      referencedRelation: "assembly_components"
+      referencedColumns: ["inventory_item_id"]
+    },{
+      foreignKeyName: "recipe_items_inventory_item_id_fkey"
+      columns: ["inventory_item_id"]
+isOneToOne: false
       referencedRelation: "inventory_balances"
       referencedColumns: ["inventory_item_id"]
     },{
@@ -1140,6 +1182,12 @@ isOneToOne: false
 isOneToOne: false
       referencedRelation: "part_stock"
       referencedColumns: ["inventory_item_id"]
+    },{
+      foreignKeyName: "recipe_items_recipe_id_fkey"
+      columns: ["recipe_id"]
+isOneToOne: false
+      referencedRelation: "assembly_options"
+      referencedColumns: ["recipe_id"]
     },{
       foreignKeyName: "recipe_items_recipe_id_fkey"
       columns: ["recipe_id"]
@@ -1224,6 +1272,12 @@ isOneToOne: false
       foreignKeyName: "recipe_plates_produces_item_id_fkey"
       columns: ["produces_item_id"]
 isOneToOne: false
+      referencedRelation: "assembly_components"
+      referencedColumns: ["inventory_item_id"]
+    },{
+      foreignKeyName: "recipe_plates_produces_item_id_fkey"
+      columns: ["produces_item_id"]
+isOneToOne: false
       referencedRelation: "inventory_balances"
       referencedColumns: ["inventory_item_id"]
     },{
@@ -1244,6 +1298,12 @@ isOneToOne: false
 isOneToOne: false
       referencedRelation: "part_stock"
       referencedColumns: ["inventory_item_id"]
+    },{
+      foreignKeyName: "recipe_plates_recipe_id_fkey"
+      columns: ["recipe_id"]
+isOneToOne: false
+      referencedRelation: "assembly_options"
+      referencedColumns: ["recipe_id"]
     },{
       foreignKeyName: "recipe_plates_recipe_id_fkey"
       columns: ["recipe_id"]
@@ -1270,6 +1330,12 @@ isOneToOne: false
                   }
                   Relationships: [
                     {
+      foreignKeyName: "recipes_variant_id_fkey"
+      columns: ["variant_id"]
+isOneToOne: false
+      referencedRelation: "assembly_options"
+      referencedColumns: ["variant_id"]
+    },{
       foreignKeyName: "recipes_variant_id_fkey"
       columns: ["variant_id"]
 isOneToOne: false
@@ -1375,6 +1441,12 @@ isOneToOne: false
                   }
                   Relationships: [
                     {
+      foreignKeyName: "stock_movements_inventory_item_id_fkey"
+      columns: ["inventory_item_id"]
+isOneToOne: false
+      referencedRelation: "assembly_components"
+      referencedColumns: ["inventory_item_id"]
+    },{
       foreignKeyName: "stock_movements_inventory_item_id_fkey"
       columns: ["inventory_item_id"]
 isOneToOne: false
@@ -1619,6 +1691,56 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"assembly_components": {
+                  Row: {
+                    "image_path": string | null,"inventory_item_id": string | null,"kind": Database["public"]['Enums']["inventory_item_kind"] | null,"name": string | null,"on_hand": number | null,"quantity_per_unit": number | null,"unit": string | null,"variant_id": string | null,"workspace_id": string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "recipe_items_workspace_id_fkey"
+      columns: ["workspace_id"]
+isOneToOne: false
+      referencedRelation: "workspaces"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "recipes_variant_id_fkey"
+      columns: ["variant_id"]
+isOneToOne: false
+      referencedRelation: "assembly_options"
+      referencedColumns: ["variant_id"]
+    },{
+      foreignKeyName: "recipes_variant_id_fkey"
+      columns: ["variant_id"]
+isOneToOne: false
+      referencedRelation: "product_variants"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "recipes_variant_id_fkey"
+      columns: ["variant_id"]
+isOneToOne: false
+      referencedRelation: "production_needs"
+      referencedColumns: ["variant_id"]
+    },{
+      foreignKeyName: "recipes_variant_id_fkey"
+      columns: ["variant_id"]
+isOneToOne: false
+      referencedRelation: "variant_available_colors"
+      referencedColumns: ["variant_id"]
+    }
+                  ]
+                },"assembly_options": {
+                  Row: {
+                    "assembled_on_hand": number | null,"buildable_units": number | null,"component_count": number | null,"image_path": string | null,"product_name": string | null,"recipe_id": string | null,"variant_id": string | null,"variant_name": string | null,"workspace_id": string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "product_variants_workspace_id_fkey"
+      columns: ["workspace_id"]
+isOneToOne: false
+      referencedRelation: "workspaces"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"customer_history": {
                   Row: {
                     "balance": number | null,"customer_id": string | null,"last_order_on": string | null,"name": string | null,"open_opportunities": number | null,"opportunities": number | null,"orders": number | null,"paid": number | null,"sold": number | null,"won_opportunities": number | null,"workspace_id": string | null
@@ -1638,6 +1760,12 @@ isOneToOne: false
                   }
                   Relationships: [
                     {
+      foreignKeyName: "order_lines_variant_id_fkey"
+      columns: ["variant_id"]
+isOneToOne: false
+      referencedRelation: "assembly_options"
+      referencedColumns: ["variant_id"]
+    },{
       foreignKeyName: "order_lines_variant_id_fkey"
       columns: ["variant_id"]
 isOneToOne: false
