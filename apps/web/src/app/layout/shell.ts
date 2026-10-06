@@ -61,6 +61,7 @@ export class Shell {
       title: 'Inventario',
       links: [
         { path: '/inventario/filamentos', label: 'Filamentos', icon: 'ic-spool' },
+        { path: '/inventario/piezas', label: 'Piezas impresas', icon: 'ic-puzzle' },
         { path: '/inventario/insumos', label: 'Insumos y empaque', icon: 'ic-box' },
         { path: '/inventario/compras', label: 'Compras', icon: 'ic-cart' },
         { path: '/inventario/movimientos', label: 'Kardex', icon: 'ic-ledger' },

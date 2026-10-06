@@ -60,6 +60,9 @@ import { Component } from '@angular/core';
     <circle cx="12" cy="12" r="3" />
     <path d="M12 3.5v2M12 18.5v2" />
   </symbol>
+  <symbol id="ic-puzzle" viewBox="0 0 24 24">
+    <path d="M10 4h4v2.2a1.8 1.8 0 1 0 3.6 0V4H20v16H4v-3.6h2.2a1.8 1.8 0 1 0 0-3.6H4V4h6z" />
+  </symbol>
   <symbol id="ic-box" viewBox="0 0 24 24">
     <path d="M3 7.5l9-4.5 9 4.5v9l-9 4.5-9-4.5z" />
     <path d="M3 7.5l9 4.5 9-4.5M12 12v9" />

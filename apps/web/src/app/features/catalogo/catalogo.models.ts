@@ -94,6 +94,8 @@ export interface RecipePlate {
   id: string;
   label: string | null;
   plateIndex: number;
+  /** La pieza que sale de esta placa. Nula: la placa no aporta stock. */
+  producesItemId: string | null;
   unitsPerRun: number;
   printTimeS: number;
   filaments: RecipeFilament[];
@@ -101,6 +103,7 @@ export interface RecipePlate {
 
 export interface RecipePlateInput {
   label: string | null;
+  producesItemId: string | null;
   unitsPerRun: number;
   printTimeS: number;
 }

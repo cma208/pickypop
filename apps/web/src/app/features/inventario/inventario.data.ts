@@ -254,6 +254,22 @@ function skuLabel(brand: string | null, material: string | null, finish: string 
  * Supabase directly; they get typed domain objects from here. Row Level
  * Security scopes every query to the signed-in person's workshop.
  */
+export interface PartStock {
+  inventoryItemId: string;
+  name: string;
+  unit: string;
+  onHand: number;
+  minStock: number;
+  belowMinimum: boolean;
+  costPerUnit: number | null;
+  costSource: string | null;
+}
+
+export interface AssemblyOption {
+  variantId: string;
+  label: string;
+}
+
 @Injectable({ providedIn: 'root' })
 export class InventarioData {
   private readonly supabase = inject(SUPABASE);
@@ -858,6 +874,62 @@ export class InventarioData {
     });
 
     return { rows, truncated: data.length > MOVEMENTS_LIMIT };
+  }
+
+  /** Las piezas impresas en el estante. El stock sale de sus movimientos. */
+  async partStock(): Promise<PartStock[]> {
+    const { data, error } = await this.supabase
+      .from('part_stock')
+      .select('inventory_item_id, name, unit, on_hand, min_stock, below_minimum, cost_per_unit, cost_source')
+      .order('name');
+    if (error) throw error;
+
+    return (data ?? []).map((row) => ({
+      inventoryItemId: row.inventory_item_id!,
+      name: row.name!,
+      unit: row.unit!,
+      onHand: Number(row.on_hand ?? 0),
+      minStock: Number(row.min_stock ?? 0),
+      belowMinimum: row.below_minimum ?? false,
+      costPerUnit: row.cost_per_unit === null ? null : Number(row.cost_per_unit),
+      costSource: row.cost_source,
+    }));
+  }
+
+  /** Las variantes que tienen receta: lo único que se puede armar. */
+  async assemblyOptions(): Promise<AssemblyOption[]> {
+    const { data, error } = await this.supabase
+      .from('recipes')
+      .select('variant_id, product_variants(name, catalog_products(name))')
+      .order('variant_id');
+    if (error) throw error;
+
+    const seen = new Set<string>();
+    const options: AssemblyOption[] = [];
+    for (const row of data ?? []) {
+      const variantId = row.variant_id;
+      if (!variantId || seen.has(variantId)) continue;
+      seen.add(variantId);
+      const variant = row.product_variants;
+      const product = variant?.catalog_products;
+      options.push({
+        variantId,
+        label: [product?.name, variant?.name].filter(Boolean).join(' · ') || 'Variante',
+      });
+    }
+    return options.sort((a, b) => a.label.localeCompare(b.label, 'es'));
+  }
+
+  /**
+   * Arma unidades de una variante. La base valida que alcance y, si no,
+   * devuelve un mensaje escrito para una persona que se muestra tal cual.
+   */
+  async assemble(variantId: string, units: number): Promise<void> {
+    const { error } = await this.supabase.rpc('assemble_product', {
+      p_variant_id: variantId,
+      p_units: units,
+    });
+    if (error) throw error;
   }
 }
 

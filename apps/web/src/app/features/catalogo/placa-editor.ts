@@ -19,11 +19,11 @@ const SECONDS_PER_MINUTE = 60;
       section { padding: 0.9rem; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); }
       h4 { margin: 0 0 0.6rem; font-size: 0.95rem; }
       label { display: grid; gap: 0.15rem; font-size: 0.72rem; color: var(--muted); }
-      .plate { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 1fr) auto; gap: 0.5rem; align-items: end; }
+      .plate { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1.2fr) minmax(0, 0.9fr) minmax(0, 0.9fr) auto; gap: 0.5rem; align-items: end; }
       .filaments { margin-top: 0.75rem; }
       .filaments h5 { margin: 0 0 0.25rem; font-size: 0.8rem; color: var(--muted); font-weight: 600; }
       .err { margin: 0.5rem 0 0; font-size: 0.8rem; }
-      @media (max-width: 40rem) { .plate { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } label.name { grid-column: 1 / -1; } }
+      @media (max-width: 40rem) { .plate { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } label.name, label.part { grid-column: 1 / -1; } }
     `,
   ],
   template: `
@@ -32,6 +32,14 @@ const SECONDS_PER_MINUTE = 60;
       <form class="plate" [formGroup]="form" (ngSubmit)="save()" novalidate>
         <label class="name">Etiqueta
           <input formControlName="label" placeholder="Ej. Botella, Tapas" autocomplete="off" />
+        </label>
+        <label class="part">Pieza que produce
+          <select formControlName="producesItemId">
+            <option [ngValue]="null">No produce stock</option>
+            @for (part of parts(); track part.id) {
+              <option [ngValue]="part.id">{{ part.name }}</option>
+            }
+          </select>
         </label>
         <label>Unidades por corrida
           <input type="number" min="0.001" step="any" inputmode="decimal" formControlName="unitsPerRun" />
@@ -79,6 +87,8 @@ export class PlacaEditor {
 
   protected readonly busy = signal(false);
   protected readonly error = signal<string | null>(null);
+  /** Las piezas que puede producir una placa. Se cargan una vez. */
+  protected readonly parts = signal<{ id: string; name: string; unit: string }[]>([]);
 
   protected readonly nextSlot = computed(
     () => Math.max(0, ...(this.plate()?.filaments.map((filament) => filament.slot) ?? [])) + 1,
@@ -86,11 +96,14 @@ export class PlacaEditor {
 
   protected readonly form = new FormGroup({
     label: new FormControl('', { nonNullable: true }),
+    producesItemId: new FormControl<string | null>(null),
     unitsPerRun: new FormControl<number | null>(null, [Validators.required, Validators.min(0.001)]),
     printMinutes: new FormControl<number | null>(null, [Validators.required, Validators.min(1)]),
   });
 
   constructor() {
+    void this.data.parts().then((parts) => this.parts.set(parts));
+
     effect(() => {
       const plate = this.plate();
       untracked(() => {
@@ -106,6 +119,7 @@ export class PlacaEditor {
     const value = this.form.getRawValue();
     const input = {
       label: value.label,
+      producesItemId: value.producesItemId,
       unitsPerRun: Number(value.unitsPerRun),
       printTimeS: Math.round(Number(value.printMinutes) * SECONDS_PER_MINUTE),
     };
@@ -149,6 +163,7 @@ export class PlacaEditor {
   private fill(plate: RecipePlate | null): void {
     this.form.reset({
       label: plate?.label ?? '',
+      producesItemId: plate?.producesItemId ?? null,
       unitsPerRun: plate?.unitsPerRun ?? null,
       printMinutes: plate ? plate.printTimeS / SECONDS_PER_MINUTE : null,
     });

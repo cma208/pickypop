@@ -715,3 +715,59 @@ update public.orders set opportunity_id = '00000000-0000-4000-8000-000000000151'
 -- es un dato que se contradice solo y enseña mal.
 update public.orders set opportunity_id = '00000000-0000-4000-8000-000000000152'
  where number in ('PED-0002', 'PED-0008');
+
+-- ------------------------------------------------------ piezas impresas
+--
+-- Las dos piezas de la botella de poción. Son artículos de inventario como
+-- los dulces: lo único que las distingue es que no se compran, se imprimen.
+--
+-- Con esto la placa de nueve tapas deja de cargarle su costo entero a la
+-- primera venta: las nueve entran al estante y cada botella armada consume
+-- una sola.
+
+insert into public.inventory_items (
+  id, workspace_id, kind, name, unit, min_stock, perishable, standard_cost, note
+) values
+  ('00000000-0000-4000-8000-000000000161', '00000000-0000-4000-8000-000000000001',
+   'part', 'Botella impresa', 'unidad', 5, false, null,
+   'Sale de la placa 1 de la receta. Una por producto.'),
+  ('00000000-0000-4000-8000-000000000162', '00000000-0000-4000-8000-000000000001',
+   'part', 'Tapa impresa', 'unidad', 10, false, null,
+   'Salen nueve por corrida. Por eso vender una suelta sin stock es caro.');
+
+update public.recipe_plates set produces_item_id = '00000000-0000-4000-8000-000000000161'
+ where id = '00000000-0000-4000-8000-000000000094';
+update public.recipe_plates set produces_item_id = '00000000-0000-4000-8000-000000000162'
+ where id = '00000000-0000-4000-8000-000000000095';
+
+-- La receta consume una de cada una por unidad armada.
+insert into public.recipe_items (workspace_id, recipe_id, inventory_item_id, quantity_per_unit) values
+  ('00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000093',
+   '00000000-0000-4000-8000-000000000161', 1),
+  ('00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000093',
+   '00000000-0000-4000-8000-000000000162', 1);
+
+-- Lo que las impresiones del mes dejaron en el estante. Sobran tapas respecto
+-- de las botellas, que es exactamente lo que pasa cuando una placa rinde nueve.
+insert into public.stock_movements (workspace_id, occurred_at, type, inventory_item_id, quantity, unit_cost, source_type, note) values
+  ('00000000-0000-4000-8000-000000000001',
+   ((current_date - 18)::timestamp + interval '11 hours') at time zone 'America/Lima',
+   'purchase', '00000000-0000-4000-8000-000000000161', 30, 0.597, 'print_job', 'Botellas del pedido del colegio'),
+  ('00000000-0000-4000-8000-000000000001',
+   ((current_date - 18)::timestamp + interval '12 hours') at time zone 'America/Lima',
+   'purchase', '00000000-0000-4000-8000-000000000162', 45, 0.131, 'print_job', 'Cinco corridas de nueve tapas'),
+  ('00000000-0000-4000-8000-000000000001',
+   ((current_date - 17)::timestamp + interval '10 hours') at time zone 'America/Lima',
+   'consumption', '00000000-0000-4000-8000-000000000161', -30, 0.597, 'assembly', 'Armado del pedido del colegio'),
+  ('00000000-0000-4000-8000-000000000001',
+   ((current_date - 17)::timestamp + interval '10 hours') at time zone 'America/Lima',
+   'consumption', '00000000-0000-4000-8000-000000000162', -30, 0.131, 'assembly', 'Armado del pedido del colegio'),
+  ('00000000-0000-4000-8000-000000000001',
+   ((current_date - 11)::timestamp + interval '11 hours') at time zone 'America/Lima',
+   'purchase', '00000000-0000-4000-8000-000000000161', 18, 0.612, 'print_job', 'Botellas del Café Lima'),
+  ('00000000-0000-4000-8000-000000000001',
+   ((current_date - 10)::timestamp + interval '10 hours') at time zone 'America/Lima',
+   'consumption', '00000000-0000-4000-8000-000000000161', -10, 0.612, 'assembly', 'Armado del Café Lima'),
+  ('00000000-0000-4000-8000-000000000001',
+   ((current_date - 10)::timestamp + interval '10 hours') at time zone 'America/Lima',
+   'consumption', '00000000-0000-4000-8000-000000000162', -10, 0.131, 'assembly', 'Armado del Café Lima');

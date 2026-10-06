@@ -47,6 +47,12 @@ export function friendlyError(error: unknown, fallback: string): string {
     if (text.includes(constraint)) return explanation;
   }
 
+  // `P0001` es un `raise exception` de plpgsql: alguien escribió ese texto a
+  // mano, para una persona, y sabe más del caso que cualquier regla de aquí.
+  // Son los mensajes que dicen qué falta y cuánto, como el del sobrepago de
+  // `record_payment` o el de armar sin piezas suficientes.
+  if (code === 'P0001' && text.trim() !== '') return text;
+
   if (code === '42501' || text.includes('row-level security')) return NO_PERMISSION;
   if (code === '23505') return 'Ya existe un registro con esos datos.';
   if (code === '23503') return 'Este registro está en uso en otra parte y no se puede modificar así.';

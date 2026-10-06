@@ -276,6 +276,7 @@ export class CatalogoData {
         id: plate.id,
         label: plate.label,
         plateIndex: plate.plate_index,
+        producesItemId: plate.produces_item_id,
         unitsPerRun: Number(plate.units_per_run),
         printTimeS: plate.print_time_s,
         filaments: plate.recipe_plate_filaments
@@ -329,12 +330,29 @@ export class CatalogoData {
     if (error) fail(error, 'No pudimos guardar la receta.');
   }
 
+  /**
+   * Las piezas que el taller sabe producir, para decir qué sale de una placa.
+   * Son artículos de inventario como cualquier otro: lo único que las
+   * distingue es que no se compran, se imprimen.
+   */
+  async parts(): Promise<{ id: string; name: string; unit: string }[]> {
+    const { data, error } = await this.supabase
+      .from('inventory_items')
+      .select('id, name, unit')
+      .eq('kind', 'part')
+      .eq('active', true)
+      .order('name');
+    if (error) fail(error, 'No pudimos cargar las piezas.');
+    return data ?? [];
+  }
+
   async addPlate(recipeId: string, plateIndex: number, input: RecipePlateInput): Promise<void> {
     const { error } = await this.supabase.from('recipe_plates').insert({
       workspace_id: await this.workspaceId(),
       recipe_id: recipeId,
       plate_index: plateIndex,
       label: blankToNull(input.label),
+      produces_item_id: input.producesItemId,
       units_per_run: input.unitsPerRun,
       print_time_s: input.printTimeS,
     });
@@ -346,6 +364,7 @@ export class CatalogoData {
       .from('recipe_plates')
       .update({
         label: blankToNull(input.label),
+        produces_item_id: input.producesItemId,
         units_per_run: input.unitsPerRun,
         print_time_s: input.printTimeS,
       })

@@ -22,6 +22,7 @@ export const routes: Routes = [
       // Spools live inside their filament now; the old link still has to work.
       { path: 'inventario/rollos', pathMatch: 'full', redirectTo: 'inventario/filamentos' },
       { path: 'inventario/compras', title: 'Compras', loadComponent: () => import('./features/inventario/compras.page').then((m) => m.ComprasPage) },
+      { path: 'inventario/piezas', title: 'Piezas impresas', loadComponent: () => import('./features/inventario/piezas.page').then((m) => m.PiezasPage) },
       { path: 'inventario/insumos', title: 'Insumos y empaque', loadComponent: () => import('./features/inventario/insumos.page').then((m) => m.InsumosPage) },
       { path: 'inventario/movimientos', title: 'Kardex', loadComponent: () => import('./features/inventario/movimientos.page').then((m) => m.MovimientosPage) },
 

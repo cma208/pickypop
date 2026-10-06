@@ -138,6 +138,10 @@ Configuración          marcas, materiales, acabados, parámetros, usuarios
 
 **Ojo con esto:** es aditivo. Los pedidos cargados antes siguen siendo válidos. **No migrar históricos hacia atrás.**
 
+**Cerrado el 2026-10-06**, salvo el punto 6b: el formulario de compra todavía pide el precio unitario ya calculado en vez de aceptar "compré una bolsa de 500 g a S/ 15". La columna ya aguanta seis decimales, así que el error grande está tapado; falta la comodidad.
+
+Tres cosas aparecieron al usarlo y están resueltas: el costo de una pieza no puede salir de `inventory_item_costs` porque una pieza no se compra nunca (sale del promedio ponderado de lo que costó imprimirla); al armar, las piezas salían del stock con costo nulo por lo mismo; y `friendlyError` no reconocía el código `P0001`, así que el mensaje que la base escribe para una persona —el que dice qué falta y cuánto— se perdía detrás de un "no pudimos".
+
 ---
 
 ## M5 · Disponible para prometer
