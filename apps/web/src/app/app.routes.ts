@@ -15,10 +15,12 @@ export const routes: Routes = [
     canActivate: [authGuard],
     loadComponent: () => import('./layout/shell').then((m) => m.Shell),
     children: [
-      { path: 'panel', loadComponent: () => import('./features/panel/panel.page').then((m) => m.PanelPage) },
+      { path: 'hoy', loadComponent: () => import('./features/panel/panel.page').then((m) => m.PanelPage) },
+      { path: 'panel', pathMatch: 'full', redirectTo: 'hoy' },
 
       { path: 'inventario/filamentos', loadComponent: () => import('./features/inventario/filamentos.page').then((m) => m.FilamentosPage) },
-      { path: 'inventario/rollos', loadComponent: () => import('./features/inventario/rollos.page').then((m) => m.RollosPage) },
+      // Spools live inside their filament now; the old link still has to work.
+      { path: 'inventario/rollos', pathMatch: 'full', redirectTo: 'inventario/filamentos' },
       { path: 'inventario/compras', loadComponent: () => import('./features/inventario/compras.page').then((m) => m.ComprasPage) },
       { path: 'inventario/insumos', loadComponent: () => import('./features/inventario/insumos.page').then((m) => m.InsumosPage) },
       { path: 'inventario/movimientos', loadComponent: () => import('./features/inventario/movimientos.page').then((m) => m.MovimientosPage) },
@@ -44,7 +46,7 @@ export const routes: Routes = [
       { path: 'clientes', loadComponent: () => import('./features/clientes/clientes.page').then((m) => m.ClientesPage) },
       { path: 'configuracion', loadComponent: () => import('./features/configuracion/configuracion.page').then((m) => m.ConfiguracionPage) },
 
-      { path: '', pathMatch: 'full', redirectTo: 'panel' },
+      { path: '', pathMatch: 'full', redirectTo: 'hoy' },
     ],
   },
   { path: '**', redirectTo: '' },

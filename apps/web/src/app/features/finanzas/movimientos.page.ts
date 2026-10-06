@@ -32,7 +32,7 @@ const NO_FILTER: LedgerFilter = { accountId: null, type: null, from: null, to: n
     `,
   ],
   template: `
-    <pp-page title="Movimientos de dinero" subtitle="El libro: todo lo que entró, salió y cambió de cuenta">
+    <pp-page title="Caja" subtitle="El libro: todo lo que entró, salió y cambió de cuenta">
       <button actions type="button" (click)="openForm()">Registrar movimiento</button>
 
       @if (notice(); as text) {

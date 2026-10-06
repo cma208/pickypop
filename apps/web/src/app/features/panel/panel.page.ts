@@ -39,7 +39,7 @@ const TODAY = new Intl.DateTimeFormat('es-PE', {
     `,
   ],
   template: `
-    <pp-page title="Resumen del día" [subtitle]="today">
+    <pp-page title="Hoy" [subtitle]="today">
       <div class="cards">
         <pp-card heading="Filamentos bajo mínimo">
           <a card-actions routerLink="/inventario/filamentos">Ver filamentos</a>
@@ -97,7 +97,7 @@ const TODAY = new Intl.DateTimeFormat('es-PE', {
         </pp-card>
 
         <pp-card heading="Impresiones de la semana">
-          <a card-actions routerLink="/produccion">Ver producción</a>
+          <a card-actions routerLink="/produccion">Ver la cola</a>
           <pp-async [loading]="prints.isLoading()" [error]="problem(prints.error(), 'las impresiones')">
             @if (prints.value(); as week) {
               @if (week.successful + week.failed === 0) {

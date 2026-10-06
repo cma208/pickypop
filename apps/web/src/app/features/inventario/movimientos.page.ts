@@ -47,8 +47,8 @@ const NO_FILTER: MovementFilter = { type: null, spoolId: null, itemId: null, fro
   imports: [Page, AsyncState, Empty, Badge],
   template: `
     <pp-page
-      title="Movimientos de stock"
-      subtitle="El kardex: cada entrada y salida que explica las existencias de hoy"
+      title="Kardex"
+      subtitle="Cada entrada y salida que explica las existencias de hoy"
     >
       <div class="toolbar">
         <label class="filter">

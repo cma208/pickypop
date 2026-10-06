@@ -30,7 +30,7 @@ interface JobGroup {
   selector: 'app-produccion',
   imports: [Page, Card, AsyncState, Empty, PrintJobCard, PrintJobForm, ...FORMAT_PIPES],
   template: `
-    <pp-page title="Impresiones" subtitle="La cola del taller y el cierre de cada trabajo">
+    <pp-page title="Cola de impresión" subtitle="Los trabajos del taller y el cierre de cada uno">
       <button actions type="button" (click)="creating.set(!creating())">
         {{ creating() ? 'Cerrar formulario' : 'Nuevo trabajo' }}
       </button>

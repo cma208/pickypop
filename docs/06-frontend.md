@@ -68,11 +68,11 @@ Clases útiles: `.muted`, `.error`, `.num` (números alineados a la derecha), `.
 Resumen del día: filamentos bajo mínimo, pedidos en curso por estado, mantenimientos vencidos, impresiones de la semana con su tasa de éxito, y los parámetros vigentes. Cada bloque enlaza a su pantalla.
 
 ### Inventario
-- **Filamentos** (`/inventario/filamentos`): SKU con stock disponible, costo por gramo ponderado, mínimo y aviso de bajo stock. Alta y edición de SKU (marca, material, acabado, color, presentación, mínimo, costo de reposición).
-- **Rollos** (`/inventario/rollos`): lista con estado, ubicación, gramos restantes y costo. Acciones: abrir, registrar pesaje (crea un ajuste), marcar agotado, cambiar ubicación.
+- **Filamentos** (`/inventario/filamentos`): una sola pantalla para las dos mitades de lo mismo. La tabla lista los filamentos con su stock disponible, costo por gramo ponderado, mínimo y aviso de bajo stock; cada fila **se despliega** y muestra dentro los rollos físicos de ese filamento, con su código, estado, ubicación, gramos restantes y costo. Alta y edición del filamento; sobre cada rollo: cambiar estado, registrar pesaje (crea un ajuste) y cambiar ubicación.
+  `/inventario/rollos` existía como pantalla aparte y hoy redirige aquí. La distinción producto/unidad física es correcta, pero dos entradas en el menú no la enseñaban: anidada se explica sola.
 - **Compras** (`/inventario/compras`): lista y alta. El alta es el formulario más importante del área: proveedor, fecha, líneas (SKU o insumo, cantidad, precio), costo de envío y su reparto por monto o por peso. Al guardar crea los rollos con su costo real y los movimientos de entrada. Muestra el costo final por rollo antes de confirmar.
 - **Insumos y repuestos** (`/inventario/insumos`): artículos con existencias, mínimos y perecibles. Entradas y salidas manuales.
-- **Movimientos** (`/inventario/movimientos`): kardex con filtros por tipo, rollo, artículo y fechas. Es la pantalla que explica por qué el stock dice lo que dice.
+- **Kardex** (`/inventario/movimientos`): con filtros por tipo, rollo, artículo y fechas. Es la pantalla que explica por qué el stock dice lo que dice.
 
 ### Catálogo
 - **Catálogo** (`/catalogo`): productos con estado, variantes y precios. Crear y archivar.

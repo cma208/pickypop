@@ -42,7 +42,7 @@ const FILTERS: { value: StatusFilter; label: string }[] = [
     `,
   ],
   template: `
-    <pp-page title="Catálogo" subtitle="Productos, variantes y precios">
+    <pp-page title="Catálogo y recetas" subtitle="Productos, variantes, cómo se hace cada uno y a qué precio">
       <button actions type="button" (click)="creating.set(!creating())">
         {{ creating() ? 'Cerrar' : 'Nuevo producto' }}
       </button>

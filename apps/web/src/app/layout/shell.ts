@@ -23,18 +23,14 @@ export class Shell {
   protected readonly session = inject(Session);
   protected readonly menuOpen = signal(false);
 
+  /**
+   * Grouped by the part of the business you are in, not by the part of the
+   * system. Nouns, which is the convention everywhere else (Odoo, ERPNext,
+   * Shopify) and what the owner asked for. Entries only appear once their
+   * screen exists: a link to an empty page is worse than no link.
+   */
   protected readonly groups: NavGroup[] = [
-    { title: 'Taller', links: [{ path: '/panel', label: 'Panel' }] },
-    {
-      title: 'Inventario',
-      links: [
-        { path: '/inventario/filamentos', label: 'Filamentos' },
-        { path: '/inventario/rollos', label: 'Rollos' },
-        { path: '/inventario/compras', label: 'Compras' },
-        { path: '/inventario/insumos', label: 'Insumos y repuestos' },
-        { path: '/inventario/movimientos', label: 'Movimientos' },
-      ],
-    },
+    { title: 'Taller', links: [{ path: '/hoy', label: 'Hoy' }] },
     {
       title: 'Ventas',
       links: [
@@ -47,16 +43,25 @@ export class Shell {
     {
       title: 'Producción',
       links: [
-        { path: '/catalogo', label: 'Catálogo' },
-        { path: '/produccion', label: 'Impresiones' },
+        { path: '/produccion', label: 'Cola de impresión' },
+        { path: '/catalogo', label: 'Catálogo y recetas' },
         { path: '/impresoras', label: 'Impresoras' },
+      ],
+    },
+    {
+      title: 'Inventario',
+      links: [
+        { path: '/inventario/filamentos', label: 'Filamentos' },
+        { path: '/inventario/insumos', label: 'Insumos y empaque' },
+        { path: '/inventario/compras', label: 'Compras' },
+        { path: '/inventario/movimientos', label: 'Kardex' },
       ],
     },
     {
       title: 'Finanzas',
       links: [
         { path: '/finanzas/cuentas', label: 'Cuentas' },
-        { path: '/finanzas/movimientos', label: 'Movimientos de dinero' },
+        { path: '/finanzas/movimientos', label: 'Caja' },
         { path: '/finanzas/por-cobrar', label: 'Por cobrar' },
         { path: '/finanzas/resultados', label: 'Resultados' },
       ],

@@ -20,7 +20,7 @@ export class LoginPage {
 
   protected async submit(): Promise<void> {
     if (await this.session.signIn(this.email(), this.password())) {
-      await this.router.navigate(['/panel']);
+      await this.router.navigate(['/hoy']);
     }
   }
 }

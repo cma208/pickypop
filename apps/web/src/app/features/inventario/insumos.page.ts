@@ -14,7 +14,7 @@ type Dialog = { kind: 'edit'; item: InventoryItemSummary | null } | { kind: 'mov
   selector: 'app-insumos',
   imports: [Page, AsyncState, Empty, Badge, Modal, ItemForm, ItemMovementForm, FORMAT_PIPES, INVENTORY_PIPES],
   template: `
-    <pp-page title="Insumos y repuestos" subtitle="Imanes, empaques, boquillas y todo lo que se cuenta por unidad">
+    <pp-page title="Insumos y empaque" subtitle="Dulces, imanes, bolsas, boquillas y todo lo que se cuenta por unidad">
       <button actions type="button" (click)="dialog.set({ kind: 'edit', item: null })">+ Nuevo artículo</button>
 
       @if (notice(); as text) {
