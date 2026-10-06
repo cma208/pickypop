@@ -23,40 +23,40 @@ import { jobProgress } from './produccion.progress';
           [name]="title()"
         />
         <div class="summary">
-          <header>
-            <strong>{{ title() }}</strong>
-            <pp-badge [tone]="tone[job().status]">{{ statusLabel[job().status] }}</pp-badge>
-          </header>
+      <header>
+        <strong>{{ title() }}</strong>
+        <pp-badge [tone]="tone[job().status]">{{ statusLabel[job().status] }}</pp-badge>
+      </header>
 
-          <p class="meta muted">
-            @if (isClosed() && (job().finishedAt ?? job().startedAt); as when) { {{ when | fecha }} · }
-            {{ job().printerName }}
-            @if (job().plateLabel) { · Placa {{ job().plateLabel }} }
-            · {{ timeText() }}
-            @if (showOrder() && job().orderNumber) {
-              · <a [routerLink]="['/pedidos', job().orderId]">{{ job().orderNumber }}</a>
-            } @else if (showOrder() && !job().orderNumber) {
-              · Sin pedido
-            }
-          </p>
+      <p class="meta muted">
+        @if (isClosed() && (job().finishedAt ?? job().startedAt); as when) { {{ when | fecha }} · }
+        {{ job().printerName }}
+        @if (job().plateLabel) { · Placa {{ job().plateLabel }} }
+        · {{ timeText() }}
+        @if (showOrder() && job().orderNumber) {
+          · <a [routerLink]="['/pedidos', job().orderId]">{{ job().orderNumber }}</a>
+        } @else if (showOrder() && !job().orderNumber) {
+          · Sin pedido
+        }
+      </p>
 
-          @if (progress(); as run) {
-            <div class="progress" role="group" [attr.aria-label]="'Avance de la impresión'">
-              @if (run.fraction !== null) {
-                <div class="bar"><span [style.width.%]="run.fraction * 100" [class.late]="run.overdue"></span></div>
-                <p class="muted small">
-                  {{ run.fraction * 100 | number: '1.0-0' }} %
-                  @if (run.overdue) {
-                    · va {{ -run.remainingS! | duration }} más de lo estimado
-                  } @else {
-                    · faltan {{ run.remainingS! | duration }}
-                  }
-                </p>
+      @if (progress(); as run) {
+        <div class="progress" role="group" [attr.aria-label]="'Avance de la impresión'">
+          @if (run.fraction !== null) {
+            <div class="bar"><span [style.width.%]="run.fraction * 100" [class.late]="run.overdue"></span></div>
+            <p class="muted small">
+              {{ run.fraction * 100 | number: '1.0-0' }} %
+              @if (run.overdue) {
+                · va {{ -run.remainingS! | duration }} más de lo estimado
               } @else {
-                <p class="muted small">Lleva {{ run.elapsedS | duration }}. Sin estimación para comparar.</p>
+                · faltan {{ run.remainingS! | duration }}
               }
-            </div>
+            </p>
+          } @else {
+            <p class="muted small">Lleva {{ run.elapsedS | duration }}. Sin estimación para comparar.</p>
           }
+        </div>
+      }
         </div>
       </div>
 
@@ -109,14 +109,14 @@ import { jobProgress } from './produccion.progress';
     .bar { height: 0.45rem; border-radius: 999px; background: var(--line); overflow: hidden; }
     .bar span { display: block; height: 100%; background: var(--info); transition: width 0.3s; }
     .bar span.late { background: var(--warn); }
-    .small { font-size: var(--fs-sm); margin: 0.25rem 0 0; }
+    .small { font-size: 0.8rem; margin: 0.25rem 0 0; }
     header { display: flex; align-items: center; flex-wrap: wrap; gap: 0.5rem; }
     header strong { flex: 1; min-width: 8rem; }
     p { margin: 0.25rem 0; }
-    .meta { font-size: var(--fs-sm); }
-    .note { font-size: var(--fs-sm); }
-    .fail { color: var(--danger); font-size: var(--fs-sm); }
-    .spools { list-style: none; margin: 0.4rem 0 0.6rem; padding: 0; font-size: var(--fs-sm); display: grid; gap: 0.15rem; }
+    .meta { font-size: 0.82rem; }
+    .note { font-size: 0.82rem; }
+    .fail { color: var(--danger); font-size: 0.85rem; }
+    .spools { list-style: none; margin: 0.4rem 0 0.6rem; padding: 0; font-size: 0.85rem; display: grid; gap: 0.15rem; }
     .dot { display: inline-block; width: 0.7rem; height: 0.7rem; border-radius: 50%; border: 1px solid var(--line); margin-right: 0.3rem; }
   `,
 })
