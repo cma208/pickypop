@@ -37,7 +37,13 @@ apps/web/src/app/
 
 Los iconos del menú viven en `layout/nav-icons.ts`, como un sprite SVG en línea: diecinueve trazos de 24×24, sin relleno, que toman color y grosor de donde estén, así que el estado activo enciende el icono y la palabra a la vez. Son dibujados a mano a propósito: una fuente de iconos sería una dependencia y una petición de red para diecinueve figuras. Si hace falta uno nuevo, se agrega ahí y tiene que ser legible a 18 px, que es el único tamaño al que se dibujan.
 
-Tokens en `styles.scss`, con claro y oscuro automáticos: `--bg`, `--surface`, `--text`, `--muted`, `--line`, `--accent`, `--danger`, `--good`, `--warn` y sus variantes `-soft`.
+**Los colores viven en `_palettes.scss` y en ningún otro sitio.** Es el único archivo del proyecto donde hay un color escrito; `styles.scss` solo tiene la fontanería que decide cuál gana. Los tokens: `--bg`, `--surface`, `--text`, `--muted`, `--line`, `--line-strong`, `--accent`, `--accent-soft`, `--on-accent`, `--danger`, `--good`, `--warn` y sus `-soft`. Más `--radius`, `--radius-sm`, `--shadow` y `--row-pad`.
+
+Dos de ellos existen por motivos que no se ven hasta que faltan. **`--on-accent`** es la tinta que va encima del acento, y no puede ser blanca siempre: en modo oscuro el acento es claro, y un `color: #fff` ahí deja el botón en 2.3:1. **`--line-strong`** es el borde de algo en lo que se escribe o se hace clic: la raya que separa dos filas de tabla tiene que desaparecer, y el borde de un campo tiene que verse; con un solo token ganaba la raya.
+
+**Son dos ejes.** El *modo* (`data-mode`: claro, oscuro, o ausente para automático) y el *tema* (`data-palette`: terracota, índigo, turquesa, ciruela, grafito). Cada tema existe en los dos modos. Las reglas se escriben contra `[data-palette]` y no contra `:root[data-palette]` **a propósito**: así un elemento cualquiera —la miniatura de Configuración, por ejemplo— puede llevar un tema que no es el vigente y quedar pintado por estas mismas reglas, sin una segunda copia de los colores. Todas las reglas pesan igual, así que **lo que hace ganar a una elección explícita es estar escrita después**: no reordenes ese bloque.
+
+Si agregas una pantalla, no escribas un color. Si de verdad hace falta uno nuevo, va como token en las cinco paletas, o la próxima paleta lo dejará fuera.
 
 Componentes en `ui/`:
 
@@ -113,11 +119,11 @@ El filamento bajo mínimo **no** entra en la cola de arriba: es una condición, 
 - **Clientes** (`/clientes`): lista y alta con documento, contacto y notas.
 - **Configuración** (`/configuracion`): parámetros de costo con vigencia (crear una versión nueva, nunca editar la vigente), datos del taller y régimen tributario, miembros con su tarifa por hora, canales de venta, categorías de regalo, marcas, materiales y **apariencia**.
 
-  La pestaña **Apariencia** controla tema (automático, claro, oscuro), densidad de las tablas y si el menú arranca contraído. Vive en `core/appearance.ts` y se guarda en `localStorage`, **no en la base**: la apariencia es una propiedad de la pantalla que estás mirando, no de quién eres, y además tiene que poder aplicarse antes de que cargue nada. Por eso hay un script de seis líneas en `index.html` que lee la preferencia antes de que arranque Angular; sin él la página pinta en claro y luego salta, que se lee como un error. **Si cambias la clave o el formato, los dos sitios tienen que ir a la par.**
+  La pestaña **Apariencia** controla el tema de color, claro u oscuro, la densidad de las tablas y si el menú arranca contraído. Vive en `core/appearance.ts` y se guarda en `localStorage`, **no en la base**: la apariencia es una propiedad de la pantalla que estás mirando, no de quién eres, y además tiene que poder aplicarse antes de que cargue nada. Por eso hay un script de seis líneas en `index.html` que lee la preferencia antes de que arranque Angular; sin él la página pinta en claro y luego salta, que se lee como un error. **Si cambias la clave o el formato, los dos sitios tienen que ir a la par.**
 
-  **Hoy `theme` significa el modo, no la paleta.** Claro, oscuro y automático son un eje; las combinaciones de colores son otro, y todavía no existen. M10 los separa en `mode` y `palette`, y entonces este nombre cambia: no agregues paletas encima del nombre actual o queda mintiendo para siempre.
+  Guarda `mode`, `palette`, `density` y `sidebarCollapsed`. Lo almacenado antes del 2026-10-06 llamaba `theme` al modo; `parseAppearance` lo sigue leyendo, con prueba, para no devolver a claro a quien ya había elegido oscuro.
 
-  El tema y la densidad se eligen con miniatura y **no se aplican hasta Guardar**: cambiarlos bajo los pies de quien los está comparando hace imposible compararlos. Lo del menú sí se aplica al instante, porque es la misma acción que el botón « y verlo moverse es la única forma de saber si te gusta.
+  El tema y la densidad se eligen con miniatura y **no se aplican hasta Guardar**: cambiarlos bajo los pies de quien los está comparando hace imposible compararlos. La miniatura no es un dibujo ni una copia de la paleta: lleva puestos `data-palette` y `data-mode`, así que la pinta la hoja de estilos de verdad y no puede desincronizarse. Lo del menú sí se aplica al instante, porque es la misma acción que el botón « y verlo moverse es la única forma de saber si te gusta.
 
 ## 6.7 Cómo se reparte el trabajo
 
