@@ -735,10 +735,13 @@ insert into public.inventory_items (
    'part', 'Tapa impresa', 'unidad', 10, false, null,
    'Salen nueve por corrida. Por eso vender una suelta sin stock es caro.');
 
-update public.recipe_plates set produces_item_id = '00000000-0000-4000-8000-000000000161'
- where id = '00000000-0000-4000-8000-000000000094';
-update public.recipe_plates set produces_item_id = '00000000-0000-4000-8000-000000000162'
- where id = '00000000-0000-4000-8000-000000000095';
+-- Lo que sale de cada placa, con las mismas unidades por corrida que ya tiene.
+insert into public.recipe_plate_outputs (workspace_id, recipe_plate_id, inventory_item_id, units_per_run)
+select workspace_id, id, '00000000-0000-4000-8000-000000000161'::uuid, units_per_run
+from public.recipe_plates where id = '00000000-0000-4000-8000-000000000094'
+union all
+select workspace_id, id, '00000000-0000-4000-8000-000000000162'::uuid, units_per_run
+from public.recipe_plates where id = '00000000-0000-4000-8000-000000000095';
 
 -- La receta consume una de cada una por unidad armada.
 insert into public.recipe_items (workspace_id, recipe_id, inventory_item_id, quantity_per_unit) values

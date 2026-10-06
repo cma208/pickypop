@@ -8,6 +8,7 @@ export type SpoolStatus = 'sealed' | 'open' | 'in_use' | 'empty' | 'discarded';
 export type MovementType =
   | 'purchase'
   | 'production'
+  | 'delivery'
   | 'consumption'
   | 'waste'
   | 'adjustment'
@@ -37,6 +38,8 @@ export const SPOOL_STATUSES = Object.keys(SPOOL_STATUS_LABELS) as SpoolStatus[];
 export const MOVEMENT_TYPE_LABELS: Record<MovementType, string> = {
   purchase: 'Compra',
   production: 'Producción',
+  // Lo que sale hacia un cliente: no se gasta para fabricar, se vende o se regala.
+  delivery: 'Entrega',
   consumption: 'Consumo',
   waste: 'Merma',
   adjustment: 'Ajuste',
@@ -50,6 +53,8 @@ export const MOVEMENT_TYPES = Object.keys(MOVEMENT_TYPE_LABELS) as MovementType[
 const SOURCE_LABELS: Record<string, string> = {
   purchase: 'Compra',
   print_job: 'Impresión',
+  assembly: 'Armado',
+  order_delivery: 'Entrega de pedido',
   maintenance_log: 'Mantenimiento',
   maintenance: 'Mantenimiento',
   assembly: 'Armado',

@@ -23,6 +23,10 @@ const MINUTES_PER_HOUR = 60;
       .explain p { margin: 0 0 0.4rem; }
       .explain p:last-child { margin: 0; }
       h3 { margin: 1.25rem 0 0.5rem; font-size: 0.95rem; }
+      .assembled { display: grid; gap: 0.5rem; margin: 0 0 1rem; padding: 0; border: 0; }
+      .assembled legend { margin-bottom: 0.35rem; font-weight: 600; font-size: 0.9rem; }
+      .assembled label { display: grid; grid-template-columns: auto 1fr; gap: 0.5rem; align-items: start; font-size: 0.85rem; }
+      .assembled input { margin-top: 0.2rem; }
       .import { display: grid; gap: 0.4rem; justify-items: start; margin-bottom: 0.9rem; }
       .import .pick { position: relative; display: inline-block; }
       .import .pick input { position: absolute; width: 1px; height: 1px; opacity: 0; }
@@ -57,6 +61,17 @@ const MINUTES_PER_HOUR = 60;
           </div>
 
           <form [formGroup]="header" (ngSubmit)="saveHeader()" novalidate>
+            <fieldset class="assembled">
+              <legend>¿Cómo se entrega?</legend>
+              <label>
+                <input type="radio" formControlName="assembled" [value]="true" />
+                <span><strong>Se arma.</strong> Sus piezas, dulces y empaque se juntan en «Armar productos», y al cliente se le entrega el producto armado.</span>
+              </label>
+              <label>
+                <input type="radio" formControlName="assembled" [value]="false" />
+                <span><strong>Sale tal cual de la impresora.</strong> No pasa por «Armar»: al entregarlo se descuentan directo sus piezas y su empaque. Un llavero, por ejemplo.</span>
+              </label>
+            </fieldset>
             <div class="fields">
               <pp-field label="Preparación por lote (minutos)" [error]="headerInvalid('setupMinutes') ? 'No puede ser negativo.' : null">
                 <input type="number" min="0" step="any" inputmode="decimal" formControlName="setupMinutes" />
@@ -70,7 +85,7 @@ const MINUTES_PER_HOUR = 60;
             </pp-field>
             @if (error(); as message) { <p class="error" role="alert">{{ message }}</p> }
             <div class="bar">
-              <button type="submit" [disabled]="busy() || header.pristine">{{ busy() ? 'Guardando…' : 'Guardar tiempos' }}</button>
+              <button type="submit" [disabled]="busy() || header.pristine">{{ busy() ? 'Guardando…' : 'Guardar' }}</button>
               <span class="muted hint">Versión {{ current.version }}</span>
             </div>
           </form>
@@ -208,6 +223,7 @@ export class RecetaEditor {
     setupMinutes: new FormControl<number | null>(0, [Validators.required, Validators.min(0)]),
     minutesPerUnit: new FormControl<number | null>(0, [Validators.required, Validators.min(0)]),
     note: new FormControl('', { nonNullable: true }),
+    assembled: new FormControl(true, { nonNullable: true }),
   });
 
   constructor() {
@@ -219,6 +235,7 @@ export class RecetaEditor {
             setupMinutes: recipe.setupMinutes,
             minutesPerUnit: recipe.minutesPerUnit,
             note: recipe.note ?? '',
+            assembled: recipe.assembled,
           });
         }
       });
@@ -256,6 +273,7 @@ export class RecetaEditor {
         setupMinutes: Number(value.setupMinutes),
         minutesPerUnit: Number(value.minutesPerUnit),
         note: value.note,
+        assembled: value.assembled,
       });
       this.header.markAsPristine();
       this.changed.emit();

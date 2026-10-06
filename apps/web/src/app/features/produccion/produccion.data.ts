@@ -11,10 +11,9 @@ const WATTS_PER_KW = 1000;
 const JOB_HISTORY_LIMIT = 150;
 const FINISHED_ORDER_STATUSES = ['delivered', 'closed', 'cancelled'];
 const USABLE_SPOOL_STATUSES = ['sealed', 'open', 'in_use'] as const;
-const COMPLETE_PERCENT = 100;
 
 const JOB_FIELDS =
-  'id, status, printer_id, order_line_id, recipe_plate_id, label, started_at, finished_at, estimated_time_s, actual_time_s, units_produced, failure_cause, percent_complete, material_cost, energy_cost, machine_cost, note, created_at, printers(name), recipe_plates(label, units_per_run), ';
+  'id, status, printer_id, order_line_id, recipe_plate_id, label, started_at, finished_at, estimated_time_s, actual_time_s, units_produced, failure_cause, percent_complete, material_cost, energy_cost, machine_cost, note, created_at, printers(name), recipe_plates(label, units_per_run, recipe_plate_outputs(inventory_item_id, units_per_run)), ';
 const JOB_RELATIONS = 'order_lines(description, order_id, orders(number)), ';
 const JOB_FILAMENTS =
   'print_job_filaments(id, spool_id, slot, estimated_g, actual_g, spools(code, filament_skus(color_name, color_hex)))';
@@ -40,7 +39,11 @@ interface JobRow {
   machine_cost: number | null;
   note: string | null;
   printers: { name: string } | null;
-  recipe_plates: { label: string | null; units_per_run: number } | null;
+  recipe_plates: {
+    label: string | null;
+    units_per_run: number;
+    recipe_plate_outputs: { inventory_item_id: string; units_per_run: number }[];
+  } | null;
   order_lines: { description: string; order_id: string; orders: { number: string } | null } | null;
   print_job_filaments: {
     id: string;
@@ -70,6 +73,8 @@ export interface JobItem {
   printerName: string;
   plateLabel: string | null;
   plateUnitsPerRun: number | null;
+  /** The parts the plate puts on the shelf. More than one on a mixed plate. */
+  plateOutputs: { inventoryItemId: string; unitsPerRun: number }[];
   label: string | null;
   orderId: string | null;
   orderNumber: string | null;
@@ -404,17 +409,18 @@ export class ProduccionData {
       p_material_cost: costs.material,
       p_energy_cost: costs.energy,
       p_machine_cost: costs.machine,
+      // Everything the close knows goes in this one call. The units used to be
+      // saved afterwards, and the function, which reads them to fill the shelf,
+      // found zero and put the whole plate in: 7 caps out, 9 caps in.
+      p_outputs: outputsOf(job, input),
+      p_percent_complete: input.result === 'failed' ? (input.percentComplete ?? undefined) : undefined,
+      p_note: input.note ?? undefined,
     });
     if (error) throw error;
 
     // From here on the job is closed and the stock has moved: nothing may
     // throw, or the caller would report a failure that did not happen.
     let warning: string | null = null;
-    try {
-      await this.saveOutcomeDetails(job.id, input);
-    } catch {
-      warning = 'La impresión se cerró, pero no pudimos guardar las unidades o el porcentaje.';
-    }
 
     let after: StockEffect[] = [];
     try {
@@ -457,19 +463,6 @@ export class ProduccionData {
     }));
   }
 
-  private async saveOutcomeDetails(jobId: string, input: CloseJob): Promise<void> {
-    const percent = input.result === 'success' ? COMPLETE_PERCENT : input.percentComplete;
-    const { error } = await this.supabase
-      .from('print_jobs')
-      .update({
-        percent_complete: percent,
-        units_produced: input.result === 'success' ? (input.unitsProduced ?? 0) : 0,
-        ...(input.note ? { note: input.note } : {}),
-      })
-      .eq('id', jobId);
-    if (error) throw error;
-  }
-
   private async realCosts(job: JobItem, input: CloseJob) {
     const spoolIds = input.usage.map((usage) => usage.spoolId);
     const [spools, printers, rates, profile] = await Promise.all([
@@ -505,6 +498,18 @@ export class ProduccionData {
   }
 }
 
+/**
+ * What came out of the plate, for `complete_print_job`. The close form asks for
+ * a single count, which is exact for a plate that makes one part. For a mixed
+ * plate it says nothing yet, and every part counts at its full yield, until the
+ * form asks part by part.
+ */
+function outputsOf(job: JobItem, input: CloseJob): { inventory_item_id: string; units: number }[] | undefined {
+  if (input.result !== 'success' || input.unitsProduced == null) return undefined;
+  if (job.plateOutputs.length !== 1) return undefined;
+  return [{ inventory_item_id: job.plateOutputs[0].inventoryItemId, units: input.unitsProduced }];
+}
+
 function toJobItem(row: JobRow): JobItem {
   const costs = [row.material_cost, row.energy_cost, row.machine_cost];
   const hasCost = costs.some((cost) => cost != null);
@@ -516,6 +521,10 @@ function toJobItem(row: JobRow): JobItem {
     printerName: row.printers?.name ?? 'Impresora',
     plateLabel: row.recipe_plates?.label ?? null,
     plateUnitsPerRun: row.recipe_plates ? Number(row.recipe_plates.units_per_run) : null,
+    plateOutputs: (row.recipe_plates?.recipe_plate_outputs ?? []).map((out) => ({
+      inventoryItemId: out.inventory_item_id,
+      unitsPerRun: Number(out.units_per_run),
+    })),
     label: row.label,
     orderId: row.order_lines?.order_id ?? null,
     orderNumber: row.order_lines?.orders?.number ?? null,
