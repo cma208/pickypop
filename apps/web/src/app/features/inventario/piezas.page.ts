@@ -1,5 +1,5 @@
 import { Component, computed, inject, signal } from '@angular/core';
-import { AsyncState, Badge, Card, Empty, FORMAT_PIPES, Page } from '../../ui';
+import { AsyncState, Badge, Card, Empty, FORMAT_PIPES, Page, Thumb } from '../../ui';
 import { InventarioData, type AssemblyOption, type PartStock } from './inventario.data';
 import { describeError } from './inventario.errors';
 import { INVENTORY_STYLES } from './inventario.styles';
@@ -15,7 +15,7 @@ const COST_DIGITS = 3;
  */
 @Component({
   selector: 'app-piezas',
-  imports: [Page, Card, AsyncState, Empty, Badge, FORMAT_PIPES],
+  imports: [Page, Card, AsyncState, Empty, Badge, Thumb, FORMAT_PIPES],
   styles: [
     INVENTORY_STYLES,
     `
@@ -95,7 +95,12 @@ const COST_DIGITS = 3;
                   <tbody>
                     @for (part of parts(); track part.inventoryItemId) {
                       <tr>
-                        <td><span class="strong">{{ part.name }}</span></td>
+                        <td>
+                          <span class="with-thumb">
+                            <pp-thumb size="sm" [path]="part.imagePath" [name]="part.name" />
+                            <span class="strong">{{ part.name }}</span>
+                          </span>
+                        </td>
                         <td class="num">
                           {{ part.onHand }} {{ unitLabel(part) }}
                           @if (part.belowMinimum) {

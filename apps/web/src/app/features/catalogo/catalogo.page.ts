@@ -1,6 +1,6 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { AsyncState, Badge, Empty, FORMAT_PIPES, Page } from '../../ui';
+import { AsyncState, Badge, Empty, FORMAT_PIPES, Page, Thumb } from '../../ui';
 import { CatalogoData } from './catalogo.data';
 import {
   STATUS_LABELS,
@@ -24,7 +24,7 @@ const FILTERS: { value: StatusFilter; label: string }[] = [
 
 @Component({
   selector: 'app-catalogo',
-  imports: [RouterLink, Page, AsyncState, Badge, Empty, ProductoNuevo, ...FORMAT_PIPES],
+  imports: [RouterLink, Page, AsyncState, Badge, Empty, Thumb, ProductoNuevo, ...FORMAT_PIPES],
   styles: [
     SHARED_STYLES,
     `
@@ -36,7 +36,8 @@ const FILTERS: { value: StatusFilter; label: string }[] = [
       .product h2 a:hover { text-decoration: underline; }
       .meta { display: flex; flex-wrap: wrap; gap: 0.4rem 0.5rem; align-items: center; margin: 0.4rem 0 0.6rem; font-size: 0.85rem; }
       .variants { margin: 0; padding: 0; list-style: none; display: grid; gap: 0.2rem; font-size: 0.9rem; }
-      .variants li { display: flex; justify-content: space-between; gap: 1rem; }
+      .variants li { display: flex; align-items: center; gap: 0.5rem; }
+      .variants li .grow { flex: 1; }
       .variants .off { opacity: 0.6; }
       @media (max-width: 30rem) { .filters { grid-template-columns: minmax(0, 1fr); } }
     `,
@@ -87,6 +88,7 @@ const FILTERS: { value: StatusFilter; label: string }[] = [
             @for (product of visible(); track product.id) {
               <article class="product">
                 <header>
+                  <pp-thumb [path]="product.imagePath" [name]="product.name" />
                   <h2><a [routerLink]="['/catalogo', product.id]">{{ product.name }}</a></h2>
                   <pp-badge [tone]="tones[product.status]">{{ labels[product.status] }}</pp-badge>
                   <button type="button" class="secondary" [routerLink]="['/catalogo', product.id]">Abrir ficha</button>
@@ -102,10 +104,6 @@ const FILTERS: { value: StatusFilter; label: string }[] = [
                 </header>
                 <div class="meta muted">
                   @if (product.category) { <span>{{ product.category }}</span> <span aria-hidden="true">·</span> }
-                  <span>
-                    {{ product.leadTimeDays === null ? 'Sin plazo definido' : 'Entrega en ' + product.leadTimeDays + (product.leadTimeDays === 1 ? ' día' : ' días') }}
-                  </span>
-                  <span aria-hidden="true">·</span>
                   <pp-badge [tone]="product.botVisible ? 'info' : 'neutral'">
                     {{ product.botVisible ? 'Visible para el bot' : 'Oculto para el bot' }}
                   </pp-badge>
@@ -116,7 +114,12 @@ const FILTERS: { value: StatusFilter; label: string }[] = [
                   <ul class="variants">
                     @for (variant of product.variants; track variant.id) {
                       <li [class.off]="!variant.active">
-                        <span>{{ variant.name }}@if (!variant.active) { <span class="muted"> (inactiva)</span> }</span>
+                        <pp-thumb
+                          size="sm"
+                          [path]="variant.imagePath ?? product.imagePath"
+                          [name]="variant.name"
+                        />
+                        <span class="grow">{{ variant.name }}@if (!variant.active) { <span class="muted"> (inactiva)</span> }</span>
                         <span class="num">{{ variant.listPrice | money }}</span>
                       </li>
                     }

@@ -23,9 +23,11 @@ import { VariantCostModel } from './variant-cost.model';
     <div class="stack">
       <app-variante-form
         [productId]="variant().productId"
+        [productSlug]="productSlug()"
         [variant]="variant()"
         (saved)="variantSaved.emit()"
         (removed)="variantRemoved.emit()"
+        (duplicated)="variantSaved.emit()"
       />
 
       <pp-async [loading]="loading()" [error]="loadError()">
@@ -50,6 +52,8 @@ export class VarianteDetalle implements OnInit {
   protected readonly model = inject(VariantCostModel);
 
   readonly variant = input.required<Variant>();
+  /** Only used to suggest an internal code. */
+  readonly productSlug = input<string>('');
   readonly lookups = input<Lookups | null>(null);
   readonly lookupsError = input<string | null>(null);
   readonly context = input<CostContext | null>(null);

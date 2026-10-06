@@ -153,6 +153,7 @@ export interface InventoryItemSummary {
   kind: ItemKind;
   name: string;
   unit: string;
+  imagePath: string | null;
   minStock: number;
   perishable: boolean;
   note: string | null;
@@ -166,6 +167,7 @@ export interface InventoryItemInput {
   kind: ItemKind;
   name: string;
   unit: string;
+  imagePath: string | null;
   minStock: number;
   perishable: boolean;
   note: string | null;
@@ -258,6 +260,7 @@ export interface PartStock {
   inventoryItemId: string;
   name: string;
   unit: string;
+  imagePath: string | null;
   onHand: number;
   minStock: number;
   belowMinimum: boolean;
@@ -770,7 +773,7 @@ export class InventarioData {
 
   async items(): Promise<InventoryItemSummary[]> {
     const [items, balances] = await Promise.all([
-      this.supabase.from('inventory_items').select('id, kind, name, unit, min_stock, perishable, note, active'),
+      this.supabase.from('inventory_items').select('id, kind, name, unit, image_path, min_stock, perishable, note, active'),
       this.supabase.from('inventory_balances').select('inventory_item_id, on_hand, available'),
     ]);
     if (items.error) throw items.error;
@@ -787,6 +790,7 @@ export class InventarioData {
           kind: item.kind,
           name: item.name,
           unit: item.unit,
+          imagePath: item.image_path,
           minStock: num(item.min_stock),
           perishable: item.perishable,
           note: item.note,
@@ -808,6 +812,7 @@ export class InventarioData {
       perishable: input.perishable,
       note: input.note,
       active: input.active,
+      image_path: input.imagePath,
     };
 
     if (id) {
@@ -880,7 +885,7 @@ export class InventarioData {
   async partStock(): Promise<PartStock[]> {
     const { data, error } = await this.supabase
       .from('part_stock')
-      .select('inventory_item_id, name, unit, on_hand, min_stock, below_minimum, cost_per_unit, cost_source')
+      .select('inventory_item_id, name, unit, image_path, on_hand, min_stock, below_minimum, cost_per_unit, cost_source')
       .order('name');
     if (error) throw error;
 
@@ -888,6 +893,7 @@ export class InventarioData {
       inventoryItemId: row.inventory_item_id!,
       name: row.name!,
       unit: row.unit!,
+      imagePath: row.image_path,
       onHand: Number(row.on_hand ?? 0),
       minStock: Number(row.min_stock ?? 0),
       belowMinimum: row.below_minimum ?? false,

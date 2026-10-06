@@ -1,5 +1,5 @@
-import { Component, computed, inject, signal } from '@angular/core';
-import { AsyncState, Badge, Empty, FORMAT_PIPES, Page } from '../../ui';
+import { Component, computed, inject, input, signal } from '@angular/core';
+import { AsyncState, Badge, Empty, FORMAT_PIPES, Page, Thumb } from '../../ui';
 import { InventarioData, type InventoryItemSummary } from './inventario.data';
 import { describeError } from './inventario.errors';
 import { INVENTORY_PIPES, ITEM_KINDS, ITEM_KIND_LABELS, type ItemKind } from './inventario.format';
@@ -12,9 +12,9 @@ type Dialog = { kind: 'edit'; item: InventoryItemSummary | null } | { kind: 'mov
 
 @Component({
   selector: 'app-insumos',
-  imports: [Page, AsyncState, Empty, Badge, Modal, ItemForm, ItemMovementForm, FORMAT_PIPES, INVENTORY_PIPES],
+  imports: [Page, AsyncState, Empty, Badge, Thumb, Modal, ItemForm, ItemMovementForm, FORMAT_PIPES, INVENTORY_PIPES],
   template: `
-    <pp-page title="Insumos y empaque" subtitle="Dulces, imanes, bolsas, boquillas y todo lo que se cuenta por unidad">
+    <pp-page [title]="heading()" [subtitle]="subtitle()">
       <button actions type="button" (click)="dialog.set({ kind: 'edit', item: null })">+ Nuevo artículo</button>
 
       @if (notice(); as text) {
@@ -22,8 +22,8 @@ type Dialog = { kind: 'edit'; item: InventoryItemSummary | null } | { kind: 'mov
       }
 
       <pp-async [loading]="loading()" [error]="error()">
-        @if (items().length === 0) {
-          <pp-empty message="Aún no hay artículos registrados.">
+        @if (mine().length === 0) {
+          <pp-empty [message]="'Aún no hay ' + heading().toLowerCase() + ' registrados.'">
             <button type="button" (click)="dialog.set({ kind: 'edit', item: null })">Registrar el primero</button>
           </pp-empty>
         } @else {
@@ -32,15 +32,17 @@ type Dialog = { kind: 'edit'; item: InventoryItemSummary | null } | { kind: 'mov
               Buscar
               <input type="search" [value]="search()" (input)="onSearch($event)" placeholder="Nombre del artículo" />
             </label>
-            <label class="filter">
-              Tipo
-              <select [value]="kindFilter()" (change)="onKind($event)">
-                <option value="">Todos</option>
-                @for (kind of kinds; track kind) {
-                  <option [value]="kind">{{ labels[kind] }}</option>
-                }
-              </select>
-            </label>
+            @if (kindsHere().length > 1) {
+              <label class="filter">
+                Tipo
+                <select [value]="kindFilter()" (change)="onKind($event)">
+                  <option value="">Todos</option>
+                  @for (kind of kindsHere(); track kind) {
+                    <option [value]="kind">{{ labels[kind] }}</option>
+                  }
+                </select>
+              </label>
+            }
             <label class="check low">
               <input type="checkbox" [checked]="onlyLow()" (change)="onlyLow.set(!onlyLow())" />
               Solo bajo mínimo ({{ lowCount() }})
@@ -66,7 +68,10 @@ type Dialog = { kind: 'edit'; item: InventoryItemSummary | null } | { kind: 'mov
                   @for (item of visible(); track item.id) {
                     <tr [class.inactive]="!item.active">
                       <td>
-                        <span class="strong">{{ item.name }}</span>
+                        <span class="with-thumb">
+                          <pp-thumb size="sm" [path]="item.imagePath" [name]="item.name" />
+                          <span class="strong">{{ item.name }}</span>
+                        </span>
                         @if (!item.active) { <pp-badge>Inactivo</pp-badge> }
                         <small class="sub only-small">
                           {{ labels[item.kind] }}@if (item.perishable) { · Perecible }
@@ -132,8 +137,18 @@ type Dialog = { kind: 'edit'; item: InventoryItemSummary | null } | { kind: 'mov
 export class InsumosPage {
   private readonly data = inject(InventarioData);
 
-  protected readonly kinds = ITEM_KINDS;
+  /**
+   * Which kinds this screen holds, from the route. Supplies and packaging used
+   * to share one list; with four bags and three glues that was fine, and with
+   * forty of each it stops being: you do not look for a bag in the same place
+   * you look for a nozzle.
+   */
+  readonly scope = input<ItemKind[] | null>(null);
+  readonly heading = input('Insumos y empaque');
+  readonly subtitle = input('Todo lo que se cuenta por unidad');
+
   protected readonly labels = ITEM_KIND_LABELS;
+  protected readonly kindsHere = computed(() => this.scope() ?? ITEM_KINDS);
 
   protected readonly items = signal<InventoryItemSummary[]>([]);
   protected readonly loading = signal(true);
@@ -144,11 +159,17 @@ export class InsumosPage {
   protected readonly kindFilter = signal<ItemKind | ''>('');
   protected readonly onlyLow = signal(false);
 
-  protected readonly lowCount = computed(() => this.items().filter((item) => item.belowMinimum).length);
+  protected readonly lowCount = computed(() => this.mine().filter((item) => item.belowMinimum).length);
+
+  /** What belongs on this screen at all, before any filter the person sets. */
+  protected readonly mine = computed(() => {
+    const scope = this.scope();
+    return scope ? this.items().filter((item) => scope.includes(item.kind)) : this.items();
+  });
 
   protected readonly visible = computed(() => {
     const needle = this.search().trim().toLowerCase();
-    return this.items().filter(
+    return this.mine().filter(
       (item) =>
         (!this.onlyLow() || item.belowMinimum) &&
         (!this.kindFilter() || item.kind === this.kindFilter()) &&

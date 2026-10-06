@@ -66,11 +66,17 @@ import { VarianteForm } from './variante-form';
           }
 
           @if (creating()) {
-            <app-variante-form [productId]="current.id" (saved)="variantCreated($event)" (cancelled)="creating.set(false)" />
+            <app-variante-form
+              [productId]="current.id"
+              [productSlug]="current.slug"
+              (saved)="variantCreated($event)"
+              (cancelled)="creating.set(false)"
+            />
           } @else {
             @for (variant of selectedList(); track variant.id) {
               <app-variante-detalle
                 [variant]="variant"
+                [productSlug]="current.slug"
                 [lookups]="lookups()"
                 [lookupsError]="lookupsError()"
                 [context]="context()"

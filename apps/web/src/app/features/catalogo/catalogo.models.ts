@@ -26,6 +26,7 @@ export interface VariantBrief {
   name: string;
   listPrice: number | null;
   active: boolean;
+  imagePath: string | null;
 }
 
 export interface ProductSummary {
@@ -36,6 +37,7 @@ export interface ProductSummary {
   botVisible: boolean;
   leadTimeDays: number | null;
   category: string | null;
+  imagePath: string | null;
   variants: VariantBrief[];
 }
 
@@ -49,6 +51,7 @@ export interface ProductDetail {
   status: ProductStatus;
   botVisible: boolean;
   leadTimeDays: number | null;
+  imagePath: string | null;
   specs: Pair[];
 }
 
@@ -60,6 +63,7 @@ export interface ProductInput {
   category: string | null;
   tags: string[];
   leadTimeDays: number | null;
+  imagePath?: string | null;
   status?: ProductStatus;
   botVisible?: boolean;
   specs?: Pair[];
@@ -74,6 +78,7 @@ export interface Variant {
   listPrice: number | null;
   minOrderUnits: number | null;
   active: boolean;
+  imagePath: string | null;
 }
 
 export type VariantInput = Omit<Variant, 'id' | 'productId'>;

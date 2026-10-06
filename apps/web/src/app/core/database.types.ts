@@ -82,13 +82,13 @@ isOneToOne: false
                   ]
                 },"catalog_products": {
                   Row: {
-                    "bot_visible": boolean,"category": string | null,"created_at": string,"created_by": string | null,"description": string | null,"id": string,"lead_time_days": number | null,"name": string,"slug": string,"specs": NonNullable<Json>,"status": Database["public"]['Enums']["product_status"],"tags": (string)[],"updated_at": string,"workspace_id": string
+                    "bot_visible": boolean,"category": string | null,"created_at": string,"created_by": string | null,"description": string | null,"id": string,"image_path": string | null,"lead_time_days": number | null,"name": string,"slug": string,"specs": NonNullable<Json>,"status": Database["public"]['Enums']["product_status"],"tags": (string)[],"updated_at": string,"workspace_id": string
                   }
                   Insert: {
-                    "bot_visible"?: boolean,"category"?: string | null,"created_at"?: string,"created_by"?: string | null,"description"?: string | null,"id"?: string,"lead_time_days"?: number | null,"name": string,"slug": string,"specs"?: NonNullable<Json>,"status"?: Database["public"]['Enums']["product_status"],"tags"?: (string)[],"updated_at"?: string,"workspace_id": string
+                    "bot_visible"?: boolean,"category"?: string | null,"created_at"?: string,"created_by"?: string | null,"description"?: string | null,"id"?: string,"image_path"?: string | null,"lead_time_days"?: number | null,"name": string,"slug": string,"specs"?: NonNullable<Json>,"status"?: Database["public"]['Enums']["product_status"],"tags"?: (string)[],"updated_at"?: string,"workspace_id": string
                   }
                   Update: {
-                    "bot_visible"?: boolean,"category"?: string | null,"created_at"?: string,"created_by"?: string | null,"description"?: string | null,"id"?: string,"lead_time_days"?: number | null,"name"?: string,"slug"?: string,"specs"?: NonNullable<Json>,"status"?: Database["public"]['Enums']["product_status"],"tags"?: (string)[],"updated_at"?: string,"workspace_id"?: string
+                    "bot_visible"?: boolean,"category"?: string | null,"created_at"?: string,"created_by"?: string | null,"description"?: string | null,"id"?: string,"image_path"?: string | null,"lead_time_days"?: number | null,"name"?: string,"slug"?: string,"specs"?: NonNullable<Json>,"status"?: Database["public"]['Enums']["product_status"],"tags"?: (string)[],"updated_at"?: string,"workspace_id"?: string
                   }
                   Relationships: [
                     {
@@ -270,13 +270,13 @@ isOneToOne: false
                   ]
                 },"inventory_items": {
                   Row: {
-                    "active": boolean,"created_at": string,"id": string,"kind": Database["public"]['Enums']["inventory_item_kind"],"min_stock": number,"name": string,"note": string | null,"perishable": boolean,"standard_cost": number | null,"unit": string,"updated_at": string,"workspace_id": string
+                    "active": boolean,"created_at": string,"id": string,"image_path": string | null,"kind": Database["public"]['Enums']["inventory_item_kind"],"min_stock": number,"name": string,"note": string | null,"perishable": boolean,"standard_cost": number | null,"unit": string,"updated_at": string,"workspace_id": string
                   }
                   Insert: {
-                    "active"?: boolean,"created_at"?: string,"id"?: string,"kind": Database["public"]['Enums']["inventory_item_kind"],"min_stock"?: number,"name": string,"note"?: string | null,"perishable"?: boolean,"standard_cost"?: number | null,"unit"?: string,"updated_at"?: string,"workspace_id": string
+                    "active"?: boolean,"created_at"?: string,"id"?: string,"image_path"?: string | null,"kind": Database["public"]['Enums']["inventory_item_kind"],"min_stock"?: number,"name": string,"note"?: string | null,"perishable"?: boolean,"standard_cost"?: number | null,"unit"?: string,"updated_at"?: string,"workspace_id": string
                   }
                   Update: {
-                    "active"?: boolean,"created_at"?: string,"id"?: string,"kind"?: Database["public"]['Enums']["inventory_item_kind"],"min_stock"?: number,"name"?: string,"note"?: string | null,"perishable"?: boolean,"standard_cost"?: number | null,"unit"?: string,"updated_at"?: string,"workspace_id"?: string
+                    "active"?: boolean,"created_at"?: string,"id"?: string,"image_path"?: string | null,"kind"?: Database["public"]['Enums']["inventory_item_kind"],"min_stock"?: number,"name"?: string,"note"?: string | null,"perishable"?: boolean,"standard_cost"?: number | null,"unit"?: string,"updated_at"?: string,"workspace_id"?: string
                   }
                   Relationships: [
                     {
@@ -807,13 +807,13 @@ isOneToOne: false
                   ]
                 },"product_variants": {
                   Row: {
-                    "active": boolean,"created_at": string,"id": string,"list_price": number | null,"min_order_units": number | null,"name": string,"options": NonNullable<Json>,"product_id": string,"sku_code": string | null,"updated_at": string,"workspace_id": string
+                    "active": boolean,"created_at": string,"id": string,"image_path": string | null,"list_price": number | null,"min_order_units": number | null,"name": string,"options": NonNullable<Json>,"product_id": string,"sku_code": string | null,"updated_at": string,"workspace_id": string
                   }
                   Insert: {
-                    "active"?: boolean,"created_at"?: string,"id"?: string,"list_price"?: number | null,"min_order_units"?: number | null,"name": string,"options"?: NonNullable<Json>,"product_id": string,"sku_code"?: string | null,"updated_at"?: string,"workspace_id": string
+                    "active"?: boolean,"created_at"?: string,"id"?: string,"image_path"?: string | null,"list_price"?: number | null,"min_order_units"?: number | null,"name": string,"options"?: NonNullable<Json>,"product_id": string,"sku_code"?: string | null,"updated_at"?: string,"workspace_id": string
                   }
                   Update: {
-                    "active"?: boolean,"created_at"?: string,"id"?: string,"list_price"?: number | null,"min_order_units"?: number | null,"name"?: string,"options"?: NonNullable<Json>,"product_id"?: string,"sku_code"?: string | null,"updated_at"?: string,"workspace_id"?: string
+                    "active"?: boolean,"created_at"?: string,"id"?: string,"image_path"?: string | null,"list_price"?: number | null,"min_order_units"?: number | null,"name"?: string,"options"?: NonNullable<Json>,"product_id"?: string,"sku_code"?: string | null,"updated_at"?: string,"workspace_id"?: string
                   }
                   Relationships: [
                     {
@@ -1794,7 +1794,7 @@ isOneToOne: false
                   ]
                 },"part_stock": {
                   Row: {
-                    "below_minimum": boolean | null,"cost_per_unit": number | null,"cost_source": string | null,"inventory_item_id": string | null,"min_stock": number | null,"name": string | null,"on_hand": number | null,"unit": string | null,"workspace_id": string | null
+                    "below_minimum": boolean | null,"cost_per_unit": number | null,"cost_source": string | null,"image_path": string | null,"inventory_item_id": string | null,"min_stock": number | null,"name": string | null,"on_hand": number | null,"unit": string | null,"workspace_id": string | null
                   }
                   Relationships: [
                     {
@@ -1956,6 +1956,9 @@ isOneToOne: false
         isOneToOne: true
         isSetofReturn: false
       } },
+"duplicate_variant":
+{ Args: { "p_name": string,"p_variant_id": string }; Returns: string
+                           },
 "next_document_number":
 { Args: { "p_doc_kind": string,"p_workspace": string }; Returns: string
                            },

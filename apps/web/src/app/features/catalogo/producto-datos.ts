@@ -1,6 +1,6 @@
 import { Component, effect, inject, input, output, signal, untracked } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Card, Field } from '../../ui';
+import { Card, Field, ImageField } from '../../ui';
 import { CatalogoData } from './catalogo.data';
 import { STATUS_LABELS, type ProductDetail, type ProductStatus } from './catalogo.models';
 import { SHARED_STYLES } from './catalogo.styles';
@@ -12,11 +12,19 @@ const STATUSES: ProductStatus[] = ['draft', 'published', 'archived'];
 /** The product's own data and its technical sheet, saved together. */
 @Component({
   selector: 'app-producto-datos',
-  imports: [ReactiveFormsModule, Card, Field, PairsEditor],
+  imports: [ReactiveFormsModule, Card, Field, ImageField, PairsEditor],
   styles: SHARED_STYLES,
   template: `
     <form [formGroup]="form" (ngSubmit)="save()" (input)="justSaved.set(false)" novalidate class="stack">
       <pp-card heading="Datos del producto">
+        <pp-field label="Foto" hint="La que identifica al producto en todas las listas.">
+          <pp-image-field
+            folder="productos"
+            [path]="imagePath()"
+            [name]="form.controls.name.value"
+            (changed)="setImage($event)"
+          />
+        </pp-field>
         <div class="fields wide">
           <pp-field label="Nombre" [required]="true" [error]="invalid('name') ? 'Escribe el nombre.' : null">
             <input formControlName="name" autocomplete="off" />
@@ -39,9 +47,6 @@ const STATUSES: ProductStatus[] = ['draft', 'published', 'archived'];
           </pp-field>
           <pp-field label="Etiquetas" hint="Separadas por comas.">
             <input formControlName="tags" />
-          </pp-field>
-          <pp-field label="Plazo de entrega (días)" [error]="invalid('leadTimeDays') ? 'No puede ser negativo.' : null">
-            <input type="number" min="0" step="1" inputmode="numeric" formControlName="leadTimeDays" />
           </pp-field>
           <pp-field label="Estado">
             <select formControlName="status">
@@ -100,6 +105,7 @@ export class ProductoDatos {
   protected readonly busy = signal(false);
   protected readonly justSaved = signal(false);
   protected readonly error = signal<string | null>(null);
+  protected readonly imagePath = signal<string | null>(null);
 
   protected readonly form = new FormGroup({
     name: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
@@ -121,9 +127,20 @@ export class ProductoDatos {
     effect(() => {
       const product = this.product();
       untracked(() => {
+        this.imagePath.set(product.imagePath);
         if (!this.form.dirty) this.fill(product);
       });
     });
+  }
+
+  protected async setImage(path: string | null): Promise<void> {
+    this.imagePath.set(path);
+    try {
+      await this.data.setProductImage(this.product().id, path);
+      this.saved.emit();
+    } catch (error) {
+      this.error.set(messageOf(error, 'No pudimos guardar la foto.'));
+    }
   }
 
   protected invalid(name: 'name' | 'slug' | 'leadTimeDays'): boolean {

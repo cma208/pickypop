@@ -23,7 +23,28 @@ export const routes: Routes = [
       { path: 'inventario/rollos', pathMatch: 'full', redirectTo: 'inventario/filamentos' },
       { path: 'inventario/compras', title: 'Compras', loadComponent: () => import('./features/inventario/compras.page').then((m) => m.ComprasPage) },
       { path: 'inventario/piezas', title: 'Piezas impresas', loadComponent: () => import('./features/inventario/piezas.page').then((m) => m.PiezasPage) },
-      { path: 'inventario/insumos', title: 'Insumos y empaque', loadComponent: () => import('./features/inventario/insumos.page').then((m) => m.InsumosPage) },
+      {
+        path: 'inventario/insumos',
+        title: 'Insumos',
+        // Los dos usan la misma pantalla; lo que cambia es qué tipos viven en
+        // cada una. Llega como entrada por `withComponentInputBinding`.
+        data: {
+          scope: ['supply', 'spare_part'],
+          heading: 'Insumos y repuestos',
+          subtitle: 'Dulces, imanes, boquillas y todo lo que se cuenta por unidad',
+        },
+        loadComponent: () => import('./features/inventario/insumos.page').then((m) => m.InsumosPage),
+      },
+      {
+        path: 'inventario/empaque',
+        title: 'Empaque',
+        data: {
+          scope: ['packaging'],
+          heading: 'Empaque',
+          subtitle: 'Bolsas, cajas, cintas y etiquetas',
+        },
+        loadComponent: () => import('./features/inventario/insumos.page').then((m) => m.InsumosPage),
+      },
       { path: 'inventario/movimientos', title: 'Kardex', loadComponent: () => import('./features/inventario/movimientos.page').then((m) => m.MovimientosPage) },
 
       { path: 'catalogo', title: 'Catálogo y recetas', loadComponent: () => import('./features/catalogo/catalogo.page').then((m) => m.CatalogoPage) },

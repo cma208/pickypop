@@ -33,4 +33,7 @@ export const INVENTORY_STYLES = `
   small.sub { display: block; font-size: 0.75rem; color: var(--muted); }
   .pos { color: var(--good); }
   .neg { color: var(--danger); }
+
+  /* Name and picture read as one thing, so they line up as one thing. */
+  .with-thumb { display: inline-flex; align-items: center; gap: 0.5rem; }
 `;

@@ -84,7 +84,7 @@ export class CatalogoData {
     const { data, error } = await this.supabase
       .from('catalog_products')
       .select(
-        'id, name, slug, status, bot_visible, lead_time_days, category, product_variants(id, name, list_price, active)',
+        'id, name, slug, status, bot_visible, lead_time_days, category, image_path, product_variants(id, name, list_price, active, image_path)',
       )
       .order('name');
     if (error) fail(error, 'No pudimos cargar el catálogo.');
@@ -97,12 +97,14 @@ export class CatalogoData {
       botVisible: row.bot_visible,
       leadTimeDays: row.lead_time_days,
       category: row.category,
+      imagePath: row.image_path,
       variants: row.product_variants
         .map((variant) => ({
           id: variant.id,
           name: variant.name,
           listPrice: numberOrNull(variant.list_price),
           active: variant.active,
+          imagePath: variant.image_path,
         }))
         .sort((a, b) => a.name.localeCompare(b.name, 'es')),
     }));
@@ -127,6 +129,7 @@ export class CatalogoData {
       status: data.status,
       botVisible: data.bot_visible,
       leadTimeDays: data.lead_time_days,
+      imagePath: data.image_path,
       specs: toPairs(data.specs),
     };
   }
@@ -162,6 +165,7 @@ export class CatalogoData {
         category: blankToNull(input.category),
         tags: input.tags,
         lead_time_days: input.leadTimeDays,
+        ...(input.imagePath === undefined ? {} : { image_path: input.imagePath }),
         ...(input.status === undefined ? {} : { status: input.status }),
         ...(input.botVisible === undefined ? {} : { bot_visible: input.botVisible }),
         specs: fromPairs(input.specs),
@@ -170,6 +174,21 @@ export class CatalogoData {
     if (error) {
       fail(error, 'No pudimos guardar el producto.', 'Ya hay un producto con ese identificador (slug).');
     }
+  }
+
+  /**
+   * The picture saves on its own, without the form around it. Choosing a photo
+   * is a complete thought: making it wait for Guardar is how a photo gets
+   * uploaded and then lost.
+   */
+  async setProductImage(id: string, imagePath: string | null): Promise<void> {
+    const { error } = await this.supabase.from('catalog_products').update({ image_path: imagePath }).eq('id', id);
+    if (error) fail(error, 'No pudimos guardar la foto.');
+  }
+
+  async setVariantImage(id: string, imagePath: string | null): Promise<void> {
+    const { error } = await this.supabase.from('product_variants').update({ image_path: imagePath }).eq('id', id);
+    if (error) fail(error, 'No pudimos guardar la foto.');
   }
 
   async setProductStatus(id: string, status: ProductStatus): Promise<void> {
@@ -196,6 +215,7 @@ export class CatalogoData {
       listPrice: numberOrNull(row.list_price),
       minOrderUnits: row.min_order_units,
       active: row.active,
+      imagePath: row.image_path,
     }));
   }
 
@@ -221,6 +241,17 @@ export class CatalogoData {
     }
   }
 
+  /**
+   * Copies a variant whole: recipe, plates, filaments, supplies and price
+   * ladder. The database does it in one go, because a half-copied variant —
+   * one with half a recipe — is worse than no copy at all.
+   */
+  async duplicateVariant(id: string, name: string): Promise<string> {
+    const { data, error } = await this.supabase.rpc('duplicate_variant', { p_variant_id: id, p_name: name });
+    if (error) fail(error, 'No pudimos duplicar la variante.');
+    return data;
+  }
+
   /** Deleting a variant also deletes its recipe and its price tiers. */
   async deleteVariant(id: string): Promise<void> {
     const { error } = await this.supabase.from('product_variants').delete().eq('id', id);
@@ -235,6 +266,7 @@ export class CatalogoData {
       list_price: input.listPrice,
       min_order_units: input.minOrderUnits,
       active: input.active,
+      image_path: input.imagePath,
     };
   }
 

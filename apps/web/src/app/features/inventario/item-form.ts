@@ -1,6 +1,6 @@
 import { Component, inject, input, output, signal } from '@angular/core';
 import { NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Field } from '../../ui';
+import { Field, ImageField } from '../../ui';
 import { blankToNull, invalidMessage } from './form-helpers';
 import { InventarioData, type InventoryItemSummary } from './inventario.data';
 import { describeError } from './inventario.errors';
@@ -13,7 +13,7 @@ const UNIT_SUGGESTIONS = ['unidad', 'g', 'ml', 'm', 'par', 'caja'];
 /** Create or edit a supply, packaging, spare part or finished good. */
 @Component({
   selector: 'app-item-form',
-  imports: [ReactiveFormsModule, Field],
+  imports: [ReactiveFormsModule, Field, ImageField],
   template: `
     <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
       <div class="form-grid">
@@ -23,6 +23,14 @@ const UNIT_SUGGESTIONS = ['unidad', 'g', 'ml', 'm', 'par', 'caja'];
               <option [value]="kind">{{ labels[kind] }}</option>
             }
           </select>
+        </pp-field>
+        <pp-field label="Foto" hint="Para reconocerlo en la lista sin leer el nombre.">
+          <pp-image-field
+            folder="articulos"
+            [path]="imagePath()"
+            [name]="form.controls.name.value"
+            (changed)="imagePath.set($event)"
+          />
         </pp-field>
         <pp-field label="Nombre" [required]="true" [error]="msg(form.controls.name)">
           <input formControlName="name" autocomplete="off" />
@@ -82,6 +90,7 @@ export class ItemForm {
   protected readonly msg = invalidMessage;
   protected readonly busy = signal(false);
   protected readonly error = signal<string | null>(null);
+  protected readonly imagePath = signal<string | null>(null);
 
   protected readonly form = this.fb.group({
     kind: ['supply' as ItemKind, Validators.required],
@@ -96,6 +105,7 @@ export class ItemForm {
   ngOnInit(): void {
     const item = this.item();
     if (!item) return;
+    this.imagePath.set(item.imagePath);
     this.form.setValue({
       kind: item.kind,
       name: item.name,
@@ -115,7 +125,11 @@ export class ItemForm {
     this.busy.set(true);
     this.error.set(null);
     try {
-      await this.data.saveItem(this.item()?.id ?? null, { ...value, note: blankToNull(value.note) });
+      await this.data.saveItem(this.item()?.id ?? null, {
+        ...value,
+        note: blankToNull(value.note),
+        imagePath: this.imagePath(),
+      });
       this.saved.emit();
     } catch (error) {
       this.error.set(
