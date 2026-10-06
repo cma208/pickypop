@@ -25,6 +25,9 @@
 
       <pp-card heading="Datos">
         <div card-actions class="row">
+          <button type="button" class="secondary" [disabled]="downloading()" (click)="downloadPdf()">
+            {{ downloading() ? 'Generando…' : 'Descargar PDF' }}
+          </button>
           @if (canSend()) {
             <button type="button" [disabled]="busy()" (click)="apply('sent')">
               Marcar como enviada
@@ -40,6 +43,10 @@
             <button type="button" class="secondary">Crear versión nueva</button>
           </a>
         </div>
+
+        @if (pdfError(); as message) {
+          <p class="banner bad">{{ message }}</p>
+        }
 
         @if (confirming(); as pending) {
           <p class="banner warn row">

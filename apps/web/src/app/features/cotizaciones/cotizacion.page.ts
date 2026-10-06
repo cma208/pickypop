@@ -12,6 +12,8 @@ import {
   type StoredLine,
 } from '../cotizador/cotizador.data';
 import { calculateLine, materialLines, VALUATION_LABELS, type LineResult, type MaterialLineRow } from '../cotizador/quote-model';
+import { CurrentWorkspace } from '../../core/workspace';
+import { buildQuoteDocument } from './quote-document';
 
 /** A stored line, read back exactly as it was calculated. */
 interface FrozenLine {
@@ -58,6 +60,7 @@ const A_CENT = 0.005;
 })
 export class CotizacionPage {
   private readonly data = inject(CotizadorData);
+  private readonly workspace = inject(CurrentWorkspace);
 
   /** Bound from the :id segment of the route. */
   readonly id = input.required<string>();
@@ -67,6 +70,9 @@ export class CotizacionPage {
   protected readonly busy = signal(false);
   protected readonly quote = signal<QuoteDetail | null>(null);
   protected readonly confirming = signal<QuoteStatus | null>(null);
+  protected readonly downloading = signal(false);
+  /** Kept apart from `error` so a failed download does not hide the quote. */
+  protected readonly pdfError = signal<string | null>(null);
 
   private readonly today = new Date().toISOString().slice(0, 10);
 
@@ -159,6 +165,31 @@ export class CotizacionPage {
       );
     } finally {
       this.loading.set(false);
+    }
+  }
+
+  // ------------------------------------------------------------ printing
+
+  /**
+   * Builds the PDF from the stored amounts and hands it to the browser.
+   * jsPDF is loaded only here: it weighs more than the rest of the screen and
+   * most visits never ask for a file.
+   */
+  protected async downloadPdf(): Promise<void> {
+    const quote = this.quote();
+    if (quote === null || this.downloading()) return;
+
+    this.downloading.set(true);
+    this.pdfError.set(null);
+
+    try {
+      const { name } = await this.workspace.info();
+      const { downloadQuotePdf } = await import('./quote-pdf');
+      downloadQuotePdf(buildQuoteDocument(quote, name));
+    } catch {
+      this.pdfError.set('No pudimos generar el PDF de esta cotización.');
+    } finally {
+      this.downloading.set(false);
     }
   }
 
