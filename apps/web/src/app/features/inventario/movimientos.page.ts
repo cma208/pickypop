@@ -1,5 +1,5 @@
 import { Component, computed, inject, signal } from '@angular/core';
-import { AsyncState, Badge, Empty, Page, type BadgeTone } from '../../ui';
+import { AsyncState, Badge, Empty, Item, Page, type BadgeTone } from '../../ui';
 import {
   InventarioData,
   MOVEMENTS_LIMIT,
@@ -45,7 +45,7 @@ const NO_FILTER: MovementFilter = { type: null, spoolId: null, itemId: null, fro
 
 @Component({
   selector: 'app-movimientos',
-  imports: [Page, AsyncState, Empty, Badge],
+  imports: [Page, AsyncState, Empty, Badge, Item],
   template: `
     <pp-page
       title="Kardex"
@@ -101,28 +101,39 @@ const NO_FILTER: MovementFilter = { type: null, spoolId: null, itemId: null, fro
           <pp-empty [message]="hasFilter() ? 'No hay movimientos con estos filtros.' : 'Todavía no hay movimientos de stock.'" />
         }
 
-        @for (group of groups(); track group.day) {
-          <section class="day">
-            <h2>{{ group.heading }}</h2>
-            <div class="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Hora</th>
-                    <th>Movimiento</th>
-                    <th class="num">Cantidad</th>
-                    <th class="hide-small">Origen</th>
-                    <th class="hide-small">Nota</th>
-                  </tr>
-                </thead>
+        @if (groups().length > 0) {
+          <!-- One table for every day, so the columns line up from one day to the next. -->
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Hora</th>
+                  <th>Movimiento</th>
+                  <th class="num">Cantidad</th>
+                  <th class="hide-small">Origen</th>
+                  <th class="hide-small">Nota</th>
+                </tr>
+              </thead>
+              @for (group of groups(); track group.day) {
                 <tbody>
+                  <tr class="day">
+                    <th colspan="5" scope="rowgroup">{{ group.heading }}</th>
+                  </tr>
                   @for (row of group.rows; track row.id) {
                     <tr>
                       <td class="time">{{ time(row) }}</td>
                       <td>
-                        <pp-badge [tone]="tones[row.type]">{{ labels[row.type] }}</pp-badge>
-                        <span class="strong subject">{{ row.subject }}</span>
-                        <small class="sub only-small">{{ source(row) }}@if (row.note) { · {{ row.note }} }</small>
+                        <pp-item
+                          [path]="row.imagePath"
+                          [kind]="row.subjectKind === 'spool' ? 'spool' : row.itemKind"
+                          [color]="row.colorHex"
+                          [name]="row.subject"
+                        >
+                          <span sub>
+                            <pp-badge [tone]="tones[row.type]">{{ labels[row.type] }}</pp-badge>
+                            <span class="only-small">{{ source(row) }}@if (row.note) { · {{ row.note }} }</span>
+                          </span>
+                        </pp-item>
                       </td>
                       <td class="num qty" [class.pos]="isPositive(row)" [class.neg]="isNegative(row)" [class.muted]="isLogical(row)">
                         {{ signed(row) }}
@@ -133,9 +144,9 @@ const NO_FILTER: MovementFilter = { type: null, spoolId: null, itemId: null, fro
                     </tr>
                   }
                 </tbody>
-              </table>
-            </div>
-          </section>
+              }
+            </table>
+          </div>
         }
 
         @if (truncated()) {
@@ -150,13 +161,12 @@ const NO_FILTER: MovementFilter = { type: null, spoolId: null, itemId: null, fro
     INVENTORY_STYLES,
     `
       .clear { align-self: flex-end; margin-bottom: 0.1rem; }
-      .day { margin-bottom: 1.5rem; }
-      .day h2 {
-        margin: 0 0 0.25rem; padding-bottom: 0.4rem; border-bottom: 2px solid var(--line);
-        font-size: 0.95rem; color: var(--muted);
+      .day th {
+        padding-top: 1.1rem; background: var(--bg); border-bottom: 2px solid var(--line);
+        font-size: var(--fs-sm); text-transform: none; letter-spacing: 0; color: var(--text);
       }
+      tbody tr.day:hover { background: none; }
       .time { color: var(--muted); font-variant-numeric: tabular-nums; width: 1%; white-space: nowrap; }
-      .subject { margin-left: 0.4rem; }
       .qty { font-weight: 600; white-space: nowrap; }
       .note { color: var(--muted); max-width: 18rem; }
     `,

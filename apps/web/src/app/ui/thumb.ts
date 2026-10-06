@@ -46,6 +46,8 @@ export const ARTICLE_ICONS: Record<ArticleKind, readonly string[]> = {
   finished_good: ['M9.5 3h5', 'M10.5 3v5.2l-4.9 9.4A2.3 2.3 0 0 0 7.6 21h8.8a2.3 2.3 0 0 0 2-3.4l-4.9-9.4V3', 'M7.4 15h9.2'],
   product: ['M9.5 3h5', 'M10.5 3v5.2l-4.9 9.4A2.3 2.3 0 0 0 7.6 21h8.8a2.3 2.3 0 0 0 2-3.4l-4.9-9.4V3', 'M7.4 15h9.2'],
   plate: ['M12 3l9 5-9 5-9-5z', 'M3 13l9 5 9-5'],
+  spool: ['M12 3.5a8.5 8.5 0 1 0 0 17 8.5 8.5 0 1 0 0-17z', 'M12 9a3 3 0 1 0 0 6 3 3 0 1 0 0-6z', 'M12 3.5v2M12 18.5v2'],
+  printer: ['M7 9V3h10v6', 'M5 9h14a2 2 0 0 1 2 2v5H3v-5a2 2 0 0 1 2-2z', 'M7 14h10v7H7z'],
 };
 
 type State = 'loading' | 'shown' | 'none';

@@ -18,8 +18,8 @@ import { Thumb, type ThumbSize } from './thumb';
  * ```
  *
  * The second line can be the `sub` text or, when it needs markup, content
- * marked `sub`. Content marked `end` goes to the right; on a narrow screen it
- * drops below the name instead of squeezing it into one word per line.
+ * marked `sub`. Content marked `end` goes to the right and keeps its width;
+ * when space runs short it is the name that wraps, up to two lines.
  */
 @Component({
   selector: 'pp-item',
@@ -51,7 +51,7 @@ import { Thumb, type ThumbSize } from './thumb';
   `,
   styles: [
     `
-    :host { display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem 0.75rem; min-width: 0; }
+    :host { display: flex; align-items: center; gap: 0.75rem; min-width: 0; }
     .main { display: flex; align-items: center; gap: 0.75rem; flex: 1 1 auto; min-width: 0; }
     .text { display: grid; justify-items: start; min-width: 0; gap: 0.05rem; }
     .name {

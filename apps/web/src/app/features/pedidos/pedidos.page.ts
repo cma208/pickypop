@@ -1,14 +1,12 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { AsyncState, Badge, Empty, FORMAT_PIPES, Page } from '../../ui';
+import { AsyncState, Badge, Empty, FORMAT_PIPES, Page, Thumb } from '../../ui';
 import { explainError } from './pedidos.errors';
 import { PedidosData, type OrderListItem } from './pedidos.data';
 import {
   ALL_STATUSES,
   PAYMENT_STATUS_LABEL,
-  PAYMENT_STATUS_TONE,
   PURPOSE_LABEL,
-  PURPOSE_TONE,
   PURPOSES,
   STATUS_LABEL,
   STATUS_TONE,
@@ -23,7 +21,7 @@ const FINISHED: OrderStatus[] = ['delivered', 'closed', 'cancelled'];
 
 @Component({
   selector: 'app-pedidos',
-  imports: [RouterLink, Page, Badge, AsyncState, Empty, ...FORMAT_PIPES],
+  imports: [RouterLink, Page, Badge, AsyncState, Empty, Thumb, ...FORMAT_PIPES],
   template: `
     <pp-page title="Pedidos" subtitle="Ventas, uso personal y regalos">
       <a actions class="button" routerLink="/pedidos/nuevo">+ Nuevo pedido</a>
@@ -60,20 +58,26 @@ const FINISHED: OrderStatus[] = ['delivered', 'closed', 'cancelled'];
             @for (order of visible(); track order.id) {
               <li>
                 <a [routerLink]="['/pedidos', order.id]">
-                  <div class="top">
-                    <strong>{{ order.number }}</strong>
-                    <pp-badge [tone]="purposeTone[order.purpose]">{{ purposeName(order) }}</pp-badge>
-                    <pp-badge [tone]="statusTone[order.status]">{{ statusLabel[order.status] }}</pp-badge>
-                    @if (order.paymentStatus !== 'not_applicable' && order.status !== 'cancelled') {
-                      <pp-badge [tone]="paymentTone[order.paymentStatus]">{{ paymentLabel[order.paymentStatus] }}</pp-badge>
-                    }
-                  </div>
-                  <div class="who">{{ subject(order) }}</div>
-                  <div class="meta muted">
-                    @if (order.dueDate) { Entrega {{ order.dueDate | fecha }} } @else { Sin fecha de entrega }
+                  <pp-thumb size="row" [photo]="{ kind: 'order', id: order.id }" [name]="subject(order)" />
+                  <div class="body">
+                    <div class="top">
+                      <strong class="who">{{ subject(order) }}</strong>
+                      <pp-badge [tone]="statusTone[order.status]">{{ statusLabel[order.status] }}</pp-badge>
+                    </div>
+                    <div class="meta muted">
+                      {{ order.number }} · {{ purposeName(order) }} ·
+                      @if (order.dueDate) { entrega {{ order.dueDate | fecha }} } @else { sin fecha de entrega }
+                    </div>
                   </div>
                   <div class="total num">
-                    @if (order.purpose === 'sale') { {{ order.total | money }} } @else { <span class="muted">Sin precio</span> }
+                    @if (order.purpose === 'sale') {
+                      {{ order.total | money }}
+                      @if (order.paymentStatus !== 'not_applicable' && order.status !== 'cancelled') {
+                        <small class="pay" [class.owed]="order.paymentStatus !== 'paid'">{{ paymentLabel[order.paymentStatus] }}</small>
+                      }
+                    } @else {
+                      <span class="muted">Sin precio</span>
+                    }
                   </div>
                 </a>
               </li>
@@ -88,15 +92,17 @@ const FINISHED: OrderStatus[] = ['delivered', 'closed', 'cancelled'];
     .filters label { display: grid; gap: 0.2rem; min-width: 10rem; flex: 1; max-width: 16rem; font-size: 0.8rem; }
     .orders { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.6rem; }
     .orders a {
-      display: grid; grid-template-columns: 1fr auto; gap: 0.15rem 1rem;
-      padding: 0.8rem 1rem; border: 1px solid var(--line); border-radius: var(--radius);
+      display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 0.2rem 0.9rem;
+      padding: 0.7rem 1rem 0.7rem 0.7rem; border: 1px solid var(--line); border-radius: var(--radius);
       background: var(--surface); color: inherit; text-decoration: none;
     }
     .orders a:hover, .orders a:focus-visible { border-color: var(--accent); }
-    .top { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; grid-column: 1; }
-    .who { grid-column: 1; }
-    .meta { grid-column: 1; font-size: 0.8rem; }
-    .total { grid-column: 2; grid-row: 1 / span 3; align-self: center; font-weight: 600; }
+    .body { display: grid; gap: 0.15rem; min-width: 0; }
+    .top { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem 0.6rem; }
+    .meta { font-size: var(--fs-sm); }
+    .total { display: grid; justify-items: end; font-weight: 600; }
+    .pay { font-size: var(--fs-xs); font-weight: 400; color: var(--muted); }
+    .pay.owed { color: var(--warn); }
   `,
 })
 export class PedidosPage {
@@ -107,9 +113,7 @@ export class PedidosPage {
   protected readonly statusLabel = STATUS_LABEL;
   protected readonly statusTone = STATUS_TONE;
   protected readonly purposeLabel = PURPOSE_LABEL;
-  protected readonly purposeTone = PURPOSE_TONE;
   protected readonly paymentLabel = PAYMENT_STATUS_LABEL;
-  protected readonly paymentTone = PAYMENT_STATUS_TONE;
 
   protected readonly orders = signal<OrderListItem[]>([]);
   protected readonly loading = signal(true);

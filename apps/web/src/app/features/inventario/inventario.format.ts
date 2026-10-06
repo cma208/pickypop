@@ -51,6 +51,8 @@ const SOURCE_LABELS: Record<string, string> = {
   purchase: 'Compra',
   print_job: 'Impresión',
   maintenance_log: 'Mantenimiento',
+  maintenance: 'Mantenimiento',
+  assembly: 'Armado',
   order: 'Pedido',
   weighing: 'Pesaje',
   manual: 'Registro manual',
@@ -74,15 +76,24 @@ export function sourceLabel(sourceType: string | null): string {
 
 const QUANTITY = new Intl.NumberFormat('es-PE', { maximumFractionDigits: 3 });
 
+/**
+ * The unit as it reads after a number: "1 unidad" but "60 unidades". Only the
+ * word the app writes itself is made plural; a unit somebody typed ("g",
+ * "par", "caja") is left as they wrote it.
+ */
+export function unitFor(value: number, unit: string): string {
+  return unit === 'unidad' && Math.abs(value) !== 1 ? 'unidades' : unit;
+}
+
 /** "+1000 g" / "−250 g": explicit sign so the kardex reads as additions and removals. */
 export function signedQuantity(value: number, unit: string): string {
   const sign = value > 0 ? '+' : value < 0 ? '−' : '';
-  return `${sign}${QUANTITY.format(Math.abs(value))} ${unit}`;
+  return `${sign}${QUANTITY.format(Math.abs(value))} ${unitFor(value, unit)}`;
 }
 
 export function quantity(value: number | null | undefined, unit: string): string {
   if (value === null || value === undefined) return '—';
-  return `${QUANTITY.format(value)} ${unit}`;
+  return `${QUANTITY.format(value)} ${unitFor(value, unit)}`;
 }
 
 /** Today as YYYY-MM-DD in Lima. */

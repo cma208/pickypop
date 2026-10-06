@@ -7,9 +7,10 @@ type ItemKind = Database['public']['Enums']['inventory_item_kind'];
 
 /**
  * What an article is, for the icon drawn when it has no picture. The five kinds
- * of inventory item, plus a catalogue product and a printing plate.
+ * of inventory item, plus a catalogue product, a printing plate, a spool of
+ * filament and a printer.
  */
-export type ArticleKind = ItemKind | 'product' | 'plate';
+export type ArticleKind = ItemKind | 'product' | 'plate' | 'spool' | 'printer';
 
 /**
  * Something whose picture has to be looked up instead of carried along:

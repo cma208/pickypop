@@ -3,7 +3,7 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { date } from '../../core/format';
 import { friendlyError } from '../../core/friendly-error';
-import { AsyncState, Badge, Card, Empty, FORMAT_PIPES, Page } from '../../ui';
+import { AsyncState, Badge, Card, Empty, FORMAT_PIPES, Item, Page } from '../../ui';
 import { PrintJobCard } from '../produccion/print-job-card';
 import { PrintJobForm, type FixedOrderLine } from '../produccion/print-job-form';
 import { ProduccionData, type JobItem } from '../produccion/produccion.data';
@@ -23,7 +23,7 @@ import {
 
 @Component({
   selector: 'app-pedido',
-  imports: [RouterLink, Page, Card, Badge, AsyncState, Empty, PrintJobCard, PrintJobForm, PedidoCobro, ...FORMAT_PIPES],
+  imports: [RouterLink, Page, Card, Badge, AsyncState, Empty, Item, PrintJobCard, PrintJobForm, PedidoCobro, ...FORMAT_PIPES],
   template: `
     <pp-page [title]="order()?.number ?? 'Pedido'" [subtitle]="subtitle()">
       <a actions class="button secondary" routerLink="/pedidos">Volver</a>
@@ -104,7 +104,9 @@ import {
                   <tbody>
                     @for (line of o.lines; track line.id) {
                       <tr>
-                        <td>{{ line.description }}</td>
+                        <td>
+                          <pp-item size="lead" kind="product" [photo]="{ kind: 'variant', id: line.variantId }" [name]="line.description" />
+                        </td>
                         <td class="num">{{ line.quantity }}</td>
                         @if (o.purpose === 'sale') {
                           <td class="num">{{ line.unitPrice | money }}</td>

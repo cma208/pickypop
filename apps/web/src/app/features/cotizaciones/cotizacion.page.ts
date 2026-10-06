@@ -1,6 +1,6 @@
 import { Component, computed, effect, inject, input, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { AsyncState, Badge, Card, Empty, FORMAT_PIPES, Page, type BadgeTone } from '../../ui';
+import { AsyncState, Badge, Card, Empty, FORMAT_PIPES, Item, Page, type BadgeTone } from '../../ui';
 import { Desglose } from '../cotizador/desglose';
 import {
   CotizadorData,
@@ -36,7 +36,7 @@ const A_CENT = 0.005;
 
 @Component({
   selector: 'app-cotizacion',
-  imports: [RouterLink, Page, Card, Badge, AsyncState, Empty, Desglose, ...FORMAT_PIPES],
+  imports: [RouterLink, Page, Card, Badge, AsyncState, Empty, Item, Desglose, ...FORMAT_PIPES],
   templateUrl: './cotizacion.page.html',
   styles: `
     :host { display: block; }
@@ -44,7 +44,7 @@ const A_CENT = 0.005;
     .banner { margin: 0 0 0.75rem; padding: 0.6rem 0.8rem; border-radius: var(--radius-sm); font-size: 0.9rem; }
     .banner.warn { background: var(--warn-soft); color: var(--warn); }
     .banner.bad { background: var(--danger-soft); color: var(--danger); }
-    .banner.info { background: var(--accent-soft); color: var(--accent); }
+    .banner.info { background: var(--info-soft); color: var(--info); }
     dl.facts { display: grid; grid-template-columns: auto 1fr; gap: 0.35rem 1rem; margin: 0; }
     dl.facts dt { color: var(--muted); font-size: 0.85rem; }
     dl.facts dd { margin: 0; }
@@ -54,8 +54,8 @@ const A_CENT = 0.005;
     .totals .big dt, .totals .big dd { font-size: 1.1rem; font-weight: 600; }
     .line { margin-bottom: 1.5rem; padding-bottom: 1rem; border-bottom: 1px solid var(--line); }
     .line:last-child { margin-bottom: 0; padding-bottom: 0; border-bottom: 0; }
-    .line h3 { margin: 0 0 0.25rem; font-size: 1rem; }
-    .line .meta { margin: 0 0 0.75rem; font-size: 0.85rem; }
+    .line-head { margin-bottom: 0.75rem; }
+    .line-head strong { font-size: var(--fs-lg); }
   `,
 })
 export class CotizacionPage {

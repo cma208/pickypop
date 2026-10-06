@@ -58,6 +58,8 @@ describe('byUrgency', () => {
       title: '',
       detail: '',
       route: '',
+      photo: null,
+      kind: 'product',
     });
     const sorted = [task('soon'), task('late'), task('today')].sort(byUrgency);
     expect(sorted.map((item) => item.urgency)).toEqual(['late', 'today', 'soon']);

@@ -108,14 +108,21 @@
         } @else {
           @for (line of lines(); track line.stored.id) {
             <section class="line">
-              <h3>{{ line.stored.description }}</h3>
-              <p class="muted meta">
-                {{ line.stored.quantity }}
-                {{ line.stored.quantity === 1 ? 'unidad' : 'unidades' }} ·
-                costo unitario {{ line.stored.unitCost | money }} ·
-                precio unitario {{ line.stored.unitPrice | money }} ·
-                total {{ line.stored.lineTotal | money }}
-              </p>
+              <pp-item
+                class="line-head"
+                size="lead"
+                kind="product"
+                [photo]="{ kind: 'variant', id: line.stored.variantId }"
+                [name]="line.stored.description"
+              >
+                <span sub>
+                  {{ line.stored.quantity }}
+                  {{ line.stored.quantity === 1 ? 'unidad' : 'unidades' }} ·
+                  costo unitario {{ line.stored.unitCost | money }} ·
+                  precio unitario {{ line.stored.unitPrice | money }}
+                </span>
+                <strong end class="num">{{ line.stored.lineTotal | money }}</strong>
+              </pp-item>
 
               @if (line.drifted) {
                 <p class="banner warn">
@@ -151,7 +158,9 @@
                   <tbody>
                     @for (supply of line.stored.supplies; track $index) {
                       <tr>
-                        <td>{{ supply.label }}</td>
+                        <td>
+                          <pp-item size="option" kind="supply" [photo]="{ kind: 'item', id: supply.inventoryItemId }" [name]="supply.label" />
+                        </td>
                         <td class="num">{{ supply.quantity }}</td>
                         <td>{{ supply.scope === 'batch' ? 'una vez por lote' : 'por unidad' }}</td>
                         <td class="num">{{ supply.quantity * supply.unitCost | money }}</td>
