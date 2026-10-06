@@ -75,6 +75,30 @@ export function isFinal(status: OrderStatus): boolean {
   return status === 'closed' || status === 'cancelled';
 }
 
+/**
+ * Posición en el camino normal, o null para los que se salen de él. Es el
+ * mismo orden que `app.order_status_rank` en la base, que es quien manda: lo
+ * de aquí solo sirve para pedir el motivo antes de que lo exija la base, y no
+ * para decidir si se puede.
+ */
+export function statusRank(status: OrderStatus): number | null {
+  const index = STATUS_FLOW.indexOf(status);
+  return index >= 0 ? index + 1 : null;
+}
+
+/** Volver a un paso ya pasado. Es lo único que obliga a decir por qué. */
+export function isBackwards(from: OrderStatus, to: OrderStatus): boolean {
+  const before = statusRank(from);
+  const after = statusRank(to);
+  return before !== null && after !== null && after < before;
+}
+
+/** Los pasos a los que este pedido puede volver. */
+export function previousStatuses(status: OrderStatus): OrderStatus[] {
+  const index = STATUS_FLOW.indexOf(status);
+  return index > 0 ? STATUS_FLOW.slice(0, index) : [];
+}
+
 export const PAYMENT_STATUS_LABEL: Record<OrderPaymentStatus, string> = {
   not_applicable: 'No aplica',
   unpaid: 'Sin cobrar',

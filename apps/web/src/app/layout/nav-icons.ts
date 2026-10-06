@@ -2,7 +2,7 @@
  * The navigation icons, as one inline sprite.
  *
  * Inline and hand-drawn on purpose: an icon font or a library would be a
- * dependency and a network request for seventeen shapes of twenty lines each.
+ * dependency and a network request for eighteen shapes of twenty lines each.
  * They are all 24×24 strokes with no fill, so they take the colour and the
  * weight of whatever they sit in, including the active state.
  *
@@ -23,6 +23,9 @@ import { Component } from '@angular/core';
   <symbol id="ic-calculator" viewBox="0 0 24 24">
     <rect x="4" y="3" width="16" height="18" rx="2" />
     <path d="M8 7h8M8 12h3M8 16h3M15.5 12v4.5M13.5 14.5h4" />
+  </symbol>
+  <symbol id="ic-funnel" viewBox="0 0 24 24">
+    <path d="M3 5h18l-7 8v6.5l-4 2V13z" />
   </symbol>
   <symbol id="ic-doc" viewBox="0 0 24 24">
     <path d="M6 3h8l4 4v14H6z" />
