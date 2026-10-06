@@ -460,6 +460,86 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"order_deliveries": {
+                  Row: {
+                    "created_at": string,"created_by": string | null,"delivered_at": string,"id": string,"note": string | null,"order_id": string,"workspace_id": string
+                  }
+                  Insert: {
+                    "created_at"?: string,"created_by"?: string | null,"delivered_at"?: string,"id"?: string,"note"?: string | null,"order_id": string,"workspace_id": string
+                  }
+                  Update: {
+                    "created_at"?: string,"created_by"?: string | null,"delivered_at"?: string,"id"?: string,"note"?: string | null,"order_id"?: string,"workspace_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "order_deliveries_order_id_fkey"
+      columns: ["order_id"]
+isOneToOne: false
+      referencedRelation: "order_payment_summary"
+      referencedColumns: ["order_id"]
+    },{
+      foreignKeyName: "order_deliveries_order_id_fkey"
+      columns: ["order_id"]
+isOneToOne: false
+      referencedRelation: "order_production_summary"
+      referencedColumns: ["order_id"]
+    },{
+      foreignKeyName: "order_deliveries_order_id_fkey"
+      columns: ["order_id"]
+isOneToOne: false
+      referencedRelation: "orders"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "order_deliveries_order_id_fkey"
+      columns: ["order_id"]
+isOneToOne: false
+      referencedRelation: "receivables"
+      referencedColumns: ["order_id"]
+    },{
+      foreignKeyName: "order_deliveries_workspace_id_fkey"
+      columns: ["workspace_id"]
+isOneToOne: false
+      referencedRelation: "workspaces"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"order_delivery_lines": {
+                  Row: {
+                    "created_at": string,"delivery_id": string,"id": string,"order_line_id": string,"quantity": number,"unit_cost": number | null,"workspace_id": string
+                  }
+                  Insert: {
+                    "created_at"?: string,"delivery_id": string,"id"?: string,"order_line_id": string,"quantity": number,"unit_cost"?: number | null,"workspace_id": string
+                  }
+                  Update: {
+                    "created_at"?: string,"delivery_id"?: string,"id"?: string,"order_line_id"?: string,"quantity"?: number,"unit_cost"?: number | null,"workspace_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "order_delivery_lines_delivery_id_fkey"
+      columns: ["delivery_id"]
+isOneToOne: false
+      referencedRelation: "order_deliveries"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "order_delivery_lines_order_line_id_fkey"
+      columns: ["order_line_id"]
+isOneToOne: false
+      referencedRelation: "order_line_delivery_status"
+      referencedColumns: ["order_line_id"]
+    },{
+      foreignKeyName: "order_delivery_lines_order_line_id_fkey"
+      columns: ["order_line_id"]
+isOneToOne: false
+      referencedRelation: "order_lines"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "order_delivery_lines_workspace_id_fkey"
+      columns: ["workspace_id"]
+isOneToOne: false
+      referencedRelation: "workspaces"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"order_lines": {
                   Row: {
                     "created_at": string,"description": string,"estimated_unit_cost": number,"id": string,"line_total": number | null,"order_id": string,"position": number,"quantity": number,"quote_line_id": string | null,"unit_price": number,"updated_at": string,"variant_id": string | null,"workspace_id": string
@@ -729,6 +809,12 @@ isOneToOne: false
                   }
                   Relationships: [
                     {
+      foreignKeyName: "print_jobs_order_line_id_fkey"
+      columns: ["order_line_id"]
+isOneToOne: false
+      referencedRelation: "order_line_delivery_status"
+      referencedColumns: ["order_line_id"]
+    },{
       foreignKeyName: "print_jobs_order_line_id_fkey"
       columns: ["order_line_id"]
 isOneToOne: false
@@ -1263,48 +1349,73 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
-                },"recipe_plates": {
+                },"recipe_plate_outputs": {
                   Row: {
-                    "created_at": string,"id": string,"label": string | null,"plate_index": number,"print_time_s": number,"produces_item_id": string | null,"recipe_id": string,"slicer_metadata": NonNullable<Json>,"source_file_name": string | null,"thumbnail_path": string | null,"units_per_run": number,"updated_at": string,"workspace_id": string
+                    "created_at": string,"id": string,"inventory_item_id": string,"position": number,"recipe_plate_id": string,"units_per_run": number,"updated_at": string,"workspace_id": string
                   }
                   Insert: {
-                    "created_at"?: string,"id"?: string,"label"?: string | null,"plate_index"?: number,"print_time_s": number,"produces_item_id"?: string | null,"recipe_id": string,"slicer_metadata"?: NonNullable<Json>,"source_file_name"?: string | null,"thumbnail_path"?: string | null,"units_per_run": number,"updated_at"?: string,"workspace_id": string
+                    "created_at"?: string,"id"?: string,"inventory_item_id": string,"position"?: number,"recipe_plate_id": string,"units_per_run": number,"updated_at"?: string,"workspace_id": string
                   }
                   Update: {
-                    "created_at"?: string,"id"?: string,"label"?: string | null,"plate_index"?: number,"print_time_s"?: number,"produces_item_id"?: string | null,"recipe_id"?: string,"slicer_metadata"?: NonNullable<Json>,"source_file_name"?: string | null,"thumbnail_path"?: string | null,"units_per_run"?: number,"updated_at"?: string,"workspace_id"?: string
+                    "created_at"?: string,"id"?: string,"inventory_item_id"?: string,"position"?: number,"recipe_plate_id"?: string,"units_per_run"?: number,"updated_at"?: string,"workspace_id"?: string
                   }
                   Relationships: [
                     {
-      foreignKeyName: "recipe_plates_produces_item_id_fkey"
-      columns: ["produces_item_id"]
+      foreignKeyName: "recipe_plate_outputs_inventory_item_id_fkey"
+      columns: ["inventory_item_id"]
 isOneToOne: false
       referencedRelation: "assembly_components"
       referencedColumns: ["inventory_item_id"]
     },{
-      foreignKeyName: "recipe_plates_produces_item_id_fkey"
-      columns: ["produces_item_id"]
+      foreignKeyName: "recipe_plate_outputs_inventory_item_id_fkey"
+      columns: ["inventory_item_id"]
 isOneToOne: false
       referencedRelation: "inventory_balances"
       referencedColumns: ["inventory_item_id"]
     },{
-      foreignKeyName: "recipe_plates_produces_item_id_fkey"
-      columns: ["produces_item_id"]
+      foreignKeyName: "recipe_plate_outputs_inventory_item_id_fkey"
+      columns: ["inventory_item_id"]
 isOneToOne: false
       referencedRelation: "inventory_item_costs"
       referencedColumns: ["inventory_item_id"]
     },{
-      foreignKeyName: "recipe_plates_produces_item_id_fkey"
-      columns: ["produces_item_id"]
+      foreignKeyName: "recipe_plate_outputs_inventory_item_id_fkey"
+      columns: ["inventory_item_id"]
 isOneToOne: false
       referencedRelation: "inventory_items"
       referencedColumns: ["id"]
     },{
-      foreignKeyName: "recipe_plates_produces_item_id_fkey"
-      columns: ["produces_item_id"]
+      foreignKeyName: "recipe_plate_outputs_inventory_item_id_fkey"
+      columns: ["inventory_item_id"]
 isOneToOne: false
       referencedRelation: "part_stock"
       referencedColumns: ["inventory_item_id"]
     },{
+      foreignKeyName: "recipe_plate_outputs_recipe_plate_id_fkey"
+      columns: ["recipe_plate_id"]
+isOneToOne: false
+      referencedRelation: "recipe_plates"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "recipe_plate_outputs_workspace_id_fkey"
+      columns: ["workspace_id"]
+isOneToOne: false
+      referencedRelation: "workspaces"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"recipe_plates": {
+                  Row: {
+                    "created_at": string,"id": string,"label": string | null,"plate_index": number,"print_time_s": number,"recipe_id": string,"slicer_metadata": NonNullable<Json>,"source_file_name": string | null,"thumbnail_path": string | null,"units_per_run": number,"updated_at": string,"workspace_id": string
+                  }
+                  Insert: {
+                    "created_at"?: string,"id"?: string,"label"?: string | null,"plate_index"?: number,"print_time_s": number,"recipe_id": string,"slicer_metadata"?: NonNullable<Json>,"source_file_name"?: string | null,"thumbnail_path"?: string | null,"units_per_run": number,"updated_at"?: string,"workspace_id": string
+                  }
+                  Update: {
+                    "created_at"?: string,"id"?: string,"label"?: string | null,"plate_index"?: number,"print_time_s"?: number,"recipe_id"?: string,"slicer_metadata"?: NonNullable<Json>,"source_file_name"?: string | null,"thumbnail_path"?: string | null,"units_per_run"?: number,"updated_at"?: string,"workspace_id"?: string
+                  }
+                  Relationships: [
+                    {
       foreignKeyName: "recipe_plates_recipe_id_fkey"
       columns: ["recipe_id"]
 isOneToOne: false
@@ -1326,13 +1437,13 @@ isOneToOne: false
                   ]
                 },"recipes": {
                   Row: {
-                    "active": boolean,"created_at": string,"id": string,"minutes_per_unit": number,"note": string | null,"setup_minutes": number,"updated_at": string,"valid_from": string,"variant_id": string,"version": number,"workspace_id": string
+                    "active": boolean,"assembled": boolean,"created_at": string,"id": string,"minutes_per_unit": number,"note": string | null,"setup_minutes": number,"updated_at": string,"valid_from": string,"variant_id": string,"version": number,"workspace_id": string
                   }
                   Insert: {
-                    "active"?: boolean,"created_at"?: string,"id"?: string,"minutes_per_unit"?: number,"note"?: string | null,"setup_minutes"?: number,"updated_at"?: string,"valid_from"?: string,"variant_id": string,"version"?: number,"workspace_id": string
+                    "active"?: boolean,"assembled"?: boolean,"created_at"?: string,"id"?: string,"minutes_per_unit"?: number,"note"?: string | null,"setup_minutes"?: number,"updated_at"?: string,"valid_from"?: string,"variant_id": string,"version"?: number,"workspace_id": string
                   }
                   Update: {
-                    "active"?: boolean,"created_at"?: string,"id"?: string,"minutes_per_unit"?: number,"note"?: string | null,"setup_minutes"?: number,"updated_at"?: string,"valid_from"?: string,"variant_id"?: string,"version"?: number,"workspace_id"?: string
+                    "active"?: boolean,"assembled"?: boolean,"created_at"?: string,"id"?: string,"minutes_per_unit"?: number,"note"?: string | null,"setup_minutes"?: number,"updated_at"?: string,"valid_from"?: string,"variant_id"?: string,"version"?: number,"workspace_id"?: string
                   }
                   Relationships: [
                     {
@@ -1942,6 +2053,43 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"order_line_delivery_status": {
+                  Row: {
+                    "delivered": number | null,"order_id": string | null,"order_line_id": string | null,"pending": number | null,"quantity": number | null,"workspace_id": string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "order_lines_order_id_fkey"
+      columns: ["order_id"]
+isOneToOne: false
+      referencedRelation: "order_payment_summary"
+      referencedColumns: ["order_id"]
+    },{
+      foreignKeyName: "order_lines_order_id_fkey"
+      columns: ["order_id"]
+isOneToOne: false
+      referencedRelation: "order_production_summary"
+      referencedColumns: ["order_id"]
+    },{
+      foreignKeyName: "order_lines_order_id_fkey"
+      columns: ["order_id"]
+isOneToOne: false
+      referencedRelation: "orders"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "order_lines_order_id_fkey"
+      columns: ["order_id"]
+isOneToOne: false
+      referencedRelation: "receivables"
+      referencedColumns: ["order_id"]
+    },{
+      foreignKeyName: "order_lines_workspace_id_fkey"
+      columns: ["workspace_id"]
+isOneToOne: false
+      referencedRelation: "workspaces"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"order_payment_summary": {
                   Row: {
                     "balance": number | null,"channel_id": string | null,"customer_id": string | null,"due_date": string | null,"last_payment_at": string | null,"number": string | null,"order_id": string | null,"ordered_on": string | null,"paid": number | null,"payment_status": Database["public"]['Enums']["order_payment_status"] | null,"status": Database["public"]['Enums']["order_status"] | null,"total": number | null,"workspace_id": string | null
@@ -2146,7 +2294,7 @@ isOneToOne: false
         isSetofReturn: true
       } },
 "complete_print_job":
-{ Args: { "p_actual_time_s"?: number,"p_energy_cost"?: number,"p_failure_cause"?: Database["public"]['Enums']["print_failure_cause"],"p_filament_usage"?: Json,"p_job_id": string,"p_machine_cost"?: number,"p_material_cost"?: number,"p_result": Database["public"]['Enums']["print_job_status"] }; Returns: {
+{ Args: { "p_actual_time_s"?: number,"p_energy_cost"?: number,"p_failure_cause"?: Database["public"]['Enums']["print_failure_cause"],"p_filament_usage"?: Json,"p_job_id": string,"p_machine_cost"?: number,"p_material_cost"?: number,"p_note"?: string,"p_outputs"?: Json,"p_percent_complete"?: number,"p_result": Database["public"]['Enums']["print_job_status"] }; Returns: {
               "actual_time_s": number | null,
 "created_at": string,
 "created_by": string | null,
@@ -2173,6 +2321,22 @@ isOneToOne: false
                           SetofOptions: {
         from: "*"
         to: "print_jobs"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
+"deliver_order":
+{ Args: { "p_delivered_at"?: string,"p_lines"?: Json,"p_note"?: string,"p_order_id": string }; Returns: {
+              "created_at": string,
+"created_by": string | null,
+"delivered_at": string,
+"id": string,
+"note": string | null,
+"order_id": string,
+"workspace_id": string
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "order_deliveries"
         isOneToOne: true
         isSetofReturn: false
       } },
@@ -2299,7 +2463,7 @@ isOneToOne: false
       } }
           }
           Enums: {
-            "account_kind": "cash"|"bank"|"wallet","component_kind": "nozzle"|"hotend"|"plate"|"ptfe"|"cutter"|"fan"|"ams"|"other","cost_allocation": "by_amount"|"by_weight","customer_doc_type": "none"|"dni"|"ruc"|"ce","customer_kind": "person"|"company","gift_treatment": "marketing"|"owner_draw"|"other","inventory_item_kind": "supply"|"packaging"|"spare_part"|"finished_good"|"part","material_valuation": "weighted_avg"|"last_cost"|"replacement","member_role": "owner"|"operator"|"viewer","opportunity_stage": "new"|"quoted"|"negotiating"|"won"|"closed"|"lost","order_payment_status": "not_applicable"|"unpaid"|"partial"|"paid","order_purpose": "sale"|"personal"|"gift","order_status": "confirmed"|"queued"|"printing"|"post_processing"|"ready"|"delivered"|"closed"|"on_hold"|"cancelled","payment_method": "cash"|"yape"|"plin"|"transfer","print_failure_cause": "adhesion"|"clog"|"spaghetti"|"layer_shift"|"filament_runout"|"power_loss"|"wrong_settings"|"other","print_job_status": "planned"|"printing"|"success"|"failed"|"cancelled","printer_status": "active"|"maintenance"|"retired","product_status": "draft"|"published"|"archived","quote_line_kind": "catalog"|"custom"|"service","quote_status": "draft"|"sent"|"accepted"|"rejected"|"expired","request_status": "new"|"awaiting_slicing"|"quoted"|"discarded","spool_status": "sealed"|"open"|"in_use"|"empty"|"discarded","stock_movement_type": "purchase"|"consumption"|"waste"|"adjustment"|"maintenance"|"reservation"|"release"|"production","tax_regime": "none"|"nrus"|"rer"|"rmt"|"general","transaction_direction": "income"|"expense","transaction_type": "income"|"expense"|"transfer"|"owner_contribution"|"owner_draw"
+            "account_kind": "cash"|"bank"|"wallet","component_kind": "nozzle"|"hotend"|"plate"|"ptfe"|"cutter"|"fan"|"ams"|"other","cost_allocation": "by_amount"|"by_weight","customer_doc_type": "none"|"dni"|"ruc"|"ce","customer_kind": "person"|"company","gift_treatment": "marketing"|"owner_draw"|"other","inventory_item_kind": "supply"|"packaging"|"spare_part"|"finished_good"|"part","material_valuation": "weighted_avg"|"last_cost"|"replacement","member_role": "owner"|"operator"|"viewer","opportunity_stage": "new"|"quoted"|"negotiating"|"won"|"closed"|"lost","order_payment_status": "not_applicable"|"unpaid"|"partial"|"paid","order_purpose": "sale"|"personal"|"gift","order_status": "confirmed"|"queued"|"printing"|"post_processing"|"ready"|"delivered"|"closed"|"on_hold"|"cancelled","payment_method": "cash"|"yape"|"plin"|"transfer","print_failure_cause": "adhesion"|"clog"|"spaghetti"|"layer_shift"|"filament_runout"|"power_loss"|"wrong_settings"|"other","print_job_status": "planned"|"printing"|"success"|"failed"|"cancelled","printer_status": "active"|"maintenance"|"retired","product_status": "draft"|"published"|"archived","quote_line_kind": "catalog"|"custom"|"service","quote_status": "draft"|"sent"|"accepted"|"rejected"|"expired","request_status": "new"|"awaiting_slicing"|"quoted"|"discarded","spool_status": "sealed"|"open"|"in_use"|"empty"|"discarded","stock_movement_type": "purchase"|"consumption"|"waste"|"adjustment"|"maintenance"|"reservation"|"release"|"production"|"delivery","tax_regime": "none"|"nrus"|"rer"|"rmt"|"general","transaction_direction": "income"|"expense","transaction_type": "income"|"expense"|"transfer"|"owner_contribution"|"owner_draw"
           }
           CompositeTypes: {
             [_ in never]: never
@@ -2419,7 +2583,7 @@ export const Constants = {
           }
         },"public": {
           Enums: {
-            "account_kind": ["cash", "bank", "wallet"],"component_kind": ["nozzle", "hotend", "plate", "ptfe", "cutter", "fan", "ams", "other"],"cost_allocation": ["by_amount", "by_weight"],"customer_doc_type": ["none", "dni", "ruc", "ce"],"customer_kind": ["person", "company"],"gift_treatment": ["marketing", "owner_draw", "other"],"inventory_item_kind": ["supply", "packaging", "spare_part", "finished_good", "part"],"material_valuation": ["weighted_avg", "last_cost", "replacement"],"member_role": ["owner", "operator", "viewer"],"opportunity_stage": ["new", "quoted", "negotiating", "won", "closed", "lost"],"order_payment_status": ["not_applicable", "unpaid", "partial", "paid"],"order_purpose": ["sale", "personal", "gift"],"order_status": ["confirmed", "queued", "printing", "post_processing", "ready", "delivered", "closed", "on_hold", "cancelled"],"payment_method": ["cash", "yape", "plin", "transfer"],"print_failure_cause": ["adhesion", "clog", "spaghetti", "layer_shift", "filament_runout", "power_loss", "wrong_settings", "other"],"print_job_status": ["planned", "printing", "success", "failed", "cancelled"],"printer_status": ["active", "maintenance", "retired"],"product_status": ["draft", "published", "archived"],"quote_line_kind": ["catalog", "custom", "service"],"quote_status": ["draft", "sent", "accepted", "rejected", "expired"],"request_status": ["new", "awaiting_slicing", "quoted", "discarded"],"spool_status": ["sealed", "open", "in_use", "empty", "discarded"],"stock_movement_type": ["purchase", "consumption", "waste", "adjustment", "maintenance", "reservation", "release", "production"],"tax_regime": ["none", "nrus", "rer", "rmt", "general"],"transaction_direction": ["income", "expense"],"transaction_type": ["income", "expense", "transfer", "owner_contribution", "owner_draw"]
+            "account_kind": ["cash", "bank", "wallet"],"component_kind": ["nozzle", "hotend", "plate", "ptfe", "cutter", "fan", "ams", "other"],"cost_allocation": ["by_amount", "by_weight"],"customer_doc_type": ["none", "dni", "ruc", "ce"],"customer_kind": ["person", "company"],"gift_treatment": ["marketing", "owner_draw", "other"],"inventory_item_kind": ["supply", "packaging", "spare_part", "finished_good", "part"],"material_valuation": ["weighted_avg", "last_cost", "replacement"],"member_role": ["owner", "operator", "viewer"],"opportunity_stage": ["new", "quoted", "negotiating", "won", "closed", "lost"],"order_payment_status": ["not_applicable", "unpaid", "partial", "paid"],"order_purpose": ["sale", "personal", "gift"],"order_status": ["confirmed", "queued", "printing", "post_processing", "ready", "delivered", "closed", "on_hold", "cancelled"],"payment_method": ["cash", "yape", "plin", "transfer"],"print_failure_cause": ["adhesion", "clog", "spaghetti", "layer_shift", "filament_runout", "power_loss", "wrong_settings", "other"],"print_job_status": ["planned", "printing", "success", "failed", "cancelled"],"printer_status": ["active", "maintenance", "retired"],"product_status": ["draft", "published", "archived"],"quote_line_kind": ["catalog", "custom", "service"],"quote_status": ["draft", "sent", "accepted", "rejected", "expired"],"request_status": ["new", "awaiting_slicing", "quoted", "discarded"],"spool_status": ["sealed", "open", "in_use", "empty", "discarded"],"stock_movement_type": ["purchase", "consumption", "waste", "adjustment", "maintenance", "reservation", "release", "production", "delivery"],"tax_regime": ["none", "nrus", "rer", "rmt", "general"],"transaction_direction": ["income", "expense"],"transaction_type": ["income", "expense", "transfer", "owner_contribution", "owner_draw"]
           }
         }
 } as const

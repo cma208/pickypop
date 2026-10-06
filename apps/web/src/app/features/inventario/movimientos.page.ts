@@ -24,6 +24,7 @@ import { INVENTORY_STYLES } from './inventario.styles';
 const TYPE_TONES: Record<MovementType, BadgeTone> = {
   purchase: 'good',
   production: 'good',
+  delivery: 'neutral',
   consumption: 'info',
   waste: 'warn',
   adjustment: 'neutral',

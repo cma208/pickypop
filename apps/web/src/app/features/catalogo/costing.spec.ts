@@ -30,7 +30,8 @@ const recipe = (overrides: Partial<Recipe> = {}): Recipe => ({
   setupMinutes: 0,
   minutesPerUnit: 0,
   note: null,
-  plates: [{ id: 'p1', label: 'Tapas', plateIndex: 1, producesItemId: null, unitsPerRun: 9, printTimeS: 3600, filaments: [filament()] }],
+  assembled: true,
+  plates: [{ id: 'p1', label: 'Tapas', plateIndex: 1, unitsPerRun: 9, printTimeS: 3600, filaments: [filament()], outputs: [] }],
   supplies: [],
   ...overrides,
 });

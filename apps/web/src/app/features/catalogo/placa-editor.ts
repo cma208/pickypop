@@ -6,24 +6,25 @@ import type { Lookups, RecipePlate } from './catalogo.models';
 import { SHARED_STYLES } from './catalogo.styles';
 import { messageOf } from './catalogo.util';
 import { FilamentoFila } from './filamento-fila';
+import { SalidaFila, type PartOption } from './salida-fila';
 
 const SECONDS_PER_MINUTE = 60;
 
 /** A plate of the recipe with its filaments, or the form that adds a new plate. */
 @Component({
   selector: 'app-placa-editor',
-  imports: [ReactiveFormsModule, FilamentoFila, ...FORMAT_PIPES],
+  imports: [ReactiveFormsModule, FilamentoFila, SalidaFila, ...FORMAT_PIPES],
   styles: [
     SHARED_STYLES,
     `
       section { padding: 0.9rem; border: 1px solid var(--line); border-radius: var(--radius); background: var(--bg); }
       h4 { margin: 0 0 0.6rem; font-size: 0.95rem; }
       label { display: grid; gap: 0.15rem; font-size: 0.72rem; color: var(--muted); }
-      .plate { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1.2fr) minmax(0, 0.9fr) minmax(0, 0.9fr) auto; gap: 0.5rem; align-items: end; }
-      .filaments { margin-top: 0.75rem; }
-      .filaments h5 { margin: 0 0 0.25rem; font-size: 0.8rem; color: var(--muted); font-weight: 600; }
+      .plate { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 0.9fr) auto; gap: 0.5rem; align-items: end; }
+      .filaments, .outputs { margin-top: 0.75rem; }
+      .filaments h5, .outputs h5 { margin: 0 0 0.25rem; font-size: 0.8rem; color: var(--muted); font-weight: 600; }
       .err { margin: 0.5rem 0 0; font-size: 0.8rem; }
-      @media (max-width: 40rem) { .plate { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } label.name, label.part { grid-column: 1 / -1; } }
+      @media (max-width: 40rem) { .plate { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } label.name { grid-column: 1 / -1; } }
     `,
   ],
   template: `
@@ -33,15 +34,7 @@ const SECONDS_PER_MINUTE = 60;
         <label class="name">Etiqueta
           <input formControlName="label" placeholder="Ej. Botella, Tapas" autocomplete="off" />
         </label>
-        <label class="part">Pieza que produce
-          <select formControlName="producesItemId">
-            <option [ngValue]="null">No produce stock</option>
-            @for (part of parts(); track part.id) {
-              <option [ngValue]="part.id">{{ part.name }}</option>
-            }
-          </select>
-        </label>
-        <label>Unidades por corrida
+        <label title="Para el costo: cuántos productos terminados alcanza a hacer una corrida de esta placa">Productos por corrida
           <input type="number" min="0.001" step="any" inputmode="decimal" formControlName="unitsPerRun" />
         </label>
         <label>Tiempo (minutos)
@@ -57,7 +50,7 @@ const SECONDS_PER_MINUTE = 60;
         </div>
       </form>
       @if (form.touched && form.invalid) {
-        <p class="err error">Indica unidades por corrida y tiempo, ambos mayores que cero.</p>
+        <p class="err error">Indica productos por corrida y tiempo, ambos mayores que cero.</p>
       }
       @if (error(); as message) {
         <p class="err error" role="alert">{{ message }}</p>
@@ -70,6 +63,16 @@ const SECONDS_PER_MINUTE = 60;
             <app-filamento-fila [plateId]="current.id" [filament]="filament" [lookups]="lookups()" (changed)="changed.emit()" />
           }
           <app-filamento-fila [plateId]="current.id" [lookups]="lookups()" [nextSlot]="nextSlot()" (changed)="changed.emit()" />
+        </div>
+        <div class="outputs">
+          <h5>Lo que sale de esta placa al estante (piezas de UNA corrida)</h5>
+          @if (current.outputs.length === 0) {
+            <p class="muted hint">Sin piezas, la placa no deja nada en el estante al cerrar la impresión.</p>
+          }
+          @for (out of current.outputs; track out.id) {
+            <app-salida-fila [plateId]="current.id" [current]="out" [parts]="parts()" [usedIds]="usedPartIds()" (changed)="changed.emit()" />
+          }
+          <app-salida-fila [plateId]="current.id" [parts]="parts()" [usedIds]="usedPartIds()" [nextPosition]="current.outputs.length + 1" (changed)="changed.emit()" />
         </div>
       }
     </section>
@@ -88,7 +91,8 @@ export class PlacaEditor {
   protected readonly busy = signal(false);
   protected readonly error = signal<string | null>(null);
   /** Las piezas que puede producir una placa. Se cargan una vez. */
-  protected readonly parts = signal<{ id: string; name: string; unit: string }[]>([]);
+  protected readonly parts = signal<PartOption[]>([]);
+  protected readonly usedPartIds = computed(() => this.plate()?.outputs.map((out) => out.inventoryItemId) ?? []);
 
   protected readonly nextSlot = computed(
     () => Math.max(0, ...(this.plate()?.filaments.map((filament) => filament.slot) ?? [])) + 1,
@@ -96,7 +100,6 @@ export class PlacaEditor {
 
   protected readonly form = new FormGroup({
     label: new FormControl('', { nonNullable: true }),
-    producesItemId: new FormControl<string | null>(null),
     unitsPerRun: new FormControl<number | null>(null, [Validators.required, Validators.min(0.001)]),
     printMinutes: new FormControl<number | null>(null, [Validators.required, Validators.min(1)]),
   });
@@ -119,7 +122,6 @@ export class PlacaEditor {
     const value = this.form.getRawValue();
     const input = {
       label: value.label,
-      producesItemId: value.producesItemId,
       unitsPerRun: Number(value.unitsPerRun),
       printTimeS: Math.round(Number(value.printMinutes) * SECONDS_PER_MINUTE),
     };
@@ -163,7 +165,6 @@ export class PlacaEditor {
   private fill(plate: RecipePlate | null): void {
     this.form.reset({
       label: plate?.label ?? '',
-      producesItemId: plate?.producesItemId ?? null,
       unitsPerRun: plate?.unitsPerRun ?? null,
       printMinutes: plate ? plate.printTimeS / SECONDS_PER_MINUTE : null,
     });

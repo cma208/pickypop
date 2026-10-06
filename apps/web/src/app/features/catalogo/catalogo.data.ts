@@ -9,6 +9,7 @@ import type {
   ImportedPlate,
   Lookups,
   Pair,
+  PlateOutputInput,
   PriceTierRow,
   PrinterOption,
   ProductDetail,
@@ -290,7 +291,7 @@ export class CatalogoData {
     const [plates, items] = await Promise.all([
       this.supabase
         .from('recipe_plates')
-        .select('*, recipe_plate_filaments(*)')
+        .select('*, recipe_plate_filaments(*), recipe_plate_outputs(*)')
         .eq('recipe_id', recipe.id)
         .order('plate_index'),
       this.supabase.from('recipe_items').select('*').eq('recipe_id', recipe.id).order('created_at'),
@@ -305,12 +306,19 @@ export class CatalogoData {
       setupMinutes: Number(recipe.setup_minutes),
       minutesPerUnit: Number(recipe.minutes_per_unit),
       note: recipe.note,
+      assembled: recipe.assembled,
       plates: plates.data.map((plate) => ({
         id: plate.id,
         label: plate.label,
         plateIndex: plate.plate_index,
-        producesItemId: plate.produces_item_id,
         unitsPerRun: Number(plate.units_per_run),
+        outputs: [...plate.recipe_plate_outputs]
+          .sort((a, b) => a.position - b.position)
+          .map((output) => ({
+            id: output.id,
+            inventoryItemId: output.inventory_item_id,
+            unitsPerRun: Number(output.units_per_run),
+          })),
         printTimeS: plate.print_time_s,
         filaments: plate.recipe_plate_filaments
           .map(
@@ -358,6 +366,7 @@ export class CatalogoData {
         setup_minutes: input.setupMinutes,
         minutes_per_unit: input.minutesPerUnit,
         note: blankToNull(input.note),
+        assembled: input.assembled,
       })
       .eq('id', id);
     if (error) fail(error, 'No pudimos guardar la receta.');
@@ -368,15 +377,15 @@ export class CatalogoData {
    * Son artículos de inventario como cualquier otro: lo único que las
    * distingue es que no se compran, se imprimen.
    */
-  async parts(): Promise<{ id: string; name: string; unit: string }[]> {
+  async parts(): Promise<{ id: string; name: string; unit: string; imagePath: string | null }[]> {
     const { data, error } = await this.supabase
       .from('inventory_items')
-      .select('id, name, unit')
+      .select('id, name, unit, image_path')
       .eq('kind', 'part')
       .eq('active', true)
       .order('name');
     if (error) fail(error, 'No pudimos cargar las piezas.');
-    return data ?? [];
+    return (data ?? []).map((part) => ({ id: part.id, name: part.name, unit: part.unit, imagePath: part.image_path }));
   }
 
   async addPlate(recipeId: string, plateIndex: number, input: RecipePlateInput): Promise<void> {
@@ -385,11 +394,35 @@ export class CatalogoData {
       recipe_id: recipeId,
       plate_index: plateIndex,
       label: blankToNull(input.label),
-      produces_item_id: input.producesItemId,
       units_per_run: input.unitsPerRun,
       print_time_s: input.printTimeS,
     });
     if (error) fail(error, 'No pudimos agregar la placa.', 'Ya existe una placa con ese número.');
+  }
+
+  /** One part that comes out of a plate. Saved one by one, like its filaments. */
+  async addPlateOutput(plateId: string, position: number, input: PlateOutputInput): Promise<void> {
+    const { error } = await this.supabase.from('recipe_plate_outputs').insert({
+      workspace_id: await this.workspaceId(),
+      recipe_plate_id: plateId,
+      inventory_item_id: input.inventoryItemId,
+      units_per_run: input.unitsPerRun,
+      position,
+    });
+    if (error) fail(error, 'No pudimos agregar la pieza a la placa.', 'Esa pieza ya sale de esta placa.');
+  }
+
+  async updatePlateOutput(id: string, input: PlateOutputInput): Promise<void> {
+    const { error } = await this.supabase
+      .from('recipe_plate_outputs')
+      .update({ inventory_item_id: input.inventoryItemId, units_per_run: input.unitsPerRun })
+      .eq('id', id);
+    if (error) fail(error, 'No pudimos guardar la pieza de la placa.', 'Esa pieza ya sale de esta placa.');
+  }
+
+  async deletePlateOutput(id: string): Promise<void> {
+    const { error } = await this.supabase.from('recipe_plate_outputs').delete().eq('id', id);
+    if (error) fail(error, 'No pudimos quitar la pieza de la placa.');
   }
 
   /**
@@ -416,7 +449,6 @@ export class CatalogoData {
           recipe_id: recipeId,
           plate_index: firstIndex + offset,
           label: blankToNull(plate.label),
-          produces_item_id: null,
           units_per_run: plate.unitsPerRun,
           print_time_s: plate.printTimeS,
           source_file_name: plate.sourceFileName,
@@ -451,7 +483,6 @@ export class CatalogoData {
       .from('recipe_plates')
       .update({
         label: blankToNull(input.label),
-        produces_item_id: input.producesItemId,
         units_per_run: input.unitsPerRun,
         print_time_s: input.printTimeS,
       })

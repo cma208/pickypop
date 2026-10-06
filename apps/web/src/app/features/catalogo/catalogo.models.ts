@@ -99,16 +99,25 @@ export interface RecipePlate {
   id: string;
   label: string | null;
   plateIndex: number;
-  /** La pieza que sale de esta placa. Nula: la placa no aporta stock. */
-  producesItemId: string | null;
+  /** Para el costeo: cuántos productos terminados aporta una corrida. */
   unitsPerRun: number;
   printTimeS: number;
   filaments: RecipeFilament[];
+  /** Las piezas que salen al estante. Vacía: la placa no aporta stock. */
+  outputs: PlateOutput[];
 }
+
+/** Una pieza que sale de una placa, y cuántas salen por corrida. */
+export interface PlateOutput {
+  id: string;
+  inventoryItemId: string;
+  unitsPerRun: number;
+}
+
+export type PlateOutputInput = Omit<PlateOutput, 'id'>;
 
 export interface RecipePlateInput {
   label: string | null;
-  producesItemId: string | null;
   unitsPerRun: number;
   printTimeS: number;
 }
@@ -144,6 +153,8 @@ export interface Recipe {
   setupMinutes: number;
   minutesPerUnit: number;
   note: string | null;
+  /** Falso: se entrega tal como sale de la impresora, sin pasar por Armar. */
+  assembled: boolean;
   plates: RecipePlate[];
   supplies: RecipeSupply[];
 }
@@ -152,6 +163,7 @@ export interface RecipeHeaderInput {
   setupMinutes: number;
   minutesPerUnit: number;
   note: string | null;
+  assembled: boolean;
 }
 
 export interface PriceTierRow {
