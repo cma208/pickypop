@@ -5,7 +5,11 @@ import type {
   BrandRecord,
   ChannelRecord,
   CostProfileDraft,
+  CategoryDraft,
+  CategoryRecord,
   CostProfileRecord,
+  FinishDraft,
+  FinishRecord,
   GiftCategoryRecord,
   GiftTreatment,
   MaterialDraft,
@@ -247,6 +251,74 @@ export class ConfiguracionData {
       .from('brands')
       .insert({ ...values, workspace_id: await this.workspace.requireId() });
     if (error) throw duplicateAware(error, 'brands_workspace_id_name_key', 'Ya existe una marca con ese nombre.');
+  }
+
+  /**
+   * Las categorías con las que se clasifica el dinero. Hasta hoy solo existían
+   * las de la semilla: el día que quisieran anotar un gasto de publicidad, no
+   * podían, y la única entrada era la base de datos.
+   */
+  async categories(): Promise<CategoryRecord[]> {
+    const { data, error } = await this.supabase
+      .from('transaction_categories')
+      .select('id, name, direction, active')
+      .order('direction')
+      .order('name');
+    if (error) throw error;
+
+    return data.map((row) => ({ id: row.id, name: row.name, direction: row.direction, active: row.active }));
+  }
+
+  async saveCategory(categoryId: string | null, draft: CategoryDraft): Promise<void> {
+    const duplicate = 'Ya existe una categoría con ese nombre para ese tipo.';
+    const values = { name: draft.name.trim(), direction: draft.direction, active: draft.active };
+
+    if (categoryId) {
+      const { data, error } = await this.supabase
+        .from('transaction_categories')
+        .update(values)
+        .eq('id', categoryId)
+        .select('id');
+      if (error) throw duplicateAware(error, 'transaction_categories_workspace_id_direction_name_key', duplicate);
+      if (data.length === 0) throw permissionError();
+      return;
+    }
+
+    const { error } = await this.supabase
+      .from('transaction_categories')
+      .insert({ ...values, workspace_id: await this.workspace.requireId() });
+    if (error) throw duplicateAware(error, 'transaction_categories_workspace_id_direction_name_key', duplicate);
+  }
+
+  async finishes(): Promise<FinishRecord[]> {
+    const { data, error } = await this.supabase
+      .from('filament_finishes')
+      .select('id, name, abrasive, active')
+      .order('name');
+    if (error) throw error;
+
+    return data.map((row) => ({ id: row.id, name: row.name, abrasive: row.abrasive, active: row.active }));
+  }
+
+  async saveFinish(finishId: string | null, draft: FinishDraft): Promise<void> {
+    const duplicate = 'Ya existe un acabado con ese nombre.';
+    const values = { name: draft.name.trim(), abrasive: draft.abrasive, active: draft.active };
+
+    if (finishId) {
+      const { data, error } = await this.supabase
+        .from('filament_finishes')
+        .update(values)
+        .eq('id', finishId)
+        .select('id');
+      if (error) throw duplicateAware(error, 'filament_finishes_workspace_id_name_key', duplicate);
+      if (data.length === 0) throw permissionError();
+      return;
+    }
+
+    const { error } = await this.supabase
+      .from('filament_finishes')
+      .insert({ ...values, workspace_id: await this.workspace.requireId() });
+    if (error) throw duplicateAware(error, 'filament_finishes_workspace_id_name_key', duplicate);
   }
 
   async materials(): Promise<MaterialRecord[]> {

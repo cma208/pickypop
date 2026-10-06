@@ -187,3 +187,24 @@ export const ROLE_TONES: Record<MemberRole, BadgeTone> = {
   operator: 'neutral',
   viewer: 'neutral',
 };
+
+export interface FinishRecord {
+  id: string;
+  name: string;
+  /** Un acabado puede ser abrasivo aunque el material no lo sea: Silk, Glow, Wood. */
+  abrasive: boolean;
+  active: boolean;
+}
+
+export type FinishDraft = Omit<FinishRecord, 'id'>;
+
+export type MovementDirection = 'income' | 'expense';
+
+export interface CategoryRecord {
+  id: string;
+  name: string;
+  direction: MovementDirection;
+  active: boolean;
+}
+
+export type CategoryDraft = Omit<CategoryRecord, 'id'>;
