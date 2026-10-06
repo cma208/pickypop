@@ -6,6 +6,7 @@ export { Empty } from './empty';
 export { Field } from './field';
 export { Thumb, type ThumbSize, THUMB_PX } from './thumb';
 export { Item } from './item';
+export { ResourceHeader, type HeaderAction } from './resource-header';
 export { ImageField } from './image-field';
 export { ItemPicker, type PickerOption } from './item-picker';
 export { FORMAT_PIPES, MoneyPipe, GramsPipe, DurationPipe, DatePipe, PercentPipe } from './format.pipes';

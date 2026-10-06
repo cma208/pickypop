@@ -3,7 +3,8 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { date } from '../../core/format';
 import { friendlyError } from '../../core/friendly-error';
-import { AsyncState, Badge, Card, Empty, FORMAT_PIPES, Item, Page } from '../../ui';
+import { AsyncState, Badge, Card, Empty, FORMAT_PIPES, Item, Page, ResourceHeader } from '../../ui';
+import { documentTitle } from '../../core/document-title';
 import { PrintJobCard } from '../produccion/print-job-card';
 import { PrintJobForm, type FixedOrderLine } from '../produccion/print-job-form';
 import { ProduccionData, type JobItem } from '../produccion/produccion.data';
@@ -23,10 +24,22 @@ import {
 
 @Component({
   selector: 'app-pedido',
-  imports: [RouterLink, Page, Card, Badge, AsyncState, Empty, Item, PrintJobCard, PrintJobForm, PedidoCobro, ...FORMAT_PIPES],
+  imports: [RouterLink, Page, Card, Badge, AsyncState, Empty, Item, ResourceHeader, PrintJobCard, PrintJobForm, PedidoCobro, ...FORMAT_PIPES],
   template: `
-    <pp-page [title]="order()?.number ?? 'Pedido'" [subtitle]="subtitle()">
-      <a actions class="button secondary" routerLink="/pedidos">Volver</a>
+    <pp-page>
+      <!-- The next real step (Entregar, Cobrar saldo…) goes in [action] with (acted). -->
+      <pp-resource-header
+        backLink="/pedidos"
+        backLabel="Pedidos"
+        [heading]="heading()"
+        [code]="order()?.number"
+        [meta]="subtitle()"
+        [photo]="order() ? { kind: 'order', id: order()!.id } : null"
+      >
+        @if (order(); as o) {
+          <pp-badge status [tone]="statusTone[o.status]">{{ statusLabel[o.status] }}</pp-badge>
+        }
+      </pp-resource-header>
 
       <pp-async [loading]="loading()" [error]="error()">
         @if (order(); as o) {
@@ -35,7 +48,6 @@ import {
               <div class="row badges">
                 <pp-badge [tone]="purposeTone[o.purpose]">{{ purposeLabel[o.purpose] }}</pp-badge>
                 @if (o.giftCategoryName) { <pp-badge tone="warn">{{ o.giftCategoryName }}</pp-badge> }
-                <pp-badge [tone]="statusTone[o.status]">{{ statusLabel[o.status] }}</pp-badge>
               </div>
               <dl>
                 @if (o.purpose === 'sale') {
@@ -252,7 +264,16 @@ export class PedidoPage {
 
   protected readonly subtitle = computed(() => {
     const order = this.order();
-    return order ? `Pedido del ${date(order.orderedOn)}` : undefined;
+    if (!order) return undefined;
+    return order.dueDate ? `entrega ${date(order.dueDate)}` : `pedido del ${date(order.orderedOn)}`;
+  });
+
+  /** Who it is for and what it is, before its number: "Ana Quispe · 10 × Botella de poción". */
+  protected readonly heading = computed(() => {
+    const order = this.order();
+    if (!order) return 'Pedido';
+    const party = order.purpose === 'sale' ? order.customerName : (order.recipient ?? 'Para el taller');
+    return documentTitle(party, order.lines);
   });
 
   protected readonly estimatedTotal = computed(() =>

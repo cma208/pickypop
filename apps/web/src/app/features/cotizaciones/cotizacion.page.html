@@ -1,10 +1,44 @@
-<pp-page [title]="quote() ? quote()!.number : 'Cotización'" [subtitle]="statusLabel()">
-  <div actions>
-    <a class="button secondary" routerLink="/cotizaciones">Volver</a>
-  </div>
+<pp-page>
+  <pp-resource-header
+    backLink="/cotizaciones"
+    backLabel="Cotizaciones"
+    [heading]="heading()"
+    [code]="code()"
+    [meta]="quote() ? 'emitida ' + (quote()!.issuedOn | fecha) : null"
+    [photo]="quote() ? { kind: 'variant', id: quote()!.storedLines[0]?.variantId } : null"
+    [action]="mainAction()"
+    (acted)="onMainAction()"
+  >
+    @if (quote()) {
+      <pp-badge status [tone]="tone()">{{ statusLabel() }}</pp-badge>
+    }
+    @if (quote()) {
+      <button more type="button" class="ghost" [disabled]="downloading()" (click)="downloadPdf()">
+        {{ downloading() ? 'Generando…' : 'Descargar PDF' }}
+      </button>
+    }
+    @if (canClose()) {
+      <button more type="button" class="ghost" [disabled]="busy()" (click)="ask('rejected')">El cliente la rechazó</button>
+    }
+    @if (quote(); as q) {
+      <a more class="button ghost" [routerLink]="['/cotizador']" [queryParams]="{ nuevaVersionDe: q.id }">Crear versión nueva</a>
+    }
+  </pp-resource-header>
 
   <pp-async [loading]="loading()" [error]="error()">
     @if (quote(); as q) {
+      @if (pdfError(); as message) {
+        <p class="banner bad">{{ message }}</p>
+      }
+
+      @if (confirming(); as pending) {
+        <p class="banner warn row">
+          <span>{{ confirmLabel() }}</span>
+          <button type="button" [disabled]="busy()" (click)="apply(pending)">Sí, confirmar</button>
+          <button type="button" class="ghost" (click)="cancelAsk()">No</button>
+        </p>
+      }
+
       @if (overdue()) {
         <p class="banner warn">
           Esta cotización venció el {{ q.validUntil | fecha }}. Si el cliente sigue interesado,
@@ -24,41 +58,7 @@
       }
 
       <pp-card heading="Datos">
-        <div card-actions class="row">
-          <button type="button" class="secondary" [disabled]="downloading()" (click)="downloadPdf()">
-            {{ downloading() ? 'Generando…' : 'Descargar PDF' }}
-          </button>
-          @if (canSend()) {
-            <button type="button" [disabled]="busy()" (click)="apply('sent')">
-              Marcar como enviada
-            </button>
-          }
-          @if (canClose()) {
-            <button type="button" [disabled]="busy()" (click)="ask('accepted')">Aceptada</button>
-            <button type="button" class="secondary" [disabled]="busy()" (click)="ask('rejected')">
-              Rechazada
-            </button>
-          }
-          <a class="button secondary" [routerLink]="['/cotizador']" [queryParams]="{ nuevaVersionDe: q.id }">
-            Crear versión nueva
-          </a>
-        </div>
-
-        @if (pdfError(); as message) {
-          <p class="banner bad">{{ message }}</p>
-        }
-
-        @if (confirming(); as pending) {
-          <p class="banner warn row">
-            <span>{{ confirmLabel() }}</span>
-            <button type="button" [disabled]="busy()" (click)="apply(pending)">Sí, confirmar</button>
-            <button type="button" class="ghost" (click)="cancelAsk()">No</button>
-          </p>
-        }
-
         <dl class="facts">
-          <dt>Estado</dt>
-          <dd><pp-badge [tone]="tone()">{{ statusLabel() }}</pp-badge></dd>
           <dt>Versión</dt>
           <dd>{{ q.version }}</dd>
           <dt>Cliente</dt>

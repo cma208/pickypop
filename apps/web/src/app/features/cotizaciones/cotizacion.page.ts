@@ -1,6 +1,7 @@
 import { Component, computed, effect, inject, input, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { AsyncState, Badge, Card, Empty, FORMAT_PIPES, Item, Page, type BadgeTone } from '../../ui';
+import { AsyncState, Badge, Card, Empty, FORMAT_PIPES, Item, Page, ResourceHeader, type BadgeTone, type HeaderAction } from '../../ui';
+import { documentTitle } from '../../core/document-title';
 import { Desglose } from '../cotizador/desglose';
 import {
   CotizadorData,
@@ -36,7 +37,7 @@ const A_CENT = 0.005;
 
 @Component({
   selector: 'app-cotizacion',
-  imports: [RouterLink, Page, Card, Badge, AsyncState, Empty, Item, Desglose, ...FORMAT_PIPES],
+  imports: [RouterLink, Page, Card, Badge, AsyncState, Empty, Item, ResourceHeader, Desglose, ...FORMAT_PIPES],
   templateUrl: './cotizacion.page.html',
   styles: `
     :host { display: block; }
@@ -164,6 +165,33 @@ export class CotizacionPage {
 
   protected readonly canSend = computed(() => this.quote()?.status === 'draft');
   protected readonly canClose = computed(() => this.quote()?.status === 'sent');
+
+  /** Who it is for and what it is: "Colegio San Martín · 30 × Botella de poción". */
+  protected readonly heading = computed(() => {
+    const quote = this.quote();
+    return quote ? documentTitle(quote.customerName, quote.storedLines) : 'Cotización';
+  });
+
+  protected readonly code = computed(() => {
+    const quote = this.quote();
+    if (!quote) return null;
+    return quote.version > 1 ? `${quote.number} · versión ${quote.version}` : quote.number;
+  });
+
+  /**
+   * The one step this quote asks for next: send the draft, then hear back
+   * from the customer. Rejecting, the PDF and a new version wait in "Más".
+   */
+  protected readonly mainAction = computed<HeaderAction | null>(() => {
+    if (this.canSend()) return { label: 'Marcar como enviada', busy: this.busy() };
+    if (this.canClose()) return { label: 'El cliente aceptó', busy: this.busy() };
+    return null;
+  });
+
+  protected onMainAction(): void {
+    if (this.canSend()) void this.apply('sent');
+    else if (this.canClose()) this.ask('accepted');
+  }
 
   private async load(id: string): Promise<void> {
     this.loading.set(true);
