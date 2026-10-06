@@ -92,7 +92,20 @@ export class CotizacionPage {
   protected readonly lines = computed<FrozenLine[]>(() => {
     const quote = this.quote();
     const snapshot = quote?.snapshot ?? null;
-    if (quote === null || snapshot === null) return [];
+    if (quote === null) return [];
+
+    // Sin el snapshot de parámetros no se puede **recalcular** la línea, pero
+    // sí mostrarla: los importes guardados son los que el cliente aceptó, y
+    // esconderlos hacía que la ficha dijera "no tiene líneas" cuando sí las
+    // tenía. El PDF siempre las imprimió; esto las devuelve a la pantalla.
+    if (snapshot === null) {
+      return quote.storedLines.map((stored) => ({
+        stored,
+        result: null,
+        materials: [],
+        drifted: false,
+      }));
+    }
 
     return quote.storedLines.map((stored) => {
       const skus = frozenFilaments(stored);

@@ -666,3 +666,52 @@ left join public.accounts b
   on b.workspace_id = '00000000-0000-4000-8000-000000000001' and b.name = v.counter_account
 left join public.transaction_categories cat
   on cat.workspace_id = '00000000-0000-4000-8000-000000000001' and cat.name = v.category;
+
+-- -------------------------------------------------------------- tratos
+--
+-- Las oportunidades que agrupan lo de arriba. Cubren las seis etapas para que
+-- el tablero no se vea con una sola columna poblada, y enganchan a mano las
+-- cotizaciones y los pedidos que ya existen.
+--
+-- `cerrado` NO se siembra a mano aunque exista la etapa: lo pone el disparador
+-- cuando todos los pedidos del trato están entregados y cobrados. Sembrarlo
+-- sería mentirle a la regla que justamente queremos ver funcionando.
+
+insert into public.opportunities (
+  id, workspace_id, customer_id, title, stage, owner, expected_close, note, blocked_reason, blocked_at
+) values
+  ('00000000-0000-4000-8000-000000000151', '00000000-0000-4000-8000-000000000001',
+   '00000000-0000-4000-8000-000000000102', 'Recuerdos para la promoción del colegio',
+   'won', '00000000-0000-4000-8000-0000000000aa', current_date - 18,
+   'Cerraron por el lote de 30. Repiten el año que viene.', null, null),
+  ('00000000-0000-4000-8000-000000000152', '00000000-0000-4000-8000-000000000001',
+   '00000000-0000-4000-8000-000000000104', 'Detalles para los clientes del café',
+   'quoted', '00000000-0000-4000-8000-0000000000aa', current_date + 12,
+   'Mandada por WhatsApp. Sin respuesta todavía.', null, null),
+  ('00000000-0000-4000-8000-000000000153', '00000000-0000-4000-8000-000000000001',
+   '00000000-0000-4000-8000-000000000105', 'Pedido grande de Diego',
+   'negotiating', '00000000-0000-4000-8000-0000000000aa', current_date + 7,
+   'Quiere 40 unidades pero está viendo el presupuesto.',
+   'Esperando el adelanto del 50 %', now() - interval '3 days'),
+  ('00000000-0000-4000-8000-000000000154', '00000000-0000-4000-8000-000000000001',
+   '00000000-0000-4000-8000-000000000101', 'Cumpleaños de la sobrina de Ana',
+   'new', '00000000-0000-4000-8000-0000000000aa', current_date + 20,
+   'Escribió por Instagram. Falta que mande las fotos de referencia.', null, null),
+  ('00000000-0000-4000-8000-000000000155', '00000000-0000-4000-8000-000000000001',
+   '00000000-0000-4000-8000-000000000103', 'Souvenirs para el matrimonio',
+   'lost', '00000000-0000-4000-8000-0000000000aa', current_date - 5,
+   'Se fue con otro proveedor por precio. Vale la pena revisar la escalera.', null, null);
+
+update public.quotes set opportunity_id = '00000000-0000-4000-8000-000000000151'
+ where id = '00000000-0000-4000-8000-000000000111';
+update public.quotes set opportunity_id = '00000000-0000-4000-8000-000000000152'
+ where id = '00000000-0000-4000-8000-000000000112';
+update public.quotes set opportunity_id = '00000000-0000-4000-8000-000000000153'
+ where id = '00000000-0000-4000-8000-000000000113';
+
+update public.orders set opportunity_id = '00000000-0000-4000-8000-000000000151'
+ where number = 'PED-0001';
+-- Los dos del café, no el del colegio: un trato con un pedido de otro cliente
+-- es un dato que se contradice solo y enseña mal.
+update public.orders set opportunity_id = '00000000-0000-4000-8000-000000000152'
+ where number in ('PED-0002', 'PED-0008');

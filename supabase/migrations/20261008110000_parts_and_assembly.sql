@@ -62,11 +62,46 @@ create trigger recipe_plates_part_is_ours
 -- La vista `inventory_item_costs` ya redondeaba a cuatro decimales, de modo
 -- que el cuello estaba únicamente en la columna de entrada.
 
+-- La vista se apoya en la columna, así que hay que soltarla y volver a
+-- crearla igual. Se recrea con la misma definición que tenía, sin cambios.
+drop view public.inventory_item_costs;
+
 alter table public.purchase_lines
   alter column unit_price type numeric(12, 6);
 
 comment on column public.purchase_lines.unit_price is
   'Precio por unidad, con seis decimales: un insumo barato comprado por cientos no cabe en dos.';
+
+create view public.inventory_item_costs with (security_invoker = true) as
+select
+  i.id as inventory_item_id,
+  i.workspace_id,
+  i.name,
+  i.unit,
+  i.standard_cost,
+  last_purchase.unit_cost as last_purchase_cost,
+  coalesce(last_purchase.unit_cost, i.standard_cost) as cost_per_unit,
+  case
+    when last_purchase.unit_cost is not null then 'purchase'
+    when i.standard_cost is not null then 'standard'
+    else 'unknown'
+  end as cost_source
+from public.inventory_items i
+left join lateral (
+  select
+    case
+      when l.quantity > 0
+        then round((l.unit_price * l.quantity + l.allocated_extra_cost) / l.quantity, 4)
+    end as unit_cost
+  from public.purchase_lines l
+  join public.purchases p on p.id = l.purchase_id
+  where l.inventory_item_id = i.id
+  order by p.purchased_at desc, l.created_at desc
+  limit 1
+) as last_purchase on true;
+
+comment on view public.inventory_item_costs is
+  'What a supply costs per unit, and whether that came from a real purchase.';
 
 -- ----------------------------------------------------- el stock de piezas
 --

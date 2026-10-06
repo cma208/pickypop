@@ -11,3 +11,7 @@ coverage/
 *.log
 .vscode/
 .idea/
+
+# Copias de trabajo de los agentes y caché del compilador: nunca se versionan.
+.claude/worktrees/
+.angular/

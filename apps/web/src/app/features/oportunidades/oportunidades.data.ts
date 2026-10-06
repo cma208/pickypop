@@ -102,10 +102,10 @@ export class OportunidadesData {
     const rows = await fetchAll((from, to) =>
       this.supabase
         .from('opportunity_board')
+        // Una sola cadena literal: partida con `+` deja de ser un tipo literal
+        // para TypeScript y el cliente ya no sabe qué columnas devuelve.
         .select(
-          'opportunity_id, title, stage, customer_id, customer_name, owner, owner_name, expected_close, note,' +
-            ' blocked_reason, blocked_at, quotes, quoted_total, orders, ordered_total, amount,' +
-            ' open_orders, owing_orders, last_activity_at',
+          'opportunity_id, title, stage, customer_id, customer_name, owner, owner_name, expected_close, note, blocked_reason, blocked_at, quote_count, quoted_total, order_count, ordered_total, amount, open_orders, owing_orders, last_activity_at',
         )
         .order('last_activity_at', { ascending: true })
         .range(from, to),
@@ -123,9 +123,9 @@ export class OportunidadesData {
       note: row.note,
       blockedReason: row.blocked_reason,
       blockedAt: row.blocked_at ? new Date(row.blocked_at) : null,
-      quotes: Number(row.quotes ?? 0),
+      quotes: Number(row.quote_count ?? 0),
       quotedTotal: Number(row.quoted_total ?? 0),
-      orders: Number(row.orders ?? 0),
+      orders: Number(row.order_count ?? 0),
       orderedTotal: Number(row.ordered_total ?? 0),
       amount: Number(row.amount ?? 0),
       openOrders: Number(row.open_orders ?? 0),

@@ -45,6 +45,15 @@ interface QuoteLineDraft {
 }
 
 const PERCENT = 100;
+
+/** El mismo tope que valida el formulario, aplicado también al calcular. */
+const MAX_DISCOUNT_PERCENT = 90;
+const MAX_SURCHARGE_PERCENT = 100;
+
+function clampPercent(value: number, max: number): number {
+  if (!Number.isFinite(value)) return 0;
+  return Math.min(Math.max(value, 0), max);
+}
 const DEFAULT_VALIDITY_DAYS = 15;
 const MS_PER_DAY = 86_400_000;
 
@@ -217,9 +226,14 @@ export class CotizadorPage {
       this.priceForm.getRawValue();
     const channel = this.context()?.channels.find((item) => item.id === channelId);
 
+    // El formulario ya valida los rangos, pero esto lee el valor **crudo**, y
+    // un valor inválido no deja de calcularse: tecleando un 1010 % salía un
+    // descuento de S/ 847 sobre una venta de S/ 45, con el precio pegado al
+    // piso de redondeo y sin un solo aviso. Acotar aquí es lo que impide que
+    // un número imposible llegue a una cotización que alguien manda.
     return {
-      volumeDiscountRate: volumeDiscountPercent / PERCENT,
-      urgencySurchargeRate: urgencySurchargePercent / PERCENT,
+      volumeDiscountRate: clampPercent(volumeDiscountPercent, MAX_DISCOUNT_PERCENT) / PERCENT,
+      urgencySurchargeRate: clampPercent(urgencySurchargePercent, MAX_SURCHARGE_PERCENT) / PERCENT,
       channelCommissionRate: channel?.commissionRate ?? 0,
     };
   });

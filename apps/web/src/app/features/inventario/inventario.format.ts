@@ -13,7 +13,7 @@ export type MovementType =
   | 'maintenance'
   | 'reservation'
   | 'release';
-export type ItemKind = 'supply' | 'packaging' | 'spare_part' | 'finished_good';
+export type ItemKind = 'supply' | 'packaging' | 'spare_part' | 'finished_good' | 'part';
 
 export const SPOOL_STATUS_LABELS: Record<SpoolStatus, string> = {
   sealed: 'Sellado',
@@ -57,6 +57,8 @@ const SOURCE_LABELS: Record<string, string> = {
 export const ITEM_KIND_LABELS: Record<ItemKind, string> = {
   supply: 'Insumo',
   packaging: 'Empaque',
+  // Lo que sale de una placa: no se compra, se imprime, y se consume al armar.
+  part: 'Pieza impresa',
   spare_part: 'Repuesto',
   finished_good: 'Producto terminado',
 };
