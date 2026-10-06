@@ -110,7 +110,11 @@ const REGIME_LABELS: Record<CostProfile['taxRegime'], string> = {
         <tbody>
           <tr>
             <th scope="row">
-              Precio base <small class="muted">margen del {{ profile().targetMargin | percent1 }}</small>
+              @if (fromCatalog()) {
+                Precio de catálogo <small class="muted">sin IGV, de la escalera de precios</small>
+              } @else {
+                Precio base <small class="muted">margen del {{ profile().targetMargin | percent1 }}</small>
+              }
             </th>
             <td class="num">{{ p.basePrice | money }}</td>
           </tr>
@@ -152,7 +156,9 @@ const REGIME_LABELS: Record<CostProfile['taxRegime'], string> = {
           <tr class="total">
             <th scope="row">
               Precio por unidad
-              <small class="muted">redondeado a {{ profile().roundingStep | money }}</small>
+              @if (!fromCatalog()) {
+                <small class="muted">redondeado a {{ profile().roundingStep | money }}</small>
+              }
             </th>
             <td class="num">{{ p.total | money }}</td>
           </tr>
@@ -207,6 +213,8 @@ export class Desglose {
   readonly price = input<PriceBreakdown | null>(null);
   readonly materials = input<MaterialLineRow[]>([]);
   readonly profile = input.required<CostProfile>();
+  /** The price came from the catalog's price list, not from the target margin. */
+  readonly fromCatalog = input(false);
 
   protected readonly regime = computed(() => REGIME_LABELS[this.profile().taxRegime]);
 }

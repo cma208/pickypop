@@ -26,6 +26,7 @@ import {
   InventarioData,
   PartialPurchaseError,
   type InventoryItemSummary,
+  type PaymentAccount,
   type PurchaseDraft,
   type PurchaseDraftLine,
   type SkuSummary,
@@ -37,6 +38,7 @@ import { ITEM_KIND_LABELS, todayIso } from './inventario.format';
 import { planPurchase, type AllocationMethod, type PlanLineInput } from '../../core/pricing';
 import { PurchasePreview, type PreviewRow } from './purchase-preview';
 import { QuickAdd } from './quick-add';
+import { PAYMENT_METHOD_LABELS, PAYMENT_METHODS, type PaymentMethod } from '../finanzas/finanzas.models';
 
 interface Target {
   kind: 'sku' | 'item';
@@ -50,7 +52,16 @@ interface PartialState {
   failedStep: string;
 }
 
+/** What the form says once the purchase is in. */
+export interface SavedPurchase {
+  rolls: number;
+  /** It was meant to be paid, and the payment could not be written. */
+  paymentFailed: boolean;
+}
+
 const SKU_PREFIX = 'sku:';
+/** The "todavía no" answer to how it was paid. Never a uuid, so it cannot clash with an account. */
+const NOT_PAID = 'not-paid';
 const ITEM_PREFIX = 'item:';
 
 function parseTarget(value: string): Target | null {
@@ -163,6 +174,33 @@ function notInTheFuture(control: AbstractControl): ValidationErrors | null {
         </pp-field>
       </pp-card>
 
+      <pp-card heading="¿Cómo pagaste?">
+        <div class="form-grid">
+          <pp-field label="Desde qué cuenta" [required]="true" [error]="paymentError()">
+            <select formControlName="paidFrom">
+              <option value="" disabled>Elige una cuenta…</option>
+              @for (account of accountOptions(); track account.id) {
+                <option [value]="account.id">{{ account.name }}</option>
+              }
+              <option [value]="notPaid">Todavía no la pagué</option>
+            </select>
+          </pp-field>
+          @if (chosenAccount(); as account) {
+            <pp-field label="Medio de pago" [hint]="account.defaultMethod ? undefined : account.name + ' no tiene un medio por defecto: elígelo aquí.'">
+              <select formControlName="method">
+                <option value="">{{ account.defaultMethod ? 'El de la cuenta (' + methodLabel[account.defaultMethod] + ')' : 'Elige el medio…' }}</option>
+                @for (method of methods; track method) {
+                  <option [value]="method">{{ methodLabel[method] }}</option>
+                }
+              </select>
+            </pp-field>
+          }
+        </div>
+        @if (raw().paidFrom === notPaid) {
+          <p class="muted">Queda «por pagar» en Compras, y desde ahí registras el pago cuando lo hagas.</p>
+        }
+      </pp-card>
+
       <pp-card heading="Costo final antes de confirmar">
         <app-purchase-preview [rows]="previewRows()" [plan]="plan()" />
       </pp-card>
@@ -198,7 +236,7 @@ function notInTheFuture(control: AbstractControl): ValidationErrors | null {
           <p>
             Vas a registrar una compra de <strong>{{ plan().total | money }}</strong>.
             Se crearán <strong>{{ rollCount() }}</strong> {{ rollCount() === 1 ? 'rollo' : 'rollos' }}
-            con sus movimientos de entrada{{ itemsText() }}.
+            con sus movimientos de entrada{{ itemsText() }}. {{ paymentText() }}
             Después no se puede editar.
           </p>
           <div class="form-actions">
@@ -239,13 +277,17 @@ export class CompraForm {
   readonly skuOptions = input.required<SkuSummary[]>();
   readonly itemOptions = input.required<InventoryItemSummary[]>();
   readonly supplierOptions = input.required<SupplierOption[]>();
-  readonly saved = output<number>();
+  readonly accountOptions = input.required<PaymentAccount[]>();
+  readonly saved = output<SavedPurchase>();
   readonly cancelled = output<void>();
 
   protected readonly skuPrefix = SKU_PREFIX;
   protected readonly itemPrefix = ITEM_PREFIX;
   protected readonly today = todayIso();
   protected readonly msg = invalidMessage;
+  protected readonly notPaid = NOT_PAID;
+  protected readonly methods = PAYMENT_METHODS;
+  protected readonly methodLabel = PAYMENT_METHOD_LABELS;
 
   protected readonly skus = computed(() => this.skuOptions().filter((sku) => sku.active));
   protected readonly items = computed(() => this.itemOptions().filter((item) => item.active));
@@ -282,6 +324,8 @@ export class CompraForm {
     otherCosts: new FormControl<number | null>(0, Validators.min(0)),
     allocation: ['by_amount' as AllocationMethod],
     note: [''],
+    paidFrom: ['', Validators.required],
+    method: ['' as PaymentMethod | ''],
     lines: this.fb.array([this.newLine()]),
   });
 
@@ -346,6 +390,26 @@ export class CompraForm {
     return count > 0 ? `, más la entrada de ${count} ${count === 1 ? 'insumo' : 'insumos'}` : '';
   });
 
+  protected readonly chosenAccount = computed(() =>
+    this.accountOptions().find((account) => account.id === this.raw().paidFrom),
+  );
+
+  protected readonly paymentText = computed(() => {
+    const account = this.chosenAccount();
+    return account ? `El pago sale de ${account.name}.` : 'Queda por pagar.';
+  });
+
+  /** An account with no default method needs one chosen, or the payment would be refused. */
+  protected readonly methodMissing = computed(() => {
+    const account = this.chosenAccount();
+    return account !== undefined && account.defaultMethod === null && this.raw().method === '';
+  });
+
+  protected paymentError(): string | null {
+    const control = this.form.controls.paidFrom;
+    return control.touched && control.invalid ? 'Elige desde qué cuenta la pagaste, o «Todavía no la pagué».' : null;
+  }
+
   protected readonly confirming = signal(false);
   protected readonly busy = signal(false);
   protected readonly error = signal<string | null>(null);
@@ -387,6 +451,10 @@ export class CompraForm {
       this.error.set('Revisa los campos marcados antes de guardar.');
       return;
     }
+    if (this.methodMissing()) {
+      this.error.set(`Elige el medio de pago: ${this.chosenAccount()?.name} no tiene uno por defecto.`);
+      return;
+    }
     this.confirming.set(true);
     afterNextRender(() => this.confirmBox()?.nativeElement.scrollIntoView({ block: 'center', behavior: 'smooth' }), {
       injector: this.injector,
@@ -399,8 +467,8 @@ export class CompraForm {
     this.busy.set(true);
     this.error.set(null);
     try {
-      await this.data.registerPurchase(this.toDraft());
-      this.saved.emit(this.rollCount());
+      const registered = await this.data.registerPurchase(this.toDraft());
+      this.saved.emit({ rolls: this.rollCount(), paymentFailed: registered.paymentFailed });
     } catch (error) {
       this.confirming.set(false);
       this.reportFailure(error);
@@ -464,6 +532,8 @@ export class CompraForm {
       note: blankToNull(raw.note),
       lines,
       plan: this.plan(),
+      payment:
+        raw.paidFrom === NOT_PAID ? null : { accountId: raw.paidFrom, method: raw.method === '' ? null : raw.method },
     };
   }
 

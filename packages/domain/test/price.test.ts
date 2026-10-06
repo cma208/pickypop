@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { calculatePrice, chargesIgv } from '../src/price.ts';
+import { breakdownForPrice, calculatePrice, chargesIgv } from '../src/price.ts';
 import type { CostProfile } from '../src/types.ts';
 
 const PROFILE: CostProfile = {
@@ -81,5 +81,42 @@ describe('calculatePrice', () => {
 
   it('rejects a margin of 100 %', () => {
     expect(() => calculatePrice(10, { ...PROFILE, targetMargin: 1 })).toThrow(RangeError);
+  });
+});
+
+describe('breakdownForPrice', () => {
+  it('keeps the price list as it is and says what margin it leaves', () => {
+    const price = breakdownForPrice(4.22, 10, PROFILE);
+
+    expect(price.total).toBe(10);
+    expect(price.saleValue).toBe(10);
+    expect(price.igv).toBe(0);
+    expect(price.marginAmount).toBe(5.78);
+    expect(price.effectiveMarginRate).toBeCloseTo(0.578, 3);
+  });
+
+  it('shows no discount: the tier already is the volume price', () => {
+    const price = breakdownForPrice(4.22, 8.5, PROFILE);
+
+    expect(price.basePrice - price.adjustedPrice).toBe(0);
+  });
+
+  it('takes IGV out of the total instead of adding it on top', () => {
+    const price = breakdownForPrice(4.22, 11.8, { ...PROFILE, taxRegime: 'rer' });
+
+    expect(price.total).toBe(11.8);
+    expect(price.igv).toBe(1.8);
+    expect(price.saleValue).toBe(10);
+  });
+
+  it('reports a negative margin when the list price is below the cost', () => {
+    const price = breakdownForPrice(4.22, 3, PROFILE);
+
+    expect(price.marginAmount).toBe(-1.22);
+    expect(price.effectiveMarginRate).toBeLessThan(0);
+  });
+
+  it('refuses a negative price', () => {
+    expect(() => breakdownForPrice(1, -1, PROFILE)).toThrow(RangeError);
   });
 });

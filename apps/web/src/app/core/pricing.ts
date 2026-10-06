@@ -1,5 +1,6 @@
 import {
   allocateCents,
+  breakdownForPrice,
   calculateBatchCost,
   calculatePrice,
   chargesIgv,
@@ -19,6 +20,7 @@ import { parseSliceInfo, totalFilamentGrams } from '@pickypop/slicer-files';
  */
 export {
   allocateCents,
+  breakdownForPrice,
   calculateBatchCost,
   calculatePrice,
   chargesIgv,

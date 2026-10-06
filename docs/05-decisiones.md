@@ -254,6 +254,25 @@ La causa de fondo era una columna que la documentación daba por existente y nun
 
 **Consecuencias.** El inventario de terminados existe, y con él la pregunta que el taller hace todos los días —cuántas hay armadas— tiene respuesta. Los movimientos viejos de piezas siguen con tipo `purchase`: no se migran hacia atrás, por la misma razón de siempre. Queda abierto si `complete_print_job` debe pasar a `production` para las piezas nuevas; mientras no se haga, el kardex mezcla dos criterios.
 
+
+## ADR-019 · El dinero de una compra y el costo de lo vendido
+
+**Estado:** Aceptada · 2026-10-06 · publicada en `main` el mismo día
+
+**Contexto.** El barrido del 2026-10-06 (`docs/barrido/`) encontró tres errores que ya estaban publicados y ensuciaban las cuentas reales:
+
+1. **Registrar una compra no registraba su pago,** y Caja no tenía forma de ligar un egreso a una compra. O la cuenta quedaba con más plata de la que tenía, o el pago se anotaba a mano como gasto de operación y la utilidad salía más baja de lo real, porque Resultados deja las compras aparte.
+2. **El costo de ventas se reemplazaba por el de una sola impresión.** En cuanto un pedido tenía una impresión ligada, Resultados contaba solo filamento, luz y máquina: los dulces, el frasco, el empaque y la mano de obra desaparecían. Una venta de S/ 85 figuraba con S/ 2.70 de costo.
+3. **El cotizador ignoraba la escalera de precios.** La cargaba y no la usaba, así que la misma poción salía a un precio en la cotización y a otro en el pedido.
+
+**Decisión.**
+
+1. **Una compra se paga como se cobra un pedido.** `record_purchase_payment` es el gemelo de `record_payment`: bloquea la fila, rechaza pagar de más con un mensaje para una persona, y deja el egreso ligado con `purchase_id`. Lo pagado y lo pendiente se derivan de esos egresos (`purchase_payment_status`), nunca se guardan. Al registrar la compra se pregunta "¿Cómo pagaste?", sin nada elegido de antemano, con la opción "Todavía no la pagué". El pago se escribe al final, cuando el stock ya entró, y el monto lo da la base y no el formulario, que redondea por línea.
+2. **El costo de ventas es lo que la receta dice que cuesta cada línea**, congelado al tomar el pedido. El costo de las impresiones solo se usa para una línea sin estimado. **Es provisional:** el costo real de lo vendido llega con `deliver_order`, cuando entregar saque las cosas del estante y las valorice con el promedio de lo que había. Ese día esta regla se reemplaza, y los dos cambios (no atar los trabajos de catálogo a un pedido, y sacar el costo de la entrega) tienen que publicarse juntos.
+3. **Una línea de catálogo se cotiza a su precio de lista** para esa cantidad, con la misma regla que `price_for_quantity`. El descuento, el recargo y la comisión del canal quedan para lo hecho a medida. `breakdownForPrice` desglosa un precio decidido en otra parte, y vive en el dominio.
+
+**Consecuencias.** Las compras anteriores aparecen "por pagar": hay que registrar su pago desde la compra, y anular el egreso suelto si se había anotado a mano en Caja. La utilidad de los meses pasados baja, y es la real. Las cotizaciones ya enviadas conservan su precio congelado.
+
 ---
 
 ## Pendientes

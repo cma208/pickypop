@@ -260,13 +260,10 @@ export class CotizadorPage {
     const printer = this.printer();
     if (context === null || printer === null) return null;
 
-    return calculateLine(
-      this.draft(),
-      context.filaments,
-      context.profile,
-      printer,
-      this.priceSettings(),
-    );
+    const draft = this.draft();
+    const variant = context.variants.find((item) => item.id === draft.variantId) ?? null;
+
+    return calculateLine(draft, context.filaments, context.profile, printer, this.priceSettings(), variant);
   });
 
   protected readonly materials = computed<MaterialLineRow[]>(() => {
