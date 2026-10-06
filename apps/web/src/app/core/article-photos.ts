@@ -15,8 +15,8 @@ export type ArticleKind = ItemKind | 'product' | 'plate' | 'spool' | 'printer';
 /**
  * Something whose picture has to be looked up instead of carried along:
  * - `variant`: its own photo, else its product's;
- * - `item`: an inventory item, else the thumbnail of the plate that prints it;
- * - `job`: what a print job puts on the bed (plate, piece, then product);
+ * - `item`: an inventory item, else the thumbnail of a plate that prints it;
+ * - `job`: what a print job puts on the bed (plate, its first piece, then product);
  * - `order`: the first line of an order that has a photo.
  */
 export interface PhotoRef {
@@ -67,24 +67,44 @@ export function itemPhoto(row: ItemRow | null | undefined, plateThumbnail: strin
   return { path: row?.image_path ?? plateThumbnail ?? null, kind };
 }
 
+/** One entry of a plate's list of pieces, with the plate and how many kinds it makes. */
+export interface PlateOutputRow {
+  inventory_item_id: string;
+  recipe_plates: { thumbnail_path: string | null; recipe_plate_outputs: { count: number }[] } | null;
+}
+
+/**
+ * The plate thumbnail that can stand for a piece. A plate that makes only that
+ * piece shows it; a mixed one (seven caps and seven bodies) shows both, so it
+ * is used only when no plate makes the piece alone.
+ */
+export function plateThumbnailFor(outputs: readonly PlateOutputRow[]): string | null {
+  const withThumbnail = outputs.filter((output) => output.recipe_plates?.thumbnail_path);
+  const alone = withThumbnail.find((output) => (output.recipe_plates?.recipe_plate_outputs[0]?.count ?? 0) <= 1);
+  return (alone ?? withThumbnail[0])?.recipe_plates?.thumbnail_path ?? null;
+}
+
 interface JobRow {
   recipe_plates: {
     thumbnail_path: string | null;
-    inventory_items: ItemRow | null;
+    recipe_plate_outputs: { position: number; inventory_items: ItemRow | null }[];
   } | null;
   order_lines: { product_variants: VariantRow | null } | null;
 }
 
 /**
  * In the queue the plate rules, because that is what goes on the bed: "nine
- * caps in black", not one cap. Then the piece the plate makes, then the
- * product of the order line it was printed for.
+ * caps in black", not one cap. Then the first piece of the plate's list that
+ * has a photo, then the product of the order line it was printed for.
  */
 export function jobPhoto(row: JobRow | null | undefined): ResolvedPhoto {
   const plate = row?.recipe_plates;
+  const firstPiece = [...(plate?.recipe_plate_outputs ?? [])]
+    .sort((a, b) => a.position - b.position)
+    .find((output) => output.inventory_items?.image_path);
   const path =
     plate?.thumbnail_path ??
-    plate?.inventory_items?.image_path ??
+    firstPiece?.inventory_items?.image_path ??
     variantPhoto(row?.order_lines?.product_variants).path ??
     null;
   return { path, kind: 'plate' };
@@ -185,25 +205,27 @@ export class ArticlePhotos {
   }
 
   private async items(ids: string[]): Promise<Map<string, ResolvedPhoto>> {
-    const [rows, plates] = await Promise.all([
+    const [rows, outputs] = await Promise.all([
       this.chunked(ids, (chunk) => this.supabase.from('inventory_items').select('id, kind, image_path').in('id', chunk)),
       this.chunked(ids, (chunk) =>
         this.supabase
-          .from('recipe_plates')
-          .select('produces_item_id, thumbnail_path')
-          .in('produces_item_id', chunk)
-          .not('thumbnail_path', 'is', null),
+          .from('recipe_plate_outputs')
+          .select('inventory_item_id, recipe_plates(thumbnail_path, recipe_plate_outputs(count))')
+          .in('inventory_item_id', chunk),
       ),
     ]);
-    const plateOf = new Map(plates.map((plate) => [plate.produces_item_id, plate.thumbnail_path]));
-    return new Map(rows.map((row) => [row.id, itemPhoto(row, plateOf.get(row.id) ?? null)]));
+    const outputsOf = new Map<string, PlateOutputRow[]>();
+    for (const output of outputs) {
+      outputsOf.set(output.inventory_item_id, [...(outputsOf.get(output.inventory_item_id) ?? []), output]);
+    }
+    return new Map(rows.map((row) => [row.id, itemPhoto(row, plateThumbnailFor(outputsOf.get(row.id) ?? []))]));
   }
 
   private async jobs(ids: string[]): Promise<Map<string, ResolvedPhoto>> {
     const rows = await this.chunked(ids, (chunk) =>
       this.supabase
         .from('print_jobs')
-        .select('id, recipe_plates(thumbnail_path, inventory_items(kind, image_path)), order_lines(product_variants(image_path, catalog_products(image_path)))')
+        .select('id, recipe_plates(thumbnail_path, recipe_plate_outputs(position, inventory_items(kind, image_path))), order_lines(product_variants(image_path, catalog_products(image_path)))')
         .in('id', chunk),
     );
     return new Map(rows.map((row) => [row.id, jobPhoto(row)]));

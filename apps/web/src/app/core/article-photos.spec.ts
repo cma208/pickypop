@@ -1,4 +1,4 @@
-import { itemPhoto, jobPhoto, orderPhoto, variantPhoto } from './article-photos';
+import { itemPhoto, jobPhoto, orderPhoto, plateThumbnailFor, variantPhoto } from './article-photos';
 
 const PRODUCT = { image_path: 'ws/productos/pocion.webp' };
 
@@ -41,22 +41,45 @@ describe('itemPhoto', () => {
   });
 });
 
+describe('plateThumbnailFor', () => {
+  const plate = (thumbnail: string | null, kinds: number) => ({
+    inventory_item_id: 'tapa',
+    recipe_plates: { thumbnail_path: thumbnail, recipe_plate_outputs: [{ count: kinds }] },
+  });
+
+  it('prefers a plate that makes only this piece', () => {
+    expect(plateThumbnailFor([plate('ws/impresiones/mixta.webp', 2), plate('ws/impresiones/tapas.webp', 1)])).toBe(
+      'ws/impresiones/tapas.webp',
+    );
+  });
+
+  it('settles for a mixed plate when it is the only picture there is', () => {
+    expect(plateThumbnailFor([plate(null, 1), plate('ws/impresiones/mixta.webp', 2)])).toBe('ws/impresiones/mixta.webp');
+  });
+
+  it('has nothing when no plate has a thumbnail', () => {
+    expect(plateThumbnailFor([plate(null, 1)])).toBeNull();
+    expect(plateThumbnailFor([])).toBeNull();
+  });
+});
+
 describe('jobPhoto', () => {
-  const piece = { kind: 'part' as const, image_path: 'ws/articulos/tapa.webp' };
+  const cap = { position: 1, inventory_items: { kind: 'part' as const, image_path: 'ws/articulos/tapa.webp' } };
+  const body = { position: 0, inventory_items: { kind: 'part' as const, image_path: null } };
   const line = { product_variants: { image_path: null, catalog_products: PRODUCT } };
 
   it('shows the plate first: it is what goes on the bed', () => {
-    const row = { recipe_plates: { thumbnail_path: 'ws/impresiones/placa.webp', inventory_items: piece }, order_lines: line };
+    const row = { recipe_plates: { thumbnail_path: 'ws/impresiones/placa.webp', recipe_plate_outputs: [cap] }, order_lines: line };
     expect(jobPhoto(row)).toEqual({ path: 'ws/impresiones/placa.webp', kind: 'plate' });
   });
 
-  it('then the piece the plate produces', () => {
-    const row = { recipe_plates: { thumbnail_path: null, inventory_items: piece }, order_lines: line };
-    expect(jobPhoto(row).path).toBe(piece.image_path);
+  it('then the first piece of its list that has a photo', () => {
+    const row = { recipe_plates: { thumbnail_path: null, recipe_plate_outputs: [cap, body] }, order_lines: line };
+    expect(jobPhoto(row).path).toBe('ws/articulos/tapa.webp');
   });
 
   it('then the product of the order line it was printed for', () => {
-    const row = { recipe_plates: { thumbnail_path: null, inventory_items: { kind: 'part' as const, image_path: null } }, order_lines: line };
+    const row = { recipe_plates: { thumbnail_path: null, recipe_plate_outputs: [body] }, order_lines: line };
     expect(jobPhoto(row).path).toBe(PRODUCT.image_path);
   });
 
