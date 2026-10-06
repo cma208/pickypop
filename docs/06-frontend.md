@@ -1,6 +1,6 @@
 # 6. Plan del frontend
 
-> Estado: en construcción · Actualizado: 2026-10-04
+> Estado: en construcción · Actualizado: 2026-10-06
 > La app vive en `apps/web`. Angular 22 con componentes standalone, signals y sin zone.js.
 
 ## 6.1 Qué estamos construyendo
@@ -35,7 +35,7 @@ apps/web/src/app/
 
 **La jerarquía la dan el peso y la densidad, no el color.** El título de página pesa y es grande; las tarjetas respiran; las tablas aprietan. Esa diferencia es deliberada: las pantallas de trabajo son tablas y rinden cuando entran más filas, y las de resumen son tarjetas y rinden cuando se leen de un vistazo. No se "arregla" igualándolas.
 
-Los iconos del menú viven en `layout/nav-icons.ts`, como un sprite SVG en línea: diecisiete trazos de 24×24, sin relleno, que toman color y grosor de donde estén, así que el estado activo enciende el icono y la palabra a la vez. Son dibujados a mano a propósito: una fuente de iconos sería una dependencia y una petición de red para diecisiete figuras. Si hace falta uno nuevo, se agrega ahí y tiene que ser legible a 18 px, que es el único tamaño al que se dibujan.
+Los iconos del menú viven en `layout/nav-icons.ts`, como un sprite SVG en línea: diecinueve trazos de 24×24, sin relleno, que toman color y grosor de donde estén, así que el estado activo enciende el icono y la palabra a la vez. Son dibujados a mano a propósito: una fuente de iconos sería una dependencia y una petición de red para diecinueve figuras. Si hace falta uno nuevo, se agrega ahí y tiene que ser legible a 18 px, que es el único tamaño al que se dibujan.
 
 Tokens en `styles.scss`, con claro y oscuro automáticos: `--bg`, `--surface`, `--text`, `--muted`, `--line`, `--accent`, `--danger`, `--good`, `--warn` y sus variantes `-soft`.
 
@@ -69,7 +69,7 @@ Clases útiles: `.muted`, `.error`, `.num` (números alineados a la derecha), `.
 ## 6.6 Pantallas
 
 ### Hoy (`/hoy`)
-Dos mitades que responden preguntas distintas. Arriba, **Lo que vence**: la cola de trabajo, ordenada por urgencia, con todo lo que está atrasado o vence en los próximos días —pedidos por entregar, impresiones sin cerrar, pedidos entregados sin cobrar y mantenimiento vencido—. Cada fila enlaza a donde se resuelve. Abajo, las tarjetas de estado: filamentos bajo mínimo, pedidos en curso por estado, mantenimiento, impresiones de la semana con su tasa de éxito, y los parámetros vigentes.
+Dos mitades que responden preguntas distintas. Arriba, **Lo que vence**: la cola de trabajo, ordenada por urgencia, con todo lo que está atrasado o vence en los próximos días —pedidos por entregar, impresiones sin cerrar, pedidos entregados sin cobrar y mantenimiento vencido—. Cada fila enlaza a donde se resuelve. Abajo, las tarjetas de estado: filamentos bajo mínimo, pedidos en curso por estado, mantenimiento, impresiones de la semana con su tasa de éxito.
 
 El filamento bajo mínimo **no** entra en la cola de arriba: es una condición, no un vencimiento, y repetirlo ahogaría lo que sí caduca. Las partes puras (el texto de cada fila y el orden) viven en `panel.tasks.ts`, con pruebas: "se entregaba ayer" y "se entrega hoy" se diferencian en un día.
 
@@ -80,7 +80,13 @@ El filamento bajo mínimo **no** entra en la cola de arriba: es una condición, 
   `/inventario/rollos` existía como pantalla aparte y hoy redirige aquí. La distinción producto/unidad física es correcta, pero dos entradas en el menú no la enseñaban: anidada se explica sola.
 - **Compras** (`/inventario/compras`): lista y alta. El alta es el formulario más importante del área: proveedor, fecha, líneas (SKU o insumo, cantidad, precio), costo de envío y su reparto por monto o por peso. Al guardar crea los rollos con su costo real y los movimientos de entrada. Muestra el costo final por rollo antes de confirmar.
 - **Insumos y repuestos** (`/inventario/insumos`): artículos con existencias, mínimos y perecibles. Entradas y salidas manuales.
+- **Piezas impresas** (`/inventario/piezas`): las piezas que salen de una placa, con su stock y su costo. El costo **no** sale de `inventory_item_costs` —una pieza no se compra nunca— sino del promedio ponderado de lo que costó imprimirla. Desde aquí se **arma** un producto: se elige la variante y las unidades, y se consume la receta entera, todo o nada. Si falta algo, la base dice qué y cuánto, y ese mensaje se muestra tal cual.
 - **Kardex** (`/inventario/movimientos`): con filtros por tipo, rollo, artículo y fechas. Es la pantalla que explica por qué el stock dice lo que dice.
+
+### Ventas
+- **Oportunidades** (`/oportunidades`): el tablero comercial. Cinco columnas —Nuevo, Cotizado, Negociando, Ganado, Cerrado— más Perdido; se arrastra con `draggable` nativo, sin librería. La tarjeta muestra cliente, monto, días sin movimiento y el bloqueo si lo hay. **Ganado y Cerrado se derivan de los pedidos**, no se mueven a mano: una tarjeta cuyos pedidos están todos entregados y cobrados llega sola a Cerrado.
+- **Oportunidad** (`/oportunidades/:id`): el trato con sus cotizaciones, sus pedidos y el historial de etapas.
+- **Cliente** (`/clientes/:id`): su historia completa —tratos, pedidos, lo comprado y lo que debe—.
 
 ### Catálogo
 - **Catálogo** (`/catalogo`): productos con estado, variantes y precios. Crear y archivar.
@@ -108,6 +114,8 @@ El filamento bajo mínimo **no** entra en la cola de arriba: es una condición, 
 - **Configuración** (`/configuracion`): parámetros de costo con vigencia (crear una versión nueva, nunca editar la vigente), datos del taller y régimen tributario, miembros con su tarifa por hora, canales de venta, categorías de regalo, marcas, materiales y **apariencia**.
 
   La pestaña **Apariencia** controla tema (automático, claro, oscuro), densidad de las tablas y si el menú arranca contraído. Vive en `core/appearance.ts` y se guarda en `localStorage`, **no en la base**: la apariencia es una propiedad de la pantalla que estás mirando, no de quién eres, y además tiene que poder aplicarse antes de que cargue nada. Por eso hay un script de seis líneas en `index.html` que lee la preferencia antes de que arranque Angular; sin él la página pinta en claro y luego salta, que se lee como un error. **Si cambias la clave o el formato, los dos sitios tienen que ir a la par.**
+
+  **Hoy `theme` significa el modo, no la paleta.** Claro, oscuro y automático son un eje; las combinaciones de colores son otro, y todavía no existen. M10 los separa en `mode` y `palette`, y entonces este nombre cambia: no agregues paletas encima del nombre actual o queda mintiendo para siempre.
 
   El tema y la densidad se eligen con miniatura y **no se aplican hasta Guardar**: cambiarlos bajo los pies de quien los está comparando hace imposible compararlos. Lo del menú sí se aplica al instante, porque es la misma acción que el botón « y verlo moverse es la única forma de saber si te gusta.
 

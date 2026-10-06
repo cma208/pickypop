@@ -24,6 +24,8 @@ Está **en producción** desde el 2026-10-05, con datos reales entrando. Las pan
 
 **Los saldos no se guardan, se derivan.** El stock sale de sus movimientos; el saldo de una cuenta, de los suyos más el saldo de apertura. No añadas una columna de saldo editable por mucho que parezca más rápido.
 
+**Una pieza impresa no se compra: se produce.** Su costo sale del promedio ponderado de los movimientos de producción, **no** de `inventory_item_costs`, que deriva de las compras y para una pieza devuelve nada. Es la única excepción a "un insumo cuesta lo que dice la vista", y ya costó dos errores: piezas sin costo en pantalla y armados que consumían stock valorizado en cero.
+
 **Nada se borra: se anula.** Los movimientos de dinero se anulan con motivo obligatorio y desaparecen de los reportes dejando rastro.
 
 **Las migraciones son de ida.** Una migración ya aplicada **jamás** se edita: se corrige con otra encima. `supabase/seed.sql` corre **solo en local**; el proyecto alojado se arranca con `supabase/bootstrap.sql`.
@@ -82,4 +84,10 @@ Si creas datos de prueba, **bórralos al terminar** y di cuáles fueron.
 - En un archivo laminado de Bambu, **la purga y la torre de limpieza ya vienen incluidas** en los gramos que reporta. No las sumes aparte. Se verificó sobre archivos reales: la purga era el 28.7 % de una placa de tres colores.
 - Usa `prediction` como tiempo de impresión, no "model printing time".
 - Una columna `date` llega como `"2026-10-04"`, y `new Date("2026-10-04")` la interpreta en UTC, que en Lima es la tarde anterior. Hay que construirla como fecha local.
+- **Un `select` de PostgREST partido en varias líneas con `+` deja de ser un tipo literal**, y el cliente tipado falla con `GenericStringError`, que no dice nada del problema real. Va en una sola cadena, por larga que sea.
+- **Una columna de vista llamada igual que una tabla** (`quotes`, `orders`) la lee PostgREST como relación embebida y revienta. Por eso las cuentas se llaman `quote_count` y `order_count`.
+- **Una vista bloquea el `alter column` de lo que usa**: hay que soltarla y recrearla alrededor. Y `create or replace view` **no** renombra columnas, aunque el nombre prometa lo contrario.
+- **Un valor nuevo de `enum` no se puede usar en la misma transacción que lo creó.** Va solo en su migración.
+- **Las fechas se escriben en hora de Lima.** `(current_date - 14)::timestamptz` es medianoche **UTC**, que aquí es la tarde anterior, y la fila aparece un día antes. Va `((current_date - 14)::timestamp + interval '10 hours') at time zone 'America/Lima'`. Un movimiento sin `occurred_at` cae en `now()`.
+- **`P0001` es un `raise exception` escrito a mano, para una persona.** `friendlyError` lo deja pasar tal cual: la base sabe más del caso que cualquier regla del navegador.
 - Vender **una** unidad suelta es antieconómico: para una tapa se imprime una placa de nueve. Por eso existe la escalera de precios y por eso el hito M4 importa.

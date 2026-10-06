@@ -187,6 +187,57 @@ Además, las reglas que no se pueden romper se declaran en el esquema y no en la
 
 ---
 
+## ADR-015 · Dos tuberías: la comercial y la del taller
+
+**Estado:** Aceptada · 2026-10-06
+
+**Contexto.** El dueño pidió "pedidos como un CRM". Pero lo que describió no era un pedido: *un mismo trato con un cliente puede implicar varias cotizaciones, y al final concretarse una o más, con fechas de entrega distintas*. Eso no cabe en `orders`, donde cada pedido cuelga de una cotización y nada los agrupa. Y mezclar las dos cosas en un solo tablero es exactamente lo que vuelve confusos a los sistemas de este tamaño: la columna "en producción" convive con "negociando" y ninguna de las dos se puede leer de un vistazo.
+
+**Decisión.** Son dos tuberías paralelas, cada una con su tablero:
+
+- **Comercial:** cliente → **oportunidad** → cotización → pedido. La oportunidad es una capa nueva por encima; las cotizaciones y los pedidos la referencian **de forma opcional**, porque una venta de mostrador no pasa por ningún trato.
+- **Taller:** `order_status`, que ya existía y **es** el tablero de producción.
+
+Y una regla que las une sin fundirlas: **las dos últimas etapas comerciales se derivan del taller, no se arrastran a mano.** Una oportunidad llega sola a *Cerrado* cuando todos sus pedidos están entregados y cobrados. Es el mismo principio de ADR-014: lo que se puede calcular no se guarda.
+
+"Esperando adelanto" se evaluó como columna y se descartó: las compras grandes llevan adelanto y las chicas no, así que la columna estaría vacía la mayor parte del tiempo. Va como **marca con motivo** en la tarjeta, visible en cualquier etapa.
+
+**Consecuencias.** El vendedor ve su embudo y el taller su cola, sin estorbarse. A cambio hay dos sitios donde mirar en vez de uno, y la oportunidad puede quedar huérfana si alguien cotiza sin crearla: se aceptó a propósito, porque obligar a abrir un trato para vender una botella en la puerta sería peor.
+
+---
+
+## ADR-016 · Una pieza impresa es inventario, y cuesta lo que costó imprimirla
+
+**Estado:** Aceptada · 2026-10-06
+
+**Contexto.** Casi todo lo que vende el taller son tres o cuatro piezas impresas más dulces. Hasta ahora, cerrar una impresión descontaba gramos y no producía nada contable: la botella y las tapas no existían como inventario. Con una sola impresora se imprime por placas —nueve tapas de una vez— y se vende de a una, así que esa venta cargaba la placa entera.
+
+**Decisión.** Tres piezas encajadas:
+
+1. **La pieza es un `inventory_item` de tipo `part`**, no una tabla nueva. Así la receta, el kardex y la valorización que ya existen le sirven sin duplicarse, y `recipe_items` cubre piezas, insumos, empaque y dulces con la misma forma.
+2. **Una placa declara qué pieza produce** (`recipe_plates.produces_item_id`). Al cerrar la impresión, las unidades entran al estante con el costo de la corrida repartido entre ellas.
+3. **Armar es una operación de todo o nada**: consume la receta completa o no mueve nada, y el mensaje dice qué falta y cuánto.
+
+Lo que apareció al usarlo y hay que recordar: **el costo de una pieza no puede salir de `inventory_item_costs`**, que deriva de las compras, porque una pieza **no se compra nunca**. Sale del promedio ponderado de los movimientos de producción. Es la excepción a la regla de "un insumo cuesta lo que dice la vista", y está donde es fácil tropezarse.
+
+**Consecuencias.** Imprimir y vender se independizan: un pedido se atiende desde el estante sin encender la impresora, y la placa se reparte entre las nueve ventas que respalda. Es aditivo —los pedidos viejos siguen siendo válidos y no se migran hacia atrás— y es lo que hace posibles el *disponible para prometer* (M5) y los packs anidados (M7).
+
+---
+
+## ADR-017 · La apariencia es de la pantalla, no de la persona
+
+**Estado:** Aceptada · 2026-10-06
+
+**Contexto.** El dueño pidió poder cambiar cómo se ve la aplicación. Lo natural sería guardar esa preferencia en la base, junto al usuario.
+
+**Decisión.** Se guarda en `localStorage`, con la clave `pickypop.appearance`. Dos razones: la apariencia depende del aparato desde el que miras —el teléfono en el taller y la laptop no quieren lo mismo— y, sobre todo, **tiene que poder aplicarse antes de que cargue nada**. Por eso hay un script de seis líneas en `index.html` que la lee antes de que arranque Angular; sin él la página pinta en claro y luego salta, que se lee como un error.
+
+Y una regla de interacción: **el tema y la densidad no se aplican hasta Guardar**, porque cambiarlos bajo los pies de quien los está comparando hace imposible compararlos. Lo del menú contraído sí se aplica al instante, porque es la misma acción que el botón de la barra lateral.
+
+**Consecuencias.** La preferencia no viaja entre aparatos, y eso está bien. El costo real es que **dos archivos tienen que ir a la par**: `core/appearance.ts` y el script de `index.html`. Está dicho en un comentario en los dos sitios y aun así es lo más fácil de romper.
+
+---
+
 ## Pendientes
 
 | Tema | Opciones | Comentario |

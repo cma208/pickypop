@@ -1,6 +1,6 @@
 # 7. Plan de trabajo
 
-> Estado: vigente · Reescrito el 2026-10-05 tras la conversación de flujos con el dueño
+> Estado: vigente · Reescrito el 2026-10-05 tras la conversación de flujos con el dueño · Actualizado el 2026-10-06
 > Este documento es el reparto de trabajo. Está escrito para que lo pueda tomar cualquier agente (Claude, Codex, o un subagente de cualquiera de los dos) sin haber estado en las conversaciones previas.
 
 ## 7.1 Cómo leer esto
@@ -29,21 +29,22 @@ Lo que define el resto del plan salió de una conversación con el dueño sobre 
 M0 Seguridad y respaldo ─── CERRADO
 M1 Datos maestros ───────── CERRADO
 
-M2 Navegación y nombres ──── M3 Identidad visual
+M2 Navegación ──── M3 Identidad ──── M10 Afinado visual y temas
+   CERRADO           CERRADO
 
 M4 Piezas, composición ───┬── M5 Disponible para prometer
-   y costeo exacto        └── M7 Packs anidados
+   CERRADO                └── M7 Packs anidados
 
-M6 Oportunidades (kanban) ───────── (independiente)
-M8 PDF de cotización ────────────── (independiente)
+M6 Oportunidades (kanban) ── CERRADO
+M8 PDF de cotización ─────── CERRADO · falta la segunda vuelta
 M9 Usuarios y roles ─────────────── (independiente)
 ```
 
-**Se pueden hacer a la vez:** M2, M4, M6, M8 y M9. Son carpetas distintas y no se pisan.
+**Lo que queda, y se puede hacer a la vez:** M5, M7, M9, M10 y la segunda vuelta del PDF. M5 y M7 comparten el modelo de recetas, así que conviene que no los tomen dos agentes distintos al mismo tiempo; los demás no se pisan con nadie.
 
-**Hay que esperar:** M3 va después de M2 (no se viste algo que vas a mover). M5 y M7 van después de M4, y los dos son **aditivos** sobre él: M7 en particular es una columna más en una tabla que M4 ya habrá creado, no una reescritura.
+**Hay que esperar:** M5 y M7 van después de M4 —ya cerrado— y los dos son **aditivos** sobre él: M7 en particular es una columna más en una tabla que M4 ya creó, no una reescritura. M10 va después de M3: no se pinta algo que vas a mover.
 
-**Reparto sugerido.** M4 es el de más criterio y toca el modelo de datos: conviene al agente con más contexto. M6, M8 y M9 están bien acotados y se pueden delegar enteros. M2 ya está acordado con el dueño (ver 7.4) y se puede tomar tal cual.
+**Reparto sugerido.** M7 es el de más criterio y toca el modelo de datos: conviene a quien tenga más contexto. M9 y M10 están bien acotados y se pueden delegar enteros, aunque M10 toca los estilos globales, que son compartidos: quien lo tome trabaja solo en ellos.
 
 ---
 
@@ -239,6 +240,19 @@ Generar un PDF desde el navegador con jsPDF, sin servidor. Debe llevar: el talle
 
 **Terminado cuando:** una cotización guardada produce un archivo que se abre bien en el móvil y cuyos números coinciden exactamente con los de la pantalla.
 
+**Cerrado el 2026-10-06.** Lleva taller, cliente, número, versión, fechas, líneas, subtotal, descuento, IGV y total, con los importes congelados. Entró la dependencia `jspdf@^4.2.1` con importación diferida: el paquete inicial casi no cambia y los 113 kB solo se bajan al pulsar el botón.
+
+### Segunda vuelta: el PDF escueto de más
+
+El dueño lo vio y dijo que *"pareciera que le falta más información"*. Pidió lo básico al principio y ahora quiere más. **Preguntarle cuáles de estos quiere antes de construirlos**: un PDF cargado de datos se lee peor que uno escueto, y esto lo ve un cliente.
+
+- **RUC y razón social del taller.** La tabla `workspaces` ya los guarda, pero `CurrentWorkspace` (`core/workspace.ts`) solo expone id, nombre, régimen y rol: hay que **ampliar ese servicio**, que es compartido. Hoy no tienen RUC, así que no estorba todavía.
+- **Cómo pagar:** las cuentas de `accounts` (Yape, Plin, transferencia) y si hace falta adelanto.
+- **Plazo de entrega:** `catalog_products.lead_time_days` existe y el PDF lo ignora.
+- **Contacto del taller** (teléfono, correo, Instagram) y **condiciones** al pie.
+- **Logo**, cuando tengan uno.
+- El desglose por línea queda en duda a propósito: le enseña al cliente más de lo que conviene y no le ayuda a decidir.
+
 ---
 
 ## M9 · Usuarios, roles e invitaciones
@@ -257,6 +271,39 @@ Generar un PDF desde el navegador con jsPDF, sin servidor. Debe llevar: el talle
 3. **Pantalla de cuenta** para cambiar el nombre visible y la contraseña, y **ajustes generales** del sistema.
 
 **Terminado cuando:** el dueño invita a alguien desde la aplicación, esa persona entra con el rol que le tocó, y una llamada directa a la API con su sesión es rechazada en lo que no le corresponde. **Probar lo segundo, no solo lo primero.**
+
+---
+
+## M10 · Afinado visual y temas de color
+
+**Por qué.** M3 arregló la **jerarquía**: ya se distingue lo importante, hay iconos y las tablas aprietan. Lo que no arregló —porque se decidió expresamente no tocarlo— es cómo se ve el conjunto. El dueño lo pidió así: *"que los elementos luzcan bien en su conjunto y sea agradable a la vista"*, y aclaró que cuando dijo *temas* no se refería a claro y oscuro sino a **distintas combinaciones de colores**.
+
+Esa aclaración cambia el modelo que hay hoy, y es lo primero que hay que entender antes de tocar nada:
+
+> **El modo y el tema son dos ejes distintos.** *Modo* es claro, oscuro o automático: lo pide el entorno, muchas veces el sistema operativo. *Tema* es la combinación de colores: lo elige la persona porque le gusta. Son perpendiculares: **cada tema tiene que existir en claro y en oscuro**. Hoy `core/appearance.ts` llama `theme` al modo, y eso hay que separarlo antes de agregar paletas o el nombre miente para siempre.
+
+**Depende de:** M3 (cerrado). No depende de M5, M7 ni M9, y no se pisa con ellos: vive en los tokens y en Configuración.
+
+### Tareas
+
+1. **Separar los dos ejes en `core/appearance.ts`.** `theme` pasa a `mode` (`auto | light | dark`) y entra `palette`. Son dos atributos en `<html>`: `data-mode` y `data-palette`. Cuidado con tres cosas que van juntas y se olvidan por separado:
+   - `parseAppearance` ya cae campo por campo, así que una preferencia guardada con el nombre viejo no rompe nada; pero hay que **leer el `theme` viejo como `mode`** o quien ya eligió oscuro vuelve a claro sin motivo.
+   - El script de arranque de `index.html` pinta antes de que exista Angular. **Si cambia la clave o el formato, los dos sitios cambian a la vez.** Está dicho en el comentario del archivo y aun así es lo más fácil de olvidar.
+   - El atributo explícito tiene que seguir ganándole a la consulta de medios: en `styles.scss` el bloque explícito va **después** del `@media`.
+
+2. **Definir las paletas como juegos completos de tokens, no como un color de acento.** Cada paleta redefine los mismos nombres (`--bg`, `--surface`, `--text`, `--muted`, `--line`, `--accent`, `--danger`, `--good`, `--warn` y sus `-soft`) en sus dos modos. Un tema que solo cambia el acento se nota pobre justo porque el resto no acompaña. Cuatro o cinco bastan, cada una con su nombre en español y una razón de ser distinta —una cálida, una fría, una neutra, una de alto contraste—; la terracota sobre crema de hoy se queda como la predeterminada, porque es la identidad del taller.
+
+3. **Cazar los colores escritos a mano.** Esta es la tarea que decide si los temas funcionan o se ven rotos. Buscar hexadecimales y `rgb(` fuera de `styles.scss`: cada uno es una pantalla que no va a cambiar de color con las demás. Incluye los que puse yo en las miniaturas de Configuración.
+
+4. **Que la miniatura salga de la paleta, no de una copia.** Hoy `appearance-section.ts` tiene las paletas escritas a mano porque tiene que pintar un tema que **no** está vigente. Con dos funcionaba; con cinco, cualquier retoque en los tokens deja la miniatura mintiendo. Hay que generarla de una sola definición de las paletas que sirva para el CSS y para la vista previa.
+
+5. **Una pasada de conjunto, pantalla por pantalla.** Que los elementos se vean parte de la misma cosa: una sola escala de espacios, un solo radio de borde, una sola profundidad de sombra, botones del mismo alto, tablas con el mismo ritmo, estados vacíos que no parezcan errores, foco visible que combine con la paleta. Recorrer las pantallas a 1440 px y a 400 px. **Esto es lo que el dueño pidió primero**; las paletas sin esto siguen viéndose desprolijas, solo que de otro color.
+
+6. **Contraste comprobado en cada paleta y en los dos modos.** Mínimo AA (4.5:1) en texto normal y 3:1 en bordes y estados. Una paleta bonita que no se lee a la luz del día es peor que la de ahora. Comprobarlo, no suponerlo.
+
+**Terminado cuando:** el dueño cambia de paleta en Configuración y **toda** la aplicación cambia con ella, sin que ninguna pantalla se quede con el color viejo; la preferencia sobrevive a recargar sin destello; y una captura de cualquier pantalla se ve deliberada y no armada por partes.
+
+**No hacer:** meter una librería de componentes, agregar fuentes sin acordarlo, ni tocar el flujo. Esto es cómo se ve, no cómo se trabaja.
 
 ---
 
@@ -285,7 +332,16 @@ No volver a abrirlas sin hablar con el dueño:
 | El menú usa **sustantivos**: Ventas · Producción · Inventario · Finanzas | Sí |
 | Los packs de dulces son **fijos**, cada uno su receta. Nada de configurador por ahora | Sí |
 | El pack de dulces **no se vende solo**: hace falta una bandera `sellable` | Sí |
-| Lo visual va **después** de la navegación, y no se repinta la paleta | Sí |
+| Lo visual va **después** de la navegación | Sí |
+| *Modo* (claro/oscuro) y *tema* (combinación de colores) son **dos ejes distintos**, y cada tema existe en los dos modos | Sí |
+| La terracota sobre crema se queda como paleta **predeterminada**: es la identidad del taller | Sí |
+| La apariencia se guarda en `localStorage`, **no en la base**: es de la pantalla, no de la persona | Sí |
+| El tema y la densidad **no se aplican hasta Guardar**; lo del menú sí, al instante | Sí |
+| Las piezas impresas son `inventory_items` de tipo `part`, no una tabla nueva | Sí |
+| El costo de una pieza sale del **promedio ponderado de lo que costó imprimirla**, nunca de las compras | Sí |
+| Armar es **todo o nada**: si falta un componente no se mueve nada y se dice qué falta | Sí |
+
+> **Corregida el 2026-10-06:** la fila que decía *"y no se repinta la paleta"* ya no vale. Valía para M3, donde repintar habría tapado el problema real, que era la jerarquía. El dueño pidió después paletas de verdad, y eso es M10.
 
 ## 7.5 Hitos cerrados
 
@@ -293,6 +349,18 @@ No volver a abrirlas sin hablar con el dueño:
 **Queda pendiente probar una restauración.** Un respaldo que nadie restauró nunca es una suposición, no un respaldo.
 
 **M1 · Datos maestros** (2026-10-05). Marcas, materiales, acabados e impresoras se administran desde la aplicación. El acabado pasó de texto libre a catálogo con bandera de abrasivo; un filamento es abrasivo si lo es su material **o** su acabado, y eso se resuelve en un solo sitio, la vista `filament_sku_details`.
+
+**M2 · Navegación y nombres** (2026-10-06). Veintiún enlaces planos agrupados por área de negocio con sustantivos, los dos "Movimientos" separados en Kardex y Caja, Filamentos y Rollos fundidos en una sola pantalla desplegable, y la barra lateral contraíble. El título del navegador dice el nombre de la pantalla, por `core/page-title.ts`.
+
+**M3 · Identidad visual** (2026-10-06). Jerarquía tipográfica, sprite de iconos en línea (`layout/nav-icons.ts`) y densidad configurable. La paleta quedó intacta a propósito; las paletas nuevas son M10.
+
+**M4 · Piezas, composición y costeo exacto** (2026-10-06), salvo la comodidad del formulario de compra. Detalle en la sección del hito.
+
+**M6 · Oportunidades** (2026-10-06). Tablero kanban con arrastre, bloqueos con motivo, historial por disparador e historia del cliente. Comprobado en vivo: una tarjeta sembrada en *ganado* se movió sola a *cerrado* porque su pedido estaba entregado y cobrado, y una sembrada en *cotizado* subió a *ganado* porque tenía pedidos.
+
+**M8 · PDF de cotización** (2026-10-06). Falta la segunda vuelta, en la sección del hito.
+
+**Y aparte:** la pantalla **Hoy** pasó a ser una cola de trabajo ordenada por urgencia, el entorno local se siembra con un taller entero de ejemplo (7.3.1), y Configuración tiene una pestaña **Apariencia**.
 
 ## 7.6 Dudas abiertas para el dueño
 
@@ -304,3 +372,7 @@ Ninguna de estas la debe decidir quien implementa:
 4. **Saldos de apertura** de las cuatro cuentas de dinero, y la **compra real del rollo negro**, que entró como saldo inicial a S/ 50 sin compra registrada.
 5. **Cuánto rinde un plumón de acrílico.** Hasta saberlo, los consumibles que se usan en todo (plumón, alcohol, pegamento) van como **gasto indirecto** y no entran a la receta. Criterio acordado: si el consumible se ve en el producto, va en la receta con rendimiento estimado; si se usa en todo por igual, va a gasto. Y si cuesta menos del 1 % del precio del producto, no entra a la receta: el riesgo no es errar por tres céntimos, es que la receta se vuelva tan fastidiosa que nadie la llene.
 6. **Publicar o no la tarjeta de Pickypop** en el portafolio: está commiteada en `~/Developer/cma208.github.io` sin publicar, esperando su visto bueno.
+7. **Aprobar `jspdf@^4.2.1`**, la dependencia que entró con M8.
+8. **Silenciar o no las ~10 advertencias de CommonJS** que emite el build por dependencias opcionales de jspdf. Rompen el criterio de "build sin advertencias nuevas" de `docs/06-frontend.md`. Se apagan con `allowedCommonJsDependencies` en `angular.json`, **que es configuración y necesita su permiso**.
+9. **Qué entra en el PDF** de la segunda vuelta (ver M8).
+10. **Integrar `nav-y-plan` a `main` y desplegar.** Todo lo del 2026-10-06 está commiteado y **sin publicar** por pedido suyo; lo que está en producción va muy por detrás.

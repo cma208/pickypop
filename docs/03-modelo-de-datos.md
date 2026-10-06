@@ -40,11 +40,12 @@
 | `purchases` | supplier_id, purchased_at, shipping_cost, other_costs, allocation_method (`by_amount`, `by_weight`), account_id, document_ref |
 | `purchase_lines` | purchase_id, item_kind (`filament`, `item`, `asset`), filament_sku_id \| inventory_item_id, quantity, unit_price, allocated_extra_cost |
 | `spools` | filament_sku_id, purchase_line_id, code, initial_weight_g, unit_cost, status, opened_at, last_dried_at, location |
-| `inventory_items` | kind (`supply`, `packaging`, `spare_part`, `finished_good`), name, unit, min_stock, product_variant_id |
+| `inventory_items` | kind (`supply`, `packaging`, `spare_part`, `finished_good`, **`part`**), name, unit, min_stock, product_variant_id |
 | `stock_movements` | spool_id \| inventory_item_id, type, quantity (con signo), unit_cost, source_type, source_id, occurred_at, note |
 | *vista* `spool_balances` | Gramos restantes y costo restante por rollo |
 | *vista* `filament_sku_stock` | Gramos en mano, reservados, disponibles y costo promedio ponderado por SKU |
 | *vista* `inventory_balances` | Existencias por artículo |
+| *vista* `part_stock` | Piezas impresas en el estante, con su costo por unidad y de dónde sale (`produced`, `standard`, `unknown`). El costo es el **promedio ponderado de los movimientos de producción**, no el de las compras: una pieza no se compra nunca (ADR-016) |
 
 ### Impresoras y mantenimiento
 
@@ -66,7 +67,7 @@
 | `product_variants` | product_id, name, options (jsonb: color, tamaño, material), list_price, active |
 | `product_media` | product_id, variant_id, storage_path, sort_order |
 | `recipes` | variant_id, version, valid_from, prep_min, post_min |
-| `recipe_plates` | recipe_id, plate_index, units_per_plate, print_time_s, source_file_name, thumbnail_path, slicer_metadata (jsonb) |
+| `recipe_plates` | recipe_id, plate_index, units_per_plate, print_time_s, source_file_name, thumbnail_path, slicer_metadata (jsonb), **produces_item_id** (la pieza que entra al estante al cerrar la impresión; nulo mantiene el comportamiento viejo) |
 | `recipe_plate_filaments` | recipe_plate_id, slot, material_id, color_hex, filament_sku_id, grams |
 | `recipe_items` | recipe_id, inventory_item_id, quantity_per_unit |
 | `price_history` | variant_id, list_price, valid_from, reason |
@@ -83,12 +84,16 @@
 | `gift_categories` | name, accounting_treatment (`marketing`, `owner_draw`, `other`) |
 | `orders` | number, purpose (`sale`, `personal`, `gift`), gift_category_id, recipient, customer_id, quote_id, channel_id, status, due_date, total |
 | `order_lines` | order_id, product_variant_id, quote_line_id, description, quantity, unit_price, estimated_cost |
+| `order_status_history` | order_id, from_status, to_status, changed_by, changed_at, note. Lo escribe un disparador, no la aplicación |
+| `opportunities` | customer_id, title, stage (`nuevo`, `cotizado`, `negociando`, `ganado`, `cerrado`, `perdido`), owner, expected_close, amount, blocked_reason, note. Las cotizaciones y los pedidos la referencian **de forma opcional** (ADR-015) |
+| `opportunity_stage_history` | opportunity_id, from_stage, to_stage, changed_by, changed_at. Por disparador |
+| *vista* `opportunity_board` | El tablero con sus cuentas. Las columnas se llaman `quote_count` y `order_count` **a propósito**: una columna de vista llamada igual que una tabla la lee PostgREST como relación embebida |
 
 ### Producción
 
 | Tabla | Columnas clave |
 |---|---|
-| `print_jobs` | order_line_id, printer_id, plate_label, started_at, finished_at, estimated_time_s, actual_time_s, result, failure_cause, percent_complete, slicer_metadata (jsonb), material_cost, energy_cost, machine_cost, notes |
+| `print_jobs` | order_line_id, printer_id, label, started_at, finished_at, estimated_time_s, actual_time_s, result, failure_cause, percent_complete, slicer_metadata (jsonb), material_cost, energy_cost, machine_cost, notes |
 | `print_job_filaments` | print_job_id, spool_id, slot, estimated_g, actual_g |
 
 ### Finanzas y comprobantes
@@ -183,5 +188,6 @@ Estas operaciones escriben en varias tablas y deben hacerlo **todo o nada**. Ser
 | `record_payment` | `transactions`, estado de la orden |
 | `log_maintenance` | `maintenance_logs`, `stock_movements` (repuestos), `transactions` |
 | `cancel_order` | Estado de la orden, liberación de reservas, reembolso si corresponde |
+| `assemble_product` | `stock_movements` (consumo de piezas, insumos y empaque). **Todo o nada:** si falta un componente no mueve nada y lanza un `P0001` con qué falta y cuánto, que la pantalla muestra tal cual |
 
-Escritas hasta hoy: `complete_print_job` y `record_payment`. Faltan `register_purchase`, `accept_quote`, `log_maintenance` y `cancel_order`; mientras tanto, una compra se paga registrando a mano un egreso con su `purchase_id`. Nota: `purchases.account_id` figura en este documento pero nunca se creó, y hace falta si el formulario de compra va a elegir cuenta.
+Escritas hasta hoy: `complete_print_job`, `record_payment` y `assemble_product`. Faltan `register_purchase`, `accept_quote`, `log_maintenance` y `cancel_order`; mientras tanto, una compra se paga registrando a mano un egreso con su `purchase_id`. Nota: `purchases.account_id` figura en este documento pero nunca se creó, y hace falta si el formulario de compra va a elegir cuenta.
