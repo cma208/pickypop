@@ -32,8 +32,8 @@ const ALL_YEARS = '';
       <div class="explainer">
         <p>
           <strong>Las compras de inventario no restan de la utilidad.</strong> Su costo ya llega por el
-          costo de ventas cuando una impresión consume el filamento; restarlas otra vez lo contaría dos
-          veces. Por eso se informan aparte.
+          costo de ventas, que es lo que cuesta hacer cada cosa vendida según su receta; restarlas otra vez
+          lo contaría dos veces. Por eso se informan aparte.
         </p>
         <p>
           <strong>Los aportes y los retiros del dueño son capital, no utilidad.</strong> Meter o sacar
@@ -114,7 +114,7 @@ const ALL_YEARS = '';
                 <ul class="lines">
                   <li><span>Ventas</span><span class="value">{{ row.sales | money }}</span></li>
                   <li>
-                    <span>Costo de ventas <small class="sub">material, energía y máquina de lo impreso</small></span>
+                    <span>Costo de ventas <small class="sub">lo que cuesta hacer lo vendido, según su receta: material, insumos, empaque, luz, máquina y mano de obra</small></span>
                     <span class="value neg">−{{ row.costOfSales | money }}</span>
                   </li>
                   <li class="sum"><span>Utilidad bruta</span><span class="value">{{ row.grossProfit | money }}</span></li>
