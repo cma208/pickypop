@@ -147,7 +147,10 @@ export interface PickerOption {
       padding: 0.25rem 0.6rem 0.25rem 0.3rem; border: 1px solid var(--line-strong); border-radius: var(--radius-sm);
       background: var(--bg); color: inherit; font: inherit; text-align: left; cursor: pointer; min-height: 3rem;
     }
-    .chosen:hover { background: var(--bg); border-color: var(--text); }
+    .chosen:hover:not(:disabled) { background: var(--bg); border-color: var(--text); }
+    /* A fixed choice (a saved recipe row) still has to be read, not greyed out. */
+    .chosen:disabled { opacity: 1; cursor: default; background: transparent; border-color: var(--line); }
+    .chosen:disabled .caret { visibility: hidden; }
     .text { display: grid; flex: 1; min-width: 0; }
     .label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .text small { font-size: var(--fs-sm); }

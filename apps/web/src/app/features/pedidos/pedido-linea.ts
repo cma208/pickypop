@@ -1,8 +1,8 @@
-import { Component, DestroyRef, inject, input, OnInit, output, signal } from '@angular/core';
+import { Component, computed, DestroyRef, inject, input, OnInit, output, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { roundMoney } from '../../core/pricing';
-import { Field, FORMAT_PIPES } from '../../ui';
+import { Field, FORMAT_PIPES, ItemPicker, type PickerOption } from '../../ui';
 import { CostEstimator } from './cost-estimate';
 import { PedidosData, type VariantOption } from './pedidos.data';
 
@@ -34,7 +34,7 @@ export function createOrderLineForm(): OrderLineForm {
  */
 @Component({
   selector: 'app-pedido-linea',
-  imports: [ReactiveFormsModule, Field, ...FORMAT_PIPES],
+  imports: [ReactiveFormsModule, Field, ItemPicker, ...FORMAT_PIPES],
   template: `
     <div class="line" [formGroup]="group()">
       <div class="head">
@@ -47,12 +47,7 @@ export function createOrderLineForm(): OrderLineForm {
       </div>
 
       <pp-field label="Producto y variante" [required]="true" [error]="fieldError('variantId')">
-        <select formControlName="variantId">
-          <option value="">Elige una variante…</option>
-          @for (variant of variants(); track variant.id) {
-            <option [value]="variant.id">{{ variant.label }}</option>
-          }
-        </select>
+        <pp-item-picker formControlName="variantId" [options]="variantOptions()" placeholder="Elige una variante…" />
       </pp-field>
 
       <div class="numbers">
@@ -125,6 +120,16 @@ export class PedidoLinea implements OnInit {
   readonly removable = input(true);
   readonly showErrors = input(false);
   readonly remove = output<void>();
+
+  /** The catalogue with its photos: "la botella roja" is found by looking, not by reading. */
+  protected readonly variantOptions = computed<PickerOption[]>(() =>
+    this.variants().map((variant) => ({
+      value: variant.id,
+      label: variant.label,
+      photo: { kind: 'variant', id: variant.id },
+      kind: 'product',
+    })),
+  );
 
   protected readonly suggested = signal<number | null>(null);
   protected readonly estimatedUnit = signal<number | null>(null);

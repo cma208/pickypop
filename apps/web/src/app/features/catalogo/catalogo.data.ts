@@ -600,7 +600,7 @@ export class CatalogoData {
       this.supabase.from('filament_sku_stock').select('filament_sku_id, weighted_cost_per_gram'),
       this.supabase
         .from('inventory_items')
-        .select('id, name, unit')
+        .select('id, name, unit, kind, image_path')
         .eq('active', true)
         .order('name'),
       // The view owns what a supply costs. This used to be rebuilt here from

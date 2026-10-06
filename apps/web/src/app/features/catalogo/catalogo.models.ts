@@ -1,3 +1,4 @@
+import type { Database } from '../../core/database.types';
 import type { CostProfile, PrinterProfile } from '../../core/pricing';
 import type { BadgeTone } from '../../ui';
 
@@ -199,6 +200,9 @@ export interface SupplyOption {
   unit: string;
   /** From `inventory_item_costs`: last purchase, else standard cost; null when neither exists. */
   costPerUnit: number | null;
+  /** So the recipe shows which bag or which sweets, not only their name. */
+  imagePath?: string | null;
+  kind?: Database['public']['Enums']['inventory_item_kind'] | null;
 }
 
 export interface Lookups {
