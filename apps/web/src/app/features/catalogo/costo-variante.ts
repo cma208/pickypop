@@ -88,7 +88,7 @@ import { VariantCostModel } from './variant-cost.model';
                   </tr>
                 }
                 <tr><td>Insumos</td><td class="num">{{ b.supplies | money }}</td><td class="num">{{ b.supplies / b.units | money:3 }}</td></tr>
-                <tr class="total"><td>Costo</td><td class="num">{{ b.total | money }}</td><td class="num">{{ b.costPerUnit | money:3 }}</td></tr>
+                <tr class="total"><td>Costo</td><td class="num">{{ b.total | money }}</td><td class="num">{{ b.total / b.units | money:3 }}</td></tr>
               </tbody>
             </table>
           </div>

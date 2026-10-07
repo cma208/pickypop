@@ -10,6 +10,11 @@ import { describeObjects } from './importacion';
 import { SalidaFila, type PartOption } from './salida-fila';
 
 const SECONDS_PER_MINUTE = 60;
+/**
+ * A sliced file says 2666 s, which is 44.4333… minutes. Two decimals read like
+ * a time and still give back the same second on save: they are off by 0.3 s at most.
+ */
+const MINUTE_DECIMALS = 100;
 
 /** A plate of the recipe with its filaments, or the form that adds a new plate. */
 @Component({
@@ -188,7 +193,7 @@ export class PlacaEditor {
     this.form.reset({
       label: plate?.label ?? '',
       unitsPerRun: plate?.unitsPerRun ?? null,
-      printMinutes: plate ? plate.printTimeS / SECONDS_PER_MINUTE : null,
+      printMinutes: plate ? Math.round((plate.printTimeS / SECONDS_PER_MINUTE) * MINUTE_DECIMALS) / MINUTE_DECIMALS : null,
     });
   }
 }

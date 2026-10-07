@@ -48,6 +48,9 @@ const STATUSES: ProductStatus[] = ['draft', 'published', 'archived'];
           <pp-field label="Etiquetas" hint="Separadas por comas.">
             <input formControlName="tags" />
           </pp-field>
+          <pp-field label="Plazo de entrega (días)" [error]="invalid('leadTimeDays') ? 'No puede ser negativo.' : null">
+            <input type="number" min="0" step="1" inputmode="numeric" formControlName="leadTimeDays" />
+          </pp-field>
           <pp-field label="Estado">
             <select formControlName="status">
               @for (status of statuses; track status) {
