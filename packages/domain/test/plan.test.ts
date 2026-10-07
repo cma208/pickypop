@@ -1121,4 +1121,35 @@ describe('plan: a made-to-order line typed by hand', () => {
       '"Encargo l1" es a medida y no tiene placas: el plan no sabe cuánto tarda en imprimirse.',
     ]);
   });
+
+  // ORD-2026-0002 in the second walk-through: «Imprimir para este pedido»
+  // with 20 minutes, and the queue still said the plan did not know how long
+  // it takes, right above that very job.
+  it('takes the time of its own job once it is queued, without the warning', () => {
+    const result = plan(
+      workshop({
+        jobs: [job('keychain', { orderLineId: 'l1', lineUnits: 1, estimatedSeconds: 20 * 60 })],
+        demands: [order('o1', 'PED-0001', TUESDAY_1800, [customLine('l1', 1, {})])],
+      }),
+    );
+    const line = result.demands[0]!.lines[0]!;
+
+    expect(line.unknown).toBeNull();
+    expect(result.warnings).toEqual([]);
+    expect(wallClock(line.readyAt)).toBe('mar 18:20');
+  });
+
+  it('still warns about what its jobs do not cover', () => {
+    const result = plan(
+      workshop({
+        jobs: [job('first', { orderLineId: 'l1', lineUnits: 1, estimatedSeconds: 20 * 60 })],
+        demands: [order('o1', 'PED-0001', TUESDAY_1800, [customLine('l1', 2, {})])],
+      }),
+    );
+
+    expect(result.demands[0]!.lines[0]!.unknown).toContain('no tiene placas');
+    expect(result.warnings).toEqual([
+      '"Encargo l1" es a medida y no tiene placas: el plan no sabe cuánto tarda en imprimirse.',
+    ]);
+  });
 });

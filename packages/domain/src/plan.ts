@@ -607,13 +607,6 @@ class Allocator {
   ): LinePlanned {
     const onShelf = Math.min(quantity, Math.max(0, custom.printedUnits));
     const toMake = clean(quantity - onShelf);
-    if (toMake > 0 && custom.plates.length === 0) {
-      // Typed by hand, with no sliced file behind it: calling it ready would
-      // be a promise nobody can keep.
-      this.warnings.add(
-        `"${line.description}" es a medida y no tiene placas: el plan no sabe cuánto tarda en imprimirse.`,
-      );
-    }
     const shortages = new Shortages();
     const ownRuns: Run[] = [];
     let latest = this.now;
@@ -621,6 +614,15 @@ class Allocator {
     const queued = this.forCustomLines.take(line.id, toMake, claimant);
     if (queued.at !== null) latest = Math.max(latest, queued.at);
     const left = clean(toMake - queued.units);
+    // Typed by hand, with no sliced file behind it: calling what is not in the
+    // queue yet ready would be a promise nobody can keep. What its own jobs
+    // cover is another matter: the person said how long they take.
+    const unknownTime = left > 0 && custom.plates.length === 0;
+    if (unknownTime) {
+      this.warnings.add(
+        `"${line.description}" es a medida y no tiene placas: el plan no sabe cuánto tarda en imprimirse.`,
+      );
+    }
     if (left > 0) {
       custom.plates.forEach((plate) => {
         if (plate.unitsPerRun <= 0) return;
@@ -647,7 +649,7 @@ class Allocator {
       handMinutes,
       ownRuns,
     );
-    return toMake > 0 && custom.plates.length === 0
+    return unknownTime
       ? unknownLine(planned, 'Es a medida y no tiene placas: no se sabe cuánto tarda en imprimirse.')
       : planned;
   }
