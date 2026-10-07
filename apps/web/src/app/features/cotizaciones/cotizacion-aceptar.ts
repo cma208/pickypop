@@ -4,6 +4,7 @@ import { Router } from '@angular/router';
 import { todayLocal } from '../../core/dates';
 import { Card, Field, FORMAT_PIPES, Item } from '../../ui';
 import { CotizadorData, DataError, type CustomerOption, type QuoteDetail } from '../cotizador/cotizador.data';
+import { ClienteRapido, NEW_CUSTOMER, watchNewCustomerOption } from '../cotizador/cliente-rapido';
 import { acceptPlace } from './quote-hold';
 import { PlanService } from '../../core/plan';
 import { compareReady, saleBuyText, type ReadyComparison } from '../cotizador/promise-text';
@@ -24,7 +25,7 @@ interface AcceptWhen extends ReadyComparison {
  */
 @Component({
   selector: 'app-cotizacion-aceptar',
-  imports: [ReactiveFormsModule, Card, Field, Item, ...FORMAT_PIPES],
+  imports: [ReactiveFormsModule, Card, Field, Item, ClienteRapido, ...FORMAT_PIPES],
   template: `
     <pp-card heading="El cliente aceptó: se crea este pedido">
       <ul class="lines">
@@ -70,11 +71,15 @@ interface AcceptWhen extends ReadyComparison {
           >
             <select formControlName="customerId">
               <option value="">Elige un cliente…</option>
+              <option [value]="newCustomer">+ Nuevo cliente</option>
               @for (customer of customers(); track customer.id) {
                 <option [value]="customer.id">{{ customer.name }}</option>
               }
             </select>
           </pp-field>
+          @if (creatingCustomer()) {
+            <app-cliente-rapido class="quick-customer" (created)="onCustomerCreated($event)" (cancelled)="creatingCustomer.set(false)" />
+          }
         }
         <div class="grid two">
           <pp-field label="Fecha de entrega" hint="Opcional">
@@ -104,6 +109,7 @@ interface AcceptWhen extends ReadyComparison {
     .when .label { display: block; color: var(--muted); font-size: var(--fs-sm); }
     .when.later { border-color: var(--warn); background: var(--warn-soft); color: var(--warn); }
     .when.sooner { border-color: var(--good); background: var(--good-soft); color: var(--good); }
+    .quick-customer { display: block; margin: -0.25rem 0 1rem; }
     .buy { margin: -0.5rem 0 1rem; padding: 0.5rem 0.75rem; border-radius: var(--radius-sm); background: var(--warn-soft); color: var(--warn); }
   `,
 })
@@ -120,6 +126,9 @@ export class CotizacionAceptar implements OnInit {
   protected readonly busy = signal(false);
   protected readonly error = signal<string | null>(null);
   protected readonly submitted = signal(false);
+  protected readonly newCustomer = NEW_CUSTOMER;
+  /** Whoever accepted may not be a customer yet: they are created right here. */
+  protected readonly creatingCustomer = signal(false);
 
   protected readonly form = new FormGroup({
     customerId: new FormControl('', { nonNullable: true }),
@@ -130,6 +139,16 @@ export class CotizacionAceptar implements OnInit {
   protected readonly needsCustomer = computed(() => this.quote().customerId === null);
   protected readonly place = computed(() => acceptPlace(this.quote().heldAt, this.quote().holdUntil));
   protected readonly when = signal<AcceptWhen | null>(null);
+
+  constructor() {
+    watchNewCustomerOption(this.form.controls.customerId, () => this.creatingCustomer.set(true));
+  }
+
+  protected onCustomerCreated(customer: CustomerOption): void {
+    this.customers.update((list) => [...list, customer].sort((a, b) => a.name.localeCompare(b.name, 'es')));
+    this.form.controls.customerId.setValue(customer.id);
+    this.creatingCustomer.set(false);
+  }
 
   ngOnInit(): void {
     void this.loadWhen();

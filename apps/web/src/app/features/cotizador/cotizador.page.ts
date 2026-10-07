@@ -39,12 +39,9 @@ import { candidateLine, sameCandidates } from './plan-candidate';
 import { Promesa } from './promesa';
 import { readyLine } from './promise-text';
 import { watchSalePromise } from './sale-promise.watch';
-import { ClienteRapido } from './cliente-rapido';
+import { ClienteRapido, NEW_CUSTOMER, watchNewCustomerOption } from './cliente-rapido';
 import { draftOwner, type QuoteDraft, type QuoteLineDraft } from './quote-draft';
 import { QuoteDraftStore } from './quote-draft.store';
-
-/** The customer picker's own option that opens «Nuevo cliente» instead of choosing one. */
-const NEW_CUSTOMER = '__nuevo__';
 
 const PERCENT = 100;
 
@@ -124,7 +121,6 @@ export class CotizadorPage {
   protected readonly newCustomer = NEW_CUSTOMER;
   /** «+ Nuevo cliente» is open under the customer picker. */
   protected readonly creatingCustomer = signal(false);
-  private lastCustomerId = '';
 
   /**
    * Off until the draft in storage (or the version being made) is back in
@@ -165,16 +161,7 @@ export class CotizadorPage {
     this.watch(this.priceForm.valueChanges);
     this.watch(this.quoteForm.valueChanges);
 
-    // «+ Nuevo cliente» is an option of the picker, not a customer: choosing
-    // it opens the form and the picker goes back to what it said before.
-    this.quoteForm.controls.customerId.valueChanges.pipe(takeUntilDestroyed()).subscribe((id) => {
-      if (id !== NEW_CUSTOMER) {
-        this.lastCustomerId = id;
-        return;
-      }
-      this.quoteForm.controls.customerId.setValue(this.lastCustomerId);
-      this.creatingCustomer.set(true);
-    });
+    watchNewCustomerOption(this.quoteForm.controls.customerId, () => this.creatingCustomer.set(true));
 
     // Whatever the person types is kept as they type it, so going to Clientes
     // and coming back, or reloading, finds the quote where it was.

@@ -1,8 +1,29 @@
 import { Component, inject, output, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { errorOf, textOrNull } from '../../core/form-errors';
 import { Field } from '../../ui';
 import { CotizadorData, DataError, type CustomerOption } from './cotizador.data';
+
+/** The customer picker's own option that opens «Nuevo cliente» instead of choosing one. */
+export const NEW_CUSTOMER = '__nuevo__';
+
+/**
+ * «+ Nuevo cliente» is an option of the picker, not a customer: choosing it
+ * calls `open` and the picker goes back to what it said before. Call it from
+ * a constructor or a field: it stops with the component.
+ */
+export function watchNewCustomerOption(control: FormControl<string>, open: () => void): void {
+  let last = control.value;
+  control.valueChanges.pipe(takeUntilDestroyed()).subscribe((id) => {
+    if (id !== NEW_CUSTOMER) {
+      last = id;
+      return;
+    }
+    control.setValue(last);
+    open();
+  });
+}
 
 /**
  * A customer created without leaving the quote: name and phone, the same two
@@ -17,10 +38,10 @@ import { CotizadorData, DataError, type CustomerOption } from './cotizador.data'
       <p class="title">Nuevo cliente</p>
       <div class="grid two">
         <pp-field label="Nombre del cliente" [required]="true" [error]="nameError()">
-          <input type="text" formControlName="name" autocomplete="off" />
+          <input type="text" formControlName="name" autocomplete="off" (keydown.enter)="onEnter($event)" />
         </pp-field>
         <pp-field label="Teléfono" hint="Opcional">
-          <input type="tel" formControlName="phone" autocomplete="off" />
+          <input type="tel" formControlName="phone" autocomplete="off" (keydown.enter)="onEnter($event)" />
         </pp-field>
       </div>
       @if (failed(); as message) { <p class="error" role="alert">{{ message }}</p> }
@@ -57,6 +78,12 @@ export class ClienteRapido {
       required: 'Escribe el nombre del cliente.',
       maxlength: 'El nombre es demasiado largo.',
     });
+  }
+
+  /** Enter creates the customer instead of submitting the form around it. */
+  protected onEnter(event: Event): void {
+    event.preventDefault();
+    void this.create();
   }
 
   protected async create(): Promise<void> {
