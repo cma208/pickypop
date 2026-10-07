@@ -332,6 +332,11 @@ export interface PlanItemPosition {
   free: number;
   /** Needed beyond what is on hand and in the queue. For a part, what has to print; for the rest, what has to be bought. */
   missing: number;
+  /**
+   * The same for confirmed orders only, which is what «Por lanzar» proposes.
+   * The rest of `missing` is only needed if the holds become orders.
+   */
+  missingForOrders: number;
 }
 
 export interface PlanFilamentPosition {

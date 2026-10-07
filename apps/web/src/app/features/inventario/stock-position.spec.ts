@@ -189,7 +189,7 @@ describe('the words of a position', () => {
     const bottle = itemCells('part', 'unidad', positions.get(BOTTLE))!;
     expect(bottle.onHand).toBe('8 unidades');
     expect(bottle.free).toBe('0');
-    expect(bottle.missing).toMatch(/^Falta imprimir \d+$/);
+    expect(bottle.missing).toMatch(/^Falta imprimir \d+ \(\+\d+ si se confirman los separos\)$/);
 
     const candy = itemCells('supply', 'g', positions.get(CANDY))!;
     expect(candy.onHand).toBe('520 g');
@@ -206,6 +206,7 @@ describe('the words of a position', () => {
       held: 0,
       free: 21,
       missing: 0,
+      missingForOrders: 0,
       claims: [],
     })!;
     expect(cells.compact).toBe('49 para pedidos · 21 libres');
@@ -270,5 +271,14 @@ describe('filamentCells', () => {
     })!;
     expect(cells.missing).toBe('Falta comprar 12.76 g');
     expect(cells.compact).toBe('5.69 g en cola · 17.07 g por lanzar · 0 g libres');
+  });
+});
+
+describe('what is missing, for orders and for holds', () => {
+  it('counts orders in the badge, like «Por lanzar», and says apart what holds add', () => {
+    expect(missingText('part', 35, 'unidad', 10)).toBe('Falta imprimir 35 (+10 si se confirman los separos)');
+    expect(missingText('part', 35, 'unidad')).toBe('Falta imprimir 35');
+    expect(missingText('part', 0, 'unidad', 4)).toBe('Los separos piden 4 más');
+    expect(missingText('supply', 0, 'g')).toBeNull();
   });
 });

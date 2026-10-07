@@ -141,11 +141,16 @@ export function freeText(free: number, unit: string): string {
   return `${shortAmount(free, unit)} ${free === 1 ? 'libre' : 'libres'}`;
 }
 
-/** A part that is missing has to print; anything else has to be bought. */
-export function missingText(kind: ItemKind, missing: number, unit: string): string | null {
-  if (missing <= 0) return null;
+/**
+ * A part that is missing has to print; anything else has to be bought. The
+ * badge counts confirmed orders only, the same number «Por lanzar» proposes;
+ * what holds would add is said apart, because it may never be needed.
+ */
+export function missingText(kind: ItemKind, missing: number, unit: string, forHolds = 0): string | null {
+  const holds = forHolds > 0 ? ` (+${shortAmount(forHolds, unit)} si se confirman los separos)` : '';
+  if (missing <= 0) return forHolds > 0 ? `Los separos piden ${shortAmount(forHolds, unit)} más` : null;
   const verb = kind === 'part' ? 'imprimir' : 'comprar';
-  return `Falta ${verb} ${shortAmount(missing, unit)}`;
+  return `Falta ${verb} ${shortAmount(missing, unit)}${holds}`;
 }
 
 /** "PED-0003 · Ana Quispe: 5 unidades", and for a hold until when it lasts. */
@@ -205,7 +210,7 @@ export function itemCells(
     onHand: amount(position.onHand, unit),
     separated: separatedText(position, unit),
     free: shortAmount(position.free, unit),
-    missing: missingText(kind, position.missing, unit),
+    missing: missingText(kind, position.missingForOrders, unit, Math.max(0, position.missing - position.missingForOrders)),
     compact: [...separatedParts(position, unit), freeText(position.free, unit)].join(' · '),
     who: claimsTitle(position.claims, unit, timeZone),
   };

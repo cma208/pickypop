@@ -97,9 +97,9 @@ describe('plan: ten potions asked at 18:00', () => {
 
   it('keeps the shelf for the order and counts what has to print', () => {
     expect(result.items).toEqual([
-      { itemId: POTION, onHand: 4, forOrders: 4, held: 0, free: 0, missing: 0 },
-      { itemId: BOTTLE, onHand: 2, forOrders: 2, held: 0, free: 0, missing: 4 },
-      { itemId: CAP, onHand: 2, forOrders: 2, held: 0, free: 0, missing: 4 },
+      { itemId: POTION, onHand: 4, forOrders: 4, held: 0, free: 0, missing: 0, missingForOrders: 0 },
+      { itemId: BOTTLE, onHand: 2, forOrders: 2, held: 0, free: 0, missing: 4, missingForOrders: 4 },
+      { itemId: CAP, onHand: 2, forOrders: 2, held: 0, free: 0, missing: 4, missingForOrders: 4 },
     ]);
   });
 
@@ -317,6 +317,7 @@ describe('plan: a quote held with a hold', () => {
       held: 4,
       free: 0,
       missing: 0,
+      missingForOrders: 0,
     });
   });
 
@@ -429,6 +430,29 @@ describe('plan: a quote held with a hold', () => {
     const lapsed = onHold(lima('2026-10-06 17:59'));
     expect(lapsed.demands).toEqual([]);
     expect(lapsed.items.find((row) => row.itemId === POTION)).toMatchObject({ held: 0, free: 2 });
+  });
+});
+
+describe('plan: what is missing for orders and for holds', () => {
+  it('says apart what a hold would add to what is missing', () => {
+    const result = plan(
+      workshop({
+        recipes: [POTION_RECIPE],
+        plates: [BOTTLE_PLATE, CAP_PLATE],
+        items: potionShelf(0, 0, 0),
+        demands: [
+          heldQuote('q1', 'COT-0012', lima('2026-10-06 09:00'), lima('2026-10-07 23:00'), [
+            catalogueLine('ql', POTION_VARIANT, 3),
+          ]),
+          order('o1', 'PED-0001', TUESDAY_1800, [catalogueLine('l1', POTION_VARIANT, 2)]),
+        ],
+      }),
+    );
+    const bottles = result.items.find((row) => row.itemId === BOTTLE)!;
+
+    expect(bottles.missing).toBe(5);
+    expect(bottles.missingForOrders).toBe(2);
+    expect(result.proposals.find((proposal) => proposal.plateId === BOTTLE_PLATE.id)?.runs).toBe(2);
   });
 });
 
@@ -631,6 +655,7 @@ describe('plan: what has to be bought does not block', () => {
       held: 0,
       free: 0,
       missing: 3,
+      missingForOrders: 3,
     });
   });
 });

@@ -68,7 +68,7 @@ export function plan(input: PlanInput): PlanResult {
   return {
     now: formatInstant(now),
     demands: claimants.map((claimant) => demandPlan(claimant, full)),
-    items: input.items.map((item) => itemPosition(item, full)),
+    items: input.items.map((item) => itemPosition(item, full, ordersOnly)),
     filaments: input.filaments.map((row) => filamentPosition(row, full)),
     runs: [...full.runs].sort((a, b) => a.start - b.start).map(toPlanRun),
     jobs: full.jobs,
@@ -809,7 +809,7 @@ function demandPlan(claimant: Claimant, allocation: Allocation): PlanDemandPlan 
   };
 }
 
-function itemPosition(item: PlanItem, allocation: Allocation): PlanItemPosition {
+function itemPosition(item: PlanItem, allocation: Allocation, ordersOnly: Allocation): PlanItemPosition {
   const forOrders = clean(allocation.shelf.forOrders.get(item.id) ?? 0);
   const held = clean(allocation.shelf.held.get(item.id) ?? 0);
   return {
@@ -819,6 +819,7 @@ function itemPosition(item: PlanItem, allocation: Allocation): PlanItemPosition 
     held,
     free: clean(item.onHand - forOrders - held),
     missing: clean(allocation.beyondStock.get(item.id) ?? 0),
+    missingForOrders: clean(ordersOnly.beyondStock.get(item.id) ?? 0),
   };
 }
 
