@@ -1,5 +1,7 @@
 import {
+  costDifference,
   deliverButtonLabel,
+  deliveredEstimate,
   deliveredAtFor,
   deliversEverything,
   deliveryPayload,
@@ -78,5 +80,22 @@ describe('partialDeliveries', () => {
     expect(partial.get('a')).toEqual({ delivered: 2, ordered: 5 });
     expect(partial.has('b')).toBe(false);
     expect(partial.has('c')).toBe(false);
+  });
+});
+
+describe('what the delivered units cost', () => {
+  it('adds the estimate line by line, rounded to cents', () => {
+    expect(
+      deliveredEstimate([
+        { estimatedUnitCost: 4.22, delivered: 3 },
+        { estimatedUnitCost: 0.333, delivered: 1 },
+        { estimatedUnitCost: 9, delivered: 0 },
+      ]),
+    ).toBe(12.99);
+  });
+
+  it('says the difference like every other amount', () => {
+    expect(costDifference(7.21, 12.66)).toBe(-5.45);
+    expect(costDifference(0.1 + 0.2, 0.3)).toBe(0);
   });
 });

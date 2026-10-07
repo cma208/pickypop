@@ -10,6 +10,7 @@ import { PrintJobForm, type FixedOrderLine } from '../produccion/print-job-form'
 import { ProduccionData, type JobItem } from '../produccion/produccion.data';
 import { PedidoCobro } from './pedido-cobro';
 import { PedidoEntrega } from './pedido-entrega';
+import { costDifference, deliveredEstimate } from './pedidos.delivery';
 import { PedidoSeparo } from './pedido-separo';
 import { PedidoSituacion } from './pedido-situacion';
 import { PlanService } from '../../core/plan';
@@ -228,12 +229,20 @@ import {
                   <table>
                     <thead><tr><th></th><th class="num">Estimado</th><th class="num">Real</th><th class="num">Diferencia</th></tr></thead>
                     <tbody>
+                      @if (s.deliveredUnits > 0) {
+                        <tr>
+                          <td>Lo entregado ({{ s.deliveredUnits }} {{ s.deliveredUnits === 1 ? 'unidad' : 'unidades' }})</td>
+                          <td class="num">{{ deliveredEstimate() | money }}</td>
+                          <td class="num">{{ s.deliveredCost | money }}</td>
+                          <td class="num" [class.error]="s.deliveredCost > deliveredEstimate()">{{ difference(s.deliveredCost, deliveredEstimate()) | money }}</td>
+                        </tr>
+                      }
                       <tr>
-                        <td>Costo de producción</td>
+                        <td>{{ s.deliveredUnits > 0 ? 'Todo el pedido' : 'Costo de producción' }}</td>
                         <td class="num">{{ s.estimatedCost | money }}</td>
                         <td class="num">{{ hasClosedJobs(s) ? (s.realProductionCost | money) : '—' }}</td>
                         <td class="num" [class.error]="hasClosedJobs(s) && s.realProductionCost > s.estimatedCost">
-                          {{ hasClosedJobs(s) ? (s.realProductionCost - s.estimatedCost | money) : '—' }}
+                          {{ hasClosedJobs(s) ? (difference(s.realProductionCost, s.estimatedCost) | money) : '—' }}
                         </td>
                       </tr>
                     </tbody>
@@ -245,12 +254,15 @@ import {
                   @if (o.purpose === 'sale') {
                     <dt>Vendido por</dt><dd>{{ s.soldFor | money }}</dd>
                     @if (hasClosedJobs(s)) {
-                      <dt>Ganancia real</dt><dd>{{ s.soldFor - s.realProductionCost | money }}</dd>
+                      <dt>Ganancia real</dt><dd>{{ difference(s.soldFor, s.realProductionCost) | money }}</dd>
                     }
                   }
                 </dl>
                 <p class="muted note">
-                  El costo real suma material, luz y máquina de las impresiones cerradas, y es parcial mientras falten por imprimir. No incluye trabajo manual ni insumos.
+                  @if (s.deliveredUnits > 0) {
+                    Lo entregado cuesta lo que salió del estante: piezas, insumos y empaque al promedio de lo que había, sin la mano de obra de armar, que el estimado sí incluye.
+                  }
+                  El costo real de producción suma material, luz y máquina de las impresiones ligadas a este pedido (lo hecho a medida), y es parcial mientras falten por imprimir.
                   @if (!hasClosedJobs(s)) { Todavía no hay impresiones cerradas, por eso no hay costo real. }
                 </p>
               } @else if (summaryError(); as message) {
@@ -351,6 +363,13 @@ export class PedidoPage {
     effect(() => {
       void this.load(this.id());
     });
+  }
+
+  /** What the estimate said the units already handed over would cost. */
+  protected readonly deliveredEstimate = computed(() => deliveredEstimate(this.order()?.lines ?? []));
+
+  protected difference(real: number, estimated: number): number {
+    return costDifference(real, estimated);
   }
 
   protected hasClosedJobs(summary: OrderSummary): boolean {

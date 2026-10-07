@@ -1,4 +1,5 @@
 import { inputToIso } from '../../core/dates';
+import { roundMoney, sumMoney } from '../../core/pricing';
 
 /**
  * The browser side of delivering an order. What can leave the shelf, and how
@@ -105,4 +106,17 @@ export function partialDeliveries(rows: readonly LineDeliveryRow[]): Map<string,
     if (delivered > 0 && pending > 0) partial.set(orderId, { delivered, ordered });
   }
   return partial;
+}
+
+/**
+ * What the estimate said the delivered units would cost, line by line, so it
+ * can stand next to what they really cost when they left the shelf.
+ */
+export function deliveredEstimate(lines: readonly { estimatedUnitCost: number; delivered: number }[]): number {
+  return sumMoney(lines.map((line) => roundMoney(line.estimatedUnitCost * line.delivered)));
+}
+
+/** Real minus estimated, rounded like every other amount. */
+export function costDifference(real: number, estimated: number): number {
+  return roundMoney(real - estimated);
 }

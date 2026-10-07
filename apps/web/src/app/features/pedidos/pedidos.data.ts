@@ -76,6 +76,9 @@ export interface OrderSummary {
   realProductionCost: number;
   estimatedCost: number;
   soldFor: number;
+  /** Units that left the shelf, and what they cost at the shelf's average (ADR-022). */
+  deliveredUnits: number;
+  deliveredCost: number;
 }
 
 /** What a sale is worth, what was collected on it and what is still owed. */
@@ -301,7 +304,7 @@ export class PedidosData {
     const { data, error } = await this.supabase
       .from('order_production_summary')
       .select(
-        'jobs, successful_jobs, failed_jobs, printed_hours, real_production_cost, estimated_cost, sold_for',
+        'jobs, successful_jobs, failed_jobs, printed_hours, real_production_cost, estimated_cost, sold_for, delivered_units, delivered_cost',
       )
       .eq('order_id', orderId)
       .maybeSingle();
@@ -316,6 +319,8 @@ export class PedidosData {
       realProductionCost: Number(data.real_production_cost),
       estimatedCost: Number(data.estimated_cost),
       soldFor: Number(data.sold_for),
+      deliveredUnits: Number(data.delivered_units ?? 0),
+      deliveredCost: Number(data.delivered_cost ?? 0),
     };
   }
 
