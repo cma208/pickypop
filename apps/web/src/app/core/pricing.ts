@@ -11,7 +11,7 @@ import {
   roundUpToStep,
   sumMoney,
 } from '@pickypop/domain';
-import { parseSliceInfo, totalFilamentGrams } from '@pickypop/slicer-files';
+import { countObjects, parsePlateObjects, parseSliceInfo, totalFilamentGrams } from '@pickypop/slicer-files';
 
 /**
  * The money rules and the slicer reader live in shared packages so the web
@@ -32,6 +32,8 @@ export {
   sumMoney,
   parseSliceInfo,
   totalFilamentGrams,
+  parsePlateObjects,
+  countObjects,
 };
 export type {
   AllocationMethod,
@@ -47,4 +49,4 @@ export type {
   PrinterProfile,
   PurchasePlan,
 } from '@pickypop/domain';
-export type { SliceInfo, SlicedPlate, SlicedFilament } from '@pickypop/slicer-files';
+export type { SliceInfo, SlicedPlate, SlicedFilament, PlateObjectCount } from '@pickypop/slicer-files';

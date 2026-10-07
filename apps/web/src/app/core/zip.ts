@@ -1,10 +1,12 @@
 /**
  * The smallest ZIP reader that can open a .gcode.3mf in the browser.
  *
- * A sliced file is a ZIP and the only entry we care about is a few kilobytes
- * of XML, so there is no reason to pull in a library or to upload the file
- * anywhere. We walk the central directory by hand and inflate the one entry we
- * want with DecompressionStream, which every current browser ships.
+ * A sliced file is a ZIP and the entries we care about are a few kilobytes
+ * each — the XML with grams and minutes, and per plate a small JSON and a
+ * picture — so there is no reason to pull in a library or to upload the file
+ * anywhere. We walk the central directory by hand and inflate only the entries
+ * we want with DecompressionStream, which every current browser ships; the
+ * megabytes of G-code are never touched.
  *
  * Deliberately partial: no ZIP64, no encryption, no multi-disk archives. None
  * of those appear in a Bambu Studio export, and anything unexpected throws
@@ -118,8 +120,11 @@ async function inflateRaw(data: Uint8Array): Promise<Uint8Array> {
   return new Uint8Array(await new Response(stream).arrayBuffer());
 }
 
-/** Reads one entry out and returns it as text. */
-export async function readEntryAsText(buffer: ArrayBuffer, entry: ZipEntry): Promise<string> {
+/**
+ * Reads one entry out as raw bytes: the plate pictures are PNG, and decoding
+ * them as text would destroy them.
+ */
+export async function readEntryBytes(buffer: ArrayBuffer, entry: ZipEntry): Promise<Uint8Array> {
   const view = new DataView(buffer);
   const start = entry.localHeaderOffset;
 
@@ -132,20 +137,25 @@ export async function readEntryAsText(buffer: ArrayBuffer, entry: ZipEntry): Pro
   const nameLength = view.getUint16(start + 26, true);
   const extraLength = view.getUint16(start + 28, true);
   const dataStart = start + 30 + nameLength + extraLength;
+  if (dataStart + entry.compressedSize > view.byteLength) {
+    throw new ZipError(`the entry "${entry.name}" is cut short`);
+  }
   const compressed = new Uint8Array(buffer, dataStart, entry.compressedSize);
 
-  const bytes =
-    entry.compressionMethod === STORED
-      ? compressed
-      : entry.compressionMethod === DEFLATED
-        ? await inflateRaw(compressed)
-        : null;
+  if (entry.compressionMethod === STORED) return compressed;
+  if (entry.compressionMethod === DEFLATED) return inflateRaw(compressed);
+  throw new ZipError(`unsupported compression method ${entry.compressionMethod}`);
+}
 
-  if (bytes === null) {
-    throw new ZipError(`unsupported compression method ${entry.compressionMethod}`);
-  }
+/** Reads one entry out and returns it as text. */
+export async function readEntryAsText(buffer: ArrayBuffer, entry: ZipEntry): Promise<string> {
+  return new TextDecoder('utf-8').decode(await readEntryBytes(buffer, entry));
+}
 
-  return new TextDecoder('utf-8').decode(bytes);
+/** Finds an entry by its path inside the archive, ignoring case. */
+export function findEntry(entries: readonly ZipEntry[], path: string): ZipEntry | undefined {
+  const wanted = path.toLowerCase();
+  return entries.find((item) => item.name.toLowerCase() === wanted);
 }
 
 /**
@@ -153,8 +163,6 @@ export async function readEntryAsText(buffer: ArrayBuffer, entry: ZipEntry): Pro
  * Returns null when the archive simply does not carry it.
  */
 export async function readTextEntry(buffer: ArrayBuffer, path: string): Promise<string | null> {
-  const wanted = path.toLowerCase();
-  const entry = readDirectory(buffer).find((item) => item.name.toLowerCase() === wanted);
-
+  const entry = findEntry(readDirectory(buffer), path);
   return entry === undefined ? null : readEntryAsText(buffer, entry);
 }
