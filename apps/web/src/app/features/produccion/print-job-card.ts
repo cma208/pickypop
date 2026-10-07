@@ -20,14 +20,12 @@ import { plannedCounts, type PartCount } from './produccion.outputs';
         <!-- What goes on the bed: 96 px while it prints, smaller in the queue and in the history. -->
         <pp-thumb
           [size]="job().status === 'printing' ? 'bed' : isClosed() ? 'row' : 'lead'"
+          [path]="job().plateThumbnailPath"
           [photo]="{ kind: 'job', id: job().id }"
           [name]="title()"
         />
         <div class="summary">
       <header>
-        @if (job().plateId) {
-          <pp-thumb size="lg" [path]="job().plateThumbnailPath" [name]="job().plateLabel ?? title()" />
-        }
         <strong>{{ title() }}</strong>
         <pp-badge [tone]="tone[job().status]">{{ statusLabel[job().status] }}</pp-badge>
       </header>
@@ -68,7 +66,7 @@ import { plannedCounts, type PartCount } from './produccion.outputs';
         <div class="shelf">
           <span class="muted">{{ line.lead }}</span>
           @for (part of line.parts; track part.inventoryItemId) {
-            <span class="part"><pp-thumb size="sm" [path]="part.imagePath" [name]="part.name" /> {{ part.units | number: '1.0-3' }} {{ part.name }}</span>
+            <span class="part"><pp-thumb size="inline" kind="part" [path]="part.imagePath" /> {{ part.units | number: '1.0-3' }} {{ part.name }}</span>
           }
         </div>
       }

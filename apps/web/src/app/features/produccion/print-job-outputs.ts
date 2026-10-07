@@ -24,7 +24,7 @@ export type OutputControls = FormArray<ReturnType<typeof createOutputControl>>;
       <legend>{{ parts().length > 1 ? 'Piezas que salieron, una por una' : 'Piezas que salieron' }}</legend>
       @for (control of controls().controls; track $index; let i = $index) {
         <div class="part">
-          <pp-thumb [path]="parts()[i]!.imagePath" [name]="parts()[i]!.name" />
+          <pp-thumb kind="part" [path]="parts()[i]!.imagePath" />
           <label class="name" [for]="idPrefix() + i">{{ parts()[i]!.name }}</label>
           <span class="count">
             <input type="number" inputmode="numeric" min="0" step="1" [max]="parts()[i]!.unitsPerRun"
