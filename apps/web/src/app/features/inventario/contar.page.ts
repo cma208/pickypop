@@ -1,6 +1,7 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import type { PhotoRef } from '../../core/article-photos';
 import { friendlyError } from '../../core/friendly-error';
+import { PlanService } from '../../core/plan';
 import { AsyncState, Badge, Card, Empty, FORMAT_PIPES, Item, Page } from '../../ui';
 import { countPayload, difference, isChanged, needsCost, rowProblem, saveLabel, type CountRow } from './conteo';
 import { ConteoData } from './conteo.data';
@@ -136,6 +137,7 @@ import { INVENTORY_STYLES } from './inventario.styles';
 })
 export class ContarPage {
   private readonly data = inject(ConteoData);
+  private readonly planner = inject(PlanService);
 
   protected readonly rows = signal<CountRow[]>([]);
   protected readonly note = signal('');
@@ -209,6 +211,7 @@ export class ContarPage {
     this.notice.set(null);
     try {
       const corrected = await this.data.save(countPayload(this.rows()), this.note().trim() || null);
+      this.planner.invalidate();
       this.notice.set(
         corrected === 0
           ? 'No hubo nada que corregir: el estante ya coincidía.'
