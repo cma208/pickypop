@@ -10,7 +10,7 @@ import { PrintJobForm, type FixedOrderLine } from '../produccion/print-job-form'
 import { ProduccionData, type JobItem } from '../produccion/produccion.data';
 import { PedidoCobro } from './pedido-cobro';
 import { PedidoEntrega } from './pedido-entrega';
-import { costDifference, deliveredEstimate } from './pedidos.delivery';
+import { PedidoEstimado } from './pedido-estimado';
 import { PedidoSeparo } from './pedido-separo';
 import { PedidoSituacion } from './pedido-situacion';
 import { PlanService } from '../../core/plan';
@@ -51,6 +51,7 @@ import {
     PrintJobForm,
     PedidoCobro,
     PedidoEntrega,
+    PedidoEstimado,
     PedidoSeparo,
     PedidoSituacion,
     ...FORMAT_PIPES,
@@ -185,7 +186,13 @@ import {
                         <td class="num">{{ line.estimatedUnitCost * line.quantity | money }}</td>
                         <td class="num">
                           @if (!final(o.status) && line.pending > 0) {
-                            <button type="button" class="secondary" (click)="startJob(line)">Crear trabajo</button>
+                            @if (line.kind === 'catalog') {
+                              <!-- «Por lanzar» prints for every order at once (ADR-021): a job
+                                   made here would never be tied to this order anyway. -->
+                              <a class="button secondary" routerLink="/produccion" [queryParams]="{ pedido: o.id }">Ver qué falta imprimir</a>
+                            } @else if (line.kind === 'custom') {
+                              <button type="button" class="secondary" (click)="startJob(line)">Imprimir para este pedido</button>
+                            }
                           }
                         </td>
                       </tr>
@@ -209,68 +216,29 @@ import {
               <app-print-job-form [fixedLine]="line" (saved)="onJobSaved()" (cancelled)="jobLine.set(null)" />
             }
 
-            <pp-card heading="Impresiones de este pedido">
-              @if (jobsError(); as message) {
-                <p class="error">{{ message }}</p>
-              } @else if (jobs().length === 0) {
-                <pp-empty message="Todavía no hay trabajos de impresión para este pedido. Crea uno desde una línea." />
-              } @else {
-                <div class="jobs">
-                  @for (job of jobs(); track job.id) {
-                    <app-print-job-card [job]="job" [showOrder]="false" (changed)="reloadProduction()" />
-                  }
-                </div>
-              }
-            </pp-card>
-
-            <pp-card heading="Estimado contra real">
-              @if (summary(); as s) {
-                <div class="scroll">
-                  <table>
-                    <thead><tr><th></th><th class="num">Estimado</th><th class="num">Real</th><th class="num">Diferencia</th></tr></thead>
-                    <tbody>
-                      @if (s.deliveredUnits > 0) {
-                        <tr>
-                          <td>Lo entregado ({{ s.deliveredUnits }} {{ s.deliveredUnits === 1 ? 'unidad' : 'unidades' }})</td>
-                          <td class="num">{{ deliveredEstimate() | money }}</td>
-                          <td class="num">{{ s.deliveredCost | money }}</td>
-                          <td class="num" [class.error]="s.deliveredCost > deliveredEstimate()">{{ difference(s.deliveredCost, deliveredEstimate()) | money }}</td>
-                        </tr>
-                      }
-                      <tr>
-                        <td>{{ s.deliveredUnits > 0 ? 'Todo el pedido' : 'Costo de producción' }}</td>
-                        <td class="num">{{ s.estimatedCost | money }}</td>
-                        <td class="num">{{ hasClosedJobs(s) ? (s.realProductionCost | money) : '—' }}</td>
-                        <td class="num" [class.error]="hasClosedJobs(s) && s.realProductionCost > s.estimatedCost">
-                          {{ hasClosedJobs(s) ? (difference(s.realProductionCost, s.estimatedCost) | money) : '—' }}
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-                <dl class="facts">
-                  <dt>Trabajos</dt><dd>{{ s.jobs }} ({{ s.successfulJobs }} exitosos, {{ s.failedJobs }} fallidos)</dd>
-                  <dt>Horas impresas</dt><dd>{{ s.printedHours }} h</dd>
-                  @if (o.purpose === 'sale') {
-                    <dt>Vendido por</dt><dd>{{ s.soldFor | money }}</dd>
-                    @if (hasClosedJobs(s)) {
-                      <dt>Ganancia real</dt><dd>{{ difference(s.soldFor, s.realProductionCost) | money }}</dd>
+            @if (printsForIt()) {
+              <pp-card heading="Impresiones de este pedido">
+                @if (jobsError(); as message) {
+                  <p class="error">{{ message }}</p>
+                } @else if (jobs().length === 0) {
+                  <pp-empty message="Todavía no hay impresiones para lo hecho a medida. Créalas con «Imprimir para este pedido» en su línea." />
+                } @else {
+                  <div class="jobs">
+                    @for (job of jobs(); track job.id) {
+                      <app-print-job-card [job]="job" [showOrder]="false" (changed)="reloadProduction()" />
                     }
-                  }
-                </dl>
-                <p class="muted note">
-                  @if (s.deliveredUnits > 0) {
-                    Lo entregado cuesta lo que salió del estante: piezas, insumos y empaque al promedio de lo que había, sin la mano de obra de armar, que el estimado sí incluye.
-                  }
-                  El costo real de producción suma material, luz y máquina de las impresiones ligadas a este pedido (lo hecho a medida), y es parcial mientras falten por imprimir.
-                  @if (!hasClosedJobs(s)) { Todavía no hay impresiones cerradas, por eso no hay costo real. }
-                </p>
-              } @else if (summaryError(); as message) {
-                <p class="error">{{ message }}</p>
-              } @else {
-                <p class="muted">No hay resumen de producción para este pedido.</p>
-              }
-            </pp-card>
+                  </div>
+                }
+              </pp-card>
+            }
+
+            <app-pedido-estimado
+              [summary]="summary()"
+              [error]="summaryError()"
+              [lines]="o.lines"
+              [purpose]="o.purpose"
+              [printsForIt]="printsForIt()"
+            />
           </div>
         } @else {
           <pp-empty message="No encontramos este pedido.">
@@ -286,7 +254,6 @@ import {
     dl { display: grid; grid-template-columns: max-content 1fr; gap: 0.3rem 1rem; margin: 0; }
     dt { color: var(--muted); }
     dd { margin: 0; }
-    .facts { margin-top: 1rem; }
     .flow { list-style: none; display: flex; flex-wrap: wrap; gap: 0.35rem; padding: 0; margin: 0 0 1rem; }
     .flow li { padding: 0.2rem 0.6rem; border: 1px solid var(--line); border-radius: 999px; font-size: 0.8rem; color: var(--muted); }
     .flow li.done { color: var(--good); border-color: var(--good); }
@@ -365,16 +332,15 @@ export class PedidoPage {
     });
   }
 
-  /** What the estimate said the units already handed over would cost. */
-  protected readonly deliveredEstimate = computed(() => deliveredEstimate(this.order()?.lines ?? []));
-
-  protected difference(real: number, estimated: number): number {
-    return costDifference(real, estimated);
-  }
-
-  protected hasClosedJobs(summary: OrderSummary): boolean {
-    return summary.successfulJobs + summary.failedJobs > 0;
-  }
+  /**
+   * Made-to-order work is printed for this order alone, so its jobs belong
+   * here. Catalogue products are printed by «Por lanzar» for every order at
+   * once and never tie a job to one. Jobs already tied (older orders) stay
+   * visible all the same: hiding them would hide what they cost.
+   */
+  protected readonly printsForIt = computed(
+    () => (this.order()?.lines ?? []).some((line) => line.kind === 'custom') || this.jobs().length > 0,
+  );
 
   protected final(status: OrderStatus): boolean {
     return isFinal(status);

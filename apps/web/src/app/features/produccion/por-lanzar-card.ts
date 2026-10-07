@@ -2,7 +2,7 @@ import { Component, computed, input, output, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import type { PlanView } from '../../core/plan';
 import { Card } from '../../ui';
-import { lateNotices, proposalKey } from './por-lanzar';
+import { lateNotices, orderNumberIn, proposalKey, proposalsFor } from './por-lanzar';
 import { PlanProposalRow } from './plan-proposal';
 import type { QueuedRuns } from './proposal-queue-form';
 
@@ -39,6 +39,13 @@ import type { QueuedRuns } from './proposal-queue-form';
         Primero lo del pedido que se confirmó antes.
       </p>
 
+      @if (orderId(); as id) {
+        <p class="filter" role="status">
+          <span>Solo lo que falta para <a [routerLink]="['/pedidos', id]">{{ orderName() }}</a></span>
+          <a routerLink="/produccion">Ver todo</a>
+        </p>
+      }
+
       @if (done(); as queued) {
         <p class="done" role="status">
           {{ queued.runs === 1 ? 'Pusiste 1 corrida' : 'Pusiste ' + queued.runs + ' corridas' }} de {{ queued.label }}
@@ -56,7 +63,11 @@ import type { QueuedRuns } from './proposal-queue-form';
           (queued)="onQueued($event)"
         />
       } @empty {
-        <p class="muted">Nada por lanzar: lo que piden los pedidos confirmados ya está en el estante o en la cola.</p>
+        @if (orderId()) {
+          <p class="muted">Nada por lanzar para {{ orderName() }}: lo que pide ya está en el estante o en la cola, o lo cubre otro pedido antes.</p>
+        } @else {
+          <p class="muted">Nada por lanzar: lo que piden los pedidos confirmados ya está en el estante o en la cola.</p>
+        }
       }
     </pp-card>
   `,
@@ -65,6 +76,11 @@ import type { QueuedRuns } from './proposal-queue-form';
     .late p { margin: 0; font-size: var(--fs-sm); }
     .late a { color: inherit; font-weight: 600; }
     .lead { margin: -0.4rem 0 0.4rem; font-size: var(--fs-sm); }
+    .filter {
+      display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.5rem;
+      margin: 0.5rem 0; padding: 0.5rem 0.8rem; border-radius: var(--radius-sm); background: var(--info-soft); color: var(--info);
+    }
+    .filter a { color: inherit; font-weight: 600; }
     .done { display: flex; align-items: center; flex-wrap: wrap; gap: 0.5rem; margin: 0.5rem 0; padding: 0.5rem 0.8rem; border-radius: var(--radius-sm); background: var(--good-soft); color: var(--good); }
   `,
 })
@@ -73,13 +89,19 @@ export class PorLanzarCard {
   /** Plate thumbnails, keyed like the proposals. */
   readonly pictures = input<ReadonlyMap<string, string>>(new Map());
   readonly colors = input<ReadonlyMap<string, string>>(new Map());
+  /** Set when the order page asked «Ver qué falta imprimir»: only what that order is waiting for. */
+  readonly orderId = input<string | null>(null);
   /** Jobs were created: the page has to read the queue and the plan again. */
   readonly queued = output<void>();
 
   protected readonly done = signal<QueuedRuns | null>(null);
   protected readonly key = proposalKey;
 
-  protected readonly proposals = computed(() => this.view().result.proposals);
+  protected readonly proposals = computed(() => proposalsFor(this.view().result.proposals, this.orderId()));
+  protected readonly orderName = computed(() => {
+    const id = this.orderId();
+    return id === null ? '' : (orderNumberIn(this.view().result, id) ?? 'este pedido');
+  });
   protected readonly late = computed(() => lateNotices(this.view().result, this.view().input.settings.timeZone));
 
   protected onQueued(queued: QueuedRuns): void {

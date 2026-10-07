@@ -28,6 +28,23 @@ export const PURPOSE_HELP: Record<OrderPurpose, string> = {
 
 export const PURPOSES: OrderPurpose[] = ['sale', 'personal', 'gift'];
 
+/**
+ * How a line gets made. A catalogue line comes off the shelf and «Por lanzar»
+ * prints what is missing for every order at once (ADR-021); made-to-order
+ * work is printed for this line alone; a service is not printed at all.
+ */
+export type LineKind = Enums['quote_line_kind'];
+
+/**
+ * Lines without a variant are made to order unless the quote they came from
+ * says they were a service. One written by hand in «Nuevo pedido» has no
+ * quote, and there «A medida» is the only kind without a variant.
+ */
+export function lineKind(variantId: string | null, quoteKind: LineKind | null): LineKind {
+  if (variantId !== null) return 'catalog';
+  return quoteKind === 'service' ? 'service' : 'custom';
+}
+
 export const STATUS_LABEL: Record<OrderStatus, string> = {
   confirmed: 'Confirmado',
   queued: 'En cola',

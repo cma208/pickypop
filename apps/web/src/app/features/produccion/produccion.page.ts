@@ -1,4 +1,6 @@
 import { Component, computed, inject, signal } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { ActivatedRoute } from '@angular/router';
 import { PlanService, type PlanView } from '../../core/plan';
 import { readyText } from '../../core/plan-format';
 import { AsyncState, Card, Empty, FORMAT_PIPES, Page } from '../../ui';
@@ -61,7 +63,7 @@ const PAST_ESTIMATE = /pasó su tiempo estimado/;
         }
 
         @if (view(); as plan) {
-          <app-por-lanzar [view]="plan" [pictures]="pictures()" [colors]="colors()" (queued)="reload()" />
+          <app-por-lanzar [view]="plan" [pictures]="pictures()" [colors]="colors()" [orderId]="orderId()" (queued)="reload()" />
         }
 
         @if (printing().length > 0) {
@@ -127,6 +129,10 @@ const PAST_ESTIMATE = /pasó su tiempo estimado/;
 export class ProduccionPage {
   private readonly data = inject(ProduccionData);
   private readonly plan = inject(PlanService);
+  private readonly query = toSignal(inject(ActivatedRoute).queryParamMap);
+
+  /** «Ver qué falta imprimir» on an order page links here with `?pedido=<id>`. */
+  protected readonly orderId = computed(() => this.query()?.get('pedido') ?? null);
 
   protected readonly effectsId = EFFECTS_ID;
 
