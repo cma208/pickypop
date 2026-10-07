@@ -43,6 +43,9 @@ describe('plan vocabulary', () => {
     expect(shortageText([{ kind: 'item', id: 'b', label: 'Bolsa', missing: 1, unit: 'unidad' }])).toBe(
       '1 unidad de Bolsa',
     );
+    expect(shortageText([{ kind: 'item', id: 'd', label: 'Dulces surtidos', missing: 2384, unit: 'g' }])).toBe(
+      '2.38 kg de Dulces surtidos',
+    );
   });
 
   it('answers "¿para cuándo?" in one sentence that informs and never forbids', () => {

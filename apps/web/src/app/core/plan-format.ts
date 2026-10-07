@@ -1,5 +1,6 @@
 import type { PlanLinePlan, PlanShortage } from '@pickypop/domain';
 import { dateTimeLong, localDate } from './dates';
+import { grams } from './format';
 
 /**
  * One vocabulary for the plan, so the seller, the queue and the shelf say the
@@ -37,6 +38,8 @@ export function readyText(iso: string, now: string, timeZone = 'America/Lima'): 
 /** "140 g de Dulces surtidos y 12.76 g de PLA Rosado". */
 export function shortageText(shortages: readonly PlanShortage[]): string {
   const parts = shortages.map((shortage) => {
+    // Grams read like everywhere else in the app: "2.38 kg", not "2384 g".
+    if (shortage.unit === 'g') return `${grams(shortage.missing)} de ${shortage.label}`;
     const amount = NUMBER.format(shortage.missing);
     const unit = shortage.unit === 'unidad' ? (shortage.missing === 1 ? 'unidad' : 'unidades') : shortage.unit;
     return `${amount} ${unit} de ${shortage.label}`;
