@@ -54,10 +54,16 @@ const TODAY = new Intl.DateTimeFormat('es-PE', {
     <pp-page title="Hoy" [subtitle]="today">
       <pp-card class="queue" heading="Lo que vence">
         <pp-async [loading]="tasks.isLoading()" [error]="problem(tasks.error(), 'los pendientes')">
-          @if ((tasks.value() ?? []).length === 0) {
+          @if (tasks.value()?.planFailed) {
+            <p class="alert-warn" role="status">
+              No pudimos calcular el plan: faltan los separos por vencer, los pedidos que llegan tarde y lo que hay
+              que comprar. Recarga en un momento.
+            </p>
+          }
+          @if ((tasks.value()?.tasks ?? []).length === 0) {
             <p class="positive">Nada vencido ni por vencer. Lo de abajo es cómo va el taller.</p>
           } @else {
-            @for (task of tasks.value(); track task.key) {
+            @for (task of tasks.value()?.tasks; track task.key) {
               <pp-item
                 class="task"
                 size="option"
@@ -90,7 +96,7 @@ const TODAY = new Intl.DateTimeFormat('es-PE', {
                   [name]="item.name"
                   [sub]="'Mínimo ' + (item.minimumG | grams)"
                 >
-                  <pp-badge end tone="bad">{{ item.availableG | grams }}</pp-badge>
+                  <pp-badge end tone="bad">{{ item.onHandG | grams }}</pp-badge>
                 </pp-item>
               }
             }

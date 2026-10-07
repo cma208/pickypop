@@ -3,6 +3,8 @@ import type { Database } from '../../core/database.types';
 import { SUPABASE } from '../../core/supabase';
 import { fetchAll } from '../../core/fetch-all';
 import { daysBetween, localDate, todayLocal } from '../../core/dates';
+import { PlanService, type PlanView } from '../../core/plan';
+import { orderTitle, pastEstimateJobs, planTasks, uniqueTasks } from './panel.plan-tasks';
 import {
   byUrgency,
   dueWording,
@@ -24,8 +26,22 @@ export interface LowFilament {
   id: string;
   name: string;
   colorHex: string | null;
-  availableG: number;
+  /** On the spools. Who it is for is the plan's business; the minimum is about what there is. */
+  onHandG: number;
   minimumG: number;
+}
+
+/** «Lo que vence», and whether the plan's part of it could be computed. */
+export interface TodayAgenda {
+  tasks: TodayTask[];
+  /** Holds, late orders and purchases come from the plan: without it the list is short, and says so. */
+  planFailed: boolean;
+}
+
+interface OpenPrint {
+  id: string;
+  label: string | null;
+  started_at: string | null;
 }
 
 export interface StatusCount {
@@ -72,13 +88,16 @@ const ALERT_LIMIT = 6;
 export class PanelData {
   private readonly supabase = inject(SUPABASE);
   private readonly printers = inject(ImpresorasData);
+  private readonly planner = inject(PlanService);
 
   async lowFilaments(): Promise<LowFilament[]> {
-    const { data: stock, error } = await this.supabase
+    // The view's `available_g` and `below_minimum` read the old reservations
+    // (ADR-021); what is on the spools against the minimum is the question here.
+    const { data: rows, error } = await this.supabase
       .from('filament_sku_stock')
-      .select('filament_sku_id, available_g, min_stock_g')
-      .eq('below_minimum', true);
+      .select('filament_sku_id, on_hand_g, min_stock_g');
     if (error) throw error;
+    const stock = rows.filter((row) => Number(row.on_hand_g ?? 0) < Number(row.min_stock_g ?? 0));
     if (stock.length === 0) return [];
 
     const ids = stock.map((row) => row.filament_sku_id).filter((id): id is string => id !== null);
@@ -110,12 +129,12 @@ export class PanelData {
           id: sku.id,
           name,
           colorHex: sku.color_hex,
-          availableG: Number(row.available_g ?? 0),
+          onHandG: Number(row.on_hand_g ?? 0),
           minimumG: Number(row.min_stock_g ?? 0),
         };
       })
       .filter((item): item is LowFilament => item !== null)
-      .sort((a, b) => a.availableG / (a.minimumG || 1) - b.availableG / (b.minimumG || 1));
+      .sort((a, b) => a.onHandG / (a.minimumG || 1) - b.onHandG / (b.minimumG || 1));
   }
 
   async ordersInProgress(): Promise<StatusCount[]> {
@@ -199,15 +218,21 @@ export class PanelData {
    *
    * Low filament is deliberately NOT here. It is a condition, not a deadline:
    * it has its own card and repeating it would drown the things that do expire.
+   *
+   * The plan adds what only it knows: holds about to lapse, orders the queue
+   * will not make in time and what the confirmed orders need bought. A late
+   * order says so once, with its dates, instead of also "se entrega hoy".
    */
-  async todayTasks(): Promise<TodayTask[]> {
+  async todayTasks(): Promise<TodayAgenda> {
     const today = todayLocal();
-    const [orders, prints, unpaid, maintenance] = await Promise.all([
+    const [view, orders, prints, unpaid, maintenance] = await Promise.all([
+      this.plan(),
       this.dueOrders(today),
-      this.openPrints(today),
+      this.openPrints(),
       this.unpaidDeliveries(),
       this.maintenanceAlerts(),
     ]);
+    const pastEstimate = view ? pastEstimateJobs(view.input) : new Set<string>();
 
     const overdueMaintenance = maintenance
       .filter((alert) => alert.state === 'overdue')
@@ -221,16 +246,31 @@ export class PanelData {
         kind: 'printer',
       }));
 
-    return [...orders, ...prints, ...unpaid, ...overdueMaintenance]
-      .sort(byUrgency)
-      .slice(0, TASK_LIMIT);
+    const tasks = uniqueTasks([
+      ...(view ? planTasks(view) : []),
+      ...orders,
+      ...prints.map((job) => openPrintTask(job, today, pastEstimate.has(job.id))),
+      ...unpaid,
+      ...overdueMaintenance,
+    ]);
+    return { tasks: tasks.sort(byUrgency).slice(0, TASK_LIMIT), planFailed: view === null };
+  }
+
+  /** The plan is one part of the list: when it fails, the rest still shows. */
+  private async plan(): Promise<PlanView | null> {
+    try {
+      return await this.planner.current();
+    } catch (error) {
+      console.error(error);
+      return null;
+    }
   }
 
   /** Orders still in the shop whose delivery date is here or nearly here. */
   private async dueOrders(today: string): Promise<TodayTask[]> {
     const { data, error } = await this.supabase
       .from('orders')
-      .select('id, number, due_date, status')
+      .select('id, number, due_date, status, recipient, customers(name)')
       .in('status', IN_PROGRESS_STATUSES)
       .not('due_date', 'is', null)
       .order('due_date');
@@ -243,7 +283,7 @@ export class PanelData {
         return {
           key: `order:${order.id}`,
           urgency: urgencyForDueDate(days),
-          title: `Pedido ${order.number}`,
+          title: orderTitle(order.number, order.customers?.name ?? order.recipient),
           detail: dueWording(days),
           route: `/pedidos/${order.id}`,
           photo: { kind: 'order', id: order.id },
@@ -253,27 +293,14 @@ export class PanelData {
   }
 
   /** A print that says it is printing but nobody closed: its cost never landed. */
-  private async openPrints(today: string): Promise<TodayTask[]> {
+  private async openPrints(): Promise<OpenPrint[]> {
     const { data, error } = await this.supabase
       .from('print_jobs')
       .select('id, label, started_at')
       .eq('status', 'printing')
       .order('started_at');
     if (error) throw error;
-
-    return (data ?? []).map((job): TodayTask => {
-      const startedOn = job.started_at ? localDate(job.started_at) : null;
-      const days = startedOn ? daysBetween(startedOn, today) : 0;
-      return {
-        key: `print:${job.id}`,
-        urgency: days >= STALE_PRINT_DAYS ? 'late' : 'today',
-        title: `Impresión sin cerrar${job.label ? ` · ${job.label}` : ''}`,
-        detail: openPrintWording(days),
-        route: '/produccion',
-        photo: { kind: 'job', id: job.id },
-        kind: 'plate',
-      };
-    });
+    return data ?? [];
   }
 
   /** Delivered and still owing. Money already earned that nobody went to collect. */
@@ -299,4 +326,18 @@ export class PanelData {
       }));
   }
 
+}
+
+function openPrintTask(job: OpenPrint, today: string, pastEstimate: boolean): TodayTask {
+  const startedOn = job.started_at ? localDate(job.started_at) : null;
+  const days = startedOn ? daysBetween(startedOn, today) : 0;
+  return {
+    key: `print:${job.id}`,
+    urgency: days >= STALE_PRINT_DAYS ? 'late' : 'today',
+    title: `Impresión sin cerrar${job.label ? ` · ${job.label}` : ''}`,
+    detail: openPrintWording(days, pastEstimate),
+    route: '/produccion',
+    photo: { kind: 'job', id: job.id },
+    kind: 'plate',
+  };
 }

@@ -19,3 +19,33 @@ export const INVENTORY_STYLES = `
   .check { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.9rem; }
   .check input { width: auto; }
 `;
+
+/**
+ * «Hay · Separado · Libre · Falta». A separated figure that knows who it is
+ * for says so with a dotted line: the names are under the pointer.
+ */
+export const POSITION_STYLES = `
+  .badge-line { margin-top: 0.25rem; }
+  .separated[title], .sub[title] { text-decoration: underline dotted; text-underline-offset: 0.2em; cursor: help; }
+
+  /*
+   * Four columns need room. Where the table has it they are columns; where it
+   * does not (a phone, or a laptop with the menu open) the four figures fold
+   * into one line under "Hay", and the badge goes under the article's name,
+   * where the row is read from. It is the table's width that decides, not
+   * the screen's: the menu takes a third of a small laptop.
+   */
+  .table-wrap { container-type: inline-size; }
+  .narrow-only { display: none; }
+  @container (max-width: 56rem) {
+    .wide-only { display: none; }
+    .narrow-only { display: block; }
+  }
+
+  /* A badge such as "Falta comprar 2.38 kg" does not wrap: on a phone its
+     room comes out of the gaps between cells. */
+  @media (max-width: 40rem) {
+    th, td { padding-inline: 0.25rem; }
+    td.actions-cell button { padding-inline: 0.45rem; }
+  }
+`;

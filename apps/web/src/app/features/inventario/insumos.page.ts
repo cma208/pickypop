@@ -1,24 +1,37 @@
 import { Component, computed, inject, input, signal } from '@angular/core';
-import { AsyncState, Badge, Empty, FORMAT_PIPES, Item, Page } from '../../ui';
+import { AsyncState, Badge, Empty, Item, Page } from '../../ui';
 import { InventarioData, type InventoryItemSummary } from './inventario.data';
 import { describeError } from './inventario.errors';
-import { INVENTORY_PIPES, ITEM_KINDS, ITEM_KIND_LABELS, type ItemKind } from './inventario.format';
-import { INVENTORY_STYLES } from './inventario.styles';
+import { ITEM_KINDS, ITEM_KIND_LABELS, type ItemKind } from './inventario.format';
+import { INVENTORY_STYLES, POSITION_STYLES } from './inventario.styles';
+import { InventoryPlan, type InventoryPositions } from './inventory-plan';
 import { ItemForm } from './item-form';
 import { ItemMovementForm } from './item-movement-form';
 import { Modal } from './modal';
+import { amount, itemCells, type PositionCells } from './stock-position';
 
 type Dialog = { kind: 'edit'; item: InventoryItemSummary | null } | { kind: 'move'; item: InventoryItemSummary };
 
+/** An article with what the plan says of it. `cells` is null while the plan is not there. */
+interface ItemRow {
+  item: InventoryItemSummary;
+  /** "Repuesto · Perecible": the kind only where a screen mixes kinds. */
+  sub: string;
+  cells: PositionCells | null;
+}
+
 @Component({
   selector: 'app-insumos',
-  imports: [Page, AsyncState, Empty, Badge, Item, Modal, ItemForm, ItemMovementForm, FORMAT_PIPES, INVENTORY_PIPES],
+  imports: [Page, AsyncState, Empty, Badge, Item, Modal, ItemForm, ItemMovementForm],
   template: `
     <pp-page [title]="heading()" [subtitle]="subtitle()">
       <button actions type="button" (click)="dialog.set({ kind: 'edit', item: null })">+ Nuevo artículo</button>
 
       @if (notice(); as text) {
         <p class="notice" role="status">{{ text }}</p>
+      }
+      @if (planError(); as text) {
+        <p class="alert-warn" role="status">{{ text }}</p>
       }
 
       <pp-async [loading]="loading()" [error]="error()">
@@ -57,37 +70,51 @@ type Dialog = { kind: 'edit'; item: InventoryItemSummary | null } | { kind: 'mov
                 <thead>
                   <tr>
                     <th>Artículo</th>
-                    <th class="hide-small">Tipo</th>
-                    <th class="num">Existencias</th>
-                    <th class="num hide-small">Mínimo</th>
-                    <th class="hide-small">Perecible</th>
+                    <th class="num">Hay</th>
+                    <th class="wide-only">Separado</th>
+                    <th class="num wide-only">Libre</th>
+                    <th class="wide-only">Falta</th>
                     <th><span class="sr-only">Acciones</span></th>
                   </tr>
                 </thead>
                 <tbody>
-                  @for (item of visible(); track item.id) {
+                  @for (row of visible(); track row.item.id) {
+                    @let item = row.item;
                     <tr [class.inactive]="!item.active">
                       <td>
                         <pp-item [kind]="item.kind" [path]="item.imagePath" [name]="item.name">
                           <span sub>
-                            <span class="only-small">{{ labels[item.kind] }}@if (item.perishable) { · Perecible }</span>
+                            {{ row.sub }}
                             @if (!item.imagePath) {
-                              Sin foto ·
+                              {{ row.sub ? '· ' : '' }}Sin foto ·
                               <button type="button" class="inline-link" (click)="dialog.set({ kind: 'edit', item })">Agregar</button>
                             }
                           </span>
                           @if (!item.active) { <pp-badge>Inactivo</pp-badge> }
                         </pp-item>
-                      </td>
-                      <td class="hide-small">{{ labels[item.kind] }}</td>
-                      <td class="num">
-                        {{ item.onHand | qty: item.unit }}
-                        @if (item.belowMinimum) {
-                          <small class="sub"><pp-badge tone="warn">Bajo mínimo</pp-badge></small>
+                        @if (row.cells?.missing; as missing) {
+                          <div class="badge-line narrow-only"><pp-badge tone="warn">{{ missing }}</pp-badge></div>
                         }
                       </td>
-                      <td class="num hide-small">{{ item.minStock | qty: item.unit }}</td>
-                      <td class="hide-small">{{ item.perishable ? 'Sí' : 'No' }}</td>
+                      <td class="num">
+                        <span class="nowrap">{{ row.cells?.onHand ?? amount(item.onHand, item.unit) }}</span>
+                        @if (row.cells; as cells) {
+                          <small class="sub narrow-only" [attr.title]="cells.who || null">{{ cells.compact }}</small>
+                        }
+                        <small class="sub hide-small nowrap">Mínimo {{ amount(item.minStock, item.unit) }}</small>
+                        @if (item.belowMinimum && !row.cells?.missing) {
+                          <small class="sub badge-line"><pp-badge tone="warn">Bajo mínimo</pp-badge></small>
+                        }
+                      </td>
+                      <td class="wide-only separated" [attr.title]="row.cells?.who || null">{{ row.cells?.separated ?? '—' }}</td>
+                      <td class="num wide-only">{{ row.cells?.free ?? '—' }}</td>
+                      <td class="wide-only">
+                        @if (row.cells?.missing; as missing) {
+                          <pp-badge tone="warn">{{ missing }}</pp-badge>
+                        } @else {
+                          <span class="muted">—</span>
+                        }
+                      </td>
                       <td class="actions-cell">
                         <button type="button" class="secondary" (click)="dialog.set({ kind: 'move', item })">
                           Movimiento
@@ -127,6 +154,7 @@ type Dialog = { kind: 'edit'; item: InventoryItemSummary | null } | { kind: 'mov
   `,
   styles: [
     INVENTORY_STYLES,
+    POSITION_STYLES,
     `
       .inactive { opacity: 0.6; }
       .low { margin-bottom: 0.4rem; }
@@ -135,6 +163,7 @@ type Dialog = { kind: 'edit'; item: InventoryItemSummary | null } | { kind: 'mov
 })
 export class InsumosPage {
   private readonly data = inject(InventarioData);
+  private readonly planner = inject(InventoryPlan);
 
   /**
    * Which kinds this screen holds, from the route. Supplies and packaging used
@@ -147,6 +176,8 @@ export class InsumosPage {
   readonly subtitle = input('Todo lo que se cuenta por unidad');
 
   protected readonly labels = ITEM_KIND_LABELS;
+  /** Grams the way the plan's columns say them: "520 g", "1 kg". */
+  protected readonly amount = amount;
   protected readonly kindsHere = computed(() => this.scope() ?? ITEM_KINDS);
 
   protected readonly items = signal<InventoryItemSummary[]>([]);
@@ -157,6 +188,8 @@ export class InsumosPage {
   protected readonly search = signal('');
   protected readonly kindFilter = signal<ItemKind | ''>('');
   protected readonly onlyLow = signal(false);
+  private readonly positions = signal<InventoryPositions | null>(null);
+  protected readonly planError = signal<string | null>(null);
 
   protected readonly lowCount = computed(() => this.mine().filter((item) => item.belowMinimum).length);
 
@@ -166,14 +199,22 @@ export class InsumosPage {
     return scope ? this.items().filter((item) => scope.includes(item.kind)) : this.items();
   });
 
-  protected readonly visible = computed(() => {
+  protected readonly visible = computed<ItemRow[]>(() => {
     const needle = this.search().trim().toLowerCase();
-    return this.mine().filter(
-      (item) =>
-        (!this.onlyLow() || item.belowMinimum) &&
-        (!this.kindFilter() || item.kind === this.kindFilter()) &&
-        (!needle || item.name.toLowerCase().includes(needle)),
-    );
+    const positions = this.positions();
+    const mixed = this.kindsHere().length > 1;
+    return this.mine()
+      .filter(
+        (item) =>
+          (!this.onlyLow() || item.belowMinimum) &&
+          (!this.kindFilter() || item.kind === this.kindFilter()) &&
+          (!needle || item.name.toLowerCase().includes(needle)),
+      )
+      .map((item) => ({
+        item,
+        sub: [mixed ? this.labels[item.kind] : null, item.perishable ? 'Perecible' : null].filter(Boolean).join(' · '),
+        cells: positions ? itemCells(item.kind, item.unit, positions.items.get(item.id), positions.timeZone) : null,
+      }));
   });
 
   constructor() {
@@ -191,10 +232,25 @@ export class InsumosPage {
   protected async onSaved(message: string): Promise<void> {
     this.dialog.set(null);
     this.notice.set(message);
+    // A movement changes what there is, and so who gets what.
+    this.planner.changed();
     await this.load();
   }
 
   private async load(): Promise<void> {
+    await Promise.all([this.loadStock(), this.loadPlan()]);
+  }
+
+  private async loadPlan(): Promise<void> {
+    try {
+      this.positions.set(await this.planner.read());
+      this.planError.set(null);
+    } catch (error) {
+      this.planError.set(this.planner.problem(error));
+    }
+  }
+
+  private async loadStock(): Promise<void> {
     this.error.set(null);
     try {
       this.items.set(await this.data.items());
