@@ -1,6 +1,7 @@
 import { inject, Injectable } from '@angular/core';
 import type { PostgrestError } from '@supabase/supabase-js';
 import { todayLocal } from '../../core/dates';
+import { friendlyError } from '../../core/friendly-error';
 import { SUPABASE } from '../../core/supabase';
 import { CurrentWorkspace, type WorkspaceInfo } from '../../core/workspace';
 import type { Database } from '../../core/database.types';
@@ -26,6 +27,7 @@ import { toCostSource, type SupplyCostSource } from './supply-costs';
 export type QuoteStatus = Database['public']['Enums']['quote_status'];
 
 const GRAMS_PER_KG = 1000;
+const LONG_AGO = new Date(0).toISOString();
 
 export const QUOTE_STATUS_LABELS: Record<QuoteStatus, string> = {
   draft: 'Borrador',
@@ -151,6 +153,22 @@ export interface QuoteDetail extends QuoteSummary {
   igv: number;
   snapshot: QuoteSnapshot | null;
   storedLines: StoredLine[];
+  /** When it started holding what it asks for: its place in the line. */
+  heldAt: string | null;
+  /** Until when the hold lasts. Past, it holds nothing; null, it never held. */
+  holdUntil: string | null;
+  /** The order it became, once the customer accepted. A cancelled one does not count. */
+  order: { id: string; number: string } | null;
+}
+
+/** What the person fills in when the customer says yes. */
+export interface QuoteAcceptance {
+  quoteId: string;
+  /** "YYYY-MM-DD", or null when there is no promised date yet. */
+  dueDate: string | null;
+  note: string | null;
+  /** Only for a quote that was made without a customer. */
+  customerId: string | null;
 }
 
 export interface NewQuoteLine {
@@ -609,7 +627,8 @@ export class CotizadorData {
       .sort((a, b) => a.label.localeCompare(b.label, 'es'));
   }
 
-  private async customers(): Promise<CustomerOption[]> {
+  /** Active customers, by name. Also asked for when a quote without one is accepted. */
+  async customers(): Promise<CustomerOption[]> {
     const { data, error } = await this.supabase
       .from('customers')
       .select('id, name')
@@ -858,11 +877,11 @@ export class CotizadorData {
   }
 
   async quote(id: string): Promise<QuoteDetail> {
-    const [header, lines] = await Promise.all([
+    const [header, lines, order] = await Promise.all([
       this.supabase
         .from('quotes')
         .select(
-          'id, number, version, status, issued_on, valid_until, total, subtotal, discount, igv, note, parent_quote_id, customer_id, channel_id, request_id, cost_profile_snapshot, customers(name), sales_channels(name)',
+          'id, number, version, status, issued_on, valid_until, total, subtotal, discount, igv, note, parent_quote_id, customer_id, channel_id, request_id, cost_profile_snapshot, held_at, hold_until, customers(name), sales_channels(name)',
         )
         .eq('id', id)
         .maybeSingle(),
@@ -871,10 +890,18 @@ export class CotizadorData {
         .select('*')
         .eq('quote_id', id)
         .order('position'),
+      this.supabase
+        .from('orders')
+        .select('id, number')
+        .eq('quote_id', id)
+        .neq('status', 'cancelled')
+        .order('created_at', { ascending: false })
+        .limit(1),
     ]);
 
     fail(header.error, 'No pudimos leer la cotización.');
     fail(lines.error, 'No pudimos leer las líneas de la cotización.');
+    fail(order.error, 'No pudimos leer el pedido de esta cotización.');
 
     const row = header.data;
     if (row === null || row === undefined) throw new DataError('Esa cotización ya no existe.');
@@ -909,6 +936,9 @@ export class CotizadorData {
       lines: (lines.data ?? []).length,
       hasNewerVersion: latest > row.version,
       snapshot: parseSnapshot(row.cost_profile_snapshot),
+      heldAt: row.held_at,
+      holdUntil: row.hold_until,
+      order: order.data?.[0] ?? null,
       storedLines: (lines.data ?? []).map((line) => {
         const items = record(line.items);
 
@@ -936,5 +966,49 @@ export class CotizadorData {
   async setStatus(id: string, status: QuoteStatus): Promise<void> {
     const { error } = await this.supabase.from('quotes').update({ status }).eq('id', id);
     fail(error, 'No pudimos cambiar el estado de la cotización.');
+  }
+
+  /**
+   * Moves the end of the hold to a concrete moment, or to now to let go of it.
+   * The database refuses a quote that is not sent, with a sentence for the
+   * person, so it travels as it is.
+   */
+  async setHold(id: string, until: string | null): Promise<{ heldAt: string | null; holdUntil: string | null }> {
+    const { data, error } = await this.supabase.rpc('set_quote_hold', {
+      p_quote_id: id,
+      // Letting go is a moment already past, which the database turns into its
+      // own now. The browser's clock may run a few seconds ahead of it.
+      p_until: until ?? LONG_AGO,
+    });
+    if (error !== null) throw new DataError(friendlyError(error, 'No pudimos cambiar el separo.'));
+
+    return { heldAt: data?.held_at ?? null, holdUntil: data?.hold_until ?? null };
+  }
+
+  /** Until when a quote sent right now would hold, by the workshop's own rule. */
+  async defaultHoldUntil(): Promise<string | null> {
+    const { data, error } = await this.supabase.rpc('default_hold_until', {
+      p_workspace_id: await this.workspace.requireId(),
+    });
+    if (error !== null) return null;
+    return data;
+  }
+
+  /**
+   * The customer said yes: the database creates the order from the quote and
+   * closes it, all or nothing. Its refusals (already has an order, no customer)
+   * are written for the person and name the case, so they travel as they are.
+   */
+  async acceptQuote(acceptance: QuoteAcceptance): Promise<{ id: string; number: string }> {
+    const { data, error } = await this.supabase.rpc('accept_quote', {
+      p_quote_id: acceptance.quoteId,
+      p_due_date: acceptance.dueDate ?? undefined,
+      p_note: acceptance.note ?? undefined,
+      p_customer_id: acceptance.customerId ?? undefined,
+    });
+    if (error !== null) throw new DataError(friendlyError(error, 'No pudimos crear el pedido.'));
+    if (data === null) throw new DataError('No pudimos crear el pedido.');
+
+    return { id: data.id, number: data.number };
   }
 }

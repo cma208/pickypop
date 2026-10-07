@@ -2353,7 +2353,37 @@ isOneToOne: false
                 }
           }
           Functions: {
-            "assemble_product":
+            "accept_quote":
+{ Args: { "p_customer_id"?: string,"p_due_date"?: string,"p_note"?: string,"p_quote_id": string }; Returns: {
+              "channel_id": string | null,
+"created_at": string,
+"created_by": string | null,
+"customer_id": string | null,
+"due_date": string | null,
+"gift_category_id": string | null,
+"hold_until": string | null,
+"id": string,
+"note": string | null,
+"number": string,
+"opportunity_id": string | null,
+"ordered_on": string,
+"payment_status": Database["public"]['Enums']["order_payment_status"],
+"priority_at": string,
+"purpose": Database["public"]['Enums']["order_purpose"],
+"quote_id": string | null,
+"recipient": string | null,
+"status": Database["public"]['Enums']["order_status"],
+"total": number,
+"updated_at": string,
+"workspace_id": string
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "orders"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
+"assemble_product":
 { Args: { "p_note"?: string,"p_units": number,"p_variant_id": string }; Returns: {
               "created_at": string,
 "created_by": string | null,
@@ -2408,6 +2438,9 @@ isOneToOne: false
       } },
 "count_shelf":
 { Args: { "p_counts": Json,"p_note"?: string }; Returns: number
+                           },
+"default_hold_until":
+{ Args: { "p_workspace_id": string }; Returns: string
                            },
 "deliver_order":
 { Args: { "p_delivered_at"?: string,"p_lines"?: Json,"p_note"?: string,"p_order_id": string }; Returns: {

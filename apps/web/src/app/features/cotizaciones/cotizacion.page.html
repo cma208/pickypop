@@ -18,7 +18,7 @@
       </button>
     }
     @if (canClose()) {
-      <button more type="button" class="ghost" [disabled]="busy()" (click)="ask('rejected')">El cliente la rechazó</button>
+      <button more type="button" class="ghost" [disabled]="busy()" (click)="askReject()">El cliente la rechazó</button>
     }
     @if (quote(); as q) {
       <a more class="button ghost" [routerLink]="['/cotizador']" [queryParams]="{ nuevaVersionDe: q.id }">Crear versión nueva</a>
@@ -31,11 +31,11 @@
         <p class="banner bad">{{ message }}</p>
       }
 
-      @if (confirming(); as pending) {
+      @if (confirmingReject()) {
         <p class="banner warn row">
-          <span>{{ confirmLabel() }}</span>
-          <button type="button" [disabled]="busy()" (click)="apply(pending)">Sí, confirmar</button>
-          <button type="button" class="ghost" (click)="cancelAsk()">No</button>
+          <span>¿Confirmas que el cliente la rechazó? Lo que separa queda libre desde ya.</span>
+          <button type="button" [disabled]="busy()" (click)="apply('rejected')">Sí, la rechazó</button>
+          <button type="button" class="ghost" (click)="confirmingReject.set(false)">No</button>
         </p>
       }
 
@@ -57,6 +57,17 @@
         </p>
       }
 
+      @if (accepting() && q.status === 'sent') {
+        <app-cotizacion-aceptar [quote]="q" (cancelled)="accepting.set(false)" />
+      } @else if (q.status === 'draft' || q.status === 'sent') {
+        <app-cotizacion-separo
+          [quoteId]="q.id"
+          [status]="q.status"
+          [holdUntil]="q.holdUntil"
+          (changed)="onHoldChanged($event)"
+        />
+      }
+
       <pp-card heading="Datos">
         <dl class="facts">
           <dt>Versión</dt>
@@ -69,6 +80,16 @@
           <dd>{{ q.issuedOn | fecha }}</dd>
           <dt>Válida hasta</dt>
           <dd>{{ q.validUntil ? (q.validUntil | fecha) : 'sin fecha' }}</dd>
+          @if (q.order; as order) {
+            <dt>Pedido</dt>
+            <dd><a [routerLink]="['/pedidos', order.id]">{{ order.number }}</a></dd>
+          } @else if (q.status === 'accepted') {
+            <dt>Pedido</dt>
+            <dd class="muted">
+              Se aceptó sin crear pedido. Si hace falta, créalo en
+              <a routerLink="/pedidos/nuevo">Nuevo pedido</a>.
+            </dd>
+          }
           @if (q.note) {
             <dt>Nota</dt>
             <dd>{{ q.note }}</dd>
