@@ -83,6 +83,8 @@ export interface RequestOption {
 export interface QuotingContext {
   workspaceId: string;
   workspaceName: string;
+  /** Who is quoting: the draft in progress is theirs alone. */
+  userId: string | null;
   profile: CostProfile;
   profileId: string;
   profileValidFrom: string;
@@ -422,7 +424,7 @@ export class CotizadorData {
   private async parameters(): Promise<
     Pick<
       QuotingContext,
-      'workspaceId' | 'workspaceName' | 'profile' | 'profileId' | 'profileValidFrom' | 'valuation'
+      'workspaceId' | 'workspaceName' | 'userId' | 'profile' | 'profileId' | 'profileValidFrom' | 'valuation'
     >
   > {
     let workspace: WorkspaceInfo;
@@ -454,6 +456,7 @@ export class CotizadorData {
     return {
       workspaceId: workspace.id,
       workspaceName: workspace.name,
+      userId: workspace.userId,
       profileId: row.id,
       profileValidFrom: row.valid_from,
       valuation: row.material_valuation,
@@ -661,6 +664,23 @@ export class CotizadorData {
 
     fail(error, 'No pudimos leer los clientes.');
     return data ?? [];
+  }
+
+  /**
+   * A customer with just a name and a phone, as «Nuevo pedido» creates one:
+   * the kind and the document keep the defaults the database gives them.
+   */
+  async createCustomer(name: string, phone: string | null): Promise<CustomerOption> {
+    const workspaceId = await this.workspace.requireId();
+    const { data, error } = await this.supabase
+      .from('customers')
+      .insert({ workspace_id: workspaceId, name, phone })
+      .select('id, name')
+      .single();
+
+    fail(error, 'No pudimos crear el cliente.');
+    if (data === null) throw new DataError('No pudimos crear el cliente.');
+    return data;
   }
 
   private async channels(): Promise<ChannelOption[]> {
