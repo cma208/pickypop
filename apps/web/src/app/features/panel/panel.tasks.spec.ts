@@ -38,6 +38,14 @@ describe('openPrintWording', () => {
     expect(openPrintWording(0)).toContain('En la máquina');
   });
 
+  it('one past its estimated time asks whether it finished, once', () => {
+    expect(openPrintWording(0, true)).toBe(
+      'Pasó su tiempo estimado: ¿terminó? Ciérrala para que su costo entre y el plan lo sepa.',
+    );
+    // A day later "sigue abierta" already says more than the estimate.
+    expect(openPrintWording(2, true)).toBe('Empezó hace 2 días y sigue abierta: su costo no entró todavía.');
+  });
+
   it('one left open is reported with its cost still missing', () => {
     expect(openPrintWording(1)).toBe('Empezó hace 1 día y sigue abierta: su costo no entró todavía.');
     expect(openPrintWording(3)).toContain('hace 3 días');

@@ -49,9 +49,17 @@ export function dueWording(days: number): string {
   return `Se entrega en ${days} días.`;
 }
 
-/** `days` is how long the job has been open. */
-export function openPrintWording(days: number): string {
-  if (days < STALE_PRINT_DAYS) return 'En la máquina. Ciérrala al terminar para que su costo entre.';
+/**
+ * `days` is how long the job has been open. `pastEstimate` is the plan's
+ * warning that its estimated time is over: said here, once, instead of as a
+ * second task for the same print.
+ */
+export function openPrintWording(days: number, pastEstimate = false): string {
+  if (days < STALE_PRINT_DAYS) {
+    return pastEstimate
+      ? 'Pasó su tiempo estimado: ¿terminó? Ciérrala para que su costo entre y el plan lo sepa.'
+      : 'En la máquina. Ciérrala al terminar para que su costo entre.';
+  }
   const unit = days === 1 ? 'día' : 'días';
   return `Empezó hace ${days} ${unit} y sigue abierta: su costo no entró todavía.`;
 }
