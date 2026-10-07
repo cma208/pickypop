@@ -41,7 +41,7 @@ const REGIME_LABELS: Record<CostProfile['taxRegime'], string> = {
         }
 
         @for (row of materials(); track $index) {
-          <tr class="sub">
+          <tr class="detail">
             <th scope="row">
               <span class="dot" [style.background]="row.colorHex || 'transparent'"></span>
               {{ row.label }}
@@ -193,7 +193,7 @@ const REGIME_LABELS: Record<CostProfile['taxRegime'], string> = {
     table { margin-bottom: 1rem; }
     th { text-transform: none; font-size: 0.9rem; font-weight: 400; color: inherit; letter-spacing: 0; }
     th small { display: block; font-size: 0.75rem; font-weight: 400; }
-    tr.sub th { padding-left: 1.5rem; }
+    tr.detail th { padding-left: 1.5rem; }
     tr.total th, tr.total td { font-weight: 600; }
     .dot {
       display: inline-block; width: 0.7rem; height: 0.7rem; margin-right: 0.35rem;

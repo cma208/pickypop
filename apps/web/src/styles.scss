@@ -192,7 +192,10 @@ a { color: var(--accent); }
    its table ran out of the card. */
 .table-wrap { overflow-x: auto; }
 .strong { font-weight: 600; }
-.sub { display: block; font-size: var(--fs-sm); color: var(--muted); }
+/* The second line under a name. Never on a table part: as a block, a
+   `tr.sub` stopped being a row and its amounts slid under the wrong
+   columns (E2-05). `:where` keeps the weight of a plain class. */
+.sub:where(:not(tr, th, td)) { display: block; font-size: var(--fs-sm); color: var(--muted); }
 .nowrap { white-space: nowrap; }
 .right { text-align: right; }
 .pos { color: var(--good); }
