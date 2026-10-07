@@ -1,4 +1,5 @@
 import { inject, Injectable } from '@angular/core';
+import { todayLocal } from '../../core/dates';
 import { fetchAll } from '../../core/fetch-all';
 import { UserFacingError } from '../../core/friendly-error';
 import { roundMoney } from '../../core/pricing';
@@ -129,7 +130,8 @@ export interface VariantOption {
 }
 
 export interface NewOrderLine {
-  variantId: string;
+  /** Null for a piece made to order: it has no variant and takes nothing off the shelf. */
+  variantId: string | null;
   description: string;
   quantity: number;
   unitPrice: number;
@@ -483,6 +485,9 @@ export class PedidosData {
         customer_id: isSale ? input.customerId : null,
         gift_category_id: input.purpose === 'gift' ? input.giftCategoryId : null,
         recipient: input.recipient,
+        // The column defaults to the UTC day, which after 19:00 in Lima is
+        // already tomorrow. An accepted quote dates its order the same way.
+        ordered_on: todayLocal(),
         due_date: input.dueDate,
         note: input.note,
         total,

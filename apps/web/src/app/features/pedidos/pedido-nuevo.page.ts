@@ -4,7 +4,7 @@ import { FormArray, FormControl, FormGroup, ReactiveFormsModule, Validators } fr
 import { Router, RouterLink } from '@angular/router';
 import { roundMoney } from '../../core/pricing';
 import { AsyncState, Card, Field, FORMAT_PIPES, Page } from '../../ui';
-import { createOrderLineForm, PedidoLinea } from './pedido-linea';
+import { createOrderLineForm, PedidoLinea, toNewOrderLine } from './pedido-linea';
 import {
   PedidosData,
   type CustomerOption,
@@ -305,13 +305,7 @@ export class PedidoNuevoPage {
       recipient: value.purpose === 'sale' ? null : value.recipient.trim() || null,
       dueDate: value.dueDate || null,
       note: value.note.trim() || null,
-      lines: value.lines.map((line) => ({
-        variantId: line.variantId,
-        description: names.get(line.variantId) ?? 'Producto',
-        quantity: line.quantity,
-        unitPrice: line.unitPrice,
-        estimatedUnitCost: line.estimatedUnitCost ?? 0,
-      })),
+      lines: value.lines.map((line) => toNewOrderLine(line, (id) => names.get(id))),
     };
   }
 
