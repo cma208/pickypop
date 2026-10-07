@@ -21,6 +21,7 @@ import type {
 } from './configuracion.models';
 import { permissionError, UserFacingError } from '../../core/friendly-error';
 import { CurrentWorkspace } from '../../core/workspace';
+import { endByToDb, timeFromDb, type ScheduleDraft, type ScheduleRecord } from './schedule.model';
 
 /**
  * Data access for the settings screen: cost profiles, workshop data, members,
@@ -77,6 +78,46 @@ export class ConfiguracionData {
       .select('id');
     if (error) throw error;
     if (data.length === 0) throw permissionError();
+  }
+
+  /** The printing window and the default hold, with the changeover the plan measured. */
+  async schedule(): Promise<ScheduleRecord> {
+    const id = await this.workspace.requireId();
+    const [settings, measured] = await Promise.all([
+      this.supabase
+        .from('workshop_settings')
+        .select('print_first_start, print_last_start, print_end_by, changeover_default_minutes, hold_default_days, hold_default_time')
+        .eq('workspace_id', id)
+        .maybeSingle(),
+      this.supabase.from('changeover_estimate').select('samples, p75_minutes').eq('workspace_id', id).maybeSingle(),
+    ]);
+    if (settings.error) throw settings.error;
+    if (measured.error) throw measured.error;
+
+    const row = settings.data;
+    return {
+      firstStart: timeFromDb(row?.print_first_start, '06:00'),
+      lastStart: timeFromDb(row?.print_last_start, '23:00'),
+      endBy: timeFromDb(row?.print_end_by, '24:00'),
+      changeoverMinutes: row?.changeover_default_minutes ?? 15,
+      holdDays: row?.hold_default_days ?? 1,
+      holdTime: timeFromDb(row?.hold_default_time, '23:00'),
+      measuredMinutes: measured.data?.p75_minutes == null ? null : Number(measured.data.p75_minutes),
+      samples: measured.data?.samples ?? 0,
+    };
+  }
+
+  async saveSchedule(draft: ScheduleDraft): Promise<void> {
+    const { error } = await this.supabase.from('workshop_settings').upsert({
+      workspace_id: await this.workspace.requireId(),
+      print_first_start: draft.firstStart,
+      print_last_start: draft.lastStart,
+      print_end_by: endByToDb(draft.endBy),
+      changeover_default_minutes: draft.changeoverMinutes,
+      hold_default_days: draft.holdDays,
+      hold_default_time: draft.holdTime,
+    });
+    if (error) throw error;
   }
 
   async members(): Promise<MemberRecord[]> {

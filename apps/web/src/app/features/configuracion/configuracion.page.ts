@@ -8,6 +8,7 @@ import { GiftCategoriesSection } from './gift-categories-section';
 import { CategoriesSection } from './categories-section';
 import { FinishesSection } from './finishes-section';
 import { MaterialsSection } from './materials-section';
+import { ScheduleSection } from './schedule-section';
 import { MembersSection } from './members-section';
 import { WorkshopSection } from './workshop-section';
 
@@ -30,6 +31,7 @@ const TABS: { id: TabId; label: string }[] = [
   imports: [
     Page, CostProfileSection, WorkshopSection, MembersSection, ChannelsSection,
     GiftCategoriesSection, BrandsSection, MaterialsSection, FinishesSection, CategoriesSection, AppearanceSection,
+    ScheduleSection,
   ],
   styles: `
     .tabs { display: flex; gap: 0.25rem; flex-wrap: wrap; margin-bottom: 1.25rem; border-bottom: 1px solid var(--line); }
@@ -55,7 +57,10 @@ const TABS: { id: TabId; label: string }[] = [
 
       @switch (active()) {
         @case ('costs') { <app-cost-profile-section /> }
-        @case ('workshop') { <app-workshop-section /> }
+        @case ('workshop') {
+          <app-workshop-section />
+          <app-schedule-section />
+        }
         @case ('members') { <app-members-section /> }
         @case ('sales') {
           <div class="stack">
