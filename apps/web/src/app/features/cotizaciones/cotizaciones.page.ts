@@ -1,5 +1,6 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { todayLocal } from '../../core/dates';
 import { AsyncState, Badge, Card, Empty, FORMAT_PIPES, Page, type BadgeTone } from '../../ui';
 import {
   CotizadorData,
@@ -128,7 +129,7 @@ export class CotizacionesPage {
   protected readonly quotes = signal<QuoteSummary[]>([]);
   protected readonly filter = signal<Filter>('all');
 
-  private readonly today = new Date().toISOString().slice(0, 10);
+  private readonly today = todayLocal();
 
   protected readonly visible = computed(() => {
     const chosen = this.filter();

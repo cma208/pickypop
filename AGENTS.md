@@ -87,7 +87,7 @@ Si creas datos de prueba, **bórralos al terminar** y di cuáles fueron.
 
 - En un archivo laminado de Bambu, **la purga y la torre de limpieza ya vienen incluidas** en los gramos que reporta. No las sumes aparte. Se verificó sobre archivos reales: la purga era el 28.7 % de una placa de tres colores.
 - Usa `prediction` como tiempo de impresión, no "model printing time".
-- Una columna `date` llega como `"2026-10-04"`, y `new Date("2026-10-04")` la interpreta en UTC, que en Lima es la tarde anterior. Hay que construirla como fecha local.
+- Una columna `date` llega como `"2026-10-04"`, y `new Date("2026-10-04")` la interpreta en UTC, que en Lima es la tarde anterior. Hay que construirla como fecha local. Y al revés: «hoy» es `todayLocal()` (`core/dates.ts`), nunca `new Date().toISOString().slice(0, 10)`, que después de las 19:00 en Lima ya dice mañana.
 - **Un `select` de PostgREST partido en varias líneas con `+` deja de ser un tipo literal**, y el cliente tipado falla con `GenericStringError`, que no dice nada del problema real. Va en una sola cadena, por larga que sea.
 - **Una columna de vista llamada igual que una tabla** (`quotes`, `orders`) la lee PostgREST como relación embebida y revienta. Por eso las cuentas se llaman `quote_count` y `order_count`.
 - **Una vista bloquea el `alter column` de lo que usa**: hay que soltarla y recrearla alrededor. Y `create or replace view` **no** renombra columnas, aunque el nombre prometa lo contrario.

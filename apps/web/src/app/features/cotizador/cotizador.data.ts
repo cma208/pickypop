@@ -394,7 +394,7 @@ export class CotizadorData {
       this.supabase
         .from('cost_profiles')
         .select('*')
-        .lte('valid_from', new Date().toISOString().slice(0, 10))
+        .lte('valid_from', todayLocal())
         .order('valid_from', { ascending: false })
         .limit(1),
     ]);

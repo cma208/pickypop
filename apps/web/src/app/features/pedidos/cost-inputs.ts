@@ -1,5 +1,6 @@
 import { inject, Injectable } from '@angular/core';
 import { SUPABASE } from '../../core/supabase';
+import { todayLocal } from '../../core/dates';
 import type { CostProfile, PrinterProfile } from '../../core/pricing';
 
 const CACHE_MS = 60_000;
@@ -50,7 +51,7 @@ export class CostInputs {
       .select(
         'material_waste_rate, failure_rate, labor_rate_per_hour, energy_rate_per_kwh, target_margin, min_order_price, rounding_step, igv_rate',
       )
-      .lte('valid_from', new Date().toISOString().slice(0, 10))
+      .lte('valid_from', todayLocal())
       .order('valid_from', { ascending: false })
       .limit(1);
     if (error) throw error;

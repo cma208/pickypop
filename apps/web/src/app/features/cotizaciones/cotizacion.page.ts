@@ -2,6 +2,7 @@ import { Component, computed, effect, inject, input, signal } from '@angular/cor
 import { RouterLink } from '@angular/router';
 import { AsyncState, Badge, Card, Empty, FORMAT_PIPES, Item, Page, ResourceHeader, type BadgeTone, type HeaderAction } from '../../ui';
 import { documentTitle } from '../../core/document-title';
+import { todayLocal } from '../../core/dates';
 import { Desglose } from '../cotizador/desglose';
 import {
   CotizadorData,
@@ -75,7 +76,7 @@ export class CotizacionPage {
   /** Kept apart from `error` so a failed download does not hide the quote. */
   protected readonly pdfError = signal<string | null>(null);
 
-  private readonly today = new Date().toISOString().slice(0, 10);
+  private readonly today = todayLocal();
 
   constructor() {
     // A required input is not set yet while the constructor runs, and the id

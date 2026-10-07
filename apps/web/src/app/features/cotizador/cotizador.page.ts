@@ -6,6 +6,7 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 // core/pricing does not re-export these yet, and rewriting rounding here would
 // be exactly what docs/06-frontend.md 6.3 forbids. See the report.
 import { chargesIgv, roundMoney, sumMoney } from '../../core/pricing';
+import { localDate } from '../../core/dates';
 import { AsyncState, Badge, Card, Empty, Field, FORMAT_PIPES, ItemPicker, Page, type PickerOption } from '../../ui';
 import type { BatchCostBreakdown, PriceBreakdown } from '../../core/pricing';
 import {
@@ -620,7 +621,7 @@ export class CotizadorPage {
         requestId: requestId === '' ? null : requestId,
         validUntil:
           validityDays > 0
-            ? new Date(Date.now() + validityDays * MS_PER_DAY).toISOString().slice(0, 10)
+            ? localDate(new Date(Date.now() + validityDays * MS_PER_DAY))
             : null,
         note: note.trim() === '' ? null : note.trim(),
         snapshot,
