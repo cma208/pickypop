@@ -35,12 +35,16 @@ const GRAMS_PER_KG = 1000;
 const LEARNED_PLATES_LIMIT = 500;
 
 const PG_UNIQUE = '23505';
+const PG_RAISED = 'P0001';
 const PG_FOREIGN_KEY = '23503';
 const PG_CHECK = '23514';
 const PG_NOT_ALLOWED = '42501';
 
 /** Turns a database error into a message a person can act on. */
 function fail(error: PostgrestError, fallback: string, duplicate?: string): never {
+  // A `raise exception` was written for a person and knows the case better
+  // than any rule here: it travels as it is (AGENTS.md).
+  if (error.code === PG_RAISED && error.message.trim() !== '') throw new CatalogoError(error.message);
   if (error.code === PG_UNIQUE && duplicate) throw new CatalogoError(duplicate);
   if (error.code === PG_FOREIGN_KEY) {
     throw new CatalogoError('No se puede hacer porque otra parte del sistema depende de esto.');

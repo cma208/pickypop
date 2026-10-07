@@ -177,7 +177,7 @@ import {
                         }
                         <td class="num">{{ line.estimatedUnitCost * line.quantity | money }}</td>
                         <td class="num">
-                          @if (!final(o.status)) {
+                          @if (!final(o.status) && line.pending > 0) {
                             <button type="button" class="secondary" (click)="startJob(line)">Crear trabajo</button>
                           }
                         </td>
