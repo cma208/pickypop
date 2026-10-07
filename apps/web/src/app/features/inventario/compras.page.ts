@@ -15,6 +15,7 @@ import { describeError } from './inventario.errors';
 import { INVENTORY_PIPES } from './inventario.format';
 import { INVENTORY_STYLES } from './inventario.styles';
 import { InventoryPlan } from './inventory-plan';
+import { spoolName } from '../../core/spool-label';
 
 @Component({
   selector: 'app-compras',
@@ -201,13 +202,15 @@ export class ComprasPage {
   }
 
   protected async onSaved(saved: SavedPurchase): Promise<void> {
-    const { rolls, paymentFailed } = saved;
+    const { rolls, spools, paymentFailed } = saved;
     this.creating.set(false);
     // What came in may be exactly what an order was missing: the plan computes again.
     this.planner.changed();
+    // The labels are what gets written on the rolls, so they are listed here.
+    const labels = spools.length > 0 ? `: ${spools.map(spoolName).join(', ')}` : '';
     this.notice.set(
       rolls > 0
-        ? `Compra registrada. Se crearon ${rolls} ${rolls === 1 ? 'rollo' : 'rollos'} con su costo final.`
+        ? `Compra registrada. Se crearon ${rolls} ${rolls === 1 ? 'rollo' : 'rollos'} con su costo final${labels}.`
         : 'Compra registrada. El stock de insumos ya subió.',
     );
     this.warning.set(

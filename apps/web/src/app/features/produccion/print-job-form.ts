@@ -4,6 +4,7 @@ import { FormArray, FormControl, FormGroup, ReactiveFormsModule, Validators } fr
 import { Card, Field, FORMAT_PIPES, ItemPicker, Thumb, type PickerOption } from '../../ui';
 import { duration } from '../../core/format';
 import { PlanService } from '../../core/plan';
+import { spoolLabel } from '../../core/spool-label';
 import { explainError } from '../pedidos/pedidos.errors';
 import { ProduccionData, type OrderLineOption, type PlateOption, type SpoolOption } from './produccion.data';
 import type { PrinterSummary } from '../../core/workshop';
@@ -115,7 +116,7 @@ function createFilamentRow(spoolId = '', estimatedG = 0, slot: number | null = n
                   <select formControlName="spoolId">
                     <option value="">Elige un rollo…</option>
                     @for (spool of spools(); track spool.id) {
-                      <option [value]="spool.id">{{ spool.code }} · {{ spool.colorName }} · {{ spool.onHandG | grams }}</option>
+                      <option [value]="spool.id">{{ spoolLabel(spool, spool.onHandG) }}</option>
                     }
                   </select>
                 </pp-field>
@@ -184,6 +185,7 @@ export class PrintJobForm implements OnInit {
   protected readonly printers = signal<PrinterSummary[]>([]);
   protected readonly plates = signal<PlateOption[]>([]);
   protected readonly spools = signal<SpoolOption[]>([]);
+  protected readonly spoolLabel = spoolLabel;
   protected readonly lines = signal<OrderLineOption[]>([]);
   protected readonly loading = signal(true);
   protected readonly loadError = signal<string | null>(null);

@@ -9,6 +9,7 @@ import {
   type SpoolSummary,
 } from './inventario.data';
 import { describeError } from './inventario.errors';
+import { spoolLabel } from '../../core/spool-label';
 import {
   MOVEMENT_TYPES,
   MOVEMENT_TYPE_LABELS,
@@ -72,7 +73,7 @@ const NO_FILTER: MovementFilter = { type: null, spoolId: null, itemId: null, fro
           <select [value]="filter().spoolId ?? ''" (change)="onSpool($event)">
             <option value="">Todos</option>
             @for (spool of spools(); track spool.id) {
-              <option [value]="spool.id">{{ spool.code ?? 'Sin código' }} · {{ spool.skuLabel }}</option>
+              <option [value]="spool.id">{{ spoolLabel(spool, spool.remainingG) }}</option>
             }
           </select>
         </label>
@@ -185,6 +186,7 @@ export class MovimientosPage {
   protected readonly labels = MOVEMENT_TYPE_LABELS;
   protected readonly tones = TYPE_TONES;
   protected readonly limit = MOVEMENTS_LIMIT;
+  protected readonly spoolLabel = spoolLabel;
 
   protected readonly spools = signal<SpoolSummary[]>([]);
   protected readonly items = signal<InventoryItemSummary[]>([]);

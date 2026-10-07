@@ -36,6 +36,7 @@ import { describeError } from './inventario.errors';
 import { INVENTORY_STYLES } from './inventario.styles';
 import { ITEM_KIND_LABELS, todayIso } from './inventario.format';
 import { planPurchase, type AllocationMethod, type PlanLineInput } from '../../core/pricing';
+import type { SpoolIdentity } from '../../core/spool-label';
 import { PurchasePreview, type PreviewRow } from './purchase-preview';
 import { QuickAdd } from './quick-add';
 import { PAYMENT_METHOD_LABELS, PAYMENT_METHODS, type PaymentMethod } from '../finanzas/finanzas.models';
@@ -55,6 +56,8 @@ interface PartialState {
 /** What the form says once the purchase is in. */
 export interface SavedPurchase {
   rolls: number;
+  /** The rolls that came in, with their label: «PETG-NEGRO-01 · PETG Negro». */
+  spools: SpoolIdentity[];
   /** It was meant to be paid, and the payment could not be written. */
   paymentFailed: boolean;
 }
@@ -468,7 +471,11 @@ export class CompraForm {
     this.error.set(null);
     try {
       const registered = await this.data.registerPurchase(this.toDraft());
-      this.saved.emit({ rolls: this.rollCount(), paymentFailed: registered.paymentFailed });
+      this.saved.emit({
+        rolls: this.rollCount(),
+        spools: registered.spools,
+        paymentFailed: registered.paymentFailed,
+      });
     } catch (error) {
       this.confirming.set(false);
       this.reportFailure(error);
@@ -521,6 +528,7 @@ export class CompraForm {
       expiresOn: target?.kind === 'item' ? blankToNull(line.expiresOn) : null,
       netWeightG: sku?.netWeightG ?? null,
       colorName: sku?.colorName ?? null,
+      materialCode: sku?.materialCode ?? null,
     }));
 
     return {
