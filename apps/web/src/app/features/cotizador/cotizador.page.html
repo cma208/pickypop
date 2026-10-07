@@ -441,7 +441,7 @@
               </tr>
             </thead>
             <tbody>
-              @for (line of lines(); track line.key; let index = $index) {
+              @for (line of lines(); track line.key) {
                 <tr>
                   <td>{{ line.draft.description }}</td>
                   <td class="num">{{ line.cost.units }}</td>
@@ -455,21 +455,36 @@
                     </button>
                   </td>
                 </tr>
-                @if (linePromise(index); as answer) {
-                  <tr class="promise-row">
-                    <td colspan="6">
-                      <app-promesa
-                        [promise]="answer"
-                        [now]="promiseNow()"
-                        [stale]="promiseAsking()"
-                        [forWhom]="index === 0 ? 'Para esta línea' : 'Para esta línea, después de las de arriba'"
-                      />
-                    </td>
-                  </tr>
-                }
               }
             </tbody>
           </table>
+
+          <!-- Out of the table: on a phone the table scrolls sideways, and a
+               promise read sideways is not read. -->
+          @if (promiseFor(); as answers) {
+            <h3>¿Para cuándo?</h3>
+            <ul class="line-promises">
+              @for (line of lines(); track line.key; let index = $index) {
+                @if (answers[index]; as answer) {
+                  <li>
+                    <pp-item
+                      size="inline"
+                      kind="product"
+                      [photo]="{ kind: 'variant', id: line.draft.variantId }"
+                      [name]="line.cost.units + ' × ' + line.draft.description"
+                    />
+                    <app-promesa
+                      [promise]="answer"
+                      [now]="promiseNow()"
+                      [stale]="promiseAsking()"
+                      heading=""
+                      [forWhom]="index === 0 ? 'Para esta línea' : 'Para esta línea, después de las de arriba'"
+                    />
+                  </li>
+                }
+              }
+            </ul>
+          }
 
           @if (quoteReadyText(); as ready) {
             <p class="quote-ready">

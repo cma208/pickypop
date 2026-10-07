@@ -76,7 +76,8 @@ button.danger-text { color: var(--danger); }
 
 /* "¿Para cuándo?" sits right under the quantity it answers. */
 .promise { display: block; margin: 0.75rem 0 0; }
-.promise-row td { padding-top: 0; border-top: 0; }
+.line-promises { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.9rem; }
+.line-promises li { display: grid; gap: 0.4rem; }
 .quote-ready { margin: 0.75rem 0 0; }
 .quote-ready small { margin-left: 0.25rem; }
 
