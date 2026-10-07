@@ -3,7 +3,7 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { date } from '../../core/format';
 import { friendlyError } from '../../core/friendly-error';
-import { AsyncState, Badge, Card, Empty, FORMAT_PIPES, Item, Page, ResourceHeader } from '../../ui';
+import { AsyncState, Badge, Card, Empty, FORMAT_PIPES, Item, Page, ResourceHeader, type HeaderAction } from '../../ui';
 import { documentTitle } from '../../core/document-title';
 import { PrintJobCard } from '../produccion/print-job-card';
 import { PrintJobForm, type FixedOrderLine } from '../produccion/print-job-form';
@@ -59,6 +59,8 @@ import {
         [code]="order()?.number"
         [meta]="subtitle()"
         [photo]="order() ? { kind: 'order', id: order()!.id } : null"
+        [action]="primaryAction()"
+        (acted)="goToDelivery()"
       >
         @if (order(); as o) {
           <pp-badge status [tone]="statusTone[o.status]">{{ statusLabel[o.status] }}</pp-badge>
@@ -114,7 +116,7 @@ import {
                 <div class="row">
                   @if (next(o.status); as step) {
                     @if (step.kind === 'deliver') {
-                      <button type="button" (click)="goToDelivery()">Entregar</button>
+                      <button type="button" class="secondary" (click)="goToDelivery()">Entregar</button>
                     } @else {
                       <button type="button" (click)="change(step.status)" [disabled]="changing()">Pasar a {{ statusLabel[step.status] }}</button>
                     }
@@ -352,6 +354,16 @@ export class PedidoPage {
   protected next(status: OrderStatus): NextStep | null {
     return nextStep(status, this.hasPending());
   }
+
+  /**
+   * What the order is waiting for, as the one main action of the page: while
+   * something is still to hand over, that is delivering it.
+   */
+  protected readonly primaryAction = computed<HeaderAction | null>(() => {
+    const status = this.order()?.status;
+    if (!status || isFinal(status) || status === 'on_hold' || !this.hasPending()) return null;
+    return { label: 'Entregar' };
+  });
 
   protected goToDelivery(): void {
     this.delivery()?.focus();
