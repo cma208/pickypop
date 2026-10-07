@@ -14,6 +14,7 @@ import {
 import { describeError } from './inventario.errors';
 import { INVENTORY_PIPES } from './inventario.format';
 import { INVENTORY_STYLES } from './inventario.styles';
+import { InventoryPlan } from './inventory-plan';
 
 @Component({
   selector: 'app-compras',
@@ -158,6 +159,7 @@ import { INVENTORY_STYLES } from './inventario.styles';
 })
 export class ComprasPage {
   private readonly data = inject(InventarioData);
+  private readonly planner = inject(InventoryPlan);
 
   protected readonly purchases = signal<PurchaseSummary[]>([]);
   protected readonly skus = signal<SkuSummary[]>([]);
@@ -201,6 +203,8 @@ export class ComprasPage {
   protected async onSaved(saved: SavedPurchase): Promise<void> {
     const { rolls, paymentFailed } = saved;
     this.creating.set(false);
+    // What came in may be exactly what an order was missing: the plan computes again.
+    this.planner.changed();
     this.notice.set(
       rolls > 0
         ? `Compra registrada. Se crearon ${rolls} ${rolls === 1 ? 'rollo' : 'rollos'} con su costo final.`
