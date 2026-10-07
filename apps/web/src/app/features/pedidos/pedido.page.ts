@@ -10,6 +10,7 @@ import { PrintJobForm, type FixedOrderLine } from '../produccion/print-job-form'
 import { ProduccionData, type JobItem } from '../produccion/produccion.data';
 import { PedidoCobro } from './pedido-cobro';
 import { PedidoEntrega } from './pedido-entrega';
+import { PedidoSeparo } from './pedido-separo';
 import {
   PedidosData,
   type OrderDelivery,
@@ -47,6 +48,7 @@ import {
     PrintJobForm,
     PedidoCobro,
     PedidoEntrega,
+    PedidoSeparo,
     ...FORMAT_PIPES,
   ],
   template: `
@@ -101,6 +103,7 @@ import {
               </ol>
               @if (o.status === 'on_hold') {
                 <p class="muted">El pedido está en espera. Elige en qué paso retomarlo.</p>
+                <app-pedido-separo [orderId]="o.id" (changed)="onDelivered()" />
                 <div class="row">
                   <select [value]="resumeAt()" (change)="resumeAt.set(readStatus($event))" aria-label="Retomar en">
                     @for (step of resumeOptions(); track step) { <option [value]="step">{{ statusLabel[step] }}</option> }
@@ -373,7 +376,7 @@ export class PedidoPage {
     this.collection()?.focus();
   }
 
-  /** The database moved the stock and maybe the status: read both back. */
+  /** The database moved the stock, the status or who goes first: read it back. */
   protected async onDelivered(): Promise<void> {
     await this.load(this.id(), false);
   }

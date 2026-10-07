@@ -43,3 +43,38 @@ export function inputToIso(value: string): string {
   const LIMA_OFFSET = '-05:00'; // Peru has no daylight saving time.
   return new Date(`${value}:00${LIMA_OFFSET}`).toISOString();
 }
+
+/** Value for an `<input type="datetime-local">` showing an instant in Lima time. */
+export function isoToInput(iso: string, timeZone = DEFAULT_TIMEZONE): string {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(new Date(iso));
+  const get = (type: string) => parts.find((part) => part.type === type)?.value ?? '00';
+
+  return `${get('year')}-${get('month')}-${get('day')}T${get('hour')}:${get('minute')}`;
+}
+
+/**
+ * "miércoles 7 de octubre, 23:00": a moment as a person says it. Holds and
+ * promised times are always shown like this, never as a duration.
+ */
+export function dateTimeLong(iso: string, timeZone = DEFAULT_TIMEZONE): string {
+  const parts = new Intl.DateTimeFormat('es-PE', {
+    timeZone,
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(new Date(iso));
+  const get = (type: string) => parts.find((part) => part.type === type)?.value ?? '';
+
+  return `${get('weekday')} ${get('day')} de ${get('month')}, ${get('hour')}:${get('minute')}`;
+}
