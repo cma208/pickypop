@@ -123,10 +123,13 @@ export class Media {
     const thumbPath = thumbPathOf(path)!;
 
     const bucket = this.supabase.storage.from(BUCKET);
-    const options = { contentType: 'image/webp', cacheControl: '3600' };
+    // Safari cannot encode WebP and hands back a PNG instead. The name keeps
+    // .webp (the small copy is found by it), but the type says what it is, so
+    // the browser that shows it decodes it right.
+    const options = (blob: Blob) => ({ contentType: blob.type || 'image/webp', cacheControl: '3600' });
     const [original, small] = await Promise.all([
-      bucket.upload(path, full, options),
-      bucket.upload(thumbPath, thumb, options),
+      bucket.upload(path, full, options(full)),
+      bucket.upload(thumbPath, thumb, options(thumb)),
     ]);
 
     if (original.error) {
