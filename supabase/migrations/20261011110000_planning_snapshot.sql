@@ -290,9 +290,19 @@ as $$
               'description', l.description,
               'quantity', ds.pending,
               'variantId', l.variant_id,
+              -- A line without variant is made to order unless the quote
+              -- said it was a service. One typed by hand in «Pedido nuevo»
+              -- has no plates: it goes as made-to-order work without them,
+              -- so the plan says it does not know, instead of calling it ready.
               'custom', case
                 when l.variant_id is null and ql.kind = 'custom'
                   then app.custom_work_json(ql.id, coalesce(pr.units, 0) - ds.delivered)
+                when l.variant_id is null and ql.id is null
+                  then jsonb_build_object(
+                    'plates', '[]'::jsonb, 'supplies', '[]'::jsonb,
+                    'setupMinutes', 0, 'minutesPerUnit', 0,
+                    'printedUnits', greatest(coalesce(pr.units, 0) - ds.delivered, 0)
+                  )
               end
             ) order by l.position)
             from public.order_lines l

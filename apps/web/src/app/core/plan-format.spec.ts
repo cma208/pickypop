@@ -21,8 +21,8 @@ const line = (overrides: Partial<PlanLinePlan> = {}): PlanLinePlan => ({
 
 describe('plan vocabulary', () => {
   it('says a sale line in the three words of the shop, leaving out what is zero', () => {
-    expect(lineSituation(line())).toBe('4 en el estante · 2 por armar · 4 por imprimir');
-    expect(lineSituation(line({ onShelf: 0, toAssemble: 0, toMake: 6 }))).toBe('6 por imprimir');
+    expect(lineSituation(line())).toBe('4 en el estante · 2 por armar · 4 por fabricar');
+    expect(lineSituation(line({ onShelf: 0, toAssemble: 0, toMake: 6 }))).toBe('6 por fabricar');
     expect(lineSituation(line({ onShelf: 0, toAssemble: 0, toMake: 0 }))).toBe('Nada que preparar');
   });
 
@@ -49,7 +49,7 @@ describe('plan vocabulary', () => {
   });
 
   it('answers "¿para cuándo?" in one sentence that informs and never forbids', () => {
-    expect(promiseSentence(line(), NOW)).toBe('4 en el estante · 2 por armar · 4 por imprimir. Estaría hoy 22:52.');
+    expect(promiseSentence(line(), NOW)).toBe('4 en el estante · 2 por armar · 4 por fabricar. Estaría hoy 22:52.');
     expect(
       promiseSentence(
         line({
@@ -60,7 +60,7 @@ describe('plan vocabulary', () => {
         NOW,
       ),
     ).toBe(
-      '4 en el estante · 2 por armar · 4 por imprimir. Estaría hoy 22:52. Si falla una placa, hoy 23:50. Antes hay que comprar 140 g de Dulces surtidos.',
+      '4 en el estante · 2 por armar · 4 por fabricar. Estaría hoy 22:52. Si falla una placa, hoy 23:50. Antes hay que comprar 140 g de Dulces surtidos.',
     );
   });
 });

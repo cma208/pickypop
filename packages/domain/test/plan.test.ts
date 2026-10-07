@@ -1087,3 +1087,18 @@ describe('plan: a made-to-order line of two plates', () => {
     expect(result.proposals).toEqual([]);
   });
 });
+
+describe('plan: a made-to-order line typed by hand', () => {
+  it('is not ready, and says the plan does not know how long it takes', () => {
+    const result = plan(
+      workshop({
+        demands: [order('o1', 'PED-0001', TUESDAY_1800, [customLine('l1', 2, {})])],
+      }),
+    );
+
+    expect(result.demands[0]!.lines[0]).toMatchObject({ onShelf: 0, toMake: 2 });
+    expect(result.warnings).toEqual([
+      '"Encargo l1" es a medida y no tiene placas: el plan no sabe cuánto tarda en imprimirse.',
+    ]);
+  });
+});

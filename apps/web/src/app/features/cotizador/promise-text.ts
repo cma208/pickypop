@@ -22,7 +22,7 @@ export function readyLine(iso: string, now: string): string {
 }
 
 /**
- * "0 en el estante · 10 por imprimir". The shelf is said even when it gives
+ * "0 en el estante · 10 por fabricar". The shelf is said even when it gives
  * nothing: next to somebody's hold, "0 en el estante" is the answer the
  * seller was looking for. Made to order there is no shelf to speak of.
  */

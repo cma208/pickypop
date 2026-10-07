@@ -598,6 +598,13 @@ class Allocator {
   ): LinePlanned {
     const onShelf = Math.min(quantity, Math.max(0, custom.printedUnits));
     const toMake = clean(quantity - onShelf);
+    if (toMake > 0 && custom.plates.length === 0) {
+      // Typed by hand, with no sliced file behind it: calling it ready would
+      // be a promise nobody can keep.
+      this.warnings.add(
+        `"${line.description}" es a medida y no tiene placas: el plan no sabe cuánto tarda en imprimirse.`,
+      );
+    }
     const shortages = new Shortages();
     const ownRuns: Run[] = [];
     let latest = this.now;

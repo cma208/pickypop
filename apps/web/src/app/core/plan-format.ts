@@ -5,18 +5,19 @@ import { grams } from './format';
 /**
  * One vocabulary for the plan, so the seller, the queue and the shelf say the
  * same thing with the same words (docs/barrido/sintesis.md): a sale line is
- * "en el estante · por armar · por imprimir", an article is "Hay · Separado ·
+ * "en el estante · por armar · por fabricar" (to print, or to buy first: the
+ * owner's word was "fabricar"), an article is "Hay · Separado ·
  * Libre · Falta", and a moment is a day and an hour, never a duration.
  */
 
 const NUMBER = new Intl.NumberFormat('es-PE', { maximumFractionDigits: 2 });
 
-/** "4 en el estante · 2 por armar · 4 por imprimir"; the parts in zero are left out. */
+/** "4 en el estante · 2 por armar · 4 por fabricar"; the parts in zero are left out. */
 export function lineSituation(line: Pick<PlanLinePlan, 'onShelf' | 'toAssemble' | 'toMake'>): string {
   const parts = [
     line.onShelf > 0 ? `${NUMBER.format(line.onShelf)} en el estante` : null,
     line.toAssemble > 0 ? `${NUMBER.format(line.toAssemble)} por armar` : null,
-    line.toMake > 0 ? `${NUMBER.format(line.toMake)} por imprimir` : null,
+    line.toMake > 0 ? `${NUMBER.format(line.toMake)} por fabricar` : null,
   ].filter((part): part is string => part !== null);
   return parts.length > 0 ? parts.join(' · ') : 'Nada que preparar';
 }

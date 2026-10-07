@@ -28,9 +28,9 @@ describe('the words of ¿para cuándo? when selling', () => {
   });
 
   it('says the shelf even when it gives nothing', () => {
-    expect(saleSituation({ quantity: 6, onShelf: 0, toAssemble: 0, toMake: 6 })).toBe('0 en el estante · 6 por imprimir');
-    expect(saleSituation({ quantity: 6, onShelf: 4, toAssemble: 0, toMake: 2 })).toBe('4 en el estante · 2 por imprimir');
-    expect(saleSituation({ quantity: 6, onShelf: 0, toAssemble: 0, toMake: 6 }, true)).toBe('6 por imprimir');
+    expect(saleSituation({ quantity: 6, onShelf: 0, toAssemble: 0, toMake: 6 })).toBe('0 en el estante · 6 por fabricar');
+    expect(saleSituation({ quantity: 6, onShelf: 4, toAssemble: 0, toMake: 2 })).toBe('4 en el estante · 2 por fabricar');
+    expect(saleSituation({ quantity: 6, onShelf: 0, toAssemble: 0, toMake: 6 }, true)).toBe('6 por fabricar');
   });
 
   it('names who holds what, until a day and an hour, and what happens then', () => {
