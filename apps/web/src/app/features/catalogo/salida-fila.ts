@@ -1,5 +1,6 @@
 import { Component, computed, effect, inject, input, output, signal, untracked } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { borrowedPhoto } from '../../core/article-photos';
 import { ItemPicker, type PickerOption } from '../../ui';
 import { CatalogoData } from './catalogo.data';
 import type { PlateOutput } from './catalogo.models';
@@ -90,7 +91,14 @@ export class SalidaFila {
     const taken = new Set(this.usedIds().filter((id) => id !== mine));
     return this.parts()
       .filter((part) => !taken.has(part.id))
-      .map((part) => ({ value: part.id, label: part.name, imagePath: part.imagePath }));
+      .map((part) => ({
+        value: part.id,
+        label: part.name,
+        imagePath: part.imagePath,
+        // A part with no photo of its own shows the plate that prints it.
+        photo: borrowedPhoto(part.id, 'part'),
+        kind: 'part' as const,
+      }));
   });
 
   constructor() {

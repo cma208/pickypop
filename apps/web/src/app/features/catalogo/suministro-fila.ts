@@ -1,5 +1,6 @@
 import { Component, computed, effect, inject, input, output, signal, untracked } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { borrowedPhoto } from '../../core/article-photos';
 import { FORMAT_PIPES, ItemPicker, type PickerOption } from '../../ui';
 import { CatalogoData } from './catalogo.data';
 import type { RecipeSupply, SupplyOption } from './catalogo.models';
@@ -97,6 +98,8 @@ export class SuministroFila {
       label: item.name,
       hint: item.unit,
       imagePath: item.imagePath,
+      // A part with no photo of its own shows the plate that prints it.
+      photo: borrowedPhoto(item.id, item.kind),
       kind: item.kind ?? 'supply',
     })),
   );

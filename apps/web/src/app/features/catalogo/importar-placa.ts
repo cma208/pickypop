@@ -1,6 +1,7 @@
 import { Component, computed, DestroyRef, inject, input, OnInit, output, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormArray, FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { borrowedPhoto } from '../../core/article-photos';
 import { FORMAT_PIPES, ItemPicker, type PickerOption } from '../../ui';
 import { CatalogoData } from './catalogo.data';
 import type { ImportedFilament, MaterialOption, PlateOutputInput, SkuOption } from './catalogo.models';
@@ -234,7 +235,14 @@ export class ImportarPlaca implements OnInit {
   protected readonly said = computed(() => describeObjects(this.draft().objects));
 
   protected readonly options = computed<PickerOption[]>(() =>
-    this.parts().map((part) => ({ value: part.id, label: part.name, imagePath: part.imagePath })),
+    this.parts().map((part) => ({
+      value: part.id,
+      label: part.name,
+      imagePath: part.imagePath,
+      // A part with no photo of its own shows the plate that prints it.
+      photo: borrowedPhoto(part.id, 'part'),
+      kind: 'part' as const,
+    })),
   );
 
   protected readonly productsHint = computed(() => {
