@@ -201,3 +201,56 @@ Todo está integrado en `etapa1-estante`, con 188 pruebas de la raíz y 268 de l
 - El paquete inicial pesa 506 kB y el presupuesto es de 500 kB. Ya se pasaba antes; los 3 kB nuevos son el CSS de la base visual.
 
 **Lo que sigue en el camino 1:** la etapa 2 (la cuenta única con separo, prioridad, horario y promesa) y la etapa 3 (`accept_quote` con líneas a medida, «¿Para cuándo?» y «Por lanzar»).
+
+## Las etapas 2 y 3, cerradas (2026-10-06, noche)
+
+Todo está en la rama `etapa2-cuenta`, y `nav-y-plan` la sigue. Pasan las 266 pruebas de la raíz (60 son del planificador) y las 390 de la aplicación, y el build compila. Cuatro agentes trabajaron en paralelo; yo revisé, integré y verifiqué cada rama.
+
+**Etapa 2: la cuenta única** (ADR-021). La base guarda solo las decisiones, y lo demás lo calcula una función pura, `plan`, en `packages/domain`.
+
+| Qué | Dónde | Verificado |
+|---|---|---|
+| Quién va primero (`priority_at`), el separo con fecha y hora (`hold_until`), el horario de impresión y el cambio de placa medido (p75) | `20261011100000_holds_and_priority.sql`, Configuración › Taller | En la base y en el navegador |
+| Una sola instantánea del taller para el plan | `20261011110000_planning_snapshot.sql`, `core/plan.ts` | Como el usuario de la app, con la seguridad por fila |
+| El planificador: reparto por prioridad, cola simulada en el horario y promesa (agente P) | `plan.ts`, `plan-queue.ts`, `plan-time.ts` | Los ejemplos del diseño como pruebas, y corrido sobre la base real |
+| Aceptar una cotización crea el pedido y hereda su lugar si el separo seguía vigente. La línea a medida entra al pedido nuevo (P4) (agente Q) | `20261011120000_accept_quote.sql`, `cotizaciones/` | En el navegador y en la base |
+| La situación del pedido y «Pasar adelante» con lo que le cambia a cada uno; el separo de un pedido en espera | `pedido-situacion.ts`, `pedido-separo.ts` | En el navegador y en la base |
+
+**Etapa 3: las pantallas que leen el plan.**
+
+| Qué | Dónde | Verificado |
+|---|---|---|
+| «Por lanzar» en la cola: placas propuestas con lo que cubren en orden, su filamento y lo que solo existe por un separo. «Poner en cola» encola en bolsa común; los rollos se proponen al iniciar; cada trabajo dice a qué hora empezaría (agente T) | `produccion/` | En el navegador y en la base |
+| Hay · Separado · Libre · Falta en Piezas, Insumos, Empaque y Filamentos; Armar dice para quién es lo armado; Hoy avisa separos por vencer, lo que llega tarde y lo que falta comprar (agente U) | `inventario/`, `panel/` | En el navegador, contra la base |
+| «¿Para cuándo?» en el cotizador, el pedido nuevo y la cotización: lo que hay, lo que separan otros, la fecha y lo que falta comprar, sin bloquear nunca (agente S) | `cotizador/`, `cotizaciones/`, `pedido-nuevo` | En el navegador, contra `promiseFor` |
+
+**Arreglos que salieron al integrar:**
+- **Receta vacía:** no es «lista para armar».
+- **Sin fecha:** lo que el plan no sabe fechar dice «Sin fecha» y por qué, en vez de «ya».
+- **Faltante:** inventario y «Por lanzar» dicen el mismo (`missingForOrders`), y lo que agregarían los separos se dice aparte.
+- **Línea a medida:** con dos placas, ya no se da por cubierta con media; escrita a mano, no está «lista ya».
+- **Vocabulario:** «por fabricar» en vez de «por imprimir».
+- **Fechas en Lima:** «hoy» en cinco pantallas, y `issued_on` de la cotización.
+- **Mensajes de la base:** el catálogo ya no tapa los P0001.
+- **Desglose de la cotización:** las líneas de catálogo ya no avisan que «no cuadra».
+- **Safari:** la foto sube con su tipo real.
+- **Estimado contra real:** suma lo que costó lo entregado (ADR-022).
+
+**Para publicar** (lo decide el dueño):
+1. Llevar `nav-y-plan` a `main`.
+2. **29 migraciones**, de `20261007100000_opportunities` a `20261012110000_delivered_cost_on_order`, siempre primero con `--dry-run`.
+3. **Contar el estante una vez** antes de entregar.
+4. Si se quiere la miniatura de las recetas viejas, volver a importar su `.gcode.3mf`.
+
+**Decisiones que esperan al dueño:**
+- **ADR-022:** el costo de ventas sigue en el estimado (con mano de obra), o pasa a lo entregado más la mano de obra.
+- **Lo hecho a medida que ya está en curso:** las líneas a medida que se escribieron a mano no tienen placas. El plan dice «Sin fecha» hasta que se coticen con su archivo.
+
+**Pendientes menores:**
+- Los avisos del plan son frases sueltas; convendría darles código e id.
+- Las cotizaciones no guardan la miniatura de sus placas.
+- El mismo filamento tiene dos nombres («PLA Rosado» y «Krear3D · PLA · Básico · Rosado»).
+- `promiseFor` acepta una sola línea; la venta entera usa `whatIf`.
+- El trabajo de la semilla no tiene rollos.
+- Quedan unos 150 `font-size` sueltos.
+- El paquete inicial pesa 506 kB, sobre un presupuesto de 500.
