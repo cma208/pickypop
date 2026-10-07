@@ -153,8 +153,10 @@
                         }
                       </td>
                       <td>
+                        <!-- Each option says whether it is the chosen one: a [value] on the
+                             select is written before its options exist, and a plate loaded
+                             from a recipe then showed «Elige el filamento…» over a chosen SKU. -->
                         <select
-                          [value]="filament.filamentSkuId ?? ''"
                           (change)="
                             updateFilament(plateIndex, slotIndex, {
                               filamentSkuId: value($event) === '' ? null : value($event)
@@ -162,9 +164,9 @@
                           "
                           [attr.aria-label]="'Filamento de la ranura ' + filament.slot"
                         >
-                          <option value="">Elige el filamento…</option>
+                          <option value="" [selected]="!filament.filamentSkuId">Elige el filamento…</option>
                           @for (sku of ctx.filaments; track sku.id) {
-                            <option [value]="sku.id">{{ sku.label }}</option>
+                            <option [value]="sku.id" [selected]="sku.id === filament.filamentSkuId">{{ sku.label }}</option>
                           }
                         </select>
                         @if (!filament.filamentSkuId) {
@@ -276,13 +278,14 @@
                 <tr>
                   <td>
                     <select
-                      [value]="supply.inventoryItemId ?? ''"
                       (change)="pickSupplyItem($index, value($event))"
                       aria-label="Insumo del inventario"
                     >
-                      <option value="">Otro (a mano)</option>
+                      <option value="" [selected]="!supply.inventoryItemId">Otro (a mano)</option>
                       @for (item of ctx.supplies; track item.id) {
-                        <option [value]="item.id">{{ item.name }} ({{ item.unit }})</option>
+                        <option [value]="item.id" [selected]="item.id === supply.inventoryItemId">
+                          {{ item.name }} ({{ item.unit }})
+                        </option>
                       }
                     </select>
                     @if (!supply.inventoryItemId) {
@@ -317,12 +320,11 @@
                   </td>
                   <td>
                     <select
-                      [value]="supply.scope"
                       (change)="updateSupply($index, { scope: value($event) === 'batch' ? 'batch' : 'unit' })"
                       aria-label="Se cobra por"
                     >
-                      <option value="unit">por unidad</option>
-                      <option value="batch">una vez por lote</option>
+                      <option value="unit" [selected]="supply.scope === 'unit'">por unidad</option>
+                      <option value="batch" [selected]="supply.scope === 'batch'">una vez por lote</option>
                     </select>
                   </td>
                   <td class="num">
