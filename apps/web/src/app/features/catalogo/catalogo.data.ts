@@ -656,7 +656,7 @@ export class CatalogoData {
 
   /** Materials, spool products and supplies, each with the cost the stock says. */
   async lookups(): Promise<Lookups> {
-    const [materials, skus, stock, items, costs] = await Promise.all([
+    const [materials, skus, stock, items, costs, partCosts] = await Promise.all([
       this.supabase.from('materials').select('id, code').order('code'),
       this.supabase
         .from('filament_skus')
@@ -674,12 +674,15 @@ export class CatalogoData {
       // the LAST purchase, not an average, on purpose: the quoting screen and
       // order estimates read the same view, so all three now agree.
       this.supabase.from('inventory_item_costs').select('inventory_item_id, cost_per_unit'),
+      // A printed part is never bought: what it costs is what printing it cost.
+      this.supabase.from('part_stock').select('inventory_item_id, cost_per_unit'),
     ]);
     if (materials.error) fail(materials.error, 'No pudimos cargar los materiales.');
     if (skus.error) fail(skus.error, 'No pudimos cargar los filamentos.');
     if (stock.error) fail(stock.error, 'No pudimos cargar el costo del stock.');
     if (items.error) fail(items.error, 'No pudimos cargar los insumos.');
     if (costs.error) fail(costs.error, 'No pudimos cargar el costo de los insumos.');
+    if (partCosts.error) fail(partCosts.error, 'No pudimos cargar el costo de las piezas.');
 
     const stockCost = new Map(stock.data.map((row) => [row.filament_sku_id, numberOrNull(row.weighted_cost_per_gram)]));
     const materialCode = new Map(materials.data.map((row) => [row.id, row.code]));
@@ -703,7 +706,7 @@ export class CatalogoData {
               : Number(sku.replacement_cost_per_kg) / GRAMS_PER_KG,
         }),
       ),
-      supplies: supplyOptions(items.data, costs.data),
+      supplies: supplyOptions(items.data, costs.data, partCosts.data),
     };
   }
 

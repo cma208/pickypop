@@ -63,30 +63,50 @@ function priceOf(sku: SkuOption): number | null {
   return sku.stockCostPerGram ?? sku.replacementCostPerGram;
 }
 
+type CostRow = { inventory_item_id: string | null; cost_per_unit: number | null };
+
 /**
  * Joins the active supplies with their row in `inventory_item_costs`. A supply
  * the view does not know, or one with no purchase and no standard cost, keeps a
  * null cost so the screen can say it is missing rather than showing it as free.
+ *
+ * A printed part is never bought, so that view has nothing for it: its cost is
+ * the weighted average of what printing it cost, from `part_stock`.
  */
 export function supplyOptions(
   items: { id: string; name: string; unit: string; image_path?: string | null; kind?: SupplyOption['kind'] }[],
-  costs: { inventory_item_id: string | null; cost_per_unit: number | null }[],
+  costs: CostRow[],
+  partCosts: CostRow[] = [],
 ): SupplyOption[] {
-  const costPerUnit = new Map(
-    costs.flatMap((row) =>
+  const bought = costMap(costs);
+  const printed = costMap(partCosts);
+  return items.map((item) => ({
+    id: item.id,
+    name: item.name,
+    unit: item.unit,
+    costPerUnit: (item.kind === 'part' ? printed : bought).get(item.id) ?? null,
+    imagePath: item.image_path ?? null,
+    kind: item.kind ?? null,
+  }));
+}
+
+function costMap(rows: CostRow[]): Map<string, number> {
+  return new Map(
+    rows.flatMap((row) =>
       row.inventory_item_id === null || row.cost_per_unit === null
         ? []
         : [[row.inventory_item_id, Number(row.cost_per_unit)] as const],
     ),
   );
-  return items.map((item) => ({
-    id: item.id,
-    name: item.name,
-    unit: item.unit,
-    costPerUnit: costPerUnit.get(item.id) ?? null,
-    imagePath: item.image_path ?? null,
-    kind: item.kind ?? null,
-  }));
+}
+
+/**
+ * The parts the recipe's own plates print. Their cost is already in the plate
+ * runs, so as a component they add nothing: counting them again would charge
+ * the same plastic twice.
+ */
+export function partsMadeByPlates(recipe: Pick<Recipe, 'plates'>): Set<string> {
+  return new Set(recipe.plates.flatMap((plate) => plate.outputs.map((output) => output.inventoryItemId)));
 }
 
 export function supplyCostPerUnit(
@@ -128,13 +148,22 @@ export function buildBatch(sources: CostSources, units: number): { batch: BatchI
     };
   });
 
-  const suppliesPerUnit = recipe.supplies.map((supply) => {
-    const item = lookups.supplies.find((candidate) => candidate.id === supply.inventoryItemId);
-    const label = item?.name ?? 'Insumo';
-    const { cost, known } = supplyCostPerUnit(supply.inventoryItemId, supply.quantityPerUnit, sources);
-    if (!known) warnings.push(`${label}: no tiene costo registrado, no suma al costo.`);
-    return { label, cost, known };
-  });
+  const madeHere = partsMadeByPlates(recipe);
+  const suppliesPerUnit = recipe.supplies
+    .filter((supply) => !madeHere.has(supply.inventoryItemId))
+    .map((supply) => {
+      const item = lookups.supplies.find((candidate) => candidate.id === supply.inventoryItemId);
+      const label = item?.name ?? 'Insumo';
+      const { cost, known } = supplyCostPerUnit(supply.inventoryItemId, supply.quantityPerUnit, sources);
+      if (!known) {
+        warnings.push(
+          item?.kind === 'part'
+            ? `${label}: la imprime otra receta y todavía no se cerró ninguna impresión suya, no suma al costo.`
+            : `${label}: no tiene costo registrado, no suma al costo.`,
+        );
+      }
+      return { label, cost, known };
+    });
 
   return {
     batch: {
