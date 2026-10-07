@@ -1,6 +1,7 @@
 import { Component, computed, inject, signal } from '@angular/core';
+import type { PhotoRef } from '../../core/article-photos';
 import { friendlyError } from '../../core/friendly-error';
-import { AsyncState, Badge, Card, Empty, FORMAT_PIPES, Page, Thumb } from '../../ui';
+import { AsyncState, Badge, Card, Empty, FORMAT_PIPES, Item, Page } from '../../ui';
 import { countPayload, difference, isChanged, needsCost, rowProblem, saveLabel, type CountRow } from './conteo';
 import { ConteoData } from './conteo.data';
 import { INVENTORY_STYLES } from './inventario.styles';
@@ -19,7 +20,7 @@ import { INVENTORY_STYLES } from './inventario.styles';
  */
 @Component({
   selector: 'app-contar',
-  imports: [Page, Card, AsyncState, Empty, Badge, Thumb, ...FORMAT_PIPES],
+  imports: [Page, Card, AsyncState, Empty, Badge, Item, ...FORMAT_PIPES],
   template: `
     <pp-page title="Contar el estante" subtitle="Cuántas hay de verdad, para que entregar no se trabe">
       <pp-async [loading]="loading()" [error]="error()">
@@ -38,13 +39,14 @@ import { INVENTORY_STYLES } from './inventario.styles';
                 <ul class="rows">
                   @for (row of group.rows; track key(row)) {
                     <li [class.changed]="changed(row)">
-                      <span class="with-thumb who">
-                        <pp-thumb [path]="row.imagePath" [name]="row.name" />
-                        <span>
-                          <span class="strong">{{ row.name }}</span>
-                          @if (row.detail) { <small class="sub">{{ row.detail }}</small> }
-                        </span>
-                      </span>
+                      <pp-item
+                        class="who"
+                        [path]="row.imagePath"
+                        [photo]="photoOf(row)"
+                        [kind]="row.kind"
+                        [name]="row.name"
+                        [sub]="row.detail"
+                      />
 
                       <span class="believed muted">La app cree <strong>{{ row.onHand }}</strong></span>
 
@@ -169,6 +171,11 @@ export class ContarPage {
 
   constructor() {
     void this.load();
+  }
+
+  /** A part without a photo of its own shows the plate it comes from. */
+  protected photoOf(row: CountRow): PhotoRef | null {
+    return row.kind === 'part' ? { kind: 'item', id: row.inventoryItemId } : { kind: 'variant', id: row.variantId };
   }
 
   protected key(row: CountRow): string {
