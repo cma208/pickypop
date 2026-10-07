@@ -7,12 +7,13 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 // be exactly what docs/06-frontend.md 6.3 forbids. See the report.
 import { chargesIgv, roundMoney, sumMoney } from '../../core/pricing';
 import { localDate } from '../../core/dates';
-import { AsyncState, Badge, Card, Empty, Field, FORMAT_PIPES, ItemPicker, Page, type PickerOption } from '../../ui';
+import { AsyncState, Badge, Card, Empty, Field, FORMAT_PIPES, Item, ItemPicker, Page, type PickerOption } from '../../ui';
 import type { BatchCostBreakdown, PriceBreakdown } from '../../core/pricing';
 import {
   CotizadorData,
   DataError,
   type NewQuoteLine,
+  type QuotedPromise,
   type QuoteSnapshot,
   type QuotingContext,
 } from './cotizador.data';
@@ -35,6 +36,10 @@ import {
 } from './quote-model';
 import { readSlicedFile, SlicedFileError } from '../../core/sliced-file';
 import { lacksRecordedCost } from './supply-costs';
+import { candidateLine, sameCandidates } from './plan-candidate';
+import { Promesa } from './promesa';
+import { readyLine } from './promise-text';
+import { watchSalePromise } from './sale-promise.watch';
 
 /** A line already added to the quote being built. */
 interface QuoteLineDraft {
@@ -69,8 +74,10 @@ const MS_PER_DAY = 86_400_000;
     AsyncState,
     Empty,
     Field,
+    Item,
     ItemPicker,
     Desglose,
+    Promesa,
     ...FORMAT_PIPES,
   ],
   templateUrl: './cotizador.page.html',
@@ -345,6 +352,50 @@ export class CotizadorPage {
     return context === null ? '' : VALUATION_LABELS[context.valuation];
   });
 
+  // ------------------------------------------------------ ¿para cuándo?
+
+  /**
+   * The quote's lines and, last, the one being written: the plan places
+   * them together, so the line being written waits behind the ones already
+   * added, as it will once the quote is sent. Only what changes the answer
+   * asks again; a price or a note does not.
+   */
+  private readonly candidates = computed(
+    () => {
+      const skus = this.context()?.filaments ?? [];
+      const label = (skuId: string) => skus.find((sku) => sku.id === skuId)?.label ?? null;
+      return [...this.lines().map((line) => line.draft), this.draft()].map((line) => candidateLine(line, label));
+    },
+    { equal: sameCandidates },
+  );
+
+  private readonly watched = watchSalePromise(this.candidates);
+  protected readonly promiseFailed = this.watched.failed;
+  protected readonly promiseAsking = this.watched.asking;
+
+  /** The answer for the line being written, the last one asked. */
+  protected readonly draftPromise = computed(() => this.watched.promise()?.lines.at(-1) ?? null);
+
+  /** The answers for the lines already in the quote, by their place. */
+  protected readonly promiseFor = computed(
+    () => this.watched.promise()?.lines.slice(0, this.lines().length) ?? null,
+  );
+
+  protected readonly promiseNow = computed(() => this.watched.promise()?.now ?? new Date().toISOString());
+
+  /** When the quote as it stands would be ready: its latest line. The line being written is not in it yet. */
+  protected readonly quoteReadyAt = computed(() => {
+    const answered = this.watched.promise()?.lines.slice(0, this.lines().length) ?? [];
+    const times = answered.flatMap((line) => (line ? [line.plan.readyAt] : []));
+    if (times.length === 0 || times.length < this.lines().length) return null;
+    return times.reduce((latest, time) => (Date.parse(time) > Date.parse(latest) ? time : latest));
+  });
+
+  protected readonly quoteReadyText = computed(() => {
+    const readyAt = this.quoteReadyAt();
+    return readyAt === null ? null : readyLine(readyAt, this.promiseNow());
+  });
+
   // ------------------------------------------------------ sliced files
 
   protected onDragOver(event: DragEvent): void {
@@ -611,6 +662,7 @@ export class CotizadorPage {
       valuation: context.valuation,
       priceSettings: this.priceSettings(),
       calculatedAt: new Date().toISOString(),
+      promise: this.quotedPromise(),
     };
 
     try {
@@ -641,6 +693,17 @@ export class CotizadorPage {
     } finally {
       this.saving.set(false);
     }
+  }
+
+  /**
+   * What the seller saw, kept with the quote so that accepting it can say
+   * whether the date moved. Not kept while a newer answer is on its way: an
+   * answer for other quantities would be worse than none.
+   */
+  private quotedPromise(): QuotedPromise | null {
+    const readyAt = this.quoteReadyAt();
+    if (readyAt === null || this.promiseAsking()) return null;
+    return { computedAt: this.promiseNow(), readyAt };
   }
 
   /** Freezes the names and prices used, so the quote reads the same forever. */

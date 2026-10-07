@@ -234,6 +234,20 @@
           </div>
         </form>
 
+        @if (draftPromise(); as answer) {
+          <app-promesa
+            class="promise"
+            [promise]="answer"
+            [now]="promiseNow()"
+            [stale]="promiseAsking()"
+            [forWhom]="lines().length > 0 ? 'Para esta línea, después de las otras de la cotización' : 'Para esta venta'"
+          />
+        } @else if (promiseFailed()) {
+          <p class="muted promise">No pudimos calcular para cuándo estaría. Puedes cotizar igual.</p>
+        } @else if (promiseAsking() && (plates().length > 0 || lineForm.controls.variantId.value)) {
+          <p class="muted promise">Calculando para cuándo estaría…</p>
+        }
+
         <h3>Insumos</h3>
         @if (supplies().length === 0) {
           <p class="muted">Sin insumos. Agrega dulces, empaque o lo que entre en el producto.</p>
@@ -444,6 +458,40 @@
               }
             </tbody>
           </table>
+
+          <!-- Out of the table: on a phone the table scrolls sideways, and a
+               promise read sideways is not read. -->
+          @if (promiseFor(); as answers) {
+            <h3>¿Para cuándo?</h3>
+            <ul class="line-promises">
+              @for (line of lines(); track line.key; let index = $index) {
+                @if (answers[index]; as answer) {
+                  <li>
+                    <pp-item
+                      size="inline"
+                      kind="product"
+                      [photo]="{ kind: 'variant', id: line.draft.variantId }"
+                      [name]="line.cost.units + ' × ' + line.draft.description"
+                    />
+                    <app-promesa
+                      [promise]="answer"
+                      [now]="promiseNow()"
+                      [stale]="promiseAsking()"
+                      heading=""
+                      [forWhom]="index === 0 ? 'Para esta línea' : 'Para esta línea, después de las de arriba'"
+                    />
+                  </li>
+                }
+              }
+            </ul>
+          }
+
+          @if (quoteReadyText(); as ready) {
+            <p class="quote-ready">
+              Toda la cotización: <strong>{{ ready }}</strong>
+              <small class="muted">si el cliente confirma hoy.</small>
+            </p>
+          }
 
           @if (totals(); as sums) {
             <dl class="totals">

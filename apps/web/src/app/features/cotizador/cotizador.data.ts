@@ -106,6 +106,20 @@ export interface QuoteSnapshot {
   valuation: MaterialValuation;
   priceSettings: PriceSettings;
   calculatedAt: string;
+  /**
+   * "¿Para cuándo?" as the plan answered it while the quote was written:
+   * what the customer heard. Accepting compares it with today. Null for
+   * quotes saved before it was kept, or when the plan could not be read.
+   */
+  promise: QuotedPromise | null;
+}
+
+/** The day and hour a quote said, frozen with it. */
+export interface QuotedPromise {
+  /** The moment the plan was computed for. */
+  computedAt: string;
+  /** When the whole quote would have been ready: its latest line. */
+  readyAt: string;
 }
 
 /** A quote line as it was stored: the inputs, with the costs of the day. */
@@ -366,7 +380,17 @@ function parseSnapshot(raw: unknown): QuoteSnapshot | null {
       channelCommissionRate: num(settings['channelCommissionRate']),
     },
     calculatedAt: text(row['calculatedAt']) ?? '',
+    promise: parseQuotedPromise(row['promise']),
   };
+}
+
+function parseQuotedPromise(raw: unknown): QuotedPromise | null {
+  const row = record(raw);
+  const computedAt = text(row['computedAt']);
+  const readyAt = text(row['readyAt']);
+  if (computedAt === null || readyAt === null) return null;
+  if (Number.isNaN(Date.parse(computedAt)) || Number.isNaN(Date.parse(readyAt))) return null;
+  return { computedAt, readyAt };
 }
 
 // ------------------------------------------------------------------ data

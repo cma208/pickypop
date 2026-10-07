@@ -1,8 +1,11 @@
 import { Component, computed, DestroyRef, inject, input, OnInit, output, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { roundMoney } from '../../core/pricing';
 import { Field, FORMAT_PIPES, ItemPicker, type PickerOption } from '../../ui';
+import { Promesa } from '../cotizador/promesa';
+import type { LinePromise } from '../cotizador/sale-promise';
 import { CostEstimator } from './cost-estimate';
 import { PedidosData, type NewOrderLine, type VariantOption } from './pedidos.data';
 
@@ -88,7 +91,7 @@ export function toNewOrderLine(
  */
 @Component({
   selector: 'app-pedido-linea',
-  imports: [ReactiveFormsModule, Field, ItemPicker, ...FORMAT_PIPES],
+  imports: [ReactiveFormsModule, RouterLink, Field, ItemPicker, Promesa, ...FORMAT_PIPES],
   template: `
     <div class="line" [formGroup]="group()">
       <div class="head">
@@ -173,6 +176,15 @@ export function toNewOrderLine(
           <span class="total">Subtotal: <strong>{{ lineTotal() | money }}</strong></span>
         }
       </div>
+
+      @if (kind() === 'custom') {
+        <p class="muted plan-note">
+          ¿Para cuándo? A medida y sin placas, el plan no sabe cuánto tarda. Para tener la fecha, cotízala en el
+          <a routerLink="/cotizador">Cotizador</a> con su archivo laminado: al aceptarla se crea el pedido con sus placas.
+        </p>
+      } @else if (promise(); as answer) {
+        <app-promesa class="promise" [promise]="answer" [now]="promiseNow()" [stale]="promiseStale()" [forWhom]="promiseFor()" />
+      }
     </div>
   `,
   styles: `
@@ -185,6 +197,8 @@ export function toNewOrderLine(
     .notes { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 0.75rem; font-size: 0.8rem; }
     .total { margin-left: auto; color: var(--text); }
     .warn-text { color: var(--warn); }
+    .promise { display: block; margin-top: 0.75rem; }
+    .plan-note { margin: 0.75rem 0 0; font-size: 0.8rem; }
   `,
 })
 export class PedidoLinea implements OnInit {
@@ -198,6 +212,11 @@ export class PedidoLinea implements OnInit {
   readonly isSale = input(true);
   readonly removable = input(true);
   readonly showErrors = input(false);
+  /** "¿Para cuándo?" for this line, answered by the page for all its lines together. */
+  readonly promise = input<LinePromise | null>(null);
+  readonly promiseNow = input('');
+  readonly promiseStale = input(false);
+  readonly promiseFor = input('Para este pedido');
   readonly remove = output<void>();
 
   /** The catalogue with its photos: "la botella roja" is found by looking, not by reading. */
