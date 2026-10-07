@@ -128,3 +128,33 @@ Cada número se comprobó a mano y contra la base. Lo que funcionó está al fin
   - Saldo de S/ 18.
   - «Lo entregado S/ 8.28» = 2 × 4.1386.
 - **Cuentas y caja.** Efectivo S/ 462 y Yape S/ 150. Caja, historial con costo real, Hoy (85.71 % de éxito), conteo del estante en el kardex y kardex con fotos.
+
+## Estado después de los arreglos (2026-10-07)
+
+Los arreglos están en la rama `recorrido-desde-cero`, en tres ramas mezcladas (`arreglos-catalogo`, `arreglos-ventas` y `arreglos-inventario`). Pasan 299 pruebas de dominio y migraciones y 476 de la web, y el build compila.
+
+**Graves: los seis, arreglados.**
+1. Un pedido entregado o con cobros no se cancela. Lo impide la base, y la pantalla ya no lo ofrece.
+2. La importación mete las piezas en la receta, una por unidad.
+3. La importación crea piezas con «+ Pieza nueva».
+4. El cotizador crea el cliente ahí mismo, y la cotización en curso sobrevive a salir y a recargar.
+5. Los selectores del cotizador muestran lo cargado.
+6. Los rollos llevan su material en el código y en todas las listas (`PETG-NEGRO-01`).
+
+**Decisiones: las cuatro, aplicadas.**
+- Producción no vendida y herramientas: ADR-023.
+- «Crear trabajo» en el pedido:
+  - una línea a medida tiene «Imprimir para este pedido»;
+  - una de catálogo tiene «Ver qué falta imprimir», que lleva a «Por lanzar» filtrado.
+- Causa de falla «Warping / deformación».
+
+**Medios y menores: arreglados.** Con estas excepciones:
+- **Crear el taller desde la aplicación:** sigue sin existir.
+- **Movimientos de Caja que ya están sin categoría:** no se reclasificaron. Las categorías por defecto rigen desde ahora.
+- **Costo de ventas (ADR-022):** sigue esperando la decisión del dueño.
+
+**Hecho además de lo pedido:**
+- El costo de una línea de pedido es el de su lote, al céntimo: 15.69, ya no 15.70.
+- Los meses de Resultados se cortan en la hora del taller.
+- Compras ya no ofrece piezas ni productos armados.
+- Las piezas sin foto muestran su placa en el catálogo y en la cola.
