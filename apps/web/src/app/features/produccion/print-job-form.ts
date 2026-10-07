@@ -48,7 +48,10 @@ function createFilamentRow(spoolId = '', estimatedG = 0, slot: number | null = n
           @if (fixedLine(); as line) {
             <p class="fixed"><span class="muted">Línea del pedido</span><br /><strong>{{ line.label }}</strong></p>
           } @else {
-            <pp-field label="Línea de pedido" hint="Déjalo vacío para una prueba o una impresión para stock.">
+            <pp-field
+              label="Línea a medida de un pedido"
+              hint="Déjalo vacío para una prueba o para stock. Lo del catálogo se lanza desde «Por lanzar»."
+            >
               <select formControlName="orderLineId">
                 <option value="">Sin pedido (prueba o stock)</option>
                 @for (line of lines(); track line.id) {
