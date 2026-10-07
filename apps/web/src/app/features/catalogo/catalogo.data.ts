@@ -400,6 +400,20 @@ export class CatalogoData {
     return (data ?? []).map((part) => ({ id: part.id, name: part.name, unit: part.unit, imagePath: part.image_path }));
   }
 
+  /**
+   * A new printed part, made while reviewing a sliced file: a new workshop has
+   * none yet, and sending the person to Inventory meant losing the review.
+   */
+  async createPart(name: string): Promise<{ id: string; name: string; unit: string; imagePath: string | null }> {
+    const { data, error } = await this.supabase
+      .from('inventory_items')
+      .insert({ workspace_id: await this.workspaceId(), kind: 'part', name: name.trim(), unit: 'unidad' })
+      .select('id, name, unit, image_path')
+      .single();
+    if (error) fail(error, 'No pudimos crear la pieza.', 'Ya hay una pieza con ese nombre.');
+    return { id: data.id, name: data.name, unit: data.unit, imagePath: data.image_path };
+  }
+
   async addPlate(recipeId: string, plateIndex: number, input: RecipePlateInput): Promise<void> {
     const { error } = await this.supabase.from('recipe_plates').insert({
       workspace_id: await this.workspaceId(),

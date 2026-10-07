@@ -1,10 +1,10 @@
-import { Component, computed, effect, inject, input, output, signal, untracked } from '@angular/core';
+import { Component, computed, effect, inject, input, linkedSignal, output, signal, untracked } from '@angular/core';
 import { CatalogoData } from './catalogo.data';
-import type { ImportedPlate } from './catalogo.models';
+import type { ImportedPlate, MaterialOption, SkuOption } from './catalogo.models';
 import { SHARED_STYLES } from './catalogo.styles';
 import { messageOf } from './catalogo.util';
 import type { ImportDraft } from './importacion';
-import { confirmedOutputs, ImportarPlaca, plateDraftGroup, type PlateDraftGroup } from './importar-placa';
+import { confirmedFilaments, confirmedOutputs, ImportarPlaca, plateDraftGroup, type PlateDraftGroup } from './importar-placa';
 import type { PartOption } from './salida-fila';
 
 export interface ImportOutcome {
@@ -44,13 +44,19 @@ export interface ImportOutcome {
           <app-importar-placa
             [group]="groups()[i]!"
             [draft]="plate"
-            [parts]="parts()"
+            [parts]="allParts()"
             [perProduct]="perProduct()"
+            [skus]="skus()"
+            [materials]="materials()"
             [thumbnailUrl]="urls()[i] ?? null"
+            (partCreated)="addPart($event)"
           />
         }
       </div>
-      <p class="muted hint">¿Falta una pieza? Créala en Inventario › Piezas impresas y agrégala después en la placa.</p>
+      <p class="muted hint">
+        ¿Falta una pieza? Créala con «+ Pieza nueva» en la fila del objeto. Las piezas que elijas se agregan a la
+        receta, una por unidad; si tu producto lleva otra cantidad, cámbiala en «Piezas impresas por unidad».
+      </p>
       @if (error(); as message) { <p class="error" role="alert">{{ message }}</p> }
       <div class="bar">
         <button type="button" (click)="save()" [disabled]="busy() || includedCount() === 0">
@@ -70,6 +76,11 @@ export class ImportarPlacas {
   readonly parts = input.required<PartOption[]>();
   /** How many of each part one product takes, from the recipe's supplies. */
   readonly perProduct = input.required<ReadonlyMap<string, number>>();
+  readonly skus = input<SkuOption[]>([]);
+  readonly materials = input<MaterialOption[]>([]);
+
+  /** The workshop's parts plus the ones made during this review. */
+  protected readonly allParts = linkedSignal(() => this.parts());
 
   readonly saved = output<ImportOutcome>();
   readonly cancelled = output<void>();
@@ -99,6 +110,10 @@ export class ImportarPlacas {
     });
   }
 
+  protected addPart(part: PartOption): void {
+    this.allParts.update((parts) => [...parts, part].sort((a, b) => a.name.localeCompare(b.name, 'es')));
+  }
+
   protected includedCount(): number {
     return this.groups().filter((group) => group.controls.include.value).length;
   }
@@ -122,7 +137,7 @@ export class ImportarPlacas {
         unitsPerRun: Number(value.unitsPerRun),
         printTimeS: plate.printTimeS,
         sourceFileName: fileName,
-        filaments: plate.filaments,
+        filaments: confirmedFilaments(plate, group, this.skus()),
         outputs: confirmedOutputs(group.controls.objects),
         record: {
           filePlate: plate.filePlate,

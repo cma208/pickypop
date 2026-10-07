@@ -1,8 +1,10 @@
-import { Component, computed, DestroyRef, inject, input, OnInit, signal } from '@angular/core';
+import { Component, computed, DestroyRef, inject, input, OnInit, output, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormArray, FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { FORMAT_PIPES, ItemPicker, type PickerOption } from '../../ui';
-import type { PlateOutputInput } from './catalogo.models';
+import { CatalogoData } from './catalogo.data';
+import type { ImportedFilament, MaterialOption, PlateOutputInput, SkuOption } from './catalogo.models';
+import { messageOf } from './catalogo.util';
 import { SHARED_STYLES } from './catalogo.styles';
 import { describeObjects, mergeOutputs, productsPerRun, type PlateDraft } from './importacion';
 import type { PartOption } from './salida-fila';
@@ -23,7 +25,7 @@ export function confirmedOutputs(objects: FormArray<ObjectRow>): PlateOutputInpu
   );
 }
 
-/** The editable side of a plate draft: whether it goes in, its label, its parts. */
+/** The editable side of a plate draft: whether it goes in, its label, its parts and its rolls. */
 export function plateDraftGroup(draft: PlateDraft, perProduct: ReadonlyMap<string, number>) {
   const objects = new FormArray(draft.objects.map((object) => objectRow(object.proposedItemId, object.count)));
   return new FormGroup({
@@ -34,6 +36,21 @@ export function plateDraftGroup(draft: PlateDraft, perProduct: ReadonlyMap<strin
       Validators.min(0.001),
     ]),
     objects,
+    // The roll proposed for each slot, which the person can change before
+    // saving: the file says red PETG for a mould the workshop prints in black.
+    filaments: new FormArray(draft.filaments.map((filament) => new FormControl(filament.skuId ?? '', { nonNullable: true }))),
+  });
+}
+
+/**
+ * The plate's filaments with the roll the person chose. The material follows
+ * the roll: choosing an ABS roll for a slot the file called PETG makes it ABS.
+ */
+export function confirmedFilaments(draft: PlateDraft, group: PlateDraftGroup, skus: readonly SkuOption[]): ImportedFilament[] {
+  const chosen = group.controls.filaments.getRawValue();
+  return draft.filaments.map((filament, index) => {
+    const sku = skus.find((candidate) => candidate.id === chosen[index]);
+    return { ...filament, skuId: sku?.id ?? null, materialId: sku?.materialId ?? filament.materialId };
   });
 }
 
@@ -64,14 +81,21 @@ export type PlateDraftGroup = ReturnType<typeof plateDraftGroup>;
       label.field { display: grid; gap: 0.15rem; font-size: 0.72rem; color: var(--muted); }
       .said { margin: 0; font-size: 0.85rem; }
       .objects { display: grid; gap: 0.4rem; }
-      .object { display: grid; grid-template-columns: minmax(5rem, 0.7fr) minmax(0, 1.6fr) 5.5rem 2rem; gap: 0.4rem; align-items: center; }
+      .object { display: grid; grid-template-columns: minmax(5rem, 0.7fr) minmax(0, 1.6fr) 5.5rem auto; gap: 0.4rem; align-items: center; }
       .object .name { font-size: 0.85rem; overflow-wrap: anywhere; }
       .object input { min-width: 0; }
       .two { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 0.6rem; align-items: start; }
+      .new-part { font-size: 0.8rem; white-space: nowrap; }
+      .create { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: end; padding: 0.4rem 0 0.2rem; }
+      .create label { flex: 1 1 12rem; }
+      .create .error { flex-basis: 100%; margin: 0; }
+      .rolls { display: grid; gap: 0.3rem; }
+      .roll { display: grid; grid-template-columns: 1rem minmax(0, 1fr) minmax(0, 1.4fr); gap: 0.4rem; align-items: center; font-size: 0.85rem; }
+      .swatch { width: 1rem; height: 1rem; border-radius: 50%; border: 1px solid var(--line-strong); }
       p.hint { margin: 0; }
       @media (max-width: 40rem) {
         article { grid-template-columns: 1fr; }
-        .object { grid-template-columns: minmax(0, 1fr) 5rem 2rem; }
+        .object { grid-template-columns: minmax(0, 1fr) 5rem auto; }
         .object .name { grid-column: 1 / -1; }
         .two { grid-template-columns: 1fr; }
       }
@@ -120,7 +144,39 @@ export type PlateDraftGroup = ReturnType<typeof plateDraftGroup>;
                   @if (row.controls.inventoryItemId.value) {
                     <button type="button" class="ghost" (click)="choose(row, '')"
                       [attr.aria-label]="'No va al estante: ' + draft().objects[i]!.name">✕</button>
+                  } @else if (creatingFor() !== i) {
+                    <button type="button" class="ghost new-part" (click)="startPart(i)"
+                      [attr.aria-label]="'Crear una pieza nueva para ' + draft().objects[i]!.name">+ Pieza nueva</button>
                   }
+                </div>
+                @if (creatingFor() === i) {
+                  <div class="create">
+                    <label class="field">Nombre de la pieza nueva
+                      <input [formControl]="newPartName" autocomplete="off" placeholder="Ej.: Tapa de calavera"
+                        (keydown.enter)="$event.preventDefault(); createPart(row)" />
+                    </label>
+                    <button type="button" (click)="createPart(row)" [disabled]="creating()">{{ creating() ? 'Creando…' : 'Crear y usar' }}</button>
+                    <button type="button" class="ghost" (click)="creatingFor.set(null)" [disabled]="creating()">Cancelar</button>
+                    @if (createError(); as message) { <p class="error hint">{{ message }}</p> }
+                  </div>
+                }
+              }
+            </div>
+          }
+
+          @if (draft().filaments.length > 0) {
+            <div class="rolls" formArrayName="filaments">
+              <span class="muted hint">Rollo de cada ranura (gramos de una corrida)</span>
+              @for (control of filamentControls().controls; track $index; let i = $index) {
+                <div class="roll">
+                  <span class="swatch" [style.background]="draft().filaments[i]!.colorHex ?? 'transparent'" aria-hidden="true"></span>
+                  <span class="said-roll">Ranura {{ draft().filaments[i]!.slot }} · {{ materialOf(draft().filaments[i]!.materialId) }}{{ draft().filaments[i]!.grams | grams }}</span>
+                  <select [formControlName]="i" [attr.aria-label]="'Rollo de la ranura ' + draft().filaments[i]!.slot">
+                    <option value="">Sin asignar</option>
+                    @for (sku of skuChoices(draft().filaments[i]!.materialId); track sku.id) {
+                      <option [value]="sku.id">{{ sku.label }}</option>
+                    }
+                  </select>
                 </div>
               }
             </div>
@@ -146,12 +202,26 @@ export type PlateDraftGroup = ReturnType<typeof plateDraftGroup>;
 export class ImportarPlaca implements OnInit {
   private readonly destroyRef = inject(DestroyRef);
 
+  private readonly data = inject(CatalogoData);
+
   readonly group = input.required<PlateDraftGroup>();
   readonly draft = input.required<PlateDraft>();
   readonly parts = input.required<PartOption[]>();
   readonly perProduct = input.required<ReadonlyMap<string, number>>();
+  readonly skus = input<SkuOption[]>([]);
+  readonly materials = input<MaterialOption[]>([]);
   /** A local link to the cropped picture: nothing is uploaded until saving. */
   readonly thumbnailUrl = input<string | null>(null);
+  /** A part made here, so every other plate of the file can choose it too. */
+  readonly partCreated = output<PartOption>();
+
+  /** The object row whose new part is being named, if any. */
+  protected readonly creatingFor = signal<number | null>(null);
+  protected readonly newPartName = new FormControl('', { nonNullable: true });
+  protected readonly creating = signal(false);
+  protected readonly createError = signal<string | null>(null);
+
+  protected readonly filamentControls = computed(() => this.group().controls.filaments);
 
   /** Bumped on every change of the form, so the computeds below follow it. */
   private readonly revision = signal(0);
@@ -197,6 +267,44 @@ export class ImportarPlaca implements OnInit {
   protected choose(row: ObjectRow, itemId: string): void {
     row.controls.inventoryItemId.setValue(itemId);
     row.controls.inventoryItemId.markAsDirty();
+  }
+
+  /** The file's name for the object is the starting point; it is rarely the workshop's. */
+  protected startPart(index: number): void {
+    this.newPartName.setValue(this.draft().objects[index]?.name ?? '');
+    this.createError.set(null);
+    this.creatingFor.set(index);
+  }
+
+  protected async createPart(row: ObjectRow): Promise<void> {
+    const name = this.newPartName.value.trim();
+    if (!name || this.creating()) {
+      this.createError.set(name ? null : 'Escribe cómo se llama la pieza.');
+      return;
+    }
+    this.creating.set(true);
+    this.createError.set(null);
+    try {
+      const part = await this.data.createPart(name);
+      this.partCreated.emit(part);
+      this.choose(row, part.id);
+      this.creatingFor.set(null);
+    } catch (error) {
+      this.createError.set(messageOf(error, 'No pudimos crear la pieza.'));
+    } finally {
+      this.creating.set(false);
+    }
+  }
+
+  protected materialOf(materialId: string | null): string {
+    const code = this.materials().find((material) => material.id === materialId)?.code;
+    return code ? `${code} · ` : '';
+  }
+
+  /** The rolls of the same material first: they are the usual answer, but any roll can print the slot. */
+  protected skuChoices(materialId: string | null): SkuOption[] {
+    const active = this.skus().filter((sku) => sku.active);
+    return [...active.filter((sku) => sku.materialId === materialId), ...active.filter((sku) => sku.materialId !== materialId)];
   }
 }
 

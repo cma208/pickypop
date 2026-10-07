@@ -6,7 +6,12 @@ import type { RecipeSupply, SupplyOption } from './catalogo.models';
 import { SHARED_STYLES } from './catalogo.styles';
 import { messageOf } from './catalogo.util';
 
-/** One per-unit supply of the recipe (66 g of sweets, 1 bag), or the row that adds one. */
+/**
+ * One per-unit component of the recipe (66 g of sweets, 1 bag, 1 printed
+ * front), or the row that adds one. Printed parts are listed apart from
+ * supplies because they are not bought: the plates that print them carry
+ * their cost.
+ */
 @Component({
   selector: 'app-suministro-fila',
   imports: [ReactiveFormsModule, ItemPicker, ...FORMAT_PIPES],
@@ -23,8 +28,8 @@ import { messageOf } from './catalogo.util';
   ],
   template: `
     <form [formGroup]="form" (ngSubmit)="save()" novalidate>
-      <label class="item">Insumo
-        <pp-item-picker formControlName="itemId" [options]="pickerOptions()" placeholder="Elige un insumo…" />
+      <label class="item">{{ isPart() ? 'Pieza' : 'Insumo' }}
+        <pp-item-picker formControlName="itemId" [options]="pickerOptions()" [placeholder]="isPart() ? 'Elige la pieza…' : 'Elige un insumo…'" />
       </label>
       <label>Cantidad por unidad{{ unit() ? ' (' + unit() + ')' : '' }}
         <input type="number" min="0.001" step="any" inputmode="decimal" formControlName="quantity" />
@@ -34,12 +39,20 @@ import { messageOf } from './catalogo.util';
           {{ supply() ? 'Guardar' : 'Agregar' }}
         </button>
         @if (supply()) {
-          <button type="button" class="ghost" [disabled]="busy()" (click)="remove()" aria-label="Quitar insumo">✕</button>
+          <button type="button" class="ghost" [disabled]="busy()" (click)="remove()" [attr.aria-label]="isPart() ? 'Quitar pieza' : 'Quitar insumo'">✕</button>
         }
       </div>
       @if (selected(); as item) {
         <p class="note muted hint">
-          @if (item.costPerUnit === null) {
+          @if (isPart()) {
+            @if (madeHere().has(item.id)) {
+              Sale de las placas de esta receta: su costo ya está en las corridas.
+            } @else if (item.costPerUnit === null) {
+              La imprime otra receta y todavía no se cerró ninguna impresión suya: no suma al costo.
+            } @else {
+              La imprime otra receta: cuesta {{ item.costPerUnit | money:3 }} por unidad, lo que costó imprimirla.
+            }
+          } @else if (item.costPerUnit === null) {
             Sin costo registrado: no se ha comprado este insumo. Se puede probar un costo provisional en el cálculo.
           } @else {
             Costo registrado: {{ item.costPerUnit | money:3 }} por {{ item.unit }}.
@@ -60,7 +73,13 @@ export class SuministroFila {
   /** Supplies that can still be added; for a saved row, the list also holds its own item. */
   readonly supplies = input.required<SupplyOption[]>();
   readonly usedIds = input<string[]>([]);
+  /** 'part' for the printed parts of the recipe, 'supply' for what is bought. */
+  readonly mode = input<'supply' | 'part'>('supply');
+  /** The parts the recipe's own plates print, whose cost is already in the runs. */
+  readonly madeHere = input<ReadonlySet<string>>(new Set());
   readonly changed = output<void>();
+
+  protected readonly isPart = computed(() => this.mode() === 'part');
 
   protected readonly busy = signal(false);
   protected readonly error = signal<string | null>(null);
@@ -111,10 +130,13 @@ export class SuministroFila {
       const current = this.supply();
       if (current) {
         await this.data.updateSupply(current.id, Number(quantity));
+        this.form.markAsPristine();
       } else {
         await this.data.addSupply(this.recipeId(), itemId, Number(quantity));
+        // The adding row starts empty again: keeping the last quantity is how
+        // 2 g of sweets got into a recipe that wanted 50.
+        this.fill(null);
       }
-      this.form.markAsPristine();
       this.changed.emit();
     } catch (error) {
       this.error.set(messageOf(error, 'No pudimos guardar el insumo.'));
@@ -125,7 +147,8 @@ export class SuministroFila {
 
   protected async remove(): Promise<void> {
     const current = this.supply();
-    if (!current || !confirm(`¿Quitar "${this.selected()?.name ?? 'este insumo'}" de la receta?`)) return;
+    const fallback = this.isPart() ? 'esta pieza' : 'este insumo';
+    if (!current || !confirm(`¿Quitar "${this.selected()?.name ?? fallback}" de la receta?`)) return;
 
     this.busy.set(true);
     this.error.set(null);
@@ -141,7 +164,9 @@ export class SuministroFila {
 
   private fill(supply: RecipeSupply | null): void {
     this.chosenId.set(supply?.inventoryItemId ?? '');
-    this.form.reset({ itemId: supply?.inventoryItemId ?? '', quantity: supply?.quantityPerUnit ?? null });
+    // A product almost always takes one of each part; a supply has no usual amount.
+    const quantity = supply?.quantityPerUnit ?? (this.isPart() ? 1 : null);
+    this.form.reset({ itemId: supply?.inventoryItemId ?? '', quantity });
     // The item of a saved row is fixed: to change it, remove the row and add another.
     if (supply) this.form.controls.itemId.disable({ emitEvent: false });
   }

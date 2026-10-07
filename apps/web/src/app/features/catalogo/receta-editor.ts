@@ -6,6 +6,7 @@ import { readPlateDetails, readSlicedFile, SlicedFileError } from '../../core/sl
 import type { Lookups, Recipe } from './catalogo.models';
 import { SHARED_STYLES } from './catalogo.styles';
 import { messageOf } from './catalogo.util';
+import { partsMadeByPlates } from './costing';
 import { buildDraft, type ImportDraft } from './importacion';
 import { ImportarPlacas, type ImportOutcome } from './importar-placas';
 import { PlacaEditor } from './placa-editor';
@@ -105,6 +106,8 @@ const MINUTES_PER_HOUR = 60;
               [draft]="draft"
               [parts]="importParts()"
               [perProduct]="perProduct()"
+              [skus]="lookupData.skus"
+              [materials]="lookupData.materials"
               (saved)="onImported($event, draft.fileName)"
               (cancelled)="importDraft.set(null)"
             />
@@ -130,12 +133,23 @@ const MINUTES_PER_HOUR = 60;
             <app-placa-editor [recipeId]="current.id" [nextIndex]="nextPlateIndex()" [lookups]="lookupData" (changed)="changed.emit()" />
           </div>
 
-          <h3>Insumos por unidad</h3>
-          <p class="muted hint">Lo que se gasta en cada pieza terminada: dulces, empaque, imanes…</p>
-          @for (supply of current.supplies; track supply.id) {
-            <app-suministro-fila [recipeId]="current.id" [supply]="supply" [supplies]="lookupData.supplies" [usedIds]="usedSupplyIds()" (changed)="changed.emit()" />
+          <h3>Piezas impresas por unidad</h3>
+          <p class="muted hint">
+            Cuántas de cada pieza lleva una unidad terminada. Con esto «Armar» sabe qué consumir y el plan sabe
+            cuántas imprimir. Las que salen de las placas de arriba se agregan solas, una por unidad; su costo ya
+            está en las corridas.
+          </p>
+          @for (supply of partRows(); track supply.id) {
+            <app-suministro-fila mode="part" [recipeId]="current.id" [supply]="supply" [supplies]="partOptions()" [usedIds]="usedSupplyIds()" [madeHere]="madeHere()" (changed)="changed.emit()" />
           }
-          <app-suministro-fila [recipeId]="current.id" [supplies]="lookupData.supplies" [usedIds]="usedSupplyIds()" (changed)="changed.emit()" />
+          <app-suministro-fila mode="part" [recipeId]="current.id" [supplies]="partOptions()" [usedIds]="usedSupplyIds()" [madeHere]="madeHere()" (changed)="changed.emit()" />
+
+          <h3>Insumos por unidad</h3>
+          <p class="muted hint">Lo que se compra y se gasta en cada unidad terminada: dulces, empaque, imanes…</p>
+          @for (supply of supplyRows(); track supply.id) {
+            <app-suministro-fila [recipeId]="current.id" [supply]="supply" [supplies]="boughtOptions()" [usedIds]="usedSupplyIds()" (changed)="changed.emit()" />
+          }
+          <app-suministro-fila [recipeId]="current.id" [supplies]="boughtOptions()" [usedIds]="usedSupplyIds()" (changed)="changed.emit()" />
         }
       } @else {
         <p class="muted">Cargando datos de materiales…</p>
@@ -167,6 +181,23 @@ export class RecetaEditor {
   protected readonly usedSupplyIds = computed(
     () => this.recipe()?.supplies.map((supply) => supply.inventoryItemId) ?? [],
   );
+
+  /** Printed parts are never bought, so they get their own list, apart from sweets and bags. */
+  private readonly partIds = computed(
+    () => new Set(this.lookups()?.supplies.filter((item) => item.kind === 'part').map((item) => item.id) ?? []),
+  );
+  protected readonly partOptions = computed(() => this.lookups()?.supplies.filter((item) => item.kind === 'part') ?? []);
+  protected readonly boughtOptions = computed(() => this.lookups()?.supplies.filter((item) => item.kind !== 'part') ?? []);
+  protected readonly partRows = computed(
+    () => this.recipe()?.supplies.filter((supply) => this.partIds().has(supply.inventoryItemId)) ?? [],
+  );
+  protected readonly supplyRows = computed(
+    () => this.recipe()?.supplies.filter((supply) => !this.partIds().has(supply.inventoryItemId)) ?? [],
+  );
+  protected readonly madeHere = computed(() => {
+    const recipe = this.recipe();
+    return recipe ? partsMadeByPlates(recipe) : new Set<string>();
+  });
 
   /** The file being reviewed before its plates are saved. */
   protected readonly importDraft = signal<ImportDraft | null>(null);
