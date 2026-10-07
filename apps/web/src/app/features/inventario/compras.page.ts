@@ -56,8 +56,7 @@ import { INVENTORY_STYLES } from './inventario.styles';
                   <th class="hide-small">Fecha</th>
                   <th>Qué se compró</th>
                   <th class="hide-small">Documento</th>
-                  <th class="num">Total</th>
-                  <th>Pago</th>
+                  <th class="num">Total y pago</th>
                   <th><span class="sr-only">Detalle</span></th>
                 </tr>
               </thead>
@@ -82,15 +81,17 @@ import { INVENTORY_STYLES } from './inventario.styles';
                       </pp-item>
                     </td>
                     <td class="hide-small">{{ purchase.documentRef ?? '—' }}</td>
-                    <td class="num">{{ purchase.total | money }}</td>
-                    <td>
-                      @if (purchase.pending <= 0) {
-                        <pp-badge tone="good">Pagada</pp-badge>
-                      } @else if (purchase.paid > 0) {
-                        <pp-badge tone="warn">Falta {{ purchase.pending | money }}</pp-badge>
-                      } @else {
-                        <pp-badge tone="warn">Por pagar</pp-badge>
-                      }
+                    <td class="num">
+                      {{ purchase.total | money }}
+                      <small class="sub">
+                        @if (purchase.pending <= 0) {
+                          Pagada
+                        } @else if (purchase.paid > 0) {
+                          <pp-badge tone="warn">Falta {{ purchase.pending | money }}</pp-badge>
+                        } @else {
+                          <pp-badge tone="warn">Por pagar</pp-badge>
+                        }
+                      </small>
                     </td>
                     <td class="actions-cell">
                       <button
@@ -105,7 +106,7 @@ import { INVENTORY_STYLES } from './inventario.styles';
                   </tr>
                   @if (expandedId() === purchase.id) {
                     <tr class="detail">
-                      <td colspan="6">
+                      <td colspan="5">
                         <ul>
                           @for (line of purchase.lines; track line.id) {
                             <li>

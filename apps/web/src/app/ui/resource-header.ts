@@ -88,7 +88,7 @@ export interface HeaderAction {
     .back { display: inline-block; margin-bottom: 0.5rem; font-size: var(--fs-sm); color: var(--muted); text-decoration: none; }
     .back:hover, .back:focus-visible { color: var(--accent); text-decoration: underline; }
     .head { display: flex; align-items: flex-start; gap: 1rem; flex-wrap: wrap; }
-    .titles { flex: 1 1 18rem; min-width: 0; }
+    .titles { flex: 1 1 12rem; min-width: 0; }
     h1 { margin: 0 0 0.3rem; font-size: var(--fs-xl); font-weight: 650; letter-spacing: -0.02em; line-height: 1.2; overflow-wrap: break-word; }
     .meta { display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem 0.6rem; margin: 0; font-size: var(--fs-sm); color: var(--muted); }
     .code { font-variant-numeric: tabular-nums; color: var(--text); font-weight: 600; }

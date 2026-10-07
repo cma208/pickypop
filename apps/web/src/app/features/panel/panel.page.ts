@@ -35,7 +35,7 @@ const TODAY = new Intl.DateTimeFormat('es-PE', {
     SECTION_STYLES,
     `
       .queue { margin-bottom: 1.25rem; }
-      .task { display: block; padding: 0.55rem 0; border-top: 1px solid var(--line); }
+      .task { padding: 0.55rem 0; border-top: 1px solid var(--line); }
       .task:first-of-type { border-top: 0; }
       .cards { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr)); }
       .row-item { display: flex; align-items: center; gap: 0.6rem; padding: 0.45rem 0; border-top: 1px solid var(--line); }

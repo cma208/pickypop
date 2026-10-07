@@ -228,4 +228,6 @@ a { color: var(--accent); }
      two, and that width goes back to the name. */
   .actions-cell { white-space: normal; }
   .actions-cell button, .actions-cell .button { margin-block: 0.1rem; }
+  /* In a phone's table every pixel of the picture is taken from the name. */
+  td pp-thumb[data-size='row'], td pp-thumb[data-size='lead'] { --thumb: 2.5rem; }
 }
