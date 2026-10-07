@@ -1,5 +1,5 @@
-import { Component, computed, effect, inject, input, signal } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { Component, computed, effect, ElementRef, inject, input, signal, viewChild } from '@angular/core';
+import { Router, RouterLink } from '@angular/router';
 import { AsyncState, Badge, Card, Empty, FORMAT_PIPES, Item, Page, ResourceHeader, type BadgeTone, type HeaderAction } from '../../ui';
 import { documentTitle } from '../../core/document-title';
 import { todayLocal } from '../../core/dates';
@@ -15,6 +15,8 @@ import {
 } from '../cotizador/cotizador.data';
 import { calculateLine, materialLines, VALUATION_LABELS, type LineResult, type MaterialLineRow } from '../cotizador/quote-model';
 import { CurrentWorkspace } from '../../core/workspace';
+import { CotizacionAceptar } from './cotizacion-aceptar';
+import { CotizacionSeparo } from './cotizacion-separo';
 import { buildQuoteDocument } from './quote-document';
 
 /** A stored line, read back exactly as it was calculated. */
@@ -38,7 +40,20 @@ const A_CENT = 0.005;
 
 @Component({
   selector: 'app-cotizacion',
-  imports: [RouterLink, Page, Card, Badge, AsyncState, Empty, Item, ResourceHeader, Desglose, ...FORMAT_PIPES],
+  imports: [
+    RouterLink,
+    Page,
+    Card,
+    Badge,
+    AsyncState,
+    Empty,
+    Item,
+    ResourceHeader,
+    Desglose,
+    CotizacionAceptar,
+    CotizacionSeparo,
+    ...FORMAT_PIPES,
+  ],
   templateUrl: './cotizacion.page.html',
   styles: `
     :host { display: block; }
@@ -63,6 +78,7 @@ const A_CENT = 0.005;
 export class CotizacionPage {
   private readonly data = inject(CotizadorData);
   private readonly workspace = inject(CurrentWorkspace);
+  private readonly router = inject(Router);
 
   /** Bound from the :id segment of the route. */
   readonly id = input.required<string>();
@@ -71,7 +87,11 @@ export class CotizacionPage {
   protected readonly error = signal<string | null>(null);
   protected readonly busy = signal(false);
   protected readonly quote = signal<QuoteDetail | null>(null);
-  protected readonly confirming = signal<QuoteStatus | null>(null);
+  /** Rejecting closes the quote for good, so it is asked twice. */
+  protected readonly confirmingReject = signal(false);
+  /** The panel that shows the order about to be created. */
+  protected readonly accepting = signal(false);
+  private readonly acceptPanel = viewChild(CotizacionAceptar, { read: ElementRef });
   protected readonly downloading = signal(false);
   /** Kept apart from `error` so a failed download does not hide the quote. */
   protected readonly pdfError = signal<string | null>(null);
@@ -82,6 +102,12 @@ export class CotizacionPage {
     // A required input is not set yet while the constructor runs, and the id
     // can change when the router reuses this component for another quote.
     effect(() => void this.load(this.id()));
+    // The main button sits at the bottom of a phone screen: bring the panel it
+    // opens into view instead of leaving it above the fold.
+    effect(() => {
+      const panel = this.acceptPanel()?.nativeElement as HTMLElement | undefined;
+      panel?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
   }
 
   // ------------------------------------------------------------ reading
@@ -181,23 +207,41 @@ export class CotizacionPage {
 
   /**
    * The one step this quote asks for next: send the draft, then hear back
-   * from the customer. Rejecting, the PDF and a new version wait in "Más".
+   * from the customer, then go to the order it became. Rejecting, the PDF and
+   * a new version wait in "Más". While the acceptance panel is open, its own
+   * button is the one to press, so the header steps aside.
    */
   protected readonly mainAction = computed<HeaderAction | null>(() => {
     if (this.canSend()) return { label: 'Marcar como enviada', busy: this.busy() };
-    if (this.canClose()) return { label: 'El cliente aceptó', busy: this.busy() };
+    if (this.canClose()) return this.accepting() ? null : { label: 'El cliente aceptó', busy: this.busy() };
+    if (this.quote()?.order) return { label: 'Ver el pedido' };
     return null;
   });
 
   protected onMainAction(): void {
+    const quote = this.quote();
     if (this.canSend()) void this.apply('sent');
-    else if (this.canClose()) this.ask('accepted');
+    else if (this.canClose()) this.openAccept();
+    else if (quote?.order) void this.router.navigate(['/pedidos', quote.order.id]);
+  }
+
+  protected openAccept(): void {
+    this.confirmingReject.set(false);
+    this.accepting.set(true);
+  }
+
+  /** The hold moved: the new end and, when it started again, the new place in the line. */
+  protected onHoldChanged(hold: { heldAt: string | null; holdUntil: string | null }): void {
+    this.quote.update((quote) => (quote === null ? quote : { ...quote, ...hold }));
   }
 
   private async load(id: string): Promise<void> {
     this.loading.set(true);
     this.error.set(null);
     this.quote.set(null);
+    // A panel left open belongs to the quote it was opened on.
+    this.accepting.set(false);
+    this.confirmingReject.set(false);
 
     try {
       this.quote.set(await this.data.quote(id));
@@ -237,15 +281,15 @@ export class CotizacionPage {
 
   // ------------------------------------------------------------ writing
 
-  /** Accepting or rejecting closes the quote, so it is asked twice. */
-  protected ask(status: QuoteStatus): void {
-    this.confirming.set(status);
+  protected askReject(): void {
+    this.accepting.set(false);
+    this.confirmingReject.set(true);
   }
 
-  protected cancelAsk(): void {
-    this.confirming.set(null);
-  }
-
+  /**
+   * Sends or rejects. Read back afterwards instead of patched here: sending
+   * starts the hold and rejecting ends it, and the database decides both.
+   */
   protected async apply(status: QuoteStatus): Promise<void> {
     const quote = this.quote();
     if (quote === null || this.busy()) return;
@@ -255,8 +299,8 @@ export class CotizacionPage {
 
     try {
       await this.data.setStatus(quote.id, status);
-      this.quote.set({ ...quote, status });
-      this.confirming.set(null);
+      this.quote.set(await this.data.quote(quote.id));
+      this.confirmingReject.set(false);
     } catch (cause) {
       this.error.set(
         cause instanceof DataError ? cause.message : 'No pudimos cambiar el estado.',
@@ -265,15 +309,4 @@ export class CotizacionPage {
       this.busy.set(false);
     }
   }
-
-  protected readonly confirmLabel = computed(() => {
-    switch (this.confirming()) {
-      case 'accepted':
-        return '¿Confirmas que el cliente aceptó esta cotización?';
-      case 'rejected':
-        return '¿Confirmas que el cliente la rechazó?';
-      default:
-        return '';
-    }
-  });
 }

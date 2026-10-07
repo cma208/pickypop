@@ -45,6 +45,9 @@ function quote(partial: Partial<QuoteDetail> = {}): QuoteDetail {
     igv: 0,
     snapshot: null,
     storedLines: [line()],
+    heldAt: null,
+    holdUntil: null,
+    order: null,
     ...partial,
   };
 }
