@@ -33,7 +33,12 @@ const TYPE_TONES: Record<MovementType, BadgeTone> = {
   release: 'neutral',
 };
 
-/** Reservations change what is available, not what is on the shelf. */
+/**
+ * Reservations changed what was available, not what is on the shelf. Since
+ * ADR-021 a hold is computed by the plan and the database refuses these two
+ * types, so they are not offered as a filter; a row of them, if one ever
+ * existed, still reads as moving nothing.
+ */
 const LOGICAL_ONLY: ReadonlySet<MovementType> = new Set(['reservation', 'release']);
 
 interface DayGroup {
@@ -176,7 +181,7 @@ const NO_FILTER: MovementFilter = { type: null, spoolId: null, itemId: null, fro
 export class MovimientosPage {
   private readonly data = inject(InventarioData);
 
-  protected readonly types = MOVEMENT_TYPES;
+  protected readonly types = MOVEMENT_TYPES.filter((type) => !LOGICAL_ONLY.has(type));
   protected readonly labels = MOVEMENT_TYPE_LABELS;
   protected readonly tones = TYPE_TONES;
   protected readonly limit = MOVEMENTS_LIMIT;

@@ -3,15 +3,23 @@ import { RouterLink } from '@angular/router';
 import { AsyncState, Badge, Card, Empty, FORMAT_PIPES, Item, Page } from '../../ui';
 import { InventarioData, type InventoryItemSummary, type PartStock } from './inventario.data';
 import { describeError } from './inventario.errors';
-import { INVENTORY_STYLES } from './inventario.styles';
+import { INVENTORY_STYLES, POSITION_STYLES } from './inventario.styles';
+import { InventoryPlan, type InventoryPositions } from './inventory-plan';
 import { ItemForm } from './item-form';
 import { Modal } from './modal';
+import { itemCells, type PositionCells } from './stock-position';
 
 const COST_DIGITS = 3;
 const PART_ONLY = ['part'] as const;
 
 /** Null is a new piece; an item is the piece being edited. */
 type Editing = { item: InventoryItemSummary | null };
+
+/** A piece with what the plan says of it. `cells` is null while the plan is not there. */
+interface PartRow {
+  part: PartStock;
+  cells: PositionCells | null;
+}
 
 /**
  * Las piezas impresas en el estante, y la operación de armar.
@@ -29,6 +37,7 @@ type Editing = { item: InventoryItemSummary | null };
   imports: [Page, Card, AsyncState, Empty, Badge, Item, RouterLink, Modal, ItemForm, FORMAT_PIPES],
   styles: [
     INVENTORY_STYLES,
+    POSITION_STYLES,
     `
       .low { color: var(--warn); }
     `,
@@ -44,6 +53,9 @@ type Editing = { item: InventoryItemSummary | null };
       @if (actionError(); as text) {
         <p class="alert" role="alert">{{ text }}</p>
       }
+      @if (planError(); as text) {
+        <p class="alert-warn" role="status">{{ text }}</p>
+      }
 
       <pp-card heading="En el estante">
         <pp-async [loading]="loading()" [error]="error()">
@@ -57,15 +69,17 @@ type Editing = { item: InventoryItemSummary | null };
                 <thead>
                   <tr>
                     <th>Pieza</th>
-                    <th class="num">En el estante</th>
-                    <th class="num hide-small">Mínimo</th>
+                    <th class="num">Hay</th>
+                    <th class="wide-only">Separado</th>
+                    <th class="num wide-only">Libre</th>
+                    <th class="wide-only">Falta</th>
                     <th class="num hide-small">Costo por unidad</th>
-                    <th class="hide-small">De dónde sale el costo</th>
                     <th><span class="sr-only">Acciones</span></th>
                   </tr>
                 </thead>
                 <tbody>
-                  @for (part of parts(); track part.inventoryItemId) {
+                  @for (row of rows(); track row.part.inventoryItemId) {
+                    @let part = row.part;
                     <tr>
                       <td>
                         <pp-item kind="part" [path]="part.imagePath" [photo]="{ kind: 'item', id: part.inventoryItemId }" [name]="part.name">
@@ -76,22 +90,37 @@ type Editing = { item: InventoryItemSummary | null };
                             </span>
                           }
                         </pp-item>
-                      </td>
-                      <td class="num">
-                        {{ part.onHand }} {{ unitLabel(part) }}
-                        @if (part.belowMinimum) {
-                          <small class="sub"><pp-badge tone="warn">Bajo mínimo</pp-badge></small>
+                        @if (row.cells?.missing; as missing) {
+                          <div class="badge-line narrow-only"><pp-badge tone="warn">{{ missing }}</pp-badge></div>
                         }
                       </td>
-                      <td class="num hide-small">{{ part.minStock }}</td>
+                      <td class="num">
+                        <span class="nowrap">{{ row.cells?.onHand ?? part.onHand + ' ' + unitLabel(part) }}</span>
+                        @if (row.cells; as cells) {
+                          <small class="sub narrow-only" [attr.title]="cells.who || null">{{ cells.compact }}</small>
+                        }
+                        <small class="sub hide-small nowrap">Mínimo {{ part.minStock }}</small>
+                        @if (part.belowMinimum && !row.cells?.missing) {
+                          <small class="sub badge-line"><pp-badge tone="warn">Bajo mínimo</pp-badge></small>
+                        }
+                      </td>
+                      <td class="wide-only separated" [attr.title]="row.cells?.who || null">{{ row.cells?.separated ?? '—' }}</td>
+                      <td class="num wide-only">{{ row.cells?.free ?? '—' }}</td>
+                      <td class="wide-only">
+                        @if (row.cells?.missing; as missing) {
+                          <pp-badge tone="warn">{{ missing }}</pp-badge>
+                        } @else {
+                          <span class="muted">—</span>
+                        }
+                      </td>
                       <td class="num hide-small">
                         @if (part.costPerUnit === null) {
                           <span class="low">Sin costo</span>
                         } @else {
                           {{ part.costPerUnit | money: costDigits }}
                         }
+                        <small class="sub">{{ sourceLabel(part.costSource) }}</small>
                       </td>
-                      <td class="hide-small">{{ sourceLabel(part.costSource) }}</td>
                       <td class="actions-cell">
                         <button type="button" class="ghost" (click)="edit(part)">Editar</button>
                       </td>
@@ -119,6 +148,7 @@ type Editing = { item: InventoryItemSummary | null };
 })
 export class PiezasPage {
   private readonly data = inject(InventarioData);
+  private readonly planner = inject(InventoryPlan);
 
   protected readonly costDigits = COST_DIGITS;
   protected readonly partOnly = PART_ONLY;
@@ -130,6 +160,18 @@ export class PiezasPage {
   protected readonly actionError = signal<string | null>(null);
   protected readonly notice = signal<string | null>(null);
   protected readonly editing = signal<Editing | null>(null);
+  private readonly positions = signal<InventoryPositions | null>(null);
+  protected readonly planError = signal<string | null>(null);
+
+  protected readonly rows = computed<PartRow[]>(() => {
+    const positions = this.positions();
+    return this.parts().map((part) => ({
+      part,
+      cells: positions
+        ? itemCells('part', part.unit, positions.items.get(part.inventoryItemId), positions.timeZone)
+        : null,
+    }));
+  });
 
   private readonly itemById = computed(() => new Map(this.items().map((item) => [item.id, item])));
 
@@ -162,10 +204,16 @@ export class PiezasPage {
   protected async onSaved(message: string): Promise<void> {
     this.editing.set(null);
     this.notice.set(message);
+    // A new piece, or a renamed one, is part of the plan too.
+    this.planner.changed();
     await this.load();
   }
 
   private async load(): Promise<void> {
+    await Promise.all([this.loadStock(), this.loadPlan()]);
+  }
+
+  private async loadStock(): Promise<void> {
     this.error.set(null);
     try {
       const [parts, items] = await Promise.all([this.data.partStock(), this.data.items()]);
@@ -175,6 +223,15 @@ export class PiezasPage {
       this.error.set(describeError(error, 'No pudimos cargar las piezas. Inténtalo de nuevo.'));
     } finally {
       this.loading.set(false);
+    }
+  }
+
+  private async loadPlan(): Promise<void> {
+    try {
+      this.positions.set(await this.planner.read());
+      this.planError.set(null);
+    } catch (error) {
+      this.planError.set(this.planner.problem(error));
     }
   }
 }

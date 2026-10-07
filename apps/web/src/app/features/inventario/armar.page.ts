@@ -3,7 +3,15 @@ import { AsyncState, Badge, Card, Empty, FORMAT_PIPES, Page, Thumb } from '../..
 import { friendlyError } from '../../core/friendly-error';
 import { InventarioData, type AssemblyComponent, type AssemblyOption } from './inventario.data';
 import { INVENTORY_PIPES, ITEM_KIND_LABELS } from './inventario.format';
-import { INVENTORY_STYLES } from './inventario.styles';
+import { INVENTORY_STYLES, POSITION_STYLES } from './inventario.styles';
+import { InventoryPlan, type InventoryPositions } from './inventory-plan';
+import { assembledText, claimsTitle } from './stock-position';
+
+/** What the card of a product says it has on the shelf, and whose it is. */
+interface Built {
+  text: string;
+  who: string | null;
+}
 
 /**
  * Armar un producto terminado.
@@ -23,6 +31,9 @@ import { INVENTORY_STYLES } from './inventario.styles';
   imports: [Page, Card, AsyncState, Empty, Badge, Thumb, ...FORMAT_PIPES, ...INVENTORY_PIPES],
   template: `
     <pp-page title="Armar productos" subtitle="Juntar piezas, dulces y empaque en un producto terminado">
+      @if (planError(); as text) {
+        <p class="alert-warn" role="status">{{ text }}</p>
+      }
       <pp-async [loading]="loading()" [error]="error()">
         @if (options().length === 0) {
           <pp-empty message="Todavía no hay productos con receta. Se definen en Catálogo y recetas." />
@@ -48,7 +59,8 @@ import { INVENTORY_STYLES } from './inventario.styles';
                     <pp-badge tone="bad">No alcanza</pp-badge>
                   }
                 </span>
-                <span class="muted small">{{ option.assembledOnHand }} armadas en el estante</span>
+                @let built = builtOf(option);
+                <span class="muted small sub" [attr.title]="built.who">{{ built.text }}</span>
               </button>
             }
           </div>
@@ -134,6 +146,7 @@ import { INVENTORY_STYLES } from './inventario.styles';
   `,
   styles: [
     INVENTORY_STYLES,
+    POSITION_STYLES,
     `
     .picker { display: grid; grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr)); gap: 0.75rem; margin-bottom: 1.25rem; }
     .option {
@@ -155,6 +168,7 @@ import { INVENTORY_STYLES } from './inventario.styles';
 })
 export class ArmarPage {
   private readonly data = inject(InventarioData);
+  private readonly planner = inject(InventoryPlan);
 
   protected readonly kindLabel = ITEM_KIND_LABELS;
 
@@ -168,6 +182,9 @@ export class ArmarPage {
   protected readonly componentsError = signal<string | null>(null);
   protected readonly assembleError = signal<string | null>(null);
   protected readonly result = signal<string | null>(null);
+  /** Who the assembled units are for. Without the plan the card still says how many there are. */
+  private readonly positions = signal<InventoryPositions | null>(null);
+  protected readonly planError = signal<string | null>(null);
 
   /** Lo que haría falta para la cantidad pedida, y cuánto falta de cada cosa. */
   protected readonly needs = computed(() =>
@@ -185,6 +202,22 @@ export class ArmarPage {
 
   constructor() {
     void this.load();
+    void this.loadPlan();
+  }
+
+  /**
+   * "3 armadas · 3 para PED-0003": what is already assembled is not all
+   * free, and before this card said only the first half.
+   */
+  protected builtOf(option: AssemblyOption): Built {
+    const positions = this.positions();
+    const itemId = positions?.finishedItemOf.get(option.variantId);
+    const position = itemId ? positions?.items.get(itemId) : undefined;
+    if (!positions || !position) return { text: assembledText(option.assembledOnHand, []), who: null };
+    return {
+      text: assembledText(position.onHand, position.claims),
+      who: position.claims.length > 0 ? claimsTitle(position.claims, 'unidad', positions.timeZone) : null,
+    };
   }
 
   protected onUnits(event: Event): void {
@@ -219,6 +252,9 @@ export class ArmarPage {
     try {
       const units = this.units();
       await this.data.assemble(option.variantId, units);
+      // Parts went out and products came in: who gets what has changed.
+      this.planner.changed();
+      void this.loadPlan();
       this.result.set(
         `Listo: ${units} unidad(es) de ${option.productName} entraron al inventario de terminados. ` +
           'Los componentes salieron del stock.',
@@ -232,6 +268,17 @@ export class ArmarPage {
       this.assembleError.set(friendlyError(error, 'No pudimos armar el producto.'));
     } finally {
       this.busy.set(false);
+    }
+  }
+
+  /** A plan that fails leaves the cards with their count, which comes from the shelf. */
+  private async loadPlan(): Promise<void> {
+    try {
+      this.positions.set(await this.planner.read());
+      this.planError.set(null);
+    } catch (error) {
+      this.positions.set(null);
+      this.planError.set(this.planner.problem(error));
     }
   }
 

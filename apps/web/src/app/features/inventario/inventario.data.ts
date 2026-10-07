@@ -58,8 +58,12 @@ export interface SkuSummary {
   minStockG: number;
   replacementCostPerKg: number | null;
   active: boolean;
+  /**
+   * Grams on the spools. Who they are for is the plan's answer (ADR-021):
+   * the view's old `available_g` stopped meaning anything when holds became
+   * something computed instead of written.
+   */
   onHandG: number;
-  availableG: number;
   weightedCostPerGram: number | null;
   belowMinimum: boolean;
 }
@@ -198,8 +202,8 @@ export interface InventoryItemSummary {
   perishable: boolean;
   note: string | null;
   active: boolean;
+  /** What is on the shelf. Who it is for comes from the plan, not from this. */
   onHand: number;
-  available: number;
   belowMinimum: boolean;
 }
 
@@ -460,7 +464,7 @@ export class InventarioData {
         ),
       this.supabase
         .from('filament_sku_stock')
-        .select('filament_sku_id, on_hand_g, available_g, weighted_cost_per_gram, below_minimum'),
+        .select('filament_sku_id, on_hand_g, weighted_cost_per_gram'),
       this.skuDetails(),
     ]);
     if (skus.error) throw skus.error;
@@ -491,9 +495,8 @@ export class InventarioData {
           replacementCostPerKg: numOrNull(sku.replacement_cost_per_kg),
           active: sku.active,
           onHandG: num(balance?.on_hand_g),
-          availableG: num(balance?.available_g),
           weightedCostPerGram: numOrNull(balance?.weighted_cost_per_gram),
-          belowMinimum: balance?.below_minimum ?? false,
+          belowMinimum: num(balance?.on_hand_g) < num(sku.min_stock_g),
         };
       })
       .sort((a, b) => a.colorName.localeCompare(b.colorName, 'es'));
@@ -911,7 +914,7 @@ export class InventarioData {
   async items(): Promise<InventoryItemSummary[]> {
     const [items, balances] = await Promise.all([
       this.supabase.from('inventory_items').select('id, kind, name, unit, image_path, min_stock, perishable, note, active'),
-      this.supabase.from('inventory_balances').select('inventory_item_id, on_hand, available'),
+      this.supabase.from('inventory_balances').select('inventory_item_id, on_hand'),
     ]);
     if (items.error) throw items.error;
     if (balances.error) throw balances.error;
@@ -933,7 +936,6 @@ export class InventarioData {
           note: item.note,
           active: item.active,
           onHand,
-          available: num(balance?.available),
           belowMinimum: item.active && onHand < num(item.min_stock),
         };
       })
