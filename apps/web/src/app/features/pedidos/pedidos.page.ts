@@ -67,6 +67,9 @@ const FINISHED: OrderStatus[] = ['delivered', 'closed', 'cancelled'];
                     <div class="meta muted">
                       {{ order.number }} · {{ purposeName(order) }} ·
                       @if (order.dueDate) { entrega {{ order.dueDate | fecha }} } @else { sin fecha de entrega }
+                      @if (order.partialDelivery; as part) {
+                        · entregado en parte: {{ part.delivered }} de {{ part.ordered }}
+                      }
                     </div>
                   </div>
                   <div class="total num">

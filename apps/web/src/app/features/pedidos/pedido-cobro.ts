@@ -1,4 +1,4 @@
-import { Component, computed, effect, inject, input, output, signal, untracked } from '@angular/core';
+import { Component, computed, effect, ElementRef, inject, input, output, signal, untracked } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { inputToIso, nowForInput } from '../../core/dates';
@@ -87,7 +87,7 @@ const NO_METHOD = '';
     </pp-card>
   `,
   styles: `
-    :host { display: block; }
+    :host { display: block; scroll-margin-top: 1rem; }
     .badge-row { margin-bottom: 0.75rem; font-size: 0.85rem; }
     .totals { display: grid; grid-template-columns: max-content 1fr; gap: 0.3rem 1.5rem; margin: 0 0 1rem; max-width: 22rem; }
     dt { color: var(--muted); }
@@ -102,6 +102,7 @@ const NO_METHOD = '';
 })
 export class PedidoCobro {
   private readonly data = inject(PedidosData);
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
 
   readonly orderId = input.required<string>();
   readonly summary = input.required<PaymentSummary>();
@@ -159,6 +160,16 @@ export class PedidoCobro {
       untracked(() => this.form.controls.amount.setValue(roundMoney(balance)));
     });
     void this.loadAccounts();
+  }
+
+  /**
+   * Brings the card into view with the first field ready, for whoever arrives
+   * from another part of the order (after handing it over, to collect).
+   */
+  focus(): void {
+    const card = this.host.nativeElement;
+    card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    card.querySelector<HTMLElement>('form select, form input')?.focus({ preventScroll: true });
   }
 
   protected accountError(): string | null {

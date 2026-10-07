@@ -1,3 +1,8 @@
+import { UserFacingError } from '../../core/friendly-error';
+
+/** SQLSTATE of a `raise exception` in plpgsql: a message written for a person. */
+const RAISED_BY_DATABASE = 'P0001';
+
 /** Database rules that people can run into, explained in plain Spanish. */
 const KNOWN_ERRORS: [needle: string, message: string][] = [
   ['orders_sale_needs_customer', 'Una venta necesita un cliente. Elige uno o crea uno nuevo.'],
@@ -18,8 +23,16 @@ const KNOWN_ERRORS: [needle: string, message: string][] = [
 /** Turns whatever came back from Supabase into something to show on screen. */
 export function explainError(error: unknown, fallback: string): string {
   const text = describe(error);
+  // Checked first: some older checks raise in English and are translated here.
   const known = KNOWN_ERRORS.find(([needle]) => text.includes(needle));
-  return known ? known[1] : fallback;
+  if (known) return known[1];
+
+  // The database already said what is missing and how much ("No alcanza para
+  // entregar…", "Para marcar el pedido … hay que entregarlo"). A generic
+  // sentence here would hide exactly what the person needs to know.
+  if (error instanceof UserFacingError) return error.message;
+  if (isRaisedByDatabase(error)) return (error as { message: string }).message;
+  return fallback;
 }
 
 function describe(error: unknown): string {
@@ -29,4 +42,10 @@ function describe(error: unknown): string {
     return `${String(message ?? '')} ${String(details ?? '')}`;
   }
   return String(error);
+}
+
+function isRaisedByDatabase(error: unknown): boolean {
+  if (typeof error !== 'object' || error === null) return false;
+  const { code, message } = error as { code?: unknown; message?: unknown };
+  return code === RAISED_BY_DATABASE && typeof message === 'string' && message.trim() !== '';
 }
