@@ -53,6 +53,17 @@ function fromCents(cents: number): number {
   return roundMoney(cents / CENTS_PER_SOL);
 }
 
+/**
+ * The price of one unit when what is known is what the whole line cost: the
+ * invoice says S/ 15.00 for 1000 g, not S/ 0.015 per gram. Kept to the 6
+ * decimals the stored unit price and the kardex have, so a cheap thing does
+ * not round to zero and the line still adds up to what was paid.
+ */
+export function unitPriceFromLineTotal(lineTotal: number, quantity: number): number {
+  if (!Number.isFinite(lineTotal) || !(quantity > 0)) return 0;
+  return Math.round((roundMoney(lineTotal) / quantity) * COST_DECIMALS) / COST_DECIMALS;
+}
+
 /** Splits `totalCents` in proportion to `weights`; the result always sums to `totalCents`. */
 export function allocateCents(totalCents: number, weights: number[]): number[] {
   if (weights.length === 0 || totalCents <= 0) return weights.map(() => 0);

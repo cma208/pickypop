@@ -12,10 +12,13 @@ import {
   type SupplierOption,
 } from './inventario.data';
 import { describeError } from './inventario.errors';
-import { INVENTORY_PIPES } from './inventario.format';
+import { INVENTORY_PIPES, unitFor } from './inventario.format';
 import { INVENTORY_STYLES } from './inventario.styles';
 import { InventoryPlan } from './inventory-plan';
 import { spoolName } from '../../core/spool-label';
+
+/** What a supply line is counted in when its item has no unit of its own. */
+const DEFAULT_UNIT = 'unidad';
 
 @Component({
   selector: 'app-compras',
@@ -119,7 +122,7 @@ import { spoolName } from '../../core/spool-label';
                                 [name]="line.label"
                               >
                                 <span sub>
-                                  {{ line.quantity }} × {{ line.unitPrice | money }}
+                                  {{ lineQuantity(line) }} × {{ line.unitPrice | unitPrice }}
                                   @if (line.extra > 0) { + {{ line.extra | money }} de envío y otros }
                                 </span>
                               </pp-item>
@@ -195,6 +198,12 @@ export class ComprasPage {
   protected lineKind(line: PurchaseLineView | undefined): ArticleKind {
     if (!line) return 'supply';
     return line.isSpool ? 'spool' : (line.itemKind ?? 'supply');
+  }
+
+  /** «1000 g», «20 unidades», «3 rollos»: what the line bought, counted in its own unit. */
+  protected lineQuantity(line: PurchaseLineView): string {
+    const unit = line.isSpool ? (line.quantity === 1 ? 'rollo' : 'rollos') : unitFor(line.quantity, line.unit ?? DEFAULT_UNIT);
+    return `${line.quantity} ${unit}`;
   }
 
   protected toggle(id: string): void {

@@ -124,6 +124,8 @@ export interface PurchaseLineView {
   isSpool: boolean;
   imagePath: string | null;
   itemKind: ItemKind | null;
+  /** What the quantity of a supply line counts: «g», «unidad». Null for a roll. */
+  unit: string | null;
   colorHex: string | null;
 }
 
@@ -618,7 +620,7 @@ export class InventarioData {
       this.supabase
         .from('purchases')
         .select(
-          'id, purchased_at, document_ref, shipping_cost, other_costs, allocation, note, suppliers(name), purchase_lines(id, filament_sku_id, inventory_item_id, description, quantity, unit_price, allocated_extra_cost, spools(count), filament_skus(color_hex), inventory_items(kind, image_path))',
+          'id, purchased_at, document_ref, shipping_cost, other_costs, allocation, note, suppliers(name), purchase_lines(id, filament_sku_id, inventory_item_id, description, quantity, unit_price, allocated_extra_cost, spools(count), filament_skus(color_hex), inventory_items(kind, image_path, unit))',
         )
         .order('purchased_at', { ascending: false })
         .order('created_at', { ascending: false }),
@@ -651,6 +653,7 @@ export class InventarioData {
         isSpool: line.filament_sku_id !== null,
         imagePath: line.inventory_items?.image_path ?? null,
         itemKind: line.inventory_items?.kind ?? null,
+        unit: line.inventory_items?.unit ?? null,
         colorHex: line.filament_skus?.color_hex ?? null,
       }));
 

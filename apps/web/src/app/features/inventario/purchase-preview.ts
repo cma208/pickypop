@@ -1,5 +1,6 @@
 import { Component, computed, input } from '@angular/core';
 import { FORMAT_PIPES } from '../../ui';
+import { unitFor } from './inventario.format';
 import { INVENTORY_STYLES } from './inventario.styles';
 import type { PlanLine, PurchasePlan } from '../../core/pricing';
 
@@ -9,6 +10,7 @@ export interface PreviewRow {
   label: string;
   kind: 'sku' | 'item';
   quantity: number;
+  /** The unit as it is counted, singular: «rollo», «g», «unidad». */
   unit: string;
   unitPrice: number;
   netWeightG: number | null;
@@ -41,7 +43,7 @@ interface CostGroup {
       <article class="row-card">
         <h3>{{ row.label }}</h3>
         <dl>
-          <div><dt>Compra</dt><dd>{{ row.quantity }} {{ row.unit }} × {{ row.unitPrice | money }} = {{ row.line.subtotal | money }}</dd></div>
+          <div><dt>Compra</dt><dd>{{ quantityText(row) }} × {{ row.unitPrice | unitPrice }} = {{ row.line.subtotal | money }}</dd></div>
           <div><dt>Parte del envío y otros costos</dt><dd>{{ row.line.extra | money }}</dd></div>
           @if (row.kind === 'sku') {
             @for (group of groups()[$index]; track group.cost) {
@@ -56,7 +58,7 @@ interface CostGroup {
           } @else {
             <div class="final">
               <dt>Costo final por {{ row.unit }}</dt>
-              <dd>{{ row.line.effectiveUnitCost | money: 3 }}</dd>
+              <dd>{{ row.line.effectiveUnitCost | unitPrice }}</dd>
             </div>
           }
         </dl>
@@ -100,6 +102,12 @@ export class PurchasePreview {
       ? 'El envío y los otros costos se reparten por peso: los insumos no reciben parte porque no tienen peso conocido.'
       : 'El envío y los otros costos se reparten por monto: cada línea carga una parte proporcional a lo que costó.',
   );
+
+  /** «20 unidades», «1 rollo», «1000 g»: the unit agrees with the number. */
+  protected quantityText(row: PreviewRow): string {
+    const unit = row.kind === 'sku' ? (row.quantity === 1 ? 'rollo' : 'rollos') : unitFor(row.quantity, row.unit);
+    return `${row.quantity} ${unit}`;
+  }
 
   protected readonly groups = computed(() =>
     this.rows().map((row) => groupCosts(row.line.unitCosts, row.netWeightG)),

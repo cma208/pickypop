@@ -1,10 +1,17 @@
 import { Pipe, type PipeTransform } from '@angular/core';
-import { date, duration, grams, money, percent } from '../core/format';
+import { date, duration, grams, money, percent, unitPrice } from '../core/format';
 
 @Pipe({ name: 'money' })
 export class MoneyPipe implements PipeTransform {
   transform(value: number | string | null | undefined, fractionDigits = 2): string {
     return money(value, fractionDigits);
+  }
+}
+
+@Pipe({ name: 'unitPrice' })
+export class UnitPricePipe implements PipeTransform {
+  transform(value: number | string | null | undefined): string {
+    return unitPrice(value);
   }
 }
 
@@ -36,4 +43,4 @@ export class PercentPipe implements PipeTransform {
   }
 }
 
-export const FORMAT_PIPES = [MoneyPipe, GramsPipe, DurationPipe, DatePipe, PercentPipe] as const;
+export const FORMAT_PIPES = [MoneyPipe, UnitPricePipe, GramsPipe, DurationPipe, DatePipe, PercentPipe] as const;

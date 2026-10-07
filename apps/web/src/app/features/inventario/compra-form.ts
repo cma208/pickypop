@@ -2,6 +2,7 @@ import {
   afterNextRender,
   Component,
   computed,
+  DestroyRef,
   ElementRef,
   inject,
   Injector,
@@ -35,6 +36,7 @@ import {
 import { describeError } from './inventario.errors';
 import { INVENTORY_STYLES } from './inventario.styles';
 import { ITEM_KIND_LABELS, todayIso } from './inventario.format';
+import { linkPriceAndTotal } from './compra-line';
 import { planPurchase, type AllocationMethod, type PlanLineInput } from '../../core/pricing';
 import type { SpoolIdentity } from '../../core/spool-label';
 import { PurchasePreview, type PreviewRow } from './purchase-preview';
@@ -66,6 +68,9 @@ export interface SavedPurchase {
 const SKU_PREFIX = 'sku:';
 /** The "todavía no" answer to how it was paid. Never a uuid, so it cannot clash with an account. */
 const NOT_PAID = 'not-paid';
+/** What an item is counted in unless somebody says otherwise: the one unit the app writes itself. */
+const DEFAULT_UNIT = 'unidad';
+const FRACTIONS_OF_A_CENT_HINT = 'Aquí caben fracciones de centavo: hasta 6 decimales, como 0.015.';
 const ITEM_PREFIX = 'item:';
 
 function parseTarget(value: string): Target | null {
@@ -131,15 +136,24 @@ function notInTheFuture(control: AbstractControl): ValidationErrors | null {
             </pp-field>
             <div class="numbers">
               <pp-field
-                [label]="unitLabel(i)"
+                [label]="quantityLabel(i)"
                 [required]="true"
                 [error]="line.hasError('wholeRolls') ? 'Los rollos se compran enteros.' : msg(line.controls.quantity)"
               >
                 <input type="number" step="any" formControlName="quantity" inputmode="decimal" />
               </pp-field>
-              <pp-field label="Precio unitario (S/)" [required]="true" [error]="msg(line.controls.unitPrice)">
-                <input type="number" step="0.01" formControlName="unitPrice" inputmode="decimal" />
+              <pp-field [label]="priceLabel(i)" [required]="true" [hint]="priceHint(i)" [error]="msg(line.controls.unitPrice)">
+                <input type="number" step="any" formControlName="unitPrice" inputmode="decimal" />
               </pp-field>
+              @if (canTypeTotal(i)) {
+                <pp-field
+                  label="o el total que pagaste por esta línea (S/)"
+                  hint="Si el comprobante solo dice el total, escríbelo y calculamos el precio."
+                  [error]="msg(line.controls.lineTotal)"
+                >
+                  <input type="number" step="0.01" min="0" formControlName="lineTotal" inputmode="decimal" />
+                </pp-field>
+              }
               @if (isPerishable(i)) {
                 <pp-field label="Vence el">
                   <input type="date" formControlName="expiresOn" />
@@ -278,6 +292,7 @@ export class CompraForm {
   private readonly data = inject(InventarioData);
   private readonly fb = inject(NonNullableFormBuilder);
   private readonly injector = inject(Injector);
+  private readonly destroyRef = inject(DestroyRef);
   private readonly confirmBox = viewChild<ElementRef<HTMLElement>>('confirmBox');
 
   readonly skuOptions = input.required<SkuSummary[]>();
@@ -375,7 +390,7 @@ export class CompraForm {
           label: sku ? this.skuName(sku) : (item?.name ?? ''),
           kind: sku ? 'sku' : 'item',
           quantity: Number(line.quantity) || 0,
-          unit: sku ? (Number(line.quantity) === 1 ? 'rollo' : 'rollos') : (item?.unit ?? ''),
+          unit: sku ? 'rollo' : (item?.unit ?? ''),
           unitPrice: Number(line.unitPrice) || 0,
           netWeightG: sku?.netWeightG ?? null,
           line: this.plan().lines[index],
@@ -432,9 +447,27 @@ export class CompraForm {
     return [sku.colorName, sku.materialCode, sku.finishName, sku.brandName].filter(Boolean).join(' · ');
   }
 
-  protected unitLabel(index: number): string {
-    const target = this.resolved()[index]?.target;
-    return target?.kind === 'item' ? 'Cantidad' : 'Rollos';
+  /** «Rollos» for a filament; for a supply, the unit it is counted in, so «Cantidad (g)» says what the number means. */
+  protected quantityLabel(index: number): string {
+    const { target, item } = this.resolved()[index] ?? {};
+    if (target?.kind !== 'item') return 'Rollos';
+    return item && item.unit !== DEFAULT_UNIT ? `Cantidad (${item.unit})` : 'Cantidad';
+  }
+
+  /** The price is per whatever the quantity counts: «Precio por g» for a gram, «Precio unitario» for a unit or a roll. */
+  protected priceLabel(index: number): string {
+    const item = this.resolved()[index]?.item;
+    return item && item.unit !== DEFAULT_UNIT ? `Precio por ${item.unit} (S/)` : 'Precio unitario (S/)';
+  }
+
+  protected priceHint(index: number): string | undefined {
+    const unit = this.resolved()[index]?.item?.unit;
+    return unit === 'g' || unit === 'ml' ? FRACTIONS_OF_A_CENT_HINT : undefined;
+  }
+
+  /** A roll is bought whole and priced in cents; the total only helps with what is bought by weight, volume or count. */
+  protected canTypeTotal(index: number): boolean {
+    return this.resolved()[index]?.target?.kind === 'item';
   }
 
   protected isPerishable(index: number): boolean {
@@ -549,14 +582,17 @@ export class CompraForm {
   }
 
   private newLine() {
-    return this.fb.group(
+    const line = this.fb.group(
       {
         target: ['', Validators.required],
         quantity: new FormControl<number | null>(1, [Validators.required, Validators.min(0.001)]),
         unitPrice: new FormControl<number | null>(null, [Validators.required, Validators.min(0)]),
+        lineTotal: new FormControl<number | null>(null, Validators.min(0)),
         expiresOn: [''],
       },
       { validators: wholeRolls },
     );
+    linkPriceAndTotal(line.controls, this.destroyRef);
+    return line;
   }
 }
