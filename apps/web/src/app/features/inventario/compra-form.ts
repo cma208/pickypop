@@ -40,6 +40,7 @@ import type { SpoolIdentity } from '../../core/spool-label';
 import { PurchasePreview, type PreviewRow } from './purchase-preview';
 import { QuickAdd } from './quick-add';
 import { PAYMENT_METHOD_LABELS, PAYMENT_METHODS, type PaymentMethod } from '../finanzas/finanzas.models';
+import { PaymentCategoryNote } from '../finanzas/payment-category-note';
 
 interface Target {
   kind: 'sku' | 'item';
@@ -92,7 +93,7 @@ function notInTheFuture(control: AbstractControl): ValidationErrors | null {
  */
 @Component({
   selector: 'app-compra-form',
-  imports: [ReactiveFormsModule, Card, Field, ItemPicker, QuickAdd, PurchasePreview, FORMAT_PIPES],
+  imports: [ReactiveFormsModule, Card, Field, ItemPicker, QuickAdd, PurchasePreview, PaymentCategoryNote, FORMAT_PIPES],
   template: `
     <form [formGroup]="form" (ngSubmit)="askConfirmation()" novalidate class="stack">
       <pp-card heading="Datos de la compra">
@@ -201,6 +202,8 @@ function notInTheFuture(control: AbstractControl): ValidationErrors | null {
         </div>
         @if (raw().paidFrom === notPaid) {
           <p class="muted">Queda «por pagar» en Compras, y desde ahí registras el pago cuando lo hagas.</p>
+        } @else if (chosenAccount()) {
+          <app-payment-category-note kind="purchase" />
         }
       </pp-card>
 

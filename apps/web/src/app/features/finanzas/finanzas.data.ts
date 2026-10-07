@@ -6,6 +6,7 @@ import { CurrentWorkspace } from '../../core/workspace';
 import {
   dayEnd,
   dayStart,
+  defaultCategory,
   num,
   type AccountKind,
   type CategoryOption,
@@ -208,6 +209,29 @@ export class FinanzasData {
     if (error) throw error;
 
     return data.map((row) => ({ id: row.id, name: row.name, direction: row.direction }));
+  }
+
+  /**
+   * What a collection and a purchase payment will be filed under if the form
+   * does not say. The database decides it when the movement is written; this
+   * only lets the form announce it first.
+   */
+  async paymentCategories(): Promise<{ order: CategoryOption | null; purchase: CategoryOption | null }> {
+    const workspaceId = await this.workspace.requireId();
+    const [categories, settings] = await Promise.all([
+      this.categories(),
+      this.supabase
+        .from('workshop_settings')
+        .select('order_payment_category_id, purchase_payment_category_id')
+        .eq('workspace_id', workspaceId)
+        .maybeSingle(),
+    ]);
+    if (settings.error) throw settings.error;
+
+    return {
+      order: defaultCategory('income', settings.data?.order_payment_category_id ?? null, categories),
+      purchase: defaultCategory('expense', settings.data?.purchase_payment_category_id ?? null, categories),
+    };
   }
 
   // ----------------------------------------------------------------- ledger

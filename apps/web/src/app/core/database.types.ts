@@ -1811,16 +1811,28 @@ isOneToOne: false
                   ]
                 },"workshop_settings": {
                   Row: {
-                    "changeover_default_minutes": number,"hold_default_days": number,"hold_default_time": string,"print_end_by": string,"print_first_start": string,"print_last_start": string,"updated_at": string,"workspace_id": string
+                    "changeover_default_minutes": number,"hold_default_days": number,"hold_default_time": string,"order_payment_category_id": string | null,"order_payment_direction": Database["public"]['Enums']["transaction_direction"] | null,"print_end_by": string,"print_first_start": string,"print_last_start": string,"purchase_payment_category_id": string | null,"purchase_payment_direction": Database["public"]['Enums']["transaction_direction"] | null,"updated_at": string,"workspace_id": string
                   }
                   Insert: {
-                    "changeover_default_minutes"?: number,"hold_default_days"?: number,"hold_default_time"?: string,"print_end_by"?: string,"print_first_start"?: string,"print_last_start"?: string,"updated_at"?: string,"workspace_id": string
+                    "changeover_default_minutes"?: number,"hold_default_days"?: number,"hold_default_time"?: string,"order_payment_category_id"?: string | null,"order_payment_direction"?: never,"print_end_by"?: string,"print_first_start"?: string,"print_last_start"?: string,"purchase_payment_category_id"?: string | null,"purchase_payment_direction"?: never,"updated_at"?: string,"workspace_id": string
                   }
                   Update: {
-                    "changeover_default_minutes"?: number,"hold_default_days"?: number,"hold_default_time"?: string,"print_end_by"?: string,"print_first_start"?: string,"print_last_start"?: string,"updated_at"?: string,"workspace_id"?: string
+                    "changeover_default_minutes"?: number,"hold_default_days"?: number,"hold_default_time"?: string,"order_payment_category_id"?: string | null,"order_payment_direction"?: never,"print_end_by"?: string,"print_first_start"?: string,"print_last_start"?: string,"purchase_payment_category_id"?: string | null,"purchase_payment_direction"?: never,"updated_at"?: string,"workspace_id"?: string
                   }
                   Relationships: [
                     {
+      foreignKeyName: "workshop_settings_order_payment_category_fkey"
+      columns: ["order_payment_category_id","order_payment_direction"]
+isOneToOne: false
+      referencedRelation: "transaction_categories"
+      referencedColumns: ["id","direction"]
+    },{
+      foreignKeyName: "workshop_settings_purchase_payment_category_fkey"
+      columns: ["purchase_payment_category_id","purchase_payment_direction"]
+isOneToOne: false
+      referencedRelation: "transaction_categories"
+      referencedColumns: ["id","direction"]
+    },{
       foreignKeyName: "workshop_settings_workspace_id_fkey"
       columns: ["workspace_id"]
 isOneToOne: true

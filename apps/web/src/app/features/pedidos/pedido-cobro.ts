@@ -6,6 +6,7 @@ import { errorOf, textOrNull } from '../../core/form-errors';
 import { friendlyError } from '../../core/friendly-error';
 import { roundMoney } from '../../core/pricing';
 import { Badge, Card, Field, FORMAT_PIPES } from '../../ui';
+import { PaymentCategoryNote } from '../finanzas/payment-category-note';
 import { PedidosData, type AccountOption, type PaymentSummary } from './pedidos.data';
 import {
   PAYMENT_METHOD_LABEL,
@@ -21,7 +22,7 @@ const NO_METHOD = '';
 /** What was collected on a sale, and the form to collect the rest. */
 @Component({
   selector: 'app-pedido-cobro',
-  imports: [ReactiveFormsModule, Card, Badge, Field, ...FORMAT_PIPES],
+  imports: [ReactiveFormsModule, Card, Badge, Field, PaymentCategoryNote, ...FORMAT_PIPES],
   template: `
     <pp-card heading="Cobro">
       <div class="row badge-row">
@@ -77,6 +78,7 @@ const NO_METHOD = '';
           <pp-field label="Referencia" hint="Opcional. El código de operación de Yape o del banco.">
             <input type="text" formControlName="reference" autocomplete="off" />
           </pp-field>
+          <app-payment-category-note kind="order" />
 
           @if (error(); as message) { <p class="error" role="alert">{{ message }}</p> }
           <div class="form-actions">

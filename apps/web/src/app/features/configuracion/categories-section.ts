@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, inject, output, signal } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { AsyncState, Badge, Card, Empty, Field } from '../../ui';
 import { ConfiguracionData } from './configuracion.data';
@@ -106,6 +106,9 @@ const DIRECTION_LABEL: Record<MovementDirection, string> = {
 export class CategoriesSection {
   private readonly data = inject(ConfiguracionData);
 
+  /** The list changed: what depends on it (the default categories) offers the new options. */
+  readonly changed = output<void>();
+
   protected readonly directions: MovementDirection[] = ['income', 'expense'];
   protected readonly labels = DIRECTION_LABEL;
 
@@ -161,6 +164,7 @@ export class CategoriesSection {
       });
       this.formOpen.set(false);
       await this.reload();
+      this.changed.emit();
     } catch (error) {
       this.error.set(friendlyError(error, 'No pudimos guardar la categoría.'));
     } finally {
@@ -181,6 +185,7 @@ export class CategoriesSection {
         active: !category.active,
       });
       await this.reload();
+      this.changed.emit();
     } catch (error) {
       this.listError.set(friendlyError(error, 'No pudimos cambiar el estado de la categoría.'));
     } finally {
