@@ -2,7 +2,7 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute } from '@angular/router';
 import { PlanService, type PlanView } from '../../core/plan';
-import { readyText } from '../../core/plan-format';
+import { planWarningText, readyText } from '../../core/plan-format';
 import { AsyncState, Card, Empty, FORMAT_PIPES, Page } from '../../ui';
 import { explainError } from '../pedidos/pedidos.errors';
 import { PorLanzarCard } from './por-lanzar-card';
@@ -140,6 +140,8 @@ export class ProduccionPage {
   protected readonly view = signal<PlanView | null>(null);
   protected readonly pictures = signal<ReadonlyMap<string, string>>(new Map());
   protected readonly colors = signal<ReadonlyMap<string, string>>(new Map());
+  /** Printers not retired. The plan only sees the ones that can print now. */
+  private readonly printersRegistered = signal(true);
   protected readonly loading = signal(true);
   protected readonly error = signal<string | null>(null);
   protected readonly creating = signal(false);
@@ -165,7 +167,9 @@ export class ProduccionPage {
    * apart by its words; if they change, it shows twice rather than never.
    */
   protected readonly warnings = computed(() =>
-    (this.view()?.result.warnings ?? []).filter((warning) => !PAST_ESTIMATE.test(warning)),
+    (this.view()?.result.warnings ?? [])
+      .filter((warning) => !PAST_ESTIMATE.test(warning))
+      .map((warning) => planWarningText(warning, this.printersRegistered())),
   );
 
   protected readonly emptyMessage = computed(() =>
@@ -200,9 +204,10 @@ export class ProduccionPage {
   /** Reloads quietly: the page keeps what it shows while the new data arrives. */
   private async load(): Promise<void> {
     try {
-      const [jobs, view] = await Promise.all([this.data.jobs(), this.plan.current()]);
+      const [jobs, view, printers] = await Promise.all([this.data.jobs(), this.plan.current(), this.data.printers()]);
       this.jobs.set(jobs);
       this.view.set(view);
+      this.printersRegistered.set(printers.length > 0);
       this.error.set(null);
       void this.loadPictures(view);
     } catch (error) {

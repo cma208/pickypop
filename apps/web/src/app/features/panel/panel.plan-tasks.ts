@@ -2,7 +2,7 @@ import type { PlanDemandPlan, PlanInput, PlanShortage } from '@pickypop/domain';
 import { daysBetween, localDate } from '../../core/dates';
 import type { PhotoRef } from '../../core/article-photos';
 import type { PlanView } from '../../core/plan';
-import { readyText } from '../../core/plan-format';
+import { NO_PRINTER_WARNING, readyText } from '../../core/plan-format';
 import { amount } from '../inventario/stock-position';
 import type { TodayTask } from './panel.tasks';
 
@@ -170,7 +170,7 @@ export function purchaseTask(view: PlanView): TodayTask | null {
 interface WarningRule {
   pattern: RegExp;
   /** Null: another task of «Hoy» already says it. */
-  task: ((match: RegExpMatchArray) => Pick<TodayTask, 'title' | 'detail' | 'route' | 'kind'>) | null;
+  task: ((match: RegExpMatchArray, printersRegistered: boolean) => Pick<TodayTask, 'title' | 'detail' | 'route' | 'kind'>) | null;
 }
 
 /**
@@ -201,23 +201,38 @@ const WARNING_RULES: WarningRule[] = [
     }),
   },
   {
-    pattern: /^No hay ninguna impresora disponible/,
-    task: () => ({
-      title: 'Ninguna impresora disponible',
-      detail: 'Las fechas del plan suponen que vuelve una ahora mismo.',
-      route: '/impresoras',
-      kind: 'printer',
-    }),
+    pattern: NO_PRINTER_WARNING,
+    // The plan cannot tell a printer in maintenance from a workshop that
+    // never registered one; «Hoy» can, and the second is a missing step.
+    task: (_match, printersRegistered) =>
+      printersRegistered
+        ? {
+            title: 'Ninguna impresora disponible',
+            detail: 'Las fechas del plan suponen que vuelve una ahora mismo.',
+            route: '/impresoras',
+            kind: 'printer',
+          }
+        : {
+            title: 'Falta registrar la impresora',
+            detail: 'Sin ella el plan no sabe cuándo se imprime nada. Regístrala en Impresoras.',
+            route: '/impresoras',
+            kind: 'printer',
+          },
   },
 ];
 
-export function warningTasks(warnings: readonly string[]): TodayTask[] {
+export function warningTasks(warnings: readonly string[], printersRegistered = true): TodayTask[] {
   return warnings.flatMap((warning) => {
     for (const rule of WARNING_RULES) {
       const match = warning.match(rule.pattern);
       if (!match) continue;
       if (!rule.task) return [];
-      const task: TodayTask = { key: `warning:${warning}`, urgency: 'today', photo: null, ...rule.task(match) };
+      const task: TodayTask = {
+        key: `warning:${warning}`,
+        urgency: 'today',
+        photo: null,
+        ...rule.task(match, printersRegistered),
+      };
       return [task];
     }
     return [];
@@ -236,13 +251,13 @@ export function pastEstimateJobs(input: PlanInput): Set<string> {
 }
 
 /** Everything the plan adds to «Hoy», late orders first. */
-export function planTasks(view: PlanView): TodayTask[] {
+export function planTasks(view: PlanView, printersRegistered = true): TodayTask[] {
   const purchase = purchaseTask(view);
   return [
     ...lateOrderTasks(view),
     ...holdTasks(view),
     ...(purchase ? [purchase] : []),
-    ...warningTasks(view.result.warnings),
+    ...warningTasks(view.result.warnings, printersRegistered),
   ];
 }
 

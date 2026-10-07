@@ -1,5 +1,18 @@
 import type { PlanLinePlan } from '@pickypop/domain';
-import { lineSituation, promiseSentence, readyText, shortageText } from './plan-format';
+import { lineSituation, planWarningText, promiseSentence, readyText, shortageText } from './plan-format';
+
+describe('planWarningText', () => {
+  const noPrinter = 'No hay ninguna impresora disponible: las fechas suponen que vuelve una ahora mismo.';
+
+  it('says a printer is missing when the workshop never registered one', () => {
+    expect(planWarningText(noPrinter, false)).toMatch(/^Falta registrar la impresora/);
+  });
+
+  it('keeps the words of the plan when a printer exists but cannot print now', () => {
+    expect(planWarningText(noPrinter, true)).toBe(noPrinter);
+    expect(planWarningText('Otra advertencia', false)).toBe('Otra advertencia');
+  });
+});
 
 // Tuesday 6 October 2026, 18:00 in Lima.
 const NOW = '2026-10-06T23:00:00.000Z';
