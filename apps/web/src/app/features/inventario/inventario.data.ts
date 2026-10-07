@@ -257,6 +257,8 @@ export interface MovementRow {
   subjectKind: 'spool' | 'item';
   /** The item's photo, or null for a spool or an item without one. */
   imagePath: string | null;
+  /** The article the movement is about, null for a spool. A piece without a photo borrows its plate's. */
+  itemId: string | null;
   itemKind: ItemKind | null;
   /** A spool is recognised by its colour, not by a photo. */
   colorHex: string | null;
@@ -1048,6 +1050,7 @@ export class InventarioData {
         subject: isSpool ? `Rollo ${rollName || 'sin código'}` : (row.inventory_items?.name ?? 'Artículo'),
         subjectKind: isSpool ? 'spool' : 'item',
         imagePath: isSpool ? null : (row.inventory_items?.image_path ?? null),
+        itemId: row.inventory_item_id,
         itemKind: isSpool ? null : (row.inventory_items?.kind ?? null),
         colorHex: isSpool ? (row.spools?.filament_skus?.color_hex ?? null) : null,
       };

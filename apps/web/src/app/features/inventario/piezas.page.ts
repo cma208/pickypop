@@ -1,5 +1,6 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { ArticlePhotos } from '../../core/article-photos';
 import { AsyncState, Badge, Card, Empty, FORMAT_PIPES, Item, Page } from '../../ui';
 import { InventarioData, type InventoryItemSummary, type PartStock } from './inventario.data';
 import { describeError } from './inventario.errors';
@@ -85,8 +86,13 @@ interface PartRow {
                         <pp-item kind="part" [path]="part.imagePath" [photo]="{ kind: 'item', id: part.inventoryItemId }" [name]="part.name">
                           @if (!part.imagePath) {
                             <span sub>
-                              Sin foto ·
-                              <button type="button" class="inline-link" (click)="edit(part)">Agregar</button>
+                              @if (platePhotoStandsIn(part)) {
+                                Foto de la placa ·
+                                <button type="button" class="inline-link" (click)="edit(part)">Agregar la suya</button>
+                              } @else {
+                                Sin foto ·
+                                <button type="button" class="inline-link" (click)="edit(part)">Agregar</button>
+                              }
                             </span>
                           }
                         </pp-item>
@@ -149,6 +155,7 @@ interface PartRow {
 export class PiezasPage {
   private readonly data = inject(InventarioData);
   private readonly planner = inject(InventoryPlan);
+  private readonly photos = inject(ArticlePhotos);
 
   protected readonly costDigits = COST_DIGITS;
   protected readonly partOnly = PART_ONLY;
@@ -160,6 +167,8 @@ export class PiezasPage {
   protected readonly actionError = signal<string | null>(null);
   protected readonly notice = signal<string | null>(null);
   protected readonly editing = signal<Editing | null>(null);
+  /** Pieces whose picture is the thumbnail of their plate, because they have no photo of their own. */
+  private readonly platePhotos = signal<ReadonlySet<string>>(new Set());
   private readonly positions = signal<InventoryPositions | null>(null);
   protected readonly planError = signal<string | null>(null);
 
@@ -183,6 +192,11 @@ export class PiezasPage {
   protected unitLabel(part: PartStock): string {
     if (part.unit !== 'unidad') return part.unit;
     return part.onHand === 1 ? 'unidad' : 'unidades';
+  }
+
+  /** The picture shown beside a piece without a photo is its plate's: the row says so instead of «sin foto». */
+  protected platePhotoStandsIn(part: PartStock): boolean {
+    return this.platePhotos().has(part.inventoryItemId);
   }
 
   protected sourceLabel(source: string | null): string {
@@ -219,11 +233,23 @@ export class PiezasPage {
       const [parts, items] = await Promise.all([this.data.partStock(), this.data.items()]);
       this.parts.set(parts);
       this.items.set(items.filter((item) => item.kind === 'part'));
+      void this.findPlatePhotos(parts);
     } catch (error) {
       this.error.set(describeError(error, 'No pudimos cargar las piezas. Inténtalo de nuevo.'));
     } finally {
       this.loading.set(false);
     }
+  }
+
+  private async findPlatePhotos(parts: PartStock[]): Promise<void> {
+    const withoutPhoto = parts.filter((part) => !part.imagePath);
+    const found = await Promise.all(
+      withoutPhoto.map(async (part) => {
+        const photo = await this.photos.resolve({ kind: 'item', id: part.inventoryItemId });
+        return photo.fromPlate ? part.inventoryItemId : null;
+      }),
+    );
+    this.platePhotos.set(new Set(found.filter((id): id is string => id !== null)));
   }
 
   private async loadPlan(): Promise<void> {

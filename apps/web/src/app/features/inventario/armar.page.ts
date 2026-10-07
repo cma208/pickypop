@@ -1,5 +1,6 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { AsyncState, Badge, Card, Empty, FORMAT_PIPES, Page, Thumb } from '../../ui';
+import { borrowedPhoto } from '../../core/article-photos';
 import { friendlyError } from '../../core/friendly-error';
 import { InventarioData, type AssemblyComponent, type AssemblyOption } from './inventario.data';
 import { INVENTORY_PIPES, ITEM_KIND_LABELS } from './inventario.format';
@@ -109,7 +110,13 @@ interface Built {
                         <tr [class.short]="row.missing > 0">
                           <td>
                             <span class="with-thumb">
-                              <pp-thumb size="row" [kind]="row.component.kind" [path]="row.component.imagePath" [name]="row.component.name" />
+                              <pp-thumb
+                                size="row"
+                                [kind]="row.component.kind"
+                                [path]="row.component.imagePath"
+                                [photo]="borrowedPhoto(row.component.inventoryItemId, row.component.kind)"
+                                [name]="row.component.name"
+                              />
                               <span>
                                 <span class="strong">{{ row.component.name }}</span>
                                 <small class="sub">{{ kindLabel[row.component.kind] }}</small>
@@ -171,6 +178,8 @@ export class ArmarPage {
   private readonly planner = inject(InventoryPlan);
 
   protected readonly kindLabel = ITEM_KIND_LABELS;
+  /** A piece without a photo shows the plate that prints it. */
+  protected readonly borrowedPhoto = borrowedPhoto;
 
   protected readonly options = signal<AssemblyOption[]>([]);
   protected readonly components = signal<AssemblyComponent[]>([]);

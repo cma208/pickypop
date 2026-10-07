@@ -37,6 +37,7 @@ import { describeError } from './inventario.errors';
 import { INVENTORY_STYLES } from './inventario.styles';
 import { ITEM_KIND_LABELS, todayIso } from './inventario.format';
 import { linkPriceAndTotal } from './compra-line';
+import { borrowedPhoto } from '../../core/article-photos';
 import { planPurchase, type AllocationMethod, type PlanLineInput } from '../../core/pricing';
 import type { SpoolIdentity } from '../../core/spool-label';
 import { PurchasePreview, type PreviewRow } from './purchase-preview';
@@ -331,6 +332,7 @@ export class CompraForm {
       label: item.name,
       hint: item.unit,
       imagePath: item.imagePath,
+      photo: borrowedPhoto(item.id, item.kind),
       group: ITEM_KIND_LABELS[item.kind],
     })),
   ]);

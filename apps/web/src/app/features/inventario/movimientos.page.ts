@@ -9,6 +9,7 @@ import {
   type SpoolSummary,
 } from './inventario.data';
 import { describeError } from './inventario.errors';
+import { borrowedPhoto } from '../../core/article-photos';
 import { spoolLabel } from '../../core/spool-label';
 import {
   MOVEMENT_TYPES,
@@ -132,6 +133,7 @@ const NO_FILTER: MovementFilter = { type: null, spoolId: null, itemId: null, fro
                       <td>
                         <pp-item
                           [path]="row.imagePath"
+                          [photo]="borrowedPhoto(row.itemId, row.itemKind)"
                           [kind]="row.subjectKind === 'spool' ? 'spool' : row.itemKind"
                           [color]="row.colorHex"
                           [name]="row.subject"
@@ -187,6 +189,7 @@ export class MovimientosPage {
   protected readonly tones = TYPE_TONES;
   protected readonly limit = MOVEMENTS_LIMIT;
   protected readonly spoolLabel = spoolLabel;
+  protected readonly borrowedPhoto = borrowedPhoto;
 
   protected readonly spools = signal<SpoolSummary[]>([]);
   protected readonly items = signal<InventoryItemSummary[]>([]);
