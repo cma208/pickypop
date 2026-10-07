@@ -1,6 +1,6 @@
 import { DRAFT_COST_PROFILE_PE, DRAFT_PRINTER_A1_MINI } from '@pickypop/domain';
 import { calculateBatchCost } from '../../core/pricing';
-import { priceRecipeItems, type SupplyCost } from './cost-estimate';
+import { itemCosts, priceRecipeItems, type SupplyCost } from './cost-estimate';
 
 const costs = new Map<string, SupplyCost>([
   ['sweets', { name: 'Dulces surtidos', costPerUnit: 0.015 }],
@@ -55,5 +55,27 @@ describe('priceRecipeItems', () => {
     const { unpriced } = priceRecipeItems([{ inventoryItemId: 'ghost', quantityPerUnit: 2 }], costs);
 
     expect(unpriced).toEqual(['Insumo']);
+  });
+});
+
+describe('itemCosts', () => {
+  it('prices a printed part at what printing it cost, not at its purchases', () => {
+    // `inventory_item_costs` has nothing real for a part (AGENTS.md): no one buys one.
+    const costs = itemCosts(
+      [
+        { inventory_item_id: 'bag', name: 'Bolsa con etiqueta', cost_per_unit: '0.50' },
+        { inventory_item_id: 'front', name: 'Frente de calavera', cost_per_unit: null },
+      ],
+      [{ inventory_item_id: 'front', name: 'Frente de calavera', cost_per_unit: '0.710000' }],
+    );
+
+    expect(costs.get('front')).toEqual({ name: 'Frente de calavera', costPerUnit: 0.71 });
+    expect(costs.get('bag')).toEqual({ name: 'Bolsa con etiqueta', costPerUnit: 0.5 });
+  });
+
+  it('keeps a part nobody has printed yet as unpriced', () => {
+    const costs = itemCosts([], [{ inventory_item_id: 'hook', name: 'Gancho', cost_per_unit: null }]);
+
+    expect(costs.get('hook')?.costPerUnit).toBeNull();
   });
 });

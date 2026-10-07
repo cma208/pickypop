@@ -7,6 +7,8 @@ describe('toCostSource', () => {
   it('keeps the sources the view can report', () => {
     expect(toCostSource('purchase')).toBe('purchase');
     expect(toCostSource('standard')).toBe('standard');
+    // `part_stock` says a printed part costs what printing it cost.
+    expect(toCostSource('produced')).toBe('produced');
   });
 
   it('reads anything else as unknown', () => {

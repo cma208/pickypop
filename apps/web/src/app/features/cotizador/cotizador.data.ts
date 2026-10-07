@@ -16,6 +16,7 @@ import {
   type SupplyDraft,
 } from './quote-model';
 import { toCostSource, type SupplyCostSource } from './supply-costs';
+import { itemsBeyondPlates, printedByPlates } from './recipe-parts';
 
 /**
  * Everything the calculator and the quote screens read and write.
@@ -580,9 +581,11 @@ export class CotizadorData {
    * Supplies and packaging, priced by the `inventory_item_costs` view: the last
    * purchase when there is one, the standard cost until then. The view owns
    * that rule so the catalogue, orders and this screen cannot drift apart.
+   * Printed parts are the exception: `part_stock` prices them at what
+   * printing them cost, since nobody buys one.
    */
   private async supplies(): Promise<SupplyOption[]> {
-    const [items, balances, costs] = await Promise.all([
+    const [items, balances, costs, parts] = await Promise.all([
       this.supabase
         .from('inventory_items')
         .select('id, name, unit, kind')
@@ -593,17 +596,21 @@ export class CotizadorData {
       this.supabase
         .from('inventory_item_costs')
         .select('inventory_item_id, cost_per_unit, cost_source'),
+      // A printed part is not bought: it costs what printing it cost.
+      this.supabase.from('part_stock').select('inventory_item_id, cost_per_unit, cost_source'),
     ]);
 
     fail(items.error, 'No pudimos leer los insumos.');
     fail(balances.error, 'No pudimos leer el stock de insumos.');
     fail(costs.error, 'No pudimos leer los costos de los insumos.');
+    fail(parts.error, 'No pudimos leer el costo de las piezas impresas.');
 
     const available = new Map((balances.data ?? []).map((row) => [row.inventory_item_id, row]));
     const priced = new Map((costs.data ?? []).map((row) => [row.inventory_item_id, row]));
+    const produced = new Map((parts.data ?? []).map((row) => [row.inventory_item_id, row]));
 
     return (items.data ?? []).map((item) => {
-      const cost = priced.get(item.id);
+      const cost = item.kind === 'part' ? produced.get(item.id) : priced.get(item.id);
       const costSource = toCostSource(cost?.cost_source ?? null);
 
       return {
@@ -745,7 +752,7 @@ export class CotizadorData {
       this.supabase
         .from('recipe_plates')
         .select(
-          'id, label, plate_index, units_per_run, print_time_s, source_file_name, recipe_plate_filaments(slot, grams, color_hex, filament_sku_id)',
+          'id, label, plate_index, units_per_run, print_time_s, source_file_name, recipe_plate_filaments(slot, grams, color_hex, filament_sku_id), recipe_plate_outputs(inventory_item_id)',
         )
         .eq('recipe_id', recipe.id)
         .order('plate_index'),
@@ -757,6 +764,17 @@ export class CotizadorData {
 
     fail(plates.error, 'No pudimos leer las placas de la receta.');
     fail(items.error, 'No pudimos leer los insumos de la receta.');
+
+    // The parts its own plates print are already in the plates' cost.
+    const printed = printedByPlates(
+      (plates.data ?? []).map((plate) => ({
+        outputs: (plate.recipe_plate_outputs ?? []).map((output) => ({ inventoryItemId: output.inventory_item_id })),
+      })),
+    );
+    const ownItems = itemsBeyondPlates(
+      (items.data ?? []).map((item) => ({ inventoryItemId: item.inventory_item_id, quantityPerUnit: item.quantity_per_unit })),
+      printed,
+    );
 
     return {
       description: variant.label,
@@ -781,14 +799,14 @@ export class CotizadorData {
           }))
           .sort((a, b) => a.slot - b.slot),
       })),
-      supplies: (items.data ?? []).map((item) => {
-        const supply = supplies.find((option) => option.id === item.inventory_item_id);
+      supplies: ownItems.map((item) => {
+        const supply = supplies.find((option) => option.id === item.inventoryItemId);
 
         return {
           label: supply?.name ?? 'Insumo',
-          inventoryItemId: item.inventory_item_id,
+          inventoryItemId: item.inventoryItemId,
           scope: 'unit' as const,
-          quantity: num(item.quantity_per_unit, 1),
+          quantity: num(item.quantityPerUnit, 1),
           unitCost: supply?.unitCost ?? 0,
         };
       }),

@@ -1,6 +1,7 @@
 import { inject, Injectable } from '@angular/core';
 import { calculateBatchCost, type BatchInput } from '../../core/pricing';
 import { SUPABASE } from '../../core/supabase';
+import { itemsBeyondPlates, printedByPlates } from '../cotizador/recipe-parts';
 import { CostInputs } from './cost-inputs';
 
 const GRAMS_PER_KG = 1000;
@@ -20,11 +21,36 @@ export interface RecipeItem {
   quantityPerUnit: number;
 }
 
-/** One row of `inventory_item_costs`, reduced to what pricing needs. */
+/** One row of `inventory_item_costs` or `part_stock`, reduced to what pricing needs. */
 export interface SupplyCost {
   name: string;
-  /** Null when the view has neither a purchase nor a standard cost. */
+  /** Null when the view has no cost for it: no purchase, no production, no standard cost. */
   costPerUnit: number | null;
+}
+
+/** A cost row as either view returns it: numerics may arrive as strings. */
+export interface CostRow {
+  inventory_item_id: string | null;
+  name: string | null;
+  cost_per_unit: number | string | null;
+}
+
+/**
+ * What each item costs: a printed part what printing it cost (`part_stock`),
+ * anything else its last purchase or standard cost (`inventory_item_costs`).
+ * A part in both keeps its production cost: the purchase view has nothing
+ * real to say about something nobody buys.
+ */
+export function itemCosts(purchased: readonly CostRow[], printed: readonly CostRow[]): Map<string, SupplyCost> {
+  const costs = new Map<string, SupplyCost>();
+  for (const row of [...purchased, ...printed]) {
+    if (!row.inventory_item_id) continue;
+    costs.set(row.inventory_item_id, {
+      name: row.name ?? 'Insumo',
+      costPerUnit: row.cost_per_unit == null ? null : Number(row.cost_per_unit),
+    });
+  }
+  return costs;
 }
 
 /**
@@ -78,8 +104,10 @@ export class CostEstimator {
     const printer = printers[0];
     if (!recipe || recipe.plates.length === 0 || !printer) return null;
 
-    const supplyCosts = await this.supplyCosts(recipe.items);
-    const supplies = priceRecipeItems(recipe.items, supplyCosts);
+    // The parts its own plates print are already in the plates' cost (H19).
+    const items = itemsBeyondPlates(recipe.items, printedByPlates(recipe.plates));
+    const supplyCosts = await this.supplyCosts(items);
+    const supplies = priceRecipeItems(items, supplyCosts);
 
     const fallbackPerGram = average([...filamentCosts.values()]);
     const batch: BatchInput = {
@@ -105,35 +133,29 @@ export class CostEstimator {
 
   /**
    * Reads the supplies' cost from `inventory_item_costs`, which prefers the
-   * last purchase and falls back to the standard cost. Asking for just the
-   * recipe's items keeps this cheap enough to run on every keystroke.
+   * last purchase and falls back to the standard cost, and the parts' from
+   * `part_stock`. Asking for just the recipe's items keeps this cheap enough
+   * to run on every keystroke.
    */
   private async supplyCosts(items: RecipeItem[]): Promise<Map<string, SupplyCost>> {
     const ids = items.map((item) => item.inventoryItemId);
     if (ids.length === 0) return new Map();
 
-    const { data, error } = await this.supabase
-      .from('inventory_item_costs')
-      .select('inventory_item_id, name, cost_per_unit')
-      .in('inventory_item_id', ids);
-    if (error) throw error;
+    const [purchased, printed] = await Promise.all([
+      this.supabase.from('inventory_item_costs').select('inventory_item_id, name, cost_per_unit').in('inventory_item_id', ids),
+      this.supabase.from('part_stock').select('inventory_item_id, name, cost_per_unit').in('inventory_item_id', ids),
+    ]);
+    if (purchased.error) throw purchased.error;
+    if (printed.error) throw printed.error;
 
-    const costs = new Map<string, SupplyCost>();
-    for (const row of data) {
-      if (!row.inventory_item_id) continue;
-      costs.set(row.inventory_item_id, {
-        name: row.name ?? 'Insumo',
-        costPerUnit: row.cost_per_unit == null ? null : Number(row.cost_per_unit),
-      });
-    }
-    return costs;
+    return itemCosts(purchased.data, printed.data);
   }
 
   private async recipe(variantId: string) {
     const { data, error } = await this.supabase
       .from('recipes')
       .select(
-        'setup_minutes, minutes_per_unit, recipe_plates(label, units_per_run, print_time_s, recipe_plate_filaments(grams, filament_sku_id)), recipe_items(inventory_item_id, quantity_per_unit)',
+        'setup_minutes, minutes_per_unit, recipe_plates(label, units_per_run, print_time_s, recipe_plate_filaments(grams, filament_sku_id), recipe_plate_outputs(inventory_item_id)), recipe_items(inventory_item_id, quantity_per_unit)',
       )
       .eq('variant_id', variantId)
       .eq('active', true)
@@ -159,6 +181,7 @@ export class CostEstimator {
           grams: Number(filament.grams),
           skuId: filament.filament_sku_id,
         })),
+        outputs: plate.recipe_plate_outputs.map((output) => ({ inventoryItemId: output.inventory_item_id })),
       })),
     };
   }
