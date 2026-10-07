@@ -62,8 +62,13 @@ create trigger recipe_plates_part_is_ours
 -- La vista `inventory_item_costs` ya redondeaba a cuatro decimales, de modo
 -- que el cuello estaba únicamente en la columna de entrada.
 
--- La vista se apoya en la columna, así que hay que soltarla y volver a
--- crearla igual. Se recrea con la misma definición que tenía, sin cambios.
+-- Las vistas se apoyan en la columna, así que hay que soltarlas y volver a
+-- crearlas iguales. Se recrean con la misma definición que tenían, sin cambios.
+--
+-- `purchase_payment_status` (de 20261006120000) también lee `unit_price`, y
+-- producción la tiene: sin soltarla, el `alter` falla. La base local de
+-- desarrollo no lo mostró porque se fue armando por partes; una base nueva sí.
+drop view public.purchase_payment_status;
 drop view public.inventory_item_costs;
 
 alter table public.purchase_lines
@@ -71,6 +76,45 @@ alter table public.purchase_lines
 
 comment on column public.purchase_lines.unit_price is
   'Precio por unidad, con seis decimales: un insumo barato comprado por cientos no cabe en dos.';
+
+create view public.purchase_payment_status with (security_invoker = true) as
+with totals as (
+  select
+    p.id as purchase_id,
+    p.workspace_id,
+    p.purchased_at,
+    -- Rounded once, at the end, the way the purchase screen adds it up
+    -- (`sumMoney` over every line plus shipping and other costs).
+    round(
+      coalesce((
+        select sum(l.quantity * l.unit_price)
+        from public.purchase_lines l
+        where l.purchase_id = p.id
+      ), 0) + p.shipping_cost + p.other_costs,
+      2
+    ) as total
+  from public.purchases p
+),
+paid as (
+  select t.purchase_id, sum(t.amount) as paid, max(t.occurred_at) as last_paid_at
+  from public.transactions t
+  where t.purchase_id is not null
+    and t.type = 'expense'
+    and t.voided_at is null
+  group by t.purchase_id
+)
+select
+  totals.purchase_id,
+  totals.workspace_id,
+  totals.total,
+  coalesce(paid.paid, 0) as paid,
+  greatest(totals.total - coalesce(paid.paid, 0), 0) as pending,
+  paid.last_paid_at
+from totals
+left join paid on paid.purchase_id = totals.purchase_id;
+
+comment on view public.purchase_payment_status is
+  'How much of each purchase has been paid and how much is still owed, from the expenses tied to it.';
 
 create view public.inventory_item_costs with (security_invoker = true) as
 select
