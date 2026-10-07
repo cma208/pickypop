@@ -11,6 +11,7 @@ import { ProduccionData, type JobItem } from '../produccion/produccion.data';
 import { PedidoCobro } from './pedido-cobro';
 import { PedidoEntrega } from './pedido-entrega';
 import { PedidoEstimado } from './pedido-estimado';
+import { queuedPrints } from './order-prints';
 import { lineEstimate, orderEstimate } from './pedidos.delivery';
 import { PedidoAvance } from './pedido-avance';
 import { PedidoSituacion } from './pedido-situacion';
@@ -96,6 +97,7 @@ import { isFinal, PURPOSE_LABEL, PURPOSE_TONE, STATUS_LABEL, STATUS_TONE, type O
               [hasPending]="hasPending()"
               [hasDeliveries]="deliveries().length > 0"
               [paid]="payment()?.paid ?? null"
+              [prints]="queued()"
               (changed)="onDelivered()"
               (deliver)="goToDelivery()"
             />
@@ -267,6 +269,9 @@ export class PedidoPage {
 
   /** Something of the order has not left yet: "Entregado" is reached by delivering it. */
   protected readonly hasPending = computed(() => (this.order()?.lines ?? []).some((line) => line.pending > 0));
+
+  /** What the order still has in the print queue: cancelling it has to decide about these. */
+  protected readonly queued = computed(() => queuedPrints(this.jobs()));
 
   /** In cents, line by line, as the database adds it up: no arithmetic of money here. */
   protected readonly estimatedTotal = computed(() => orderEstimate(this.order()?.lines ?? []));

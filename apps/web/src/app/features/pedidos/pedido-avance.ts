@@ -1,11 +1,11 @@
 import { Component, computed, inject, input, output, signal } from '@angular/core';
-import { RouterLink } from '@angular/router';
 import { friendlyError } from '../../core/friendly-error';
 import { Card, FORMAT_PIPES } from '../../ui';
+import type { QueuedPrint } from './order-prints';
+import { PedidoCancelar } from './pedido-cancelar';
 import { PedidoSeparo } from './pedido-separo';
 import { PedidosData } from './pedidos.data';
 import {
-  cancelBlocker,
   canStopOrder,
   isFinal,
   nextStep,
@@ -22,7 +22,7 @@ import {
  */
 @Component({
   selector: 'app-pedido-avance',
-  imports: [RouterLink, Card, PedidoSeparo, ...FORMAT_PIPES],
+  imports: [Card, PedidoCancelar, PedidoSeparo, ...FORMAT_PIPES],
   template: `
     <pp-card heading="Avance">
       <ol class="flow" aria-label="Estados del pedido">
@@ -43,6 +43,7 @@ import {
         </div>
       } @else if (status() === 'cancelled') {
         <p class="muted">Este pedido fue cancelado.</p>
+        @if (notice(); as message) { <p class="notice" role="status">{{ message }}</p> }
       } @else if (status() === 'closed') {
         <p class="muted">Este pedido está cerrado.</p>
       }
@@ -60,20 +61,17 @@ import {
             <button type="button" class="secondary" (click)="change('on_hold')" [disabled]="changing()">Poner en espera</button>
             @if (!confirmingCancel()) {
               <button type="button" class="ghost" (click)="confirmingCancel.set(true)">Cancelar pedido</button>
-            } @else if (!blocker()) {
-              <button type="button" class="danger" (click)="change('cancelled')" [disabled]="changing()">Sí, cancelar pedido</button>
-              <button type="button" class="ghost" (click)="confirmingCancel.set(false)">No</button>
             }
           }
         </div>
-        @if (confirmingCancel() && blocker(); as reason) {
-          <div class="blocked" role="alert">
-            <p>{{ reason }}</p>
-            <div class="row">
-              <a class="button secondary" routerLink="/finanzas/movimientos">Ir a Caja</a>
-              <button type="button" class="ghost" (click)="confirmingCancel.set(false)">Entendido</button>
-            </div>
-          </div>
+        @if (confirmingCancel()) {
+          <app-pedido-cancelar
+            [orderId]="orderId()"
+            [paid]="paid()"
+            [prints]="prints()"
+            (cancelled)="onCancelled($event)"
+            (back)="confirmingCancel.set(false)"
+          />
         }
       }
       @if (error(); as message) { <p class="error" role="alert">{{ message }}</p> }
@@ -86,8 +84,7 @@ import {
     .flow li.current { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 600; }
     .row { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin-top: 0.5rem; }
     select { width: auto; }
-    .blocked { margin-top: 0.75rem; padding: 0.7rem 0.8rem; border: 1px solid var(--warn); border-radius: var(--radius); background: var(--warn-soft); }
-    .blocked p { margin: 0; }
+    .notice { margin: 0.5rem 0 0; font-size: 0.85rem; }
   `,
 })
 export class PedidoAvance {
@@ -101,6 +98,8 @@ export class PedidoAvance {
   readonly hasDeliveries = input(false);
   /** Collected and not voided; null when the order is not a sale. */
   readonly paid = input<number | null>(null);
+  /** What the order still has in the print queue: cancelling decides about it. */
+  readonly prints = input<QueuedPrint[]>([]);
 
   /** The status changed: the page reads the order again. */
   readonly changed = output<void>();
@@ -114,12 +113,13 @@ export class PedidoAvance {
   protected readonly confirmingCancel = signal(false);
   protected readonly error = signal<string | null>(null);
   protected readonly resumeAt = signal<OrderStatus>('queued');
+  /** Where the prints went, said once the order is cancelled. */
+  protected readonly notice = signal<string | null>(null);
 
   protected readonly final = computed(() => isFinal(this.status()));
   protected readonly next = computed(() => nextStep(this.status(), this.hasPending()));
   protected readonly resumeOptions = computed(() => resumeTargets(this.hasPending()));
   protected readonly canStop = computed(() => canStopOrder(this.status(), this.hasDeliveries()));
-  protected readonly blocker = computed(() => cancelBlocker(this.paid()));
 
   protected isDone(step: OrderStatus): boolean {
     return STATUS_FLOW.indexOf(this.status()) > STATUS_FLOW.indexOf(step);
@@ -129,16 +129,21 @@ export class PedidoAvance {
     return (event.target as HTMLSelectElement).value as OrderStatus;
   }
 
+  protected onCancelled(notice: string | null): void {
+    this.confirmingCancel.set(false);
+    this.notice.set(notice);
+    this.changed.emit();
+  }
+
   protected async change(status: OrderStatus): Promise<void> {
     this.changing.set(true);
     this.error.set(null);
     try {
       await this.orders.setStatus(this.orderId(), status);
-      this.confirmingCancel.set(false);
       this.changed.emit();
     } catch (error) {
-      // The database's refusals (cancelling what was delivered or collected)
-      // are written for a person: they travel as they come.
+      // The database's refusals (putting on hold what already left) are
+      // written for a person: they travel as they come.
       this.error.set(friendlyError(error, 'No pudimos cambiar el estado. Inténtalo de nuevo.'));
     } finally {
       this.changing.set(false);

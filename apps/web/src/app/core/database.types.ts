@@ -2417,6 +2417,36 @@ isOneToOne: false
         isOneToOne: false
         isSetofReturn: true
       } },
+"cancel_order":
+{ Args: { "p_cancel_prints": boolean,"p_order_id": string,"p_reason"?: string }; Returns: {
+              "channel_id": string | null,
+"created_at": string,
+"created_by": string | null,
+"customer_id": string | null,
+"due_date": string | null,
+"gift_category_id": string | null,
+"hold_until": string | null,
+"id": string,
+"note": string | null,
+"number": string,
+"opportunity_id": string | null,
+"ordered_on": string,
+"payment_status": Database["public"]['Enums']["order_payment_status"],
+"priority_at": string,
+"purpose": Database["public"]['Enums']["order_purpose"],
+"quote_id": string | null,
+"recipient": string | null,
+"status": Database["public"]['Enums']["order_status"],
+"total": number,
+"updated_at": string,
+"workspace_id": string
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "orders"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
 "complete_print_job":
 { Args: { "p_actual_time_s"?: number,"p_energy_cost"?: number,"p_failure_cause"?: Database["public"]['Enums']["print_failure_cause"],"p_filament_usage"?: Json,"p_job_id": string,"p_machine_cost"?: number,"p_material_cost"?: number,"p_note"?: string,"p_outputs"?: Json,"p_percent_complete"?: number,"p_result": Database["public"]['Enums']["print_job_status"] }; Returns: {
               "actual_time_s": number | null,
