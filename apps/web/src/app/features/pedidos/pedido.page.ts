@@ -11,6 +11,8 @@ import { ProduccionData, type JobItem } from '../produccion/produccion.data';
 import { PedidoCobro } from './pedido-cobro';
 import { PedidoEntrega } from './pedido-entrega';
 import { PedidoSeparo } from './pedido-separo';
+import { PedidoSituacion } from './pedido-situacion';
+import { PlanService } from '../../core/plan';
 import {
   PedidosData,
   type OrderDelivery,
@@ -49,6 +51,7 @@ import {
     PedidoCobro,
     PedidoEntrega,
     PedidoSeparo,
+    PedidoSituacion,
     ...FORMAT_PIPES,
   ],
   template: `
@@ -135,6 +138,8 @@ import {
               }
               @if (statusError(); as message) { <p class="error" role="alert">{{ message }}</p> }
             </pp-card>
+
+            <app-pedido-situacion [orderId]="o.id" (changed)="onDelivered()" />
 
             @if (hasPending() || deliveries().length > 0) {
               <app-pedido-entrega
@@ -283,6 +288,7 @@ import {
 })
 export class PedidoPage {
   private readonly orders = inject(PedidosData);
+  private readonly planner = inject(PlanService);
   private readonly production = inject(ProduccionData);
 
   private readonly route = inject(ActivatedRoute);
@@ -378,6 +384,7 @@ export class PedidoPage {
 
   /** The database moved the stock, the status or who goes first: read it back. */
   protected async onDelivered(): Promise<void> {
+    this.planner.invalidate();
     await this.load(this.id(), false);
   }
 

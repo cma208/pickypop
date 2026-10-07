@@ -55,6 +55,16 @@ export class PlanService {
   }
 
   /**
+   * The plan as it would be after a change nobody saved yet, such as passing
+   * an order ahead: the screen shows what moves for whom before a person
+   * confirms it. Pass the snapshot the screen is showing, so the comparison
+   * is against the same moment and not against a fresher one.
+   */
+  whatIf(base: PlanInput, change: (input: PlanInput) => PlanInput): PlanResult {
+    return plan(change(structuredClone(base)));
+  }
+
+  /**
    * Something moved the stock, the queue or who goes first: the next read
    * computes again. Call it after delivering, assembling, counting, closing a
    * job, accepting a quote or changing a hold.
