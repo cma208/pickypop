@@ -1,5 +1,5 @@
 import { inject, Injectable } from '@angular/core';
-import { calculateBatchCost, type BatchInput } from '../../core/pricing';
+import { calculateBatchCost, unitShare, type BatchInput } from '../../core/pricing';
 import { SUPABASE } from '../../core/supabase';
 import { itemsBeyondPlates, printedByPlates } from '../cotizador/recipe-parts';
 import { CostInputs } from './cost-inputs';
@@ -128,7 +128,8 @@ export class CostEstimator {
     };
 
     const cost = calculateBatchCost(batch, profile, printer.profile);
-    return { perUnit: cost.costPerUnit, total: cost.total, unpricedSupplies: supplies.unpriced };
+    // The exact share, so that the order's line gives back this batch to the cent.
+    return { perUnit: unitShare(cost.total, cost.units), total: cost.total, unpricedSupplies: supplies.unpriced };
   }
 
   /**

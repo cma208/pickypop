@@ -18,3 +18,17 @@ export function roundUpToStep(amount: number, step: number): number {
 export function sumMoney(amounts: number[]): number {
   return roundMoney(amounts.reduce((total, amount) => total + amount, 0));
 }
+
+const UNIT_SHARE_SCALE = 1e6;
+
+/**
+ * One unit's share of a batch total, to six decimals rather than cents. A
+ * batch of two that costs S/ 15.69 is 7.845 a unit: rounded to 7.85 and
+ * multiplied back it would be S/ 15.70, and the order would disagree with the
+ * quote by a cent. Six decimals give the batch back for any real quantity:
+ * the error is below half a cent until ten thousand units.
+ */
+export function unitShare(total: number, units: number): number {
+  if (!(units > 0)) throw new RangeError('units must be greater than 0');
+  return Math.round((total / units) * UNIT_SHARE_SCALE) / UNIT_SHARE_SCALE;
+}

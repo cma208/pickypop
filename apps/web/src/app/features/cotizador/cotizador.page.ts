@@ -5,7 +5,7 @@ import type { Observable } from 'rxjs';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 // core/pricing does not re-export these yet, and rewriting rounding here would
 // be exactly what docs/06-frontend.md 6.3 forbids. See the report.
-import { chargesIgv, roundMoney, sumMoney } from '../../core/pricing';
+import { chargesIgv, roundMoney, sumMoney, unitShare } from '../../core/pricing';
 import { localDate } from '../../core/dates';
 import { AsyncState, Badge, Card, Empty, Field, FORMAT_PIPES, Item, ItemPicker, Page, type PickerOption } from '../../ui';
 import {
@@ -822,7 +822,8 @@ export class CotizadorPage {
       quantity: line.cost.units,
       setupMinutes: line.draft.setupMinutes,
       minutesPerUnit: line.draft.minutesPerUnit,
-      unitCost: line.cost.costPerUnit,
+      // The exact share, so that times the quantity it gives back this batch.
+      unitCost: unitShare(line.cost.total, line.cost.units),
       unitPrice: line.price.total,
       plates: line.draft.plates,
       supplies: line.draft.supplies,
