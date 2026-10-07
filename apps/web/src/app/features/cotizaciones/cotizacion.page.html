@@ -157,9 +157,12 @@
               }
 
               @if (line.result; as calculated) {
+                <!-- A catalogue line was priced from the price list, not from the
+                     margin: it reads the same as it did in the calculator. -->
                 <pp-desglose
                   [cost]="calculated.cost"
                   [price]="calculated.price"
+                  [fromCatalog]="calculated.costBased !== null"
                   [materials]="line.materials"
                   [profile]="q.snapshot!.profile"
                 />
