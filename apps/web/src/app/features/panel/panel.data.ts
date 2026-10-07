@@ -18,6 +18,7 @@ import {
 import { ImpresorasData } from '../impresoras/impresoras.data';
 import { totalHours } from '../impresoras/impresoras.models';
 import { dueStatuses, needsAttention, type DueState } from '../impresoras/maintenance-due';
+import { belowMinimum, type LowStock } from './panel.stock';
 
 type OrderStatus = Database['public']['Enums']['order_status'];
 type FailureCause = Database['public']['Enums']['print_failure_cause'];
@@ -135,6 +136,31 @@ export class PanelData {
       })
       .filter((item): item is LowFilament => item !== null)
       .sort((a, b) => a.onHandG / (a.minimumG || 1) - b.onHandG / (b.minimumG || 1));
+  }
+
+  /**
+   * Printed parts, supplies and packaging under their minimum. What is on the
+   * shelf against the minimum, like the filaments: who it is for is the plan's
+   * business.
+   */
+  async lowItems(): Promise<LowStock> {
+    const [rows, active] = await Promise.all([
+      fetchAll((from, to) =>
+        this.supabase
+          .from('inventory_balances')
+          .select('inventory_item_id, kind, name, unit, min_stock, on_hand')
+          .gt('min_stock', 0)
+          .order('inventory_item_id')
+          .range(from, to),
+      ),
+      // The view keeps archived items too: nobody restocks what was retired.
+      fetchAll((from, to) =>
+        this.supabase.from('inventory_items').select('id').eq('active', true).gt('min_stock', 0).order('id').range(from, to),
+      ),
+    ]);
+    const kept = new Set(active.map((item) => item.id));
+    const watched = rows.filter((row) => row.inventory_item_id !== null && kept.has(row.inventory_item_id));
+    return { items: belowMinimum(watched), watched: watched.filter((row) => row.kind !== 'finished_good').length };
   }
 
   async ordersInProgress(): Promise<StatusCount[]> {

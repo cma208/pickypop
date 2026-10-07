@@ -103,6 +103,36 @@ const TODAY = new Intl.DateTimeFormat('es-PE', {
           </pp-async>
         </pp-card>
 
+        <pp-card heading="Piezas e insumos bajo mínimo">
+          <pp-async [loading]="lowItems.isLoading()" [error]="problem(lowItems.error(), 'las piezas y los insumos')">
+            @if (lowItems.value(); as stock) {
+              @if (stock.items.length > 0) {
+                @for (item of stock.items; track item.id) {
+                  <pp-item
+                    class="row-item"
+                    size="option"
+                    [kind]="item.kind"
+                    [photo]="{ kind: 'item', id: item.id }"
+                    [name]="item.name"
+                    [link]="item.route"
+                    [sub]="item.minimumText"
+                  >
+                    <pp-badge end tone="bad">{{ item.onHandText }}</pp-badge>
+                  </pp-item>
+                }
+              } @else if (stock.watched === 0) {
+                <p class="muted">
+                  Ninguna pieza ni insumo tiene mínimo todavía. Ponlo en su ficha, en
+                  <a routerLink="/inventario/piezas">Piezas impresas</a> o <a routerLink="/inventario/insumos">Insumos</a>,
+                  y aquí avisa cuando falte.
+                </p>
+              } @else {
+                <p class="positive">Todas las piezas e insumos están sobre su mínimo.</p>
+              }
+            }
+          </pp-async>
+        </pp-card>
+
         <pp-card heading="Pedidos en curso">
           <a card-actions routerLink="/pedidos">Ver pedidos</a>
           <pp-async [loading]="orders.isLoading()" [error]="problem(orders.error(), 'los pedidos')">
@@ -181,6 +211,7 @@ export class PanelPage {
 
   protected readonly tasks = resource({ loader: () => this.data.todayTasks() });
   protected readonly low = resource({ loader: () => this.data.lowFilaments() });
+  protected readonly lowItems = resource({ loader: () => this.data.lowItems() });
   protected readonly orders = resource({ loader: () => this.data.ordersInProgress() });
   protected readonly maintenance = resource({ loader: () => this.data.maintenanceAlerts() });
   protected readonly prints = resource({ loader: () => this.data.weekPrints() });
