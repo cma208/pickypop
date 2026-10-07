@@ -2431,6 +2431,9 @@ isOneToOne: false
 "next_document_number":
 { Args: { "p_doc_kind": string,"p_workspace": string }; Returns: string
                            },
+"planning_snapshot":
+{ Args: { "p_workspace_id": string }; Returns: Json
+                           },
 "price_for_quantity":
 { Args: { "p_on_date"?: string,"p_quantity": number,"p_variant": string }; Returns: number
                            },
