@@ -1,4 +1,4 @@
-import { addUpMonths, netMargin, type MonthResult } from './results';
+import { addUpMonths, failedShare, netMargin, type MonthResult } from './results';
 
 function month(overrides: Partial<MonthResult> = {}): MonthResult {
   return {
@@ -12,6 +12,12 @@ function month(overrides: Partial<MonthResult> = {}): MonthResult {
     inventoryPurchases: 0,
     ownerContributions: 0,
     ownerDraws: 0,
+    unsoldProduction: 0,
+    toolsAndTests: 0,
+    shelfCountLosses: 0,
+    failedPrints: 0,
+    printCost: 0,
+    failureReserveRate: 0.1,
     ...overrides,
   };
 }
@@ -42,6 +48,20 @@ describe('addUpMonths', () => {
     expect(totals.otherIncome).toBe(50);
   });
 
+  it('adds what was printed and never sold, and the failures apart', () => {
+    const totals = addUpMonths([
+      month({ unsoldProduction: 7.77, toolsAndTests: 7.72, shelfCountLosses: 0.05, failedPrints: 0.28, printCost: 11.07 }),
+      month({ month: '2026-09-01', unsoldProduction: -0.5, shelfCountLosses: -0.5, printCost: 3.1 }),
+    ]);
+
+    expect(totals.unsoldProduction).toBe(7.27);
+    expect(totals.toolsAndTests).toBe(7.72);
+    expect(totals.shelfCountLosses).toBe(-0.45);
+    expect(totals.failedPrints).toBe(0.28);
+    expect(totals.printCost).toBe(14.17);
+    expect('failureReserveRate' in totals).toBe(false);
+  });
+
   it('answers zeros for an empty period', () => {
     expect(addUpMonths([]).sales).toBe(0);
     expect(addUpMonths([]).netProfit).toBe(0);
@@ -55,5 +75,15 @@ describe('netMargin', () => {
 
   it('has no answer when nothing was sold', () => {
     expect(netMargin({ sales: 0, netProfit: -100 })).toBeNull();
+  });
+});
+
+describe('failedShare', () => {
+  it('is what failed over everything printed', () => {
+    expect(failedShare({ failedPrints: 0.28, printCost: 11.07 })).toBeCloseTo(0.0253, 4);
+  });
+
+  it('has no answer when nothing was printed', () => {
+    expect(failedShare({ failedPrints: 0, printCost: 0 })).toBeNull();
   });
 });

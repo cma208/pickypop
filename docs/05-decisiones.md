@@ -389,6 +389,32 @@ La migración para (b) es corta. No se hizo porque cambia cuánto gana el negoci
 
 ---
 
+## ADR-023 · Lo que se imprime y no se vende es gasto del mes
+
+**Estado:** Aceptada · 2026-10-07
+
+**Contexto.** En el recorrido desde cero, tres cosas consumieron inventario y no llegaron a ningún gasto de Resultados:
+- el molde de la calavera (S/ 7.72), que es una herramienta y no deja nada en el estante;
+- una impresión fallida (S/ 0.28);
+- una tapa que faltó al contar el estante.
+
+El mes quedaba igual de rentable con o sin ellas. El costo de ventas es el estimado de la receta (ADR-022), y las compras de inventario no restan (ADR-019). Lo que se consume fuera de una venta no tenía por dónde salir.
+
+**Decisión.**
+
+1. **Herramientas y pruebas son gasto del mes, al costo real.** Son las impresiones terminadas que no dejaron nada en el estante y no son de un pedido: moldes, plantillas y pruebas. El costo real es el material, la luz y la máquina de la impresión. No hay un tipo de artículo «herramienta» ni se amortiza: un molde de S/ 8 no justifica llevar una vida útil.
+2. **El conteo del estante también es gasto del mes.** Cuenta lo que faltó menos lo que sobró, al valor que tenía cada unidad en el estante.
+3. **Las dos suman «Producción no vendida»** y restan de la utilidad neta, en `monthly_income_statement` (`unsold_production`, `tools_and_tests`, `shelf_count_losses`).
+4. **Las impresiones fallidas se muestran aparte y no restan.** La receta ya cobra una reserva por fallos en cada unidad vendida, así que la falla la paga el costo de ventas, y restarla otra vez la contaría dos veces. Resultados muestra la comparación que importa: lo que falló sobre todo lo impreso del mes (`failed_prints` / `print_cost`) contra la reserva vigente ese mes (`failure_reserve_rate`). Si la falla supera la reserva, el precio se queda corto.
+5. **Los meses se cortan en la hora del taller.** Antes se cortaban en UTC, y un pago de la noche del 31 caía en el mes siguiente.
+
+**Consecuencias.**
+- La utilidad neta baja por lo que de verdad se gastó sin venderse.
+- Una impresión ligada a una línea a medida sigue siendo costo de ese pedido, no producción no vendida.
+- Una pieza que salió de la impresión pasa su costo al estante y llega a Resultados cuando se vende.
+
+---
+
 ## Pendientes
 
 | Tema | Opciones | Comentario |

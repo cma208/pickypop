@@ -14,9 +14,22 @@ export interface MonthResult {
   inventoryPurchases: number;
   ownerContributions: number;
   ownerDraws: number;
+  /** Printed and never sold: `toolsAndTests` plus `shelfCountLosses`. Subtracted (ADR-023). */
+  unsoldProduction: number;
+  /** Moulds, jigs and test prints: finished jobs that left nothing on the shelf. */
+  toolsAndTests: number;
+  /** What the shelf count found missing, less what it found over. */
+  shelfCountLosses: number;
+  /** Reported apart, never subtracted: the failure allowance in the cost of sales pays for them. */
+  failedPrints: number;
+  /** Everything printed that month, failures included: what the failures are measured against. */
+  printCost: number;
+  /** The failure allowance the prices carried that month, as a fraction. */
+  failureReserveRate: number | null;
 }
 
-export type ResultTotals = Omit<MonthResult, 'month'>;
+/** A rate is not added up: the period's totals leave it out. */
+export type ResultTotals = Omit<MonthResult, 'month' | 'failureReserveRate'>;
 
 const EMPTY: ResultTotals = {
   sales: 0,
@@ -28,6 +41,11 @@ const EMPTY: ResultTotals = {
   inventoryPurchases: 0,
   ownerContributions: 0,
   ownerDraws: 0,
+  unsoldProduction: 0,
+  toolsAndTests: 0,
+  shelfCountLosses: 0,
+  failedPrints: 0,
+  printCost: 0,
 };
 
 /** Adds the months on screen into one column, cent by cent. */
@@ -46,6 +64,11 @@ export function addUpMonths(rows: readonly MonthResult[]): ResultTotals {
     inventoryPurchases: total((row) => row.inventoryPurchases),
     ownerContributions: total((row) => row.ownerContributions),
     ownerDraws: total((row) => row.ownerDraws),
+    unsoldProduction: total((row) => row.unsoldProduction),
+    toolsAndTests: total((row) => row.toolsAndTests),
+    shelfCountLosses: total((row) => row.shelfCountLosses),
+    failedPrints: total((row) => row.failedPrints),
+    printCost: total((row) => row.printCost),
   };
 }
 
@@ -55,4 +78,12 @@ export function addUpMonths(rows: readonly MonthResult[]): ResultTotals {
  */
 export function netMargin(row: Pick<MonthResult, 'sales' | 'netProfit'>): number | null {
   return row.sales === 0 ? null : row.netProfit / row.sales;
+}
+
+/**
+ * What failed over what was printed, as a fraction: the figure to hold
+ * against the failure allowance. Null when nothing was printed.
+ */
+export function failedShare(row: Pick<MonthResult, 'failedPrints' | 'printCost'>): number | null {
+  return row.printCost === 0 ? null : row.failedPrints / row.printCost;
 }

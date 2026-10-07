@@ -119,7 +119,7 @@
 | *vista* `account_balances` | Saldo por cuenta |
 | *vista* `order_payment_summary` | Total, cobrado y saldo por pedido de venta |
 | *vista* `receivables` | Órdenes entregadas con saldo pendiente |
-| *vista* `monthly_income_statement` | Ventas, costo de ventas, gastos y utilidad por mes |
+| *vista* `monthly_income_statement` | Ventas, costo de ventas, gastos, producción no vendida y utilidad por mes, en la hora del taller. Aparte, las impresiones fallidas contra la reserva por fallos (ADR-023) |
 
 Construido el 2026-10-04 (migración `20261004130000_finance.sql`). Las reglas de este módulo están en [ADR-014](05-decisiones.md): el saldo se deriva, la transferencia es **una** fila con dos cuentas, nada se borra sino que se anula con motivo, y `orders.payment_status` es una proyección que recalcula un disparador y que la aplicación nunca escribe. Queda fuera `documents` (boletas y facturas): el taller todavía no tiene RUC.
 

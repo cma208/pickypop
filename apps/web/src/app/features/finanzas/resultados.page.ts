@@ -5,7 +5,7 @@ import { AsyncState, Card, Empty, FORMAT_PIPES, Page } from '../../ui';
 import { FinanzasData } from './finanzas.data';
 import { monthLabel, yearOf } from './finanzas.models';
 import { FINANCE_STYLES } from './finanzas.styles';
-import { addUpMonths, netMargin, type MonthResult } from './results';
+import { addUpMonths, failedShare, netMargin, type MonthResult } from './results';
 
 const ALL_YEARS = '';
 
@@ -40,6 +40,12 @@ const ALL_YEARS = '';
           plata tuya cambia cuánto dinero hay en el taller, no cuánto ganó el taller, así que tampoco
           entran en la utilidad neta.
         </p>
+        <p>
+          <strong>Lo que se imprime y no se vende sí resta.</strong> Un molde, una prueba o una pieza que
+          faltó al contar el estante costaron filamento, luz y máquina, y ningún pedido los va a pagar. Las
+          impresiones fallidas no se restan: las paga la reserva por fallos que ya va en el costo de ventas.
+          Se muestran aparte para que veas si esa reserva alcanza.
+        </p>
       </div>
 
       <pp-async [loading]="loading()" [error]="error()">
@@ -69,6 +75,7 @@ const ALL_YEARS = '';
                   <th class="num hide-small">Costo de ventas</th>
                   <th class="num hide-small">Utilidad bruta</th>
                   <th class="num hide-small">Gastos</th>
+                  <th class="num hide-small">No vendido</th>
                   <th class="num">Utilidad neta</th>
                   <th class="num hide-small">Margen</th>
                 </tr>
@@ -85,6 +92,7 @@ const ALL_YEARS = '';
                     <td class="num hide-small">{{ row.costOfSales | money }}</td>
                     <td class="num hide-small">{{ row.grossProfit | money }}</td>
                     <td class="num hide-small">{{ row.operatingExpenses | money }}</td>
+                    <td class="num hide-small">{{ row.unsoldProduction | money }}</td>
                     <td class="num amount-cell" [class.pos]="row.netProfit > 0" [class.neg]="row.netProfit < 0">
                       {{ row.netProfit | money }}
                     </td>
@@ -97,6 +105,7 @@ const ALL_YEARS = '';
                   <td class="num hide-small">{{ totals().costOfSales | money }}</td>
                   <td class="num hide-small">{{ totals().grossProfit | money }}</td>
                   <td class="num hide-small">{{ totals().operatingExpenses | money }}</td>
+                  <td class="num hide-small">{{ totals().unsoldProduction | money }}</td>
                   <td class="num" [class.pos]="totals().netProfit > 0" [class.neg]="totals().netProfit < 0">
                     {{ totals().netProfit | money }}
                   </td>
@@ -122,6 +131,18 @@ const ALL_YEARS = '';
                     <span>Gastos de operación <small class="sub">luz, envíos, publicidad, comisiones</small></span>
                     <span class="value neg">−{{ row.operatingExpenses | money }}</span>
                   </li>
+                  @if (row.unsoldProduction !== 0) {
+                    <li>
+                      <span>
+                        Producción no vendida
+                        <small class="sub">
+                          moldes, herramientas y pruebas: {{ row.toolsAndTests | money }} · conteo del estante:
+                          {{ row.shelfCountLosses | money }}{{ row.shelfCountLosses < 0 ? ' (sobró más de lo que faltó)' : '' }}
+                        </small>
+                      </span>
+                      <span class="value" [class.neg]="row.unsoldProduction > 0">{{ row.unsoldProduction > 0 ? '−' : '+' }}{{ abs(row.unsoldProduction) | money }}</span>
+                    </li>
+                  }
                   <li class="sum">
                     <span>Utilidad neta</span>
                     <span class="value" [class.pos]="row.netProfit > 0" [class.neg]="row.netProfit < 0">
@@ -133,6 +154,20 @@ const ALL_YEARS = '';
                 <div class="apart">
                   <h3>Se informa aparte, fuera de la utilidad</h3>
                   <ul class="lines">
+                    @if (row.printCost > 0) {
+                      <li>
+                        <span>
+                          Impresiones fallidas
+                          <small class="sub">
+                            {{ share(row) | percent1 }} de lo impreso en el mes ({{ row.printCost | money }}).
+                            @if (row.failureReserveRate !== null) {
+                              La reserva por fallos de tus precios es {{ row.failureReserveRate | percent1 }}{{ (share(row) ?? 0) > row.failureReserveRate ? ': no alcanzó, súbela o revisa qué está fallando.' : ': alcanza.' }}
+                            }
+                          </small>
+                        </span>
+                        <span class="value">{{ row.failedPrints | money }}</span>
+                      </li>
+                    }
                     <li>
                       <span>Otros ingresos <small class="sub">entradas que no son de un pedido</small></span>
                       <span class="value">{{ row.otherIncome | money }}</span>
@@ -195,6 +230,14 @@ export class ResultadosPage {
 
   protected margin(row: MonthResult): number | null {
     return netMargin(row);
+  }
+
+  protected share(row: MonthResult): number | null {
+    return failedShare(row);
+  }
+
+  protected abs(value: number): number {
+    return Math.abs(value);
   }
 
   /** Clicking the month that is open closes it again. */

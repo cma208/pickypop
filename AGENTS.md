@@ -79,7 +79,7 @@ Si creas datos de prueba, **bórralos al terminar** y di cuáles fueron.
 | `docs/02-dominio.md` | Modelo de negocio, fórmula de costo y precio, ejemplos con números reales |
 | `docs/03-modelo-de-datos.md` | Todas las tablas y vistas |
 | `docs/04-arquitectura.md` | Cómo encaja, y por qué el coste de operación es cero |
-| `docs/05-decisiones.md` | 22 decisiones de arquitectura, con su porqué |
+| `docs/05-decisiones.md` | 23 decisiones de arquitectura, con su porqué |
 | `docs/06-frontend.md` | Contrato del frontend: estructura, diseño, pantallas |
 | `docs/07-plan-de-trabajo.md` | **El reparto de trabajo vigente** |
 | `packages/domain` | Las reglas de dinero |
