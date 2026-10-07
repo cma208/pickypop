@@ -5,6 +5,8 @@ import { Field, FORMAT_PIPES } from '../../ui';
 import { explainError } from '../pedidos/pedidos.errors';
 import { ProduccionData, type CloseJob, type CloseOutcome, type JobItem } from './produccion.data';
 import { FAILURE_CAUSE_LABEL, FAILURE_CAUSES, type FailureCause } from './produccion.labels';
+import { describeCounts } from './produccion.outputs';
+import { createOutputControl, PrintJobOutputs, type OutputControls } from './print-job-outputs';
 
 const SECONDS_PER_MINUTE = 60;
 
@@ -27,12 +29,13 @@ function createUsageRow(spoolId: string, actualG: number) {
 }
 
 /**
- * Closes a print job: result, real time and real grams per roll. Closing moves
- * the stock and cannot be undone, so it asks for one more confirmation.
+ * Closes a print job: result, real time, real grams per roll and, when it went
+ * well, how many of each part came out. Closing moves the stock and cannot be
+ * undone, so it asks for one more confirmation.
  */
 @Component({
   selector: 'app-print-job-close',
-  imports: [ReactiveFormsModule, Field, ...FORMAT_PIPES],
+  imports: [ReactiveFormsModule, Field, PrintJobOutputs, ...FORMAT_PIPES],
   template: `
     <form [formGroup]="form" (ngSubmit)="review()" novalidate class="close">
       <fieldset class="results">
@@ -71,13 +74,15 @@ function createUsageRow(spoolId: string, actualG: number) {
         >
           <input type="number" inputmode="numeric" min="1" step="1" formControlName="actualMinutes" />
         </pp-field>
-
-        @if (result() === 'success') {
-          <pp-field label="Unidades producidas" [error]="fieldError('unitsProduced', 'No puede ser negativo.')">
-            <input type="number" inputmode="decimal" min="0" step="any" formControlName="unitsProduced" />
-          </pp-field>
-        }
       </div>
+
+      @if (result() === 'success') {
+        @if (job().plateOutputs.length > 0) {
+          <app-print-job-outputs [parts]="job().plateOutputs" [controls]="outputs" [submitted]="submitted()" [idPrefix]="'out-' + job().id + '-'" />
+        } @else {
+          <p class="muted">{{ job().plateLabel ? 'Su placa no tiene piezas definidas' : 'Sin placa de receta' }}: al cerrarla no entra nada al estante.</p>
+        }
+      }
 
       @if (result() === 'cancelled') {
         <p class="muted">Una impresión cancelada no descuenta filamento.</p>
@@ -154,9 +159,9 @@ export class PrintJobClose implements OnInit {
     failureCause: new FormControl<FailureCause | ''>('', { nonNullable: true }),
     percentComplete: new FormControl<number | null>(null, [Validators.min(0), Validators.max(100)]),
     actualMinutes: new FormControl<number | null>(null, [Validators.min(1), Validators.pattern(/^\d+$/)]),
-    unitsProduced: new FormControl<number | null>(null, [Validators.min(0)]),
     note: new FormControl('', { nonNullable: true }),
     usage: new FormArray<ReturnType<typeof createUsageRow>>([]),
+    outputs: new FormArray<FormControl<number | null>>([]),
   });
 
   protected readonly busy = signal(false);
@@ -180,7 +185,9 @@ export class PrintJobClose implements OnInit {
     if (job.estimatedTimeS) {
       this.form.controls.actualMinutes.setValue(Math.max(1, Math.round(job.estimatedTimeS / SECONDS_PER_MINUTE)));
     }
-    if (job.plateUnitsPerRun) this.form.controls.unitsProduced.setValue(job.plateUnitsPerRun);
+    for (const part of job.plateOutputs) {
+      this.outputs.push(createOutputControl(part.unitsPerRun));
+    }
     void this.loadCurrentStock();
   }
 
@@ -188,8 +195,16 @@ export class PrintJobClose implements OnInit {
     return this.form.controls.usage;
   }
 
+  protected get outputs(): OutputControls {
+    return this.form.controls.outputs;
+  }
+
   protected filamentOf(index: number) {
     return this.job().filaments[index]!;
+  }
+
+  protected partOf(index: number) {
+    return this.job().plateOutputs[index]!;
   }
 
   protected causeError(): string | null {
@@ -197,7 +212,7 @@ export class PrintJobClose implements OnInit {
     return missing && (this.form.controls.failureCause.touched || this.submitted()) ? 'Una impresión fallida necesita su causa.' : null;
   }
 
-  protected fieldError(name: 'percentComplete' | 'actualMinutes' | 'unitsProduced', message: string): string | null {
+  protected fieldError(name: 'percentComplete' | 'actualMinutes', message: string): string | null {
     const control = this.form.controls[name];
     const missingTime = name === 'actualMinutes' && this.result() !== 'cancelled' && !control.value;
     const show = control.touched || this.submitted();
@@ -214,7 +229,11 @@ export class PrintJobClose implements OnInit {
     const total = this.usage.getRawValue().reduce((sum, row) => sum + (row.actualG || 0), 0);
     if (result === 'cancelled') return 'Se cerrará como cancelada y no se moverá el stock.';
     const verb = result === 'success' ? 'Se descontarán' : 'Se registrarán como merma';
-    return `${verb} ${Math.round(total * 100) / 100} g de ${this.usage.length} rollo(s).`;
+    const grams = `${verb} ${Math.round(total * 100) / 100} g de ${this.usage.length} rollo(s).`;
+    if (result !== 'success' || this.job().plateOutputs.length === 0) return grams;
+
+    const counts = this.outputs.getRawValue().map((units, index) => ({ name: this.partOf(index).name, units: units ?? 0 }));
+    return `${grams} Entran al estante: ${describeCounts(counts)}.`;
   }
 
   /** First step: check the form and ask for confirmation. */
@@ -227,8 +246,9 @@ export class PrintJobClose implements OnInit {
     const needsTime = result !== 'cancelled' && !this.form.controls.actualMinutes.value;
     const needsCause = result === 'failed' && this.form.controls.failureCause.value === '';
     const usageInvalid = result !== 'cancelled' && this.usage.invalid;
+    const outputsInvalid = result === 'success' && this.outputs.invalid;
 
-    if (needsTime || needsCause || usageInvalid || this.form.controls.percentComplete.invalid || this.form.controls.actualMinutes.invalid) {
+    if (needsTime || needsCause || usageInvalid || outputsInvalid || this.form.controls.percentComplete.invalid || this.form.controls.actualMinutes.invalid) {
       this.error.set('Revisa los campos marcados antes de cerrar.');
       return;
     }
@@ -247,7 +267,10 @@ export class PrintJobClose implements OnInit {
         usage: value.result === 'cancelled' ? [] : value.usage.map((row) => ({ spoolId: row.spoolId, actualG: row.actualG })),
         failureCause: value.failureCause === '' ? null : value.failureCause,
         percentComplete: value.percentComplete,
-        unitsProduced: value.unitsProduced,
+        outputs: this.job().plateOutputs.map((part, index) => ({
+          inventoryItemId: part.inventoryItemId,
+          units: value.outputs[index] ?? null,
+        })),
         note: value.note.trim() || null,
       });
       this.closed.emit(outcome);

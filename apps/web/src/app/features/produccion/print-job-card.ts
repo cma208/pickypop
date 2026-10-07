@@ -2,20 +2,24 @@ import { Component, computed, inject, input, output, signal } from '@angular/cor
 import { DecimalPipe } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { duration } from '../../core/format';
-import { Badge, FORMAT_PIPES } from '../../ui';
+import { Badge, FORMAT_PIPES, Thumb } from '../../ui';
 import { explainError } from '../pedidos/pedidos.errors';
 import { PrintJobClose } from './print-job-close';
 import { ProduccionData, type CloseOutcome, type JobItem } from './produccion.data';
 import { FAILURE_CAUSE_LABEL, isClosed, JOB_STATUS_LABEL, JOB_STATUS_TONE } from './produccion.labels';
 import { jobProgress } from './produccion.progress';
+import { plannedCounts, type PartCount } from './produccion.outputs';
 
 /** One print job with its actions: start it, close it. */
 @Component({
   selector: 'app-print-job-card',
-  imports: [RouterLink, Badge, DecimalPipe, PrintJobClose, ...FORMAT_PIPES],
+  imports: [RouterLink, Badge, Thumb, DecimalPipe, PrintJobClose, ...FORMAT_PIPES],
   template: `
     <article>
       <header>
+        @if (job().plateId) {
+          <pp-thumb size="lg" [path]="job().plateThumbnailPath" [name]="job().plateLabel ?? title()" />
+        }
         <strong>{{ title() }}</strong>
         <pp-badge [tone]="tone[job().status]">{{ statusLabel[job().status] }}</pp-badge>
       </header>
@@ -45,6 +49,15 @@ import { jobProgress } from './produccion.progress';
             </p>
           } @else {
             <p class="muted small">Lleva {{ run.elapsedS | duration }}. Sin estimación para comparar.</p>
+          }
+        </div>
+      }
+
+      @if (shelf(); as line) {
+        <div class="shelf">
+          <span class="muted">{{ line.lead }}</span>
+          @for (part of line.parts; track part.inventoryItemId) {
+            <span class="part"><pp-thumb size="sm" [path]="part.imagePath" [name]="part.name" /> {{ part.units | number: '1.0-3' }} {{ part.name }}</span>
           }
         </div>
       }
@@ -104,6 +117,8 @@ import { jobProgress } from './produccion.progress';
     .note { font-size: 0.82rem; }
     .fail { color: var(--danger); font-size: 0.85rem; }
     .spools { list-style: none; margin: 0.4rem 0 0.6rem; padding: 0; font-size: 0.85rem; display: grid; gap: 0.15rem; }
+    .shelf { display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem 0.75rem; margin: 0.4rem 0; font-size: 0.85rem; }
+    .part { display: inline-flex; align-items: center; gap: 0.35rem; }
     .dot { display: inline-block; width: 0.7rem; height: 0.7rem; border-radius: 50%; border: 1px solid var(--line); margin-right: 0.3rem; }
   `,
 })
@@ -130,6 +145,25 @@ export class PrintJobCard {
     this.job().status === 'printing' ? jobProgress(this.job().startedAt, this.job().estimatedTimeS) : null,
   );
   protected readonly error = signal<string | null>(null);
+
+  /**
+   * What this job puts on the shelf, part by part: the plan while it is
+   * pending, what really went in once it closed well. Never a single total,
+   * which on a plate of caps and bodies would add up things that do not add.
+   */
+  protected readonly shelf = computed<{ lead: string; parts: PartCount[] } | null>(() => {
+    const job = this.job();
+    if (job.status === 'success') {
+      if (job.produced.length > 0) return { lead: 'Entró al estante:', parts: job.produced };
+      // A job closed before the shelf existed has units but no movements, and
+      // saying "nothing went in" would read as a fault. Only a close that
+      // really counted zero gets to say so.
+      const countedZero = job.unitsProduced === 0 && job.plateOutputs.length > 0;
+      return countedZero ? { lead: 'No entró ninguna pieza al estante.', parts: [] } : null;
+    }
+    if (isClosed(job.status) || job.plateOutputs.length === 0) return null;
+    return { lead: 'Una corrida completa deja:', parts: plannedCounts(job.plateOutputs) };
+  });
 
   protected isClosed(): boolean {
     return isClosed(this.job().status);
