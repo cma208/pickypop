@@ -6,6 +6,15 @@ import { Card, Field, FORMAT_PIPES, Item } from '../../ui';
 import { CotizadorData, DataError, type CustomerOption, type QuoteDetail } from '../cotizador/cotizador.data';
 import { acceptPlace } from './quote-hold';
 import { PlanService } from '../../core/plan';
+import { compareReady, saleBuyText, type ReadyComparison } from '../cotizador/promise-text';
+import { quoteSituation } from './quote-situation';
+
+/** "¿Para cuándo?" as the panel says it: what the customer heard against today. */
+interface AcceptWhen extends ReadyComparison {
+  /** The quote kept the day it promised: without it there is only today to say. */
+  kept: boolean;
+  buy: string | null;
+}
 
 /**
  * "El cliente aceptó": shows the order that is about to be created, line by
@@ -36,6 +45,20 @@ import { PlanService } from '../../core/plan';
       <p class="total"><span>Total del pedido</span><strong class="num">{{ quote().total | money }}</strong></p>
 
       <p class="place" [class.keeps]="place().keeps">{{ place().text }}</p>
+
+      @if (when(); as w) {
+        <p class="when" [class.later]="w.later" [class.sooner]="w.quoted !== null && !w.later">
+          <span class="label">¿Para cuándo?</span>
+          @if (w.quoted !== null) {
+            Cuando se cotizó: listo {{ w.quoted }}. <strong>Hoy: listo {{ w.today }}.</strong>
+          } @else if (w.kept) {
+            <strong>Hoy: listo {{ w.today }}</strong>, lo mismo que cuando se cotizó.
+          } @else {
+            <strong>Hoy: listo {{ w.today }}.</strong>
+          }
+        </p>
+        @if (w.buy; as text) { <p class="buy">{{ text }} No frena el pedido.</p> }
+      }
 
       <form [formGroup]="form" (ngSubmit)="accept()" novalidate>
         @if (needsCustomer()) {
@@ -77,6 +100,11 @@ import { PlanService } from '../../core/plan';
     .total { display: flex; justify-content: space-between; gap: 1rem; margin: 0 0 1rem; padding-top: 0.6rem; border-top: 1px solid var(--line); font-size: var(--fs-lg); }
     .place { margin: 0 0 1rem; padding: 0.6rem 0.8rem; border-radius: var(--radius-sm); background: var(--warn-soft); color: var(--warn); }
     .place.keeps { background: var(--good-soft); color: var(--good); }
+    .when { margin: 0 0 1rem; padding: 0.6rem 0.8rem; border: 1px solid var(--line); border-radius: var(--radius-sm); }
+    .when .label { display: block; color: var(--muted); font-size: var(--fs-sm); }
+    .when.later { border-color: var(--warn); background: var(--warn-soft); color: var(--warn); }
+    .when.sooner { border-color: var(--good); background: var(--good-soft); color: var(--good); }
+    .buy { margin: -0.5rem 0 1rem; padding: 0.5rem 0.75rem; border-radius: var(--radius-sm); background: var(--warn-soft); color: var(--warn); }
   `,
 })
 export class CotizacionAceptar implements OnInit {
@@ -101,8 +129,10 @@ export class CotizacionAceptar implements OnInit {
 
   protected readonly needsCustomer = computed(() => this.quote().customerId === null);
   protected readonly place = computed(() => acceptPlace(this.quote().heldAt, this.quote().holdUntil));
+  protected readonly when = signal<AcceptWhen | null>(null);
 
   ngOnInit(): void {
+    void this.loadWhen();
     if (!this.needsCustomer()) return;
 
     this.form.controls.customerId.addValidators(Validators.required);
@@ -111,6 +141,28 @@ export class CotizacionAceptar implements OnInit {
       .customers()
       .then((list) => this.customers.set(list))
       .catch(() => this.error.set('No pudimos leer los clientes. Vuelve a abrir este panel.'));
+  }
+
+  /**
+   * Today's date for the order about to be created: from the quote's place in
+   * the line if its hold still runs, from the end of the line if not, which
+   * is what accepting does. Without the plan the panel still creates the order.
+   */
+  private async loadWhen(): Promise<void> {
+    try {
+      const { input, result } = await this.planner.current();
+      const quote = this.quote();
+      const { promise } = quoteSituation(input, result, quote, (change) => this.planner.whatIf(input, change));
+      if (promise.readyAt === null) return;
+      const quoted = quote.snapshot?.promise ?? null;
+      this.when.set({
+        ...compareReady(quoted?.readyAt ?? null, promise.readyAt, promise.now),
+        kept: quoted !== null,
+        buy: saleBuyText(promise),
+      });
+    } catch {
+      this.when.set(null);
+    }
   }
 
   protected customerError(): string | null {

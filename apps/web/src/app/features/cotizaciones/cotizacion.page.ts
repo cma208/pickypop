@@ -15,8 +15,10 @@ import {
 } from '../cotizador/cotizador.data';
 import { calculateLine, materialLines, VALUATION_LABELS, type LineResult, type MaterialLineRow } from '../cotizador/quote-model';
 import { CurrentWorkspace } from '../../core/workspace';
+import { PlanService } from '../../core/plan';
 import { CotizacionAceptar } from './cotizacion-aceptar';
 import { CotizacionSeparo } from './cotizacion-separo';
+import { CotizacionSituacion } from './cotizacion-situacion';
 import { buildQuoteDocument } from './quote-document';
 
 /** A stored line, read back exactly as it was calculated. */
@@ -52,6 +54,7 @@ const A_CENT = 0.005;
     Desglose,
     CotizacionAceptar,
     CotizacionSeparo,
+    CotizacionSituacion,
     ...FORMAT_PIPES,
   ],
   templateUrl: './cotizacion.page.html',
@@ -79,6 +82,7 @@ export class CotizacionPage {
   private readonly data = inject(CotizadorData);
   private readonly workspace = inject(CurrentWorkspace);
   private readonly router = inject(Router);
+  private readonly planner = inject(PlanService);
 
   /** Bound from the :id segment of the route. */
   readonly id = input.required<string>();
@@ -299,6 +303,8 @@ export class CotizacionPage {
 
     try {
       await this.data.setStatus(quote.id, status);
+      // Sending starts a hold and rejecting ends it: everybody's plan moved.
+      this.planner.invalidate();
       this.quote.set(await this.data.quote(quote.id));
       this.confirmingReject.set(false);
     } catch (cause) {

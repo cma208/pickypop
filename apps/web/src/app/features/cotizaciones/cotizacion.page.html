@@ -68,6 +68,10 @@
         />
       }
 
+      @if (!accepting()) {
+        <app-cotizacion-situacion [quote]="q" />
+      }
+
       <pp-card heading="Datos">
         <dl class="facts">
           <dt>Versión</dt>
