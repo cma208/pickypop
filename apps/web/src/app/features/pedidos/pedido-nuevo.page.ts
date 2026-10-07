@@ -14,6 +14,7 @@ import {
 } from './pedidos.data';
 import { explainError } from './pedidos.errors';
 import { PURPOSE_HELP, PURPOSE_LABEL, PURPOSES, type OrderPurpose } from './pedidos.labels';
+import { PlanService } from '../../core/plan';
 
 @Component({
   selector: 'app-pedido-nuevo',
@@ -154,6 +155,7 @@ import { PURPOSE_HELP, PURPOSE_LABEL, PURPOSES, type OrderPurpose } from './pedi
 })
 export class PedidoNuevoPage {
   private readonly data = inject(PedidosData);
+  private readonly planner = inject(PlanService);
   private readonly router = inject(Router);
 
   protected readonly purposes = PURPOSES;
@@ -260,6 +262,7 @@ export class PedidoNuevoPage {
     let created: { id: string };
     try {
       created = await this.data.createOrder(this.toNewOrder());
+      this.planner.invalidate();
     } catch (error) {
       this.saveError.set(explainError(error, 'No pudimos guardar el pedido. Inténtalo de nuevo.'));
       this.saving.set(false);

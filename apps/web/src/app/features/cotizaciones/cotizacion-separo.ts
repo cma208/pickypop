@@ -3,6 +3,7 @@ import { dateTimeLong, inputToIso, isoToInput } from '../../core/dates';
 import { Card } from '../../ui';
 import { CotizadorData, DataError, type QuoteStatus } from '../cotizador/cotizador.data';
 import { holdState, holdUntilProblem } from './quote-hold';
+import { PlanService } from '../../core/plan';
 
 /** Often enough for "vence" to turn into "venció" while the page stays open. */
 const CLOCK_TICK_MS = 30_000;
@@ -103,6 +104,7 @@ type Editing = 'change' | 'renew' | 'release' | null;
 })
 export class CotizacionSeparo {
   private readonly data = inject(CotizadorData);
+  private readonly planner = inject(PlanService);
 
   readonly quoteId = input.required<string>();
   readonly status = input.required<QuoteStatus>();
@@ -166,6 +168,7 @@ export class CotizacionSeparo {
     this.error.set(null);
     try {
       this.changed.emit(await this.data.setHold(this.quoteId(), until));
+      this.planner.invalidate();
       this.now.set(new Date());
       this.editing.set(null);
     } catch (cause) {

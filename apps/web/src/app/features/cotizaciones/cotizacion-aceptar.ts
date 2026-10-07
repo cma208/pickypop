@@ -5,6 +5,7 @@ import { todayLocal } from '../../core/dates';
 import { Card, Field, FORMAT_PIPES, Item } from '../../ui';
 import { CotizadorData, DataError, type CustomerOption, type QuoteDetail } from '../cotizador/cotizador.data';
 import { acceptPlace } from './quote-hold';
+import { PlanService } from '../../core/plan';
 
 /**
  * "El cliente aceptó": shows the order that is about to be created, line by
@@ -80,6 +81,7 @@ import { acceptPlace } from './quote-hold';
 })
 export class CotizacionAceptar implements OnInit {
   private readonly data = inject(CotizadorData);
+  private readonly planner = inject(PlanService);
   private readonly router = inject(Router);
 
   readonly quote = input.required<QuoteDetail>();
@@ -132,6 +134,7 @@ export class CotizacionAceptar implements OnInit {
         note: note.trim() || null,
         customerId: this.needsCustomer() ? customerId : null,
       });
+      this.planner.invalidate();
       await this.router.navigate(['/pedidos', order.id]);
     } catch (cause) {
       this.error.set(cause instanceof DataError ? cause.message : 'No pudimos crear el pedido.');

@@ -172,6 +172,7 @@ import {
                             kind="product"
                             [path]="line.imagePath"
                             [photo]="{ kind: 'variant', id: line.variantId }"
+                            [sub]="line.variantId === null ? 'A medida' : null"
                             [name]="line.description"
                           />
                         </td>

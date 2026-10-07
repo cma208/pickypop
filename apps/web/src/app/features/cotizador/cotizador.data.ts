@@ -782,6 +782,8 @@ export class CotizadorData {
     const { data: inserted, error: insertError } = await this.supabase
       .from('quotes')
       .insert({
+        // The column defaults to the database's day, which is UTC: after 19:00 in Lima it is tomorrow.
+        issued_on: todayLocal(),
         workspace_id: quote.workspaceId,
         number,
         version,
