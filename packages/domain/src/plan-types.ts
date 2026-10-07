@@ -295,8 +295,15 @@ export interface PlanRun {
 /** «Por lanzar»: the new runs of one plate, for confirmed orders only. */
 export interface PlanProposal {
   plateId: string | null;
+  /**
+   * Set for made-to-order work, which is grouped by line: without it «Poner
+   * en cola» could not tell which line the runs print for.
+   */
+  lineId: string | null;
+  /** The plate's label; for made-to-order work, the line's description. */
   label: string;
   runs: number;
+  /** Seconds of all the runs together, like `filaments`. */
   printSeconds: number;
   /** Grams of each filament for all the runs. */
   filaments: PlanFilamentUse[];
