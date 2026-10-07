@@ -102,6 +102,12 @@ function createUsageRow(spoolId: string, actualG: number) {
                 <input type="number" inputmode="decimal" min="0" step="0.01" formControlName="actualG" />
               </pp-field>
             </div>
+          } @empty {
+            <!-- A job queued from «Por lanzar» gets its rolls on «Iniciar»; closed before that, it has none. -->
+            <p class="no-rolls">
+              Este trabajo no tiene rollos, así que cerrarlo no descuenta filamento.
+              @if (job().status === 'planned') { Si ya se imprimió, usa «Iniciar…» primero para elegir con qué rollos. }
+            </p>
           }
         </fieldset>
       }
@@ -138,6 +144,7 @@ function createUsageRow(spoolId: string, actualG: number) {
     .results input { width: auto; }
     .usage { display: grid; grid-template-columns: 1fr 9rem; gap: 0.75rem; align-items: start; }
     .spool { display: grid; padding-top: 0.2rem; }
+    .no-rolls { margin: 0; font-size: 0.85rem; color: var(--warn); }
     .confirm { padding: 0.8rem; border: 1px solid var(--warn); border-radius: var(--radius); background: var(--warn-soft); margin-bottom: 0.5rem; }
     .confirm p { margin: 0 0 0.6rem; }
     @media (max-width: 30rem) { .usage { grid-template-columns: 1fr; } }

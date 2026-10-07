@@ -2,9 +2,11 @@ import { Component, computed, inject, input, output, signal } from '@angular/cor
 import { DecimalPipe } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { duration } from '../../core/format';
+import { PlanService } from '../../core/plan';
 import { Badge, FORMAT_PIPES, Thumb } from '../../ui';
 import { explainError } from '../pedidos/pedidos.errors';
 import { PrintJobClose } from './print-job-close';
+import { PrintJobStart } from './print-job-start';
 import { ProduccionData, type CloseOutcome, type JobItem } from './produccion.data';
 import { FAILURE_CAUSE_LABEL, isClosed, JOB_STATUS_LABEL, JOB_STATUS_TONE } from './produccion.labels';
 import { jobProgress } from './produccion.progress';
@@ -13,7 +15,7 @@ import { plannedCounts, type PartCount } from './produccion.outputs';
 /** One print job with its actions: start it, close it. */
 @Component({
   selector: 'app-print-job-card',
-  imports: [RouterLink, Badge, Thumb, DecimalPipe, PrintJobClose, ...FORMAT_PIPES],
+  imports: [RouterLink, Badge, Thumb, DecimalPipe, PrintJobClose, PrintJobStart, ...FORMAT_PIPES],
   template: `
     <article>
       <div class="top">
@@ -54,6 +56,10 @@ import { plannedCounts, type PartCount } from './produccion.outputs';
                 · faltan {{ run.remainingS! | duration }}
               }
             </p>
+            @if (run.overdue) {
+              <!-- The plan's own warning about this job, said once and here, where «Cerrar…» is. -->
+              <p class="late-text small">¿Terminó? Ciérrala: mientras siga abierta, el plan la da por terminada ahora.</p>
+            }
           } @else {
             <p class="muted small">Lleva {{ run.elapsedS | duration }}. Sin estimación para comparar.</p>
           }
@@ -85,6 +91,8 @@ import { plannedCounts, type PartCount } from './produccion.outputs';
             </li>
           }
         </ul>
+      } @else if (job().status === 'planned') {
+        <p class="muted note">Los rollos se eligen al iniciar.</p>
       }
 
       @if (job().status === 'failed') {
@@ -101,10 +109,14 @@ import { plannedCounts, type PartCount } from './produccion.outputs';
       @if (!isClosed()) {
         @if (closing()) {
           <app-print-job-close [job]="job()" (closed)="onClosed($event)" (cancelled)="closing.set(false)" />
+        } @else if (choosingRolls()) {
+          <app-print-job-start [job]="job()" (started)="onStarted()" (cancelled)="choosingRolls.set(false)" />
         } @else {
           <div class="row">
             @if (job().status === 'planned') {
-              <button type="button" (click)="start()" [disabled]="busy()">{{ busy() ? 'Iniciando…' : 'Iniciar' }}</button>
+              <button type="button" (click)="start()" [disabled]="busy()">
+                {{ busy() ? 'Iniciando…' : job().filaments.length === 0 ? 'Iniciar…' : 'Iniciar' }}
+              </button>
             }
             <button type="button" class="secondary" (click)="closing.set(true)">Cerrar…</button>
           </div>
@@ -127,6 +139,7 @@ import { plannedCounts, type PartCount } from './produccion.outputs';
     .meta { font-size: 0.82rem; }
     .note { font-size: 0.82rem; }
     .fail { color: var(--danger); font-size: 0.85rem; }
+    .late-text { color: var(--warn); }
     .spools { list-style: none; margin: 0.4rem 0 0.6rem; padding: 0; font-size: 0.85rem; display: grid; gap: 0.15rem; }
     .shelf { display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem 0.75rem; margin: 0.4rem 0; font-size: 0.85rem; }
     .part { display: inline-flex; align-items: center; gap: 0.35rem; }
@@ -135,6 +148,7 @@ import { plannedCounts, type PartCount } from './produccion.outputs';
 })
 export class PrintJobCard {
   private readonly data = inject(ProduccionData);
+  private readonly plan = inject(PlanService);
 
   readonly job = input.required<JobItem>();
   readonly showOrder = input(true);
@@ -146,6 +160,8 @@ export class PrintJobCard {
   protected readonly causeLabel = FAILURE_CAUSE_LABEL;
 
   protected readonly closing = signal(false);
+  /** A job queued without rolls asks for them before it starts. */
+  protected readonly choosingRolls = signal(false);
   protected readonly busy = signal(false);
 
   /**
@@ -193,10 +209,15 @@ export class PrintJobCard {
   }
 
   protected async start(): Promise<void> {
+    if (this.job().filaments.length === 0) {
+      this.choosingRolls.set(true);
+      return;
+    }
     this.busy.set(true);
     this.error.set(null);
     try {
       await this.data.startJob(this.job().id);
+      this.plan.invalidate();
       this.changed.emit(null);
     } catch (error) {
       this.error.set(explainError(error, 'No pudimos iniciar la impresión. Inténtalo de nuevo.'));
@@ -205,8 +226,15 @@ export class PrintJobCard {
     }
   }
 
+  protected onStarted(): void {
+    this.choosingRolls.set(false);
+    this.plan.invalidate();
+    this.changed.emit(null);
+  }
+
   protected onClosed(outcome: CloseOutcome): void {
     this.closing.set(false);
+    this.plan.invalidate();
     this.changed.emit(outcome);
   }
 }

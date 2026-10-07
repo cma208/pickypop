@@ -3,10 +3,12 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormArray, FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Card, Field, FORMAT_PIPES, ItemPicker, Thumb, type PickerOption } from '../../ui';
 import { duration } from '../../core/format';
+import { PlanService } from '../../core/plan';
 import { explainError } from '../pedidos/pedidos.errors';
 import { ProduccionData, type OrderLineOption, type PlateOption, type SpoolOption } from './produccion.data';
 import type { PrinterSummary } from '../../core/workshop';
 import { describeCounts } from './produccion.outputs';
+import { rowsForPlate, suggestSpool } from './produccion.spools';
 
 const SECONDS_PER_MINUTE = 60;
 
@@ -162,6 +164,7 @@ function createFilamentRow(spoolId = '', estimatedG = 0, slot: number | null = n
 })
 export class PrintJobForm implements OnInit {
   private readonly data = inject(ProduccionData);
+  private readonly plan = inject(PlanService);
 
   /** When set, the job is for this order line and the line cannot be changed. */
   readonly fixedLine = input<FixedOrderLine | null>(null);
@@ -310,6 +313,7 @@ export class PrintJobForm implements OnInit {
           estimatedG: row.estimatedG,
         })),
       });
+      this.plan.invalidate();
       this.saved.emit();
     } catch (error) {
       this.saveError.set(explainError(error, 'No pudimos crear el trabajo. Inténtalo de nuevo.'));
@@ -332,17 +336,14 @@ export class PrintJobForm implements OnInit {
 
     this.form.controls.estimatedMinutes.setValue(Math.max(1, Math.round(plate.printTimeS / SECONDS_PER_MINUTE)));
     this.filaments.clear();
-    for (const filament of plate.filaments) {
-      this.filaments.push(createFilamentRow(this.suggestSpool(filament.skuId), filament.grams, filament.slot));
+    // The same proposal as «Iniciar»: the roll on the printer before a sealed kilo.
+    const taken = new Set<string>();
+    for (const filament of rowsForPlate(plate.filaments)) {
+      const spoolId = suggestSpool(this.spools(), filament.skuId, filament.grams, taken);
+      if (spoolId) taken.add(spoolId);
+      this.filaments.push(createFilamentRow(spoolId, filament.grams, filament.slot));
     }
     if (plate.filaments.length === 0) this.addFilament();
-  }
-
-  /** The roll of that colour with the most left, or empty when the recipe names none. */
-  private suggestSpool(skuId: string | null): string {
-    if (!skuId) return '';
-    const matches = this.spools().filter((spool) => spool.skuId === skuId);
-    return matches.sort((a, b) => b.onHandG - a.onHandG)[0]?.id ?? '';
   }
 
   private async load(): Promise<void> {
