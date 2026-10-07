@@ -6,6 +6,7 @@ import { errorOf } from '../../core/form-errors';
 import { roundMoney } from '../../core/pricing';
 import { Field, FORMAT_PIPES } from '../../ui';
 import { PAYMENT_METHOD_LABELS, PAYMENT_METHODS, type PaymentMethod } from '../finanzas/finanzas.models';
+import { PaymentCategoryNote } from '../finanzas/payment-category-note';
 import { InventarioData, type PaymentAccount, type PurchaseSummary } from './inventario.data';
 import { describeError } from './inventario.errors';
 import { INVENTORY_STYLES } from './inventario.styles';
@@ -20,7 +21,7 @@ const NO_METHOD = '';
  */
 @Component({
   selector: 'app-compra-pago',
-  imports: [ReactiveFormsModule, Field, ...FORMAT_PIPES],
+  imports: [ReactiveFormsModule, Field, PaymentCategoryNote, ...FORMAT_PIPES],
   styles: [
     INVENTORY_STYLES,
     `
@@ -59,6 +60,7 @@ const NO_METHOD = '';
             </select>
           </pp-field>
         </div>
+        <app-payment-category-note kind="purchase" />
         @if (error(); as message) {
           <p class="alert" role="alert">{{ message }}</p>
         }

@@ -29,6 +29,12 @@ export interface ResolvedPhoto {
   path: string | null;
   /** Decides the icon when there is no path. */
   kind: ArticleKind;
+  /**
+   * The picture is the thumbnail of the plate that prints the piece, because
+   * the piece has no photo of its own. A screen can say so instead of saying
+   * «sin foto» under a picture.
+   */
+  fromPlate?: boolean;
 }
 
 /** PostgREST puts ids in the URL; a few hundred uuids is past what proxies accept. */
@@ -51,6 +57,8 @@ interface VariantRow {
 interface ItemRow {
   kind: ItemKind;
   image_path: string | null;
+  /** The catalogue variant a finished good stands for, when the row carries it. */
+  product_variants?: VariantRow | null;
 }
 
 /** A variant shows its own photo, and its product's when it has none. */
@@ -64,7 +72,29 @@ export function variantPhoto(row: VariantRow | null | undefined): ResolvedPhoto 
  */
 export function itemPhoto(row: ItemRow | null | undefined, plateThumbnail: string | null = null): ResolvedPhoto {
   const kind: ArticleKind = row?.kind === 'finished_good' ? 'product' : (row?.kind ?? 'supply');
-  return { path: row?.image_path ?? plateThumbnail ?? null, kind };
+  // A finished good is the assembled form of a catalogue variant: it looks like it.
+  const variantPath = row?.kind === 'finished_good' ? variantPhoto(row.product_variants).path : null;
+  const fromPlate = !row?.image_path && !variantPath && plateThumbnail !== null;
+  return {
+    path: row?.image_path ?? variantPath ?? plateThumbnail ?? null,
+    kind,
+    ...(fromPlate ? { fromPlate } : {}),
+  };
+}
+
+/**
+ * What a list of articles hands to `pp-thumb` or a picker option, next to the
+ * photo it already has, so an article without one borrows a picture instead of
+ * drawing a generic icon: a piece shows the plate that prints it, and a
+ * finished good the variant it stands for. The rest have nobody to borrow
+ * from, and asking would cost a query per row for nothing.
+ *
+ * ```html
+ * <pp-thumb [path]="item.imagePath" [photo]="borrowedPhoto(item.id, item.kind)" [kind]="item.kind" />
+ * ```
+ */
+export function borrowedPhoto(itemId: string | null | undefined, kind: string | null | undefined): PhotoRef | null {
+  return (kind === 'part' || kind === 'finished_good') && itemId ? { kind: 'item', id: itemId } : null;
 }
 
 /** One entry of a plate's list of pieces, with the plate and how many kinds it makes. */
@@ -206,7 +236,12 @@ export class ArticlePhotos {
 
   private async items(ids: string[]): Promise<Map<string, ResolvedPhoto>> {
     const [rows, outputs] = await Promise.all([
-      this.chunked(ids, (chunk) => this.supabase.from('inventory_items').select('id, kind, image_path').in('id', chunk)),
+      this.chunked(ids, (chunk) =>
+        this.supabase
+          .from('inventory_items')
+          .select('id, kind, image_path, product_variants(image_path, catalog_products(image_path))')
+          .in('id', chunk),
+      ),
       this.chunked(ids, (chunk) =>
         this.supabase
           .from('recipe_plate_outputs')

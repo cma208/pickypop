@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { allocateCents, planPurchase } from '../src/purchase.ts';
+import { allocateCents, planPurchase, unitPriceFromLineTotal } from '../src/purchase.ts';
 import type { PlanLineInput } from '../src/purchase.ts';
 
 const sum = (values: number[]) => values.reduce((a, b) => a + b, 0);
@@ -102,5 +102,40 @@ describe('planPurchase', () => {
     const [line] = plan.lines;
 
     expect(Math.round(sum(line?.unitCosts ?? []) * 100)).toBe(Math.round((line?.total ?? 0) * 100));
+  });
+});
+
+describe('unitPriceFromLineTotal', () => {
+  it('gives the price of a gram from what the invoice says for a kilo', () => {
+    expect(unitPriceFromLineTotal(15, 1000)).toBe(0.015);
+    expect(unitPriceFromLineTotal(7.5, 100)).toBe(0.075);
+  });
+
+  it('keeps six decimals, not two', () => {
+    expect(unitPriceFromLineTotal(10, 3)).toBe(3.333333);
+    expect(unitPriceFromLineTotal(100, 3000)).toBe(0.033333);
+  });
+
+  it('rounds the total to cents first: it is money that was paid', () => {
+    expect(unitPriceFromLineTotal(15.004, 1000)).toBe(0.015);
+  });
+
+  it('is zero when it cannot be known', () => {
+    expect(unitPriceFromLineTotal(15, 0)).toBe(0);
+    expect(unitPriceFromLineTotal(15, -2)).toBe(0);
+    expect(unitPriceFromLineTotal(Number.NaN, 5)).toBe(0);
+  });
+
+  it('gives back the total that was paid once multiplied by the quantity', () => {
+    const quantities = [1, 2, 3, 7, 20, 150, 1000, 2500, 5000];
+    const totals = [0.01, 1, 9.99, 15, 33.33, 123.45, 1999.99];
+
+    for (const quantity of quantities) {
+      for (const total of totals) {
+        const price = unitPriceFromLineTotal(total, quantity);
+        const plan = planPurchase([{ kind: 'item', quantity, unitPrice: price, unitWeightG: null }], 0, 0, 'by_amount');
+        expect(plan.lines[0]!.subtotal, `${quantity} for ${total}`).toBe(total);
+      }
+    }
   });
 });

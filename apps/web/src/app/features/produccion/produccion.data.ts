@@ -21,7 +21,7 @@ const JOB_FIELDS =
   'id, status, printer_id, order_line_id, recipe_plate_id, label, started_at, finished_at, estimated_time_s, actual_time_s, units_produced, failure_cause, percent_complete, material_cost, energy_cost, machine_cost, note, created_at, printers(name), recipe_plates(label, thumbnail_path, recipe_plate_outputs(inventory_item_id, units_per_run, position, inventory_items(name, image_path))), ';
 const JOB_RELATIONS = 'order_lines(description, order_id, orders(number)), ';
 const JOB_FILAMENTS =
-  'print_job_filaments(id, spool_id, slot, estimated_g, actual_g, spools(code, filament_skus(color_name, color_hex)))';
+  'print_job_filaments(id, spool_id, slot, estimated_g, actual_g, spools(code, filament_skus(color_name, color_hex, materials(code))))';
 const JOB_COLUMNS = JOB_FIELDS + JOB_RELATIONS + JOB_FILAMENTS;
 /** Same columns, but keeps only jobs that belong to an order line. */
 const JOB_COLUMNS_WITH_ORDER = JOB_FIELDS + JOB_RELATIONS.replace('order_lines(', 'order_lines!inner(') + JOB_FILAMENTS;
@@ -63,7 +63,10 @@ interface JobRow {
     slot: number | null;
     estimated_g: number;
     actual_g: number | null;
-    spools: { code: string | null; filament_skus: { color_name: string; color_hex: string | null } | null } | null;
+    spools: {
+      code: string | null;
+      filament_skus: { color_name: string; color_hex: string | null; materials: { code: string } | null } | null;
+    } | null;
   }[];
 }
 
@@ -71,6 +74,8 @@ export interface JobFilament {
   id: string;
   spoolId: string;
   spoolCode: string;
+  /** With the code, what tells two rolls apart: «NEGRO-02» is PETG, not the second PLA. */
+  materialCode: string | null;
   colorName: string;
   colorHex: string | null;
   slot: number | null;
@@ -139,6 +144,7 @@ export interface SpoolOption {
   code: string;
   skuId: string;
   status: SpoolStatus;
+  materialCode: string | null;
   colorName: string;
   colorHex: string | null;
   onHandG: number;
@@ -174,6 +180,7 @@ export interface CloseJob {
 export interface StockEffect {
   spoolId: string;
   spoolCode: string;
+  materialCode: string | null;
   colorName: string;
   colorHex: string | null;
   beforeG: number;
@@ -366,7 +373,7 @@ export class ProduccionData {
     const [spools, balances] = await Promise.all([
       this.supabase
         .from('spools')
-        .select('id, code, status, filament_sku_id, filament_skus(color_name, color_hex)')
+        .select('id, code, status, filament_sku_id, filament_skus(color_name, color_hex, materials(code))')
         .in('status', [...USABLE_SPOOL_STATUSES]),
       this.supabase.from('spool_balances').select('spool_id, on_hand_g'),
     ]);
@@ -381,6 +388,7 @@ export class ProduccionData {
         code: spool.code ?? 'Sin código',
         skuId: spool.filament_sku_id,
         status: spool.status as SpoolStatus,
+        materialCode: spool.filament_skus?.materials?.code ?? null,
         colorName: spool.filament_skus?.color_name ?? 'Sin color',
         colorHex: spool.filament_skus?.color_hex ?? null,
         onHandG: onHand.get(spool.id) ?? 0,
@@ -601,7 +609,7 @@ export class ProduccionData {
     const [spools, balances] = await Promise.all([
       this.supabase
         .from('spools')
-        .select('id, code, filament_skus(color_name, color_hex)')
+        .select('id, code, filament_skus(color_name, color_hex, materials(code))')
         .in('id', spoolIds),
       this.supabase.from('spool_balances').select('spool_id, on_hand_g').in('spool_id', spoolIds),
     ]);
@@ -612,6 +620,7 @@ export class ProduccionData {
     return spools.data.map((spool) => ({
       spoolId: spool.id,
       spoolCode: spool.code ?? 'Sin código',
+      materialCode: spool.filament_skus?.materials?.code ?? null,
       colorName: spool.filament_skus?.color_name ?? 'Sin color',
       colorHex: spool.filament_skus?.color_hex ?? null,
       beforeG: onHand.get(spool.id) ?? 0,
@@ -694,6 +703,7 @@ function toJobItem(row: JobRow): JobItem {
         id: filament.id,
         spoolId: filament.spool_id,
         spoolCode: filament.spools?.code ?? 'Sin código',
+        materialCode: filament.spools?.filament_skus?.materials?.code ?? null,
         colorName: filament.spools?.filament_skus?.color_name ?? 'Sin color',
         colorHex: filament.spools?.filament_skus?.color_hex ?? null,
         slot: filament.slot,

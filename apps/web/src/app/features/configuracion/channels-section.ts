@@ -23,14 +23,17 @@ const RATE_DECIMALS = 10_000;
           Por dónde llegan las ventas. La comisión es lo que el canal se queda de cada venta (0 % si no cobra).
         </p>
         <div class="toolbar">
-          @if (!formOpen()) {
-            <button type="button" (click)="open(null)">Nuevo canal</button>
-          }
+          <!-- Always there: when it vanished while the form was open, the form's own title took its place and looked like the button. -->
+          <button type="button" [class.secondary]="formOpen()" (click)="open(null)">+ Nuevo canal</button>
         </div>
+
+        @if (notice(); as text) {
+          <p class="notice" role="status">{{ text }}</p>
+        }
 
         @if (formOpen()) {
           <form class="form-box" [formGroup]="form" (ngSubmit)="submit()">
-            <h3>{{ editing() ? 'Editar canal' : 'Nuevo canal' }}</h3>
+            <h3>{{ editing() ? 'Editar «' + editing()?.name + '»' : 'Datos del canal nuevo' }}</h3>
             <div class="grid two">
               <pp-field label="Nombre" [required]="true" [error]="nameError()">
                 <input formControlName="name" placeholder="Ej.: Instagram, Feria, Tienda online" />
@@ -84,6 +87,7 @@ export class ChannelsSection {
   protected readonly editing = signal<ChannelRecord | null>(null);
   protected readonly saving = signal(false);
   protected readonly error = signal<string | null>(null);
+  protected readonly notice = signal<string | null>(null);
 
   protected readonly form = new FormGroup({
     name: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
@@ -106,6 +110,7 @@ export class ChannelsSection {
       active: channel?.active ?? true,
     });
     this.error.set(null);
+    this.notice.set(null);
     this.editing.set(channel);
     this.formOpen.set(true);
   }
@@ -137,6 +142,7 @@ export class ChannelsSection {
         active: value.active,
       });
       this.formOpen.set(false);
+      this.notice.set(`Canal «${value.name.trim()}» guardado.`);
       await this.reload();
     } catch (error) {
       this.error.set(friendlyError(error, 'No pudimos guardar el canal.'));

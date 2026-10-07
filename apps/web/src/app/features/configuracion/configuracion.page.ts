@@ -1,4 +1,5 @@
-import { Component, signal } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
 import { Page } from '../../ui';
 import { AppearanceSection } from './appearance-section';
 import { BrandsSection } from './brands-section';
@@ -6,6 +7,7 @@ import { ChannelsSection } from './channels-section';
 import { CostProfileSection } from './cost-profile-section';
 import { GiftCategoriesSection } from './gift-categories-section';
 import { CategoriesSection } from './categories-section';
+import { PaymentCategoriesSection } from './payment-categories-section';
 import { FinishesSection } from './finishes-section';
 import { MaterialsSection } from './materials-section';
 import { ScheduleSection } from './schedule-section';
@@ -31,7 +33,7 @@ const TABS: { id: TabId; label: string }[] = [
   imports: [
     Page, CostProfileSection, WorkshopSection, MembersSection, ChannelsSection,
     GiftCategoriesSection, BrandsSection, MaterialsSection, FinishesSection, CategoriesSection, AppearanceSection,
-    ScheduleSection,
+    ScheduleSection, PaymentCategoriesSection,
   ],
   styles: `
     .tabs { display: flex; gap: 0.25rem; flex-wrap: wrap; margin-bottom: 1.25rem; border-bottom: 1px solid var(--line); }
@@ -71,7 +73,12 @@ const TABS: { id: TabId; label: string }[] = [
         @case ('brands') { <app-brands-section /> }
         @case ('materials') { <app-materials-section /> }
         @case ('finishes') { <app-finishes-section /> }
-        @case ('categories') { <app-categories-section /> }
+        @case ('categories') {
+          <div class="stack">
+            <app-payment-categories-section #defaults />
+            <app-categories-section (changed)="defaults.reload()" />
+          </div>
+        }
         @case ('appearance') { <app-appearance-section /> }
       }
     </pp-page>
@@ -79,5 +86,11 @@ const TABS: { id: TabId; label: string }[] = [
 })
 export class ConfiguracionPage {
   protected readonly tabs = TABS;
-  protected readonly active = signal<TabId>('costs');
+  /** `?tab=categories` opens a tab directly, so another screen can send the person to the setting it mentions. */
+  protected readonly active = signal<TabId>(this.requestedTab());
+
+  private requestedTab(): TabId {
+    const requested = inject(ActivatedRoute).snapshot.queryParamMap.get('tab');
+    return TABS.find((tab) => tab.id === requested)?.id ?? 'costs';
+  }
 }

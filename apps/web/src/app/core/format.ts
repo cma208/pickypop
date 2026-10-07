@@ -24,6 +24,32 @@ export function money(amount: number | string | null | undefined, fractionDigits
   }).format(value);
 }
 
+/**
+ * The most decimals a unit price can have. The stored price and the kardex
+ * keep six, so a cheap thing (a gram of filament, a sticker) does not round to
+ * zero.
+ */
+const UNIT_PRICE_MAX_DIGITS = 6;
+
+const UNIT_PRICE = new Intl.NumberFormat('es-PE', {
+  style: 'currency',
+  currency: 'PEN',
+  minimumFractionDigits: 2,
+  maximumFractionDigits: UNIT_PRICE_MAX_DIGITS,
+});
+
+/**
+ * A price per unit with the decimals it really has, from two to six and no
+ * zeros to spare: «S/ 0.015» a gram, «S/ 2.50» a roll. Shown with cents, the
+ * gram became «S/ 0.02» and «1000 g × S/ 0.02 = S/ 15.00» looked like a wrong
+ * sum (recorrido desde cero, H10).
+ */
+export function unitPrice(amount: number | string | null | undefined): string {
+  if (amount === null || amount === undefined || amount === '') return '—';
+  const value = Number(amount);
+  return Number.isFinite(value) ? UNIT_PRICE.format(value) : '—';
+}
+
 export function grams(value: number | string | null | undefined): string {
   if (value === null || value === undefined) return '—';
   const amount = Number(value);

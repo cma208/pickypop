@@ -198,6 +198,16 @@ export function assembledText(onHand: number, claims: readonly ItemClaim[]): str
   return free > 0 ? `${built} · ${summary} · ${freeText(free, UNIT)}` : `${built} · ${summary}`;
 }
 
+/**
+ * What «Armar» answers once it has built: «Se armó 1 unidad de…», «Se armaron
+ * 3 unidades de…». It was the only sign that anything had happened, and it was
+ * written and wiped in the same breath (recorrido desde cero, H26).
+ */
+export function assembledMessage(units: number, product: { productName: string; variantName: string }): string {
+  const built = units === 1 ? 'Se armó 1 unidad' : `Se armaron ${COUNT.format(units)} unidades`;
+  return `${built} de ${product.productName} (${product.variantName}). Los componentes salieron del estante.`;
+}
+
 /** The four cells of an article's row. Null when the plan does not know the article. */
 export function itemCells(
   kind: ItemKind,

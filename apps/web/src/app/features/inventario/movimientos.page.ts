@@ -9,6 +9,8 @@ import {
   type SpoolSummary,
 } from './inventario.data';
 import { describeError } from './inventario.errors';
+import { borrowedPhoto } from '../../core/article-photos';
+import { spoolLabel } from '../../core/spool-label';
 import {
   MOVEMENT_TYPES,
   MOVEMENT_TYPE_LABELS,
@@ -72,7 +74,7 @@ const NO_FILTER: MovementFilter = { type: null, spoolId: null, itemId: null, fro
           <select [value]="filter().spoolId ?? ''" (change)="onSpool($event)">
             <option value="">Todos</option>
             @for (spool of spools(); track spool.id) {
-              <option [value]="spool.id">{{ spool.code ?? 'Sin código' }} · {{ spool.skuLabel }}</option>
+              <option [value]="spool.id">{{ spoolLabel(spool, spool.remainingG) }}</option>
             }
           </select>
         </label>
@@ -131,6 +133,7 @@ const NO_FILTER: MovementFilter = { type: null, spoolId: null, itemId: null, fro
                       <td>
                         <pp-item
                           [path]="row.imagePath"
+                          [photo]="borrowedPhoto(row.itemId, row.itemKind)"
                           [kind]="row.subjectKind === 'spool' ? 'spool' : row.itemKind"
                           [color]="row.colorHex"
                           [name]="row.subject"
@@ -185,6 +188,8 @@ export class MovimientosPage {
   protected readonly labels = MOVEMENT_TYPE_LABELS;
   protected readonly tones = TYPE_TONES;
   protected readonly limit = MOVEMENTS_LIMIT;
+  protected readonly spoolLabel = spoolLabel;
+  protected readonly borrowedPhoto = borrowedPhoto;
 
   protected readonly spools = signal<SpoolSummary[]>([]);
   protected readonly items = signal<InventoryItemSummary[]>([]);

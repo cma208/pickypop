@@ -33,6 +33,7 @@ export const FAILURE_CAUSE_LABEL: Record<FailureCause, string> = {
   filament_runout: 'Se acabó el filamento',
   power_loss: 'Corte de luz',
   wrong_settings: 'Configuración equivocada',
+  warping: 'Warping / deformación',
   other: 'Otra causa',
 };
 

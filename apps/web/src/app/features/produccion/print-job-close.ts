@@ -7,6 +7,7 @@ import { ProduccionData, type CloseJob, type CloseOutcome, type JobItem } from '
 import { FAILURE_CAUSE_LABEL, FAILURE_CAUSES, type FailureCause } from './produccion.labels';
 import { describeCounts } from './produccion.outputs';
 import { createOutputControl, PrintJobOutputs, type OutputControls } from './print-job-outputs';
+import { filamentName } from '../../core/spool-label';
 
 const SECONDS_PER_MINUTE = 60;
 
@@ -94,7 +95,7 @@ function createUsageRow(spoolId: string, actualG: number) {
               <div class="spool">
                 <strong>{{ filamentOf(i).spoolCode }}</strong>
                 <span class="muted">
-                  {{ filamentOf(i).colorName }} · estimado {{ filamentOf(i).estimatedG | grams }}
+                  {{ filament(i) }} · estimado {{ filamentOf(i).estimatedG | grams }}
                   @if (current()[filamentOf(i).spoolId] !== undefined) { · hay {{ current()[filamentOf(i).spoolId] | grams }} }
                 </span>
               </div>
@@ -208,6 +209,12 @@ export class PrintJobClose implements OnInit {
 
   protected filamentOf(index: number) {
     return this.job().filaments[index]!;
+  }
+
+  /** «PETG Negro»: the code on the roll does not say what material it is. */
+  protected filament(index: number): string {
+    const roll = this.filamentOf(index);
+    return filamentName(roll.materialCode, roll.colorName);
   }
 
   protected partOf(index: number) {

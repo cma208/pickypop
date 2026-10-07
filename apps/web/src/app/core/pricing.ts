@@ -10,6 +10,7 @@ import {
   roundMoney,
   roundUpToStep,
   sumMoney,
+  unitPriceFromLineTotal,
   unitShare,
 } from '@pickypop/domain';
 import { countObjects, parsePlateObjects, parseSliceInfo, totalFilamentGrams } from '@pickypop/slicer-files';
@@ -31,6 +32,7 @@ export {
   roundMoney,
   roundUpToStep,
   sumMoney,
+  unitPriceFromLineTotal,
   unitShare,
   parseSliceInfo,
   totalFilamentGrams,

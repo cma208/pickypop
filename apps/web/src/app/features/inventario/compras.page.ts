@@ -12,9 +12,13 @@ import {
   type SupplierOption,
 } from './inventario.data';
 import { describeError } from './inventario.errors';
-import { INVENTORY_PIPES } from './inventario.format';
+import { INVENTORY_PIPES, unitFor } from './inventario.format';
 import { INVENTORY_STYLES } from './inventario.styles';
 import { InventoryPlan } from './inventory-plan';
+import { spoolName } from '../../core/spool-label';
+
+/** What a supply line is counted in when its item has no unit of its own. */
+const DEFAULT_UNIT = 'unidad';
 
 @Component({
   selector: 'app-compras',
@@ -118,7 +122,7 @@ import { InventoryPlan } from './inventory-plan';
                                 [name]="line.label"
                               >
                                 <span sub>
-                                  {{ line.quantity }} × {{ line.unitPrice | money }}
+                                  {{ lineQuantity(line) }} × {{ line.unitPrice | unitPrice }}
                                   @if (line.extra > 0) { + {{ line.extra | money }} de envío y otros }
                                 </span>
                               </pp-item>
@@ -196,18 +200,26 @@ export class ComprasPage {
     return line.isSpool ? 'spool' : (line.itemKind ?? 'supply');
   }
 
+  /** «1000 g», «20 unidades», «3 rollos»: what the line bought, counted in its own unit. */
+  protected lineQuantity(line: PurchaseLineView): string {
+    const unit = line.isSpool ? (line.quantity === 1 ? 'rollo' : 'rollos') : unitFor(line.quantity, line.unit ?? DEFAULT_UNIT);
+    return `${line.quantity} ${unit}`;
+  }
+
   protected toggle(id: string): void {
     this.expandedId.set(this.expandedId() === id ? null : id);
   }
 
   protected async onSaved(saved: SavedPurchase): Promise<void> {
-    const { rolls, paymentFailed } = saved;
+    const { rolls, spools, paymentFailed } = saved;
     this.creating.set(false);
     // What came in may be exactly what an order was missing: the plan computes again.
     this.planner.changed();
+    // The labels are what gets written on the rolls, so they are listed here.
+    const labels = spools.length > 0 ? `: ${spools.map(spoolName).join(', ')}` : '';
     this.notice.set(
       rolls > 0
-        ? `Compra registrada. Se crearon ${rolls} ${rolls === 1 ? 'rollo' : 'rollos'} con su costo final.`
+        ? `Compra registrada. Se crearon ${rolls} ${rolls === 1 ? 'rollo' : 'rollos'} con su costo final${labels}.`
         : 'Compra registrada. El stock de insumos ya subió.',
     );
     this.warning.set(

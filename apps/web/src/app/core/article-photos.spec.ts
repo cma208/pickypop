@@ -1,4 +1,4 @@
-import { itemPhoto, jobPhoto, orderPhoto, plateThumbnailFor, variantPhoto } from './article-photos';
+import { borrowedPhoto, itemPhoto, jobPhoto, orderPhoto, plateThumbnailFor, variantPhoto } from './article-photos';
 
 const PRODUCT = { image_path: 'ws/productos/pocion.webp' };
 
@@ -32,12 +32,50 @@ describe('itemPhoto', () => {
     expect(itemPhoto({ kind: 'part', image_path: null }, 'ws/impresiones/placa.webp')).toEqual({
       path: 'ws/impresiones/placa.webp',
       kind: 'part',
+      fromPlate: true,
     });
+  });
+
+  it('says when the picture is the plate and when it is the piece itself', () => {
+    expect(itemPhoto({ kind: 'part', image_path: null }, 'ws/impresiones/placa.webp').fromPlate).toBe(true);
+    expect(itemPhoto({ kind: 'part', image_path: 'ws/articulos/tapa.webp' }, 'ws/impresiones/placa.webp').fromPlate).toBeUndefined();
+    expect(itemPhoto({ kind: 'part', image_path: null }).fromPlate).toBeUndefined();
+  });
+
+  it('shows a finished good with the photo of the variant it stands for', () => {
+    const variant = { image_path: null, catalog_products: { image_path: 'ws/productos/pocion.webp' } };
+    expect(itemPhoto({ kind: 'finished_good', image_path: null, product_variants: variant }).path).toBe(
+      'ws/productos/pocion.webp',
+    );
+    expect(
+      itemPhoto({ kind: 'finished_good', image_path: null, product_variants: { ...variant, image_path: 'ws/variantes/roja.webp' } }).path,
+    ).toBe('ws/variantes/roja.webp');
   });
 
   it('keeps the kind for the icon, and draws a finished good as a product', () => {
     expect(itemPhoto({ kind: 'packaging', image_path: null }).kind).toBe('packaging');
     expect(itemPhoto({ kind: 'finished_good', image_path: null }).kind).toBe('product');
+  });
+});
+
+describe('borrowedPhoto', () => {
+  it('asks for the plate of a piece, which is the only article a plate prints', () => {
+    expect(borrowedPhoto('tapa', 'part')).toEqual({ kind: 'item', id: 'tapa' });
+  });
+
+  it('asks for the variant of a finished good, which is what it looks like', () => {
+    expect(borrowedPhoto('pocion', 'finished_good')).toEqual({ kind: 'item', id: 'pocion' });
+  });
+
+  it('asks for nothing on any other article: there is nobody to borrow from', () => {
+    expect(borrowedPhoto('bolsa', 'packaging')).toBeNull();
+    expect(borrowedPhoto('dulces', 'supply')).toBeNull();
+    expect(borrowedPhoto('llave', 'spare_part')).toBeNull();
+  });
+
+  it('asks for nothing when there is no id or no kind', () => {
+    expect(borrowedPhoto(null, 'part')).toBeNull();
+    expect(borrowedPhoto('tapa', null)).toBeNull();
   });
 });
 

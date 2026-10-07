@@ -32,11 +32,18 @@ const MONEY_VALIDATORS = [Validators.required, Validators.min(0)];
   styles: SECTION_STYLES,
   template: `
     <form class="form-box" [formGroup]="form" (ngSubmit)="submit()">
-      <h3>Nueva versión de los parámetros</h3>
-      <p class="muted">
-        Parte de los valores vigentes. Cambia lo que haga falta: se guarda como una versión nueva y la
-        actual queda en el historial.
-      </p>
+      <h3>{{ base() ? 'Nueva versión de los parámetros' : 'Primeros parámetros de costo' }}</h3>
+      @if (base()) {
+        <p class="muted">
+          Parte de los valores vigentes. Cambia lo que haga falta: se guarda como una versión nueva y la
+          actual queda en el historial.
+        </p>
+      } @else {
+        <p class="muted">
+          Todavía no hay parámetros vigentes, así que estos son valores de partida. Cámbialos por los de tu taller:
+          lo que guardes será la primera versión, y las cotizaciones la usan desde la fecha que elijas.
+        </p>
+      }
 
       <pp-field label="Vigente desde" [required]="true" [error]="err('validFrom')" hint="No puede ser anterior a hoy. Debe ser una fecha que ninguna otra versión use.">
         <input type="date" formControlName="validFrom" [min]="today" />
@@ -85,7 +92,7 @@ const MONEY_VALIDATORS = [Validators.required, Validators.min(0)];
         <p class="error" role="alert">{{ message }}</p>
       }
       <div class="form-actions">
-        <button type="submit" [disabled]="saving()">{{ saving() ? 'Guardando…' : 'Guardar nueva versión' }}</button>
+        <button type="submit" [disabled]="saving()">{{ saving() ? 'Guardando…' : base() ? 'Guardar nueva versión' : 'Guardar los parámetros' }}</button>
         <button type="button" class="secondary" (click)="cancelled.emit()">Cancelar</button>
       </div>
     </form>

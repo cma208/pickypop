@@ -100,7 +100,14 @@ export interface PickerOption {
             autocomplete="off"
           />
           @if (visible().length === 0) {
-            <p class="muted empty">Nada coincide con «{{ term() }}».</p>
+            <!-- Without a search there is nothing to match against: the list itself is empty. -->
+            <p class="muted empty">
+              @if (term() === '') {
+                {{ emptyText() }}
+              } @else {
+                Nada coincide con «{{ term() }}».
+              }
+            </p>
           } @else {
             <ul role="listbox" [id]="uid + '-list'">
               @for (option of visible(); track option.value; let i = $index) {
@@ -179,6 +186,8 @@ export class ItemPicker implements ControlValueAccessor {
   /** For screen readers, when no visible label wraps the picker. */
   readonly label = input<string>('');
   readonly disabled = input(false);
+  /** What the open panel says when there is nothing to choose from at all, as opposed to nothing matching a search. */
+  readonly emptyText = input('Todavía no hay nada para elegir.');
 
   readonly chosen = output<string>();
 

@@ -22,7 +22,8 @@ export function sumMoney(amounts: number[]): number {
 const UNIT_SHARE_SCALE = 1e6;
 
 /**
- * One unit's share of a batch total, to six decimals rather than cents. A
+ * One unit's share of a total, to six decimals rather than cents: the
+ * precision the kardex, the purchases and the order lines keep. A
  * batch of two that costs S/ 15.69 is 7.845 a unit: rounded to 7.85 and
  * multiplied back it would be S/ 15.70, and the order would disagree with the
  * quote by a cent. Six decimals give the batch back for any real quantity:

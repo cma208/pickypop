@@ -10,6 +10,7 @@ import { PrintJobCard } from './print-job-card';
 import { PrintJobForm } from './print-job-form';
 import { ProduccionData, type CloseOutcome, type JobItem } from './produccion.data';
 import { queueLanes } from './produccion.queue';
+import { rollName } from './produccion.spools';
 
 const EFFECTS_ID = 'stock-effects';
 /** Wording of the plan's warning for a printing job past its estimate (`plan-queue.ts`). */
@@ -46,7 +47,7 @@ const PAST_ESTIMATE = /pasó su tiempo estimado/;
                 <tbody>
                   @for (row of result.effects; track row.spoolId) {
                     <tr>
-                      <td>{{ row.spoolCode }} <span class="muted">{{ row.colorName }}</span></td>
+                      <td>{{ rollName(row) }}</td>
                       <td class="num">{{ row.beforeG | grams }}</td>
                       <td class="num"><strong>{{ row.afterG | grams }}</strong></td>
                       <td class="num">{{ row.afterG - row.beforeG | grams }}</td>
@@ -135,6 +136,7 @@ export class ProduccionPage {
   protected readonly orderId = computed(() => this.query()?.get('pedido') ?? null);
 
   protected readonly effectsId = EFFECTS_ID;
+  protected readonly rollName = rollName;
 
   protected readonly jobs = signal<JobItem[]>([]);
   protected readonly view = signal<PlanView | null>(null);

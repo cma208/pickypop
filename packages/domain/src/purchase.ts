@@ -1,4 +1,4 @@
-import { roundMoney } from './money.ts';
+import { roundMoney, unitShare } from './money.ts';
 
 /**
  * Spreads a purchase's shipping and other costs over its lines and over each
@@ -42,8 +42,6 @@ export interface PurchasePlan {
 }
 
 const CENTS_PER_SOL = 100;
-/** The kardex keeps unit costs to 6 decimals, finer than cents, so cheap items do not round to zero. */
-const COST_DECIMALS = 1_000_000;
 
 function toCents(amount: number): number {
   return Math.round(roundMoney(Number.isFinite(amount) ? amount : 0) * CENTS_PER_SOL);
@@ -51,6 +49,17 @@ function toCents(amount: number): number {
 
 function fromCents(cents: number): number {
   return roundMoney(cents / CENTS_PER_SOL);
+}
+
+/**
+ * The price of one unit when what is known is what the whole line cost: the
+ * invoice says S/ 15.00 for 1000 g, not S/ 0.015 per gram. Kept to the 6
+ * decimals the stored unit price and the kardex have, so a cheap thing does
+ * not round to zero and the line still adds up to what was paid.
+ */
+export function unitPriceFromLineTotal(lineTotal: number, quantity: number): number {
+  if (!Number.isFinite(lineTotal) || !(quantity > 0)) return 0;
+  return unitShare(roundMoney(lineTotal), quantity);
 }
 
 /** Splits `totalCents` in proportion to `weights`; the result always sums to `totalCents`. */
@@ -113,7 +122,7 @@ export function planPurchase(
       unitCosts,
       effectiveUnitCost:
         line.quantity > 0
-          ? Math.round((totalCents / CENTS_PER_SOL / line.quantity) * COST_DECIMALS) / COST_DECIMALS
+          ? unitShare(totalCents / CENTS_PER_SOL, line.quantity)
           : 0,
     };
   });

@@ -30,6 +30,15 @@ export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
 
 export const PAYMENT_METHODS = Object.keys(PAYMENT_METHOD_LABELS) as PaymentMethod[];
 
+/**
+ * How money moves in an account of this kind, when there is only one answer:
+ * a cash box takes cash. A bank or a wallet can take several (a transfer, Yape
+ * or Plin), so it is left for the person to say.
+ */
+export function defaultMethodFor(kind: AccountKind): PaymentMethod | null {
+  return kind === 'cash' ? 'cash' : null;
+}
+
 export const TRANSACTION_TYPE_LABELS: Record<TransactionType, string> = {
   income: 'Ingreso',
   expense: 'Egreso',
@@ -84,6 +93,24 @@ export function categoriesFor(
   const direction = TYPE_DIRECTION[type];
   if (direction === null) return [];
   return categories.filter((category) => category.direction === direction);
+}
+
+/**
+ * The category a collection or a purchase payment is filed under when nobody
+ * picks one: the one the owner chose, while it is still offered, else the only
+ * one of its direction. It is the rule of `app.default_category` in the
+ * database, which is what really applies it; this copy only lets a form say
+ * so before saving, so the two change together.
+ */
+export function defaultCategory(
+  direction: TransactionDirection,
+  chosenId: string | null,
+  categories: readonly CategoryOption[],
+): CategoryOption | null {
+  const ofDirection = categories.filter((category) => category.direction === direction);
+  const chosen = ofDirection.find((category) => category.id === chosenId);
+  if (chosen) return chosen;
+  return ofDirection.length === 1 ? ofDirection[0]! : null;
 }
 
 /** True when the category can still be kept after the type changed. */

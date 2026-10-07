@@ -63,9 +63,9 @@ import { FINANCE_STYLES } from './finanzas.styles';
           <input type="datetime-local" formControlName="occurredAt" />
         </pp-field>
 
-        <pp-field label="Categoría">
+        <pp-field label="Categoría" hint="Si no eliges, se usa la de Configuración › Categorías de dinero.">
           <select formControlName="categoryId">
-            <option value="">Sin categoría</option>
+            <option value="">{{ defaultCategoryName() ? 'Por defecto: ' + defaultCategoryName() : 'Sin categoría' }}</option>
             @for (category of categories(); track category.id) {
               <option [value]="category.id">{{ category.name }}</option>
             }
@@ -124,6 +124,8 @@ export class PaymentForm {
 
   protected readonly saving = signal(false);
   protected readonly failure = signal<string | null>(null);
+  /** What the database files the collection under when none is chosen. */
+  protected readonly defaultCategoryName = signal<string | null>(null);
 
   protected readonly form = this.fb.group({
     accountId: [''],
@@ -180,6 +182,12 @@ export class PaymentForm {
   });
 
   constructor() {
+    // Only a label for the empty option: without it the form works the same.
+    void this.data
+      .paymentCategories()
+      .then((categories) => this.defaultCategoryName.set(categories.order?.name ?? null))
+      .catch(() => undefined);
+
     // The suggestion follows the debt, so the form already proposes what is
     // left to collect without anyone typing it.
     effect(() => {

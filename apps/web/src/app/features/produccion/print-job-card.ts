@@ -10,6 +10,7 @@ import { PrintJobStart } from './print-job-start';
 import { ProduccionData, type CloseOutcome, type JobItem } from './produccion.data';
 import { FAILURE_CAUSE_LABEL, isClosed, JOB_STATUS_LABEL, JOB_STATUS_TONE } from './produccion.labels';
 import { jobProgress } from './produccion.progress';
+import { rollName } from './produccion.spools';
 import { plannedCounts, type PartCount } from './produccion.outputs';
 
 /** One print job with its actions: start it, close it. */
@@ -82,7 +83,7 @@ import { plannedCounts, type PartCount } from './produccion.outputs';
           @for (filament of job().filaments; track filament.id) {
             <li>
               <span class="dot" [style.background]="filament.colorHex ?? 'var(--line)'"></span>
-              {{ filament.spoolCode }} · {{ filament.colorName }}:
+              {{ rollName(filament) }}:
               @if (filament.actualG !== null) {
                 {{ filament.actualG | grams }} <span class="muted">(estimado {{ filament.estimatedG | grams }})</span>
               } @else {
@@ -158,6 +159,7 @@ export class PrintJobCard {
   protected readonly tone = JOB_STATUS_TONE;
   protected readonly statusLabel = JOB_STATUS_LABEL;
   protected readonly causeLabel = FAILURE_CAUSE_LABEL;
+  protected readonly rollName = rollName;
 
   protected readonly closing = signal(false);
   /** A job queued without rolls asks for them before it starts. */

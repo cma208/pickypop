@@ -2,6 +2,7 @@ import { inject, Injectable } from '@angular/core';
 import { sumMoney } from '../../core/pricing';
 import { SUPABASE } from '../../core/supabase';
 import { fetchAll } from '../../core/fetch-all';
+import { spoolCodePrefix, spoolName, type SpoolIdentity } from '../../core/spool-label';
 import { CurrentWorkspace } from '../../core/workspace';
 import type { PaymentMethod } from '../finanzas/finanzas.models';
 import { dayEnd, dayStart, todayIso, type ItemKind, type MovementType, type SpoolStatus } from './inventario.format';
@@ -87,6 +88,9 @@ export interface SpoolSummary {
   code: string | null;
   skuId: string;
   skuLabel: string;
+  /** With the code, what tells two rolls apart wherever one is chosen. */
+  materialCode: string | null;
+  colorName: string;
   /** Same answer as the filament's: read from `filament_sku_details`. */
   abrasive: boolean;
   abrasiveBecause: string | null;
@@ -120,6 +124,8 @@ export interface PurchaseLineView {
   isSpool: boolean;
   imagePath: string | null;
   itemKind: ItemKind | null;
+  /** What the quantity of a supply line counts: «g», «unidad». Null for a roll. */
+  unit: string | null;
   colorHex: string | null;
 }
 
@@ -150,6 +156,8 @@ export interface PurchaseDraftLine {
   /** SKU lines only: what each spool weighs and how to label it. */
   netWeightG: number | null;
   colorName: string | null;
+  /** Part of the shelf label, so a PETG black and a PLA black do not share a sequence. */
+  materialCode: string | null;
 }
 
 export interface PurchaseDraft {
@@ -190,6 +198,8 @@ export interface RegisteredPurchase {
    * shows as still to be paid, where it can be paid from the list.
    */
   paymentFailed: boolean;
+  /** The rolls that came in, with the label each one was given. */
+  spools: SpoolIdentity[];
 }
 
 export interface InventoryItemSummary {
@@ -247,6 +257,8 @@ export interface MovementRow {
   subjectKind: 'spool' | 'item';
   /** The item's photo, or null for a spool or an item without one. */
   imagePath: string | null;
+  /** The article the movement is about, null for a spool. A piece without a photo borrows its plate's. */
+  itemId: string | null;
   itemKind: ItemKind | null;
   /** A spool is recognised by its colour, not by a photo. */
   colorHex: string | null;
@@ -293,7 +305,6 @@ export class PartialPurchaseError extends Error {
 
 export const MOVEMENTS_LIMIT = 500;
 const SPOOL_CODE_PADDING = 2;
-const SPOOL_CODE_PREFIX_LENGTH = 6;
 const COST_DECIMALS = 1_000_000;
 const NOON_LIMA_OFFSET = 'T12:00:00-05:00';
 
@@ -557,6 +568,8 @@ export class InventarioData {
           skuLabel: detail
             ? skuLabel(detail.brandName, detail.materialCode, detail.finishName, detail.colorName)
             : 'SKU desconocido',
+          materialCode: detail?.materialCode ?? null,
+          colorName: detail?.colorName ?? '',
           abrasive: detail?.abrasive ?? false,
           abrasiveBecause: detail?.abrasiveBecause ?? null,
           colorHex: sku?.color_hex ?? null,
@@ -609,7 +622,7 @@ export class InventarioData {
       this.supabase
         .from('purchases')
         .select(
-          'id, purchased_at, document_ref, shipping_cost, other_costs, allocation, note, suppliers(name), purchase_lines(id, filament_sku_id, inventory_item_id, description, quantity, unit_price, allocated_extra_cost, spools(count), filament_skus(color_hex), inventory_items(kind, image_path))',
+          'id, purchased_at, document_ref, shipping_cost, other_costs, allocation, note, suppliers(name), purchase_lines(id, filament_sku_id, inventory_item_id, description, quantity, unit_price, allocated_extra_cost, spools(count), filament_skus(color_hex), inventory_items(kind, image_path, unit))',
         )
         .order('purchased_at', { ascending: false })
         .order('created_at', { ascending: false }),
@@ -642,6 +655,7 @@ export class InventarioData {
         isSpool: line.filament_sku_id !== null,
         imagePath: line.inventory_items?.image_path ?? null,
         itemKind: line.inventory_items?.kind ?? null,
+        unit: line.inventory_items?.unit ?? null,
         colorHex: line.filament_skus?.color_hex ?? null,
       }));
 
@@ -766,17 +780,18 @@ export class InventarioData {
       throw new PartialPurchaseError(exists ? purchaseId : null, spoolIds, created, step, error);
     }
 
-    if (draft.payment === null) return { id: purchaseId, paymentFailed: false };
+    const newSpools = this.spoolIdentities(draft, spoolCodes);
+    if (draft.payment === null) return { id: purchaseId, paymentFailed: false, spools: newSpools };
 
     // Last, and outside the undo above: by now the stock is on the shelf and
     // the purchase is real. If the payment fails it stays "por pagar", which
     // is true, and can be paid from the list.
     try {
       await this.payInFull(purchaseId, draft.payment, purchaseMoment(draft.purchasedAt));
-      return { id: purchaseId, paymentFailed: false };
+      return { id: purchaseId, paymentFailed: false, spools: newSpools };
     } catch (error) {
       console.error(error);
-      return { id: purchaseId, paymentFailed: true };
+      return { id: purchaseId, paymentFailed: true, spools: newSpools };
     }
   }
 
@@ -814,6 +829,19 @@ export class InventarioData {
 
     const purchase = await this.supabase.from('purchases').delete().eq('id', purchaseId);
     if (purchase.error) throw purchase.error;
+  }
+
+  /** Who each new roll is, in the order they were created: what the result of the purchase lists. */
+  private spoolIdentities(draft: PurchaseDraft, codes: Map<number, string[]>): SpoolIdentity[] {
+    return draft.lines.flatMap((line, index) =>
+      line.kind === 'sku' && line.netWeightG !== null
+        ? (codes.get(index) ?? []).map((code) => ({
+            code,
+            materialCode: line.materialCode,
+            colorName: line.colorName,
+          }))
+        : [],
+    );
   }
 
   private spoolRows(draft: PurchaseDraft, lineIds: string[], codes: Map<number, string[]>, workspace_id: string) {
@@ -876,7 +904,11 @@ export class InventarioData {
     return [...spoolMovements, ...itemMovements];
   }
 
-  /** Shelf labels like ROJO-03: the next free number for each colour, per purchase line. */
+  /**
+   * Shelf labels like PLA-ROJO-03: the next free number for each material and
+   * colour, per purchase line. The material is part of the label so that the
+   * second black roll is not taken for PLA when it is PETG (H12).
+   */
   private async nextSpoolCodes(lines: PurchaseDraftLine[]): Promise<Map<number, string[]>> {
     const result = new Map<number, string[]>();
     const nextByPrefix = new Map<string, number>();
@@ -884,7 +916,7 @@ export class InventarioData {
     for (const [index, line] of lines.entries()) {
       if (line.kind !== 'sku') continue;
 
-      const prefix = codePrefix(line.colorName);
+      const prefix = spoolCodePrefix(line.materialCode, line.colorName);
       if (!nextByPrefix.has(prefix)) nextByPrefix.set(prefix, await this.lastCodeNumber(prefix));
 
       const codes: string[] = [];
@@ -984,7 +1016,7 @@ export class InventarioData {
     let query = this.supabase
       .from('stock_movements')
       .select(
-        'id, occurred_at, type, quantity, unit_cost, source_type, note, spool_id, inventory_item_id, spools(code, filament_skus(color_name, color_hex)), inventory_items(name, unit, kind, image_path)',
+        'id, occurred_at, type, quantity, unit_cost, source_type, note, spool_id, inventory_item_id, spools(code, filament_skus(color_name, color_hex, materials(code))), inventory_items(name, unit, kind, image_path)',
       )
       .order('occurred_at', { ascending: false })
       .order('created_at', { ascending: false })
@@ -1001,7 +1033,10 @@ export class InventarioData {
 
     const rows = data.slice(0, MOVEMENTS_LIMIT).map((row): MovementRow => {
       const isSpool = row.spool_id !== null;
-      const spoolName = [row.spools?.code, row.spools?.filament_skus?.color_name].filter(Boolean).join(' · ');
+      const sku = row.spools?.filament_skus;
+      const rollName = row.spools
+        ? spoolName({ code: row.spools.code, materialCode: sku?.materials?.code, colorName: sku?.color_name })
+        : '';
 
       return {
         id: row.id,
@@ -1012,9 +1047,10 @@ export class InventarioData {
         unitCost: numOrNull(row.unit_cost),
         sourceType: row.source_type,
         note: row.note,
-        subject: isSpool ? `Rollo ${spoolName || 'sin código'}` : (row.inventory_items?.name ?? 'Artículo'),
+        subject: isSpool ? `Rollo ${rollName || 'sin código'}` : (row.inventory_items?.name ?? 'Artículo'),
         subjectKind: isSpool ? 'spool' : 'item',
         imagePath: isSpool ? null : (row.inventory_items?.image_path ?? null),
+        itemId: row.inventory_item_id,
         itemKind: isSpool ? null : (row.inventory_items?.kind ?? null),
         colorHex: isSpool ? (row.spools?.filament_skus?.color_hex ?? null) : null,
       };
@@ -1091,13 +1127,4 @@ export class InventarioData {
     });
     if (error) throw error;
   }
-}
-
-function codePrefix(colorName: string | null): string {
-  const cleaned = (colorName ?? '')
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .toUpperCase()
-    .replace(/[^A-Z0-9]/g, '');
-  return cleaned.slice(0, SPOOL_CODE_PREFIX_LENGTH) || 'ROLLO';
 }

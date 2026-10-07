@@ -8,6 +8,8 @@
  * wrong roll without anybody noticing (barrido, ronda 2, producción).
  */
 
+import { spoolName } from '../../core/spool-label';
+
 export type SpoolStatus = 'in_use' | 'open' | 'sealed';
 
 export interface SpoolChoice {
@@ -67,4 +69,9 @@ export function rowsForPlate(uses: readonly PlateUse[]): PlateUse[] {
     else rows.push({ ...use });
   }
   return rows;
+}
+
+/** What the cards and the close show for a roll: the code, the material and the colour. */
+export function rollName(roll: { spoolCode: string; materialCode: string | null; colorName: string }): string {
+  return spoolName({ code: roll.spoolCode, materialCode: roll.materialCode, colorName: roll.colorName });
 }

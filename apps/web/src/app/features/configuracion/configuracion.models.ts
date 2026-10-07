@@ -208,3 +208,13 @@ export interface CategoryRecord {
 }
 
 export type CategoryDraft = Omit<CategoryRecord, 'id'>;
+
+/**
+ * The categories a collection and a purchase payment are filed under when
+ * nobody picks one. Null leaves it automatic: the only active category of that
+ * direction, if there is only one.
+ */
+export interface PaymentCategoryChoice {
+  orderCategoryId: string | null;
+  purchaseCategoryId: string | null;
+}

@@ -16,6 +16,7 @@ import type {
   MaterialRecord,
   MemberDraft,
   MemberRecord,
+  PaymentCategoryChoice,
   WorkshopDraft,
   WorkshopRecord,
 } from './configuracion.models';
@@ -116,6 +117,30 @@ export class ConfiguracionData {
       changeover_default_minutes: draft.changeoverMinutes,
       hold_default_days: draft.holdDays,
       hold_default_time: draft.holdTime,
+    });
+    if (error) throw error;
+  }
+
+  async paymentCategories(): Promise<PaymentCategoryChoice> {
+    const { data, error } = await this.supabase
+      .from('workshop_settings')
+      .select('order_payment_category_id, purchase_payment_category_id')
+      .eq('workspace_id', await this.workspace.requireId())
+      .maybeSingle();
+    if (error) throw error;
+
+    return {
+      orderCategoryId: data?.order_payment_category_id ?? null,
+      purchaseCategoryId: data?.purchase_payment_category_id ?? null,
+    };
+  }
+
+  /** The database refuses a category of the wrong direction, so a stale screen cannot save one. */
+  async savePaymentCategories(choice: PaymentCategoryChoice): Promise<void> {
+    const { error } = await this.supabase.from('workshop_settings').upsert({
+      workspace_id: await this.workspace.requireId(),
+      order_payment_category_id: choice.orderCategoryId,
+      purchase_payment_category_id: choice.purchaseCategoryId,
     });
     if (error) throw error;
   }

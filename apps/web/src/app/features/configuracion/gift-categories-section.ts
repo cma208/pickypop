@@ -25,14 +25,16 @@ import { SECTION_STYLES } from '../../core/styles';
           Cuando un pedido es un regalo se elige una categoría; el tratamiento define cómo se cuenta ese costo.
         </p>
         <div class="toolbar">
-          @if (!formOpen()) {
-            <button type="button" (click)="open(null)">Nueva categoría</button>
-          }
+          <button type="button" [class.secondary]="formOpen()" (click)="open(null)">+ Nueva categoría</button>
         </div>
+
+        @if (notice(); as text) {
+          <p class="notice" role="status">{{ text }}</p>
+        }
 
         @if (formOpen()) {
           <form class="form-box" [formGroup]="form" (ngSubmit)="submit()">
-            <h3>{{ editing() ? 'Editar categoría' : 'Nueva categoría' }}</h3>
+            <h3>{{ editing() ? 'Editar «' + editing()?.name + '»' : 'Datos de la categoría nueva' }}</h3>
             <pp-field label="Nombre" [required]="true" [error]="nameError()">
               <input formControlName="name" placeholder="Ej.: Clientes, Familia, Sorteo" />
             </pp-field>
@@ -89,6 +91,7 @@ export class GiftCategoriesSection {
   protected readonly editing = signal<GiftCategoryRecord | null>(null);
   protected readonly saving = signal(false);
   protected readonly error = signal<string | null>(null);
+  protected readonly notice = signal<string | null>(null);
 
   protected readonly form = new FormGroup({
     name: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
@@ -102,6 +105,7 @@ export class GiftCategoriesSection {
   protected open(category: GiftCategoryRecord | null): void {
     this.form.reset({ name: category?.name ?? '', treatment: category?.treatment ?? 'other' });
     this.error.set(null);
+    this.notice.set(null);
     this.editing.set(category);
     this.formOpen.set(true);
   }
@@ -120,6 +124,7 @@ export class GiftCategoriesSection {
     try {
       await this.data.saveGiftCategory(this.editing()?.id ?? null, this.form.getRawValue());
       this.formOpen.set(false);
+      this.notice.set(`Categoría «${this.form.controls.name.value.trim()}» guardada.`);
       await this.reload();
     } catch (error) {
       this.error.set(friendlyError(error, 'No pudimos guardar la categoría.'));

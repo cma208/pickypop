@@ -36,7 +36,7 @@ interface ItemRow {
 
       <pp-async [loading]="loading()" [error]="error()">
         @if (mine().length === 0) {
-          <pp-empty [message]="'Aún no hay ' + heading().toLowerCase() + ' registrados.'">
+          <pp-empty [message]="emptyMessage()">
             <button type="button" (click)="dialog.set({ kind: 'edit', item: null })">Registrar el primero</button>
           </pp-empty>
         } @else {
@@ -192,6 +192,13 @@ export class InsumosPage {
   protected readonly planError = signal<string | null>(null);
 
   protected readonly lowCount = computed(() => this.mine().filter((item) => item.belowMinimum).length);
+
+  /** «Aún no hay insumos y repuestos registrados» but «Aún no hay empaque registrado»: the participle agrees with the noun. */
+  protected readonly emptyMessage = computed(() => {
+    const scope = this.scope();
+    const onlyPackaging = scope?.length === 1 && scope[0] === 'packaging';
+    return onlyPackaging ? 'Aún no hay empaque registrado.' : `Aún no hay ${this.heading().toLowerCase()} registrados.`;
+  });
 
   /** What belongs on this screen at all, before any filter the person sets. */
   protected readonly mine = computed(() => {

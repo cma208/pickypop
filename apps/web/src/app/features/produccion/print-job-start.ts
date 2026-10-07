@@ -1,6 +1,7 @@
 import { Component, inject, input, OnInit, output, signal } from '@angular/core';
 import { FormArray, FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Field, FORMAT_PIPES } from '../../ui';
+import { spoolLabel } from '../../core/spool-label';
 import { explainError } from '../pedidos/pedidos.errors';
 import { ProduccionData, type JobItem, type SpoolOption } from './produccion.data';
 import { rowsForPlate, suggestSpool, type SpoolStatus } from './produccion.spools';
@@ -35,7 +36,7 @@ function createRollRow(spoolId = '', estimatedG = 0, slot: number | null = null)
               <select formControlName="spoolId">
                 <option value="">Elige un rollo…</option>
                 @for (spool of spools(); track spool.id) {
-                  <option [value]="spool.id">{{ spool.code }} · {{ spool.colorName }} · {{ spool.onHandG | grams }} · {{ statusLabel[spool.status] }}</option>
+                  <option [value]="spool.id">{{ spoolLabel(spool, spool.onHandG) }} · {{ statusLabel[spool.status] }}</option>
                 }
               </select>
             </pp-field>
@@ -73,6 +74,7 @@ export class PrintJobStart implements OnInit {
   readonly cancelled = output<void>();
 
   protected readonly statusLabel = STATUS_LABEL;
+  protected readonly spoolLabel = spoolLabel;
   protected readonly rows = new FormArray<ReturnType<typeof createRollRow>>([]);
   protected readonly form = new FormGroup({ rolls: this.rows });
   protected readonly spools = signal<SpoolOption[]>([]);

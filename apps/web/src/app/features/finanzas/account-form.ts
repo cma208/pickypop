@@ -1,4 +1,5 @@
 import { Component, inject, input, output, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { todayLocal } from '../../core/dates';
 import { errorOf, textOrNull } from '../../core/form-errors';
@@ -9,6 +10,7 @@ import { FinanzasData, type AccountSummary } from './finanzas.data';
 import {
   ACCOUNT_KINDS,
   ACCOUNT_KIND_LABELS,
+  defaultMethodFor,
   PAYMENT_METHODS,
   PAYMENT_METHOD_LABELS,
   type AccountKind,
@@ -102,10 +104,26 @@ export class AccountForm {
     kind: ['cash' as AccountKind],
     openingBalance: new FormControl<number>(0, { nonNullable: true, validators: [Validators.required] }),
     openingBalanceOn: [todayLocal(), Validators.required],
-    defaultPaymentMethod: ['' as PaymentMethod | ''],
+    // A new account starts as a cash box, and a cash box takes cash.
+    defaultPaymentMethod: [(defaultMethodFor('cash') ?? '') as PaymentMethod | ''],
     note: [''],
     active: [true],
   });
+
+  constructor() {
+    this.form.controls.kind.valueChanges.pipe(takeUntilDestroyed()).subscribe((kind) => this.followKind(kind));
+  }
+
+  /**
+   * Picking another kind of account moves the suggested method with it, until
+   * the person chooses one themselves. An account that already exists keeps
+   * what it has: changing its kind is not a reason to change how it is paid.
+   */
+  private followKind(kind: AccountKind): void {
+    const method = this.form.controls.defaultPaymentMethod;
+    if (this.account() || !method.pristine) return;
+    method.setValue(defaultMethodFor(kind) ?? '');
+  }
 
   // Signal inputs are only set after construction, so the form is filled here.
   ngOnInit(): void {

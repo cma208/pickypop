@@ -4,6 +4,8 @@ import {
   categoryFitsType,
   dayEnd,
   dayStart,
+  defaultCategory,
+  defaultMethodFor,
   monthLabel,
   num,
   numOrNull,
@@ -101,5 +103,43 @@ describe('dayStart / dayEnd', () => {
     expect(dayStart('2026-10-04')).toBe('2026-10-04T00:00:00-05:00');
     expect(dayEnd('2026-10-04')).toBe('2026-10-04T23:59:59.999-05:00');
     expect(new Date(dayEnd('2026-10-04')).toISOString()).toBe('2026-10-05T04:59:59.999Z');
+  });
+});
+
+describe('defaultCategory', () => {
+  it('uses the one the owner chose', () => {
+    expect(defaultCategory('expense', 'out-2', CATEGORIES)?.id).toBe('out-2');
+  });
+
+  it('uses the only category of its direction when none was chosen', () => {
+    expect(defaultCategory('income', null, CATEGORIES)?.id).toBe('in-1');
+  });
+
+  it('does not guess between two', () => {
+    expect(defaultCategory('expense', null, CATEGORIES)).toBeNull();
+  });
+
+  it('ignores a choice that is no longer offered, and falls back on the only one', () => {
+    expect(defaultCategory('income', 'deactivated', CATEGORIES)?.id).toBe('in-1');
+    expect(defaultCategory('expense', 'deactivated', CATEGORIES)).toBeNull();
+  });
+
+  it('never files an expense under an income category', () => {
+    expect(defaultCategory('expense', 'in-1', CATEGORIES)).toBeNull();
+  });
+
+  it('has nothing when the workshop has no category of that direction', () => {
+    expect(defaultCategory('income', null, [])).toBeNull();
+  });
+});
+
+describe('defaultMethodFor', () => {
+  it('says cash for a cash box, which has no other way to be paid', () => {
+    expect(defaultMethodFor('cash')).toBe('cash');
+  });
+
+  it('leaves a bank or a wallet to the person: they take more than one method', () => {
+    expect(defaultMethodFor('bank')).toBeNull();
+    expect(defaultMethodFor('wallet')).toBeNull();
   });
 });
