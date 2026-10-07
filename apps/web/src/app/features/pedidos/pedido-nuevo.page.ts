@@ -15,6 +15,9 @@ import {
 import { explainError } from './pedidos.errors';
 import { PURPOSE_HELP, PURPOSE_LABEL, PURPOSES, type OrderPurpose } from './pedidos.labels';
 import { PlanService } from '../../core/plan';
+import type { PlanCandidateLine } from '@pickypop/domain';
+import { candidateQuantity, sameCandidates } from '../cotizador/plan-candidate';
+import { watchSalePromise } from '../cotizador/sale-promise.watch';
 
 @Component({
   selector: 'app-pedido-nuevo',
@@ -105,6 +108,10 @@ import { PlanService } from '../../core/plan';
                   [isSale]="purpose() === 'sale'"
                   [removable]="lines.length > 1"
                   [showErrors]="submitted()"
+                  [promise]="promise()?.lines?.[i] ?? null"
+                  [promiseNow]="promiseNow()"
+                  [promiseStale]="watched.asking()"
+                  [promiseFor]="lines.length > 1 ? 'Para esta línea' : 'Para este pedido'"
                   (remove)="removeLine(i)"
                 />
               }
@@ -198,6 +205,27 @@ export class PedidoNuevoPage {
   protected readonly estimatedTotal = computed(() =>
     this.sum((line) => (line.estimatedUnitCost ?? 0) * line.quantity),
   );
+
+  /**
+   * "¿Para cuándo?" for every catalogue line, placed together at the end of
+   * the line as the order will be once saved. A line written by hand has no
+   * plates the plan could place, so it is not asked.
+   */
+  private readonly candidates = computed(
+    () => {
+      this.changes();
+      const names = new Map(this.variants().map((variant) => [variant.id, variant.label]));
+      return this.lines.getRawValue().map((line): PlanCandidateLine | null => {
+        const quantity = Number.isInteger(line.quantity) ? candidateQuantity(line.quantity) : null;
+        if (line.kind !== 'catalog' || !line.variantId || quantity === null) return null;
+        return { description: names.get(line.variantId) ?? 'Producto', quantity, variantId: line.variantId, custom: null };
+      });
+    },
+    { equal: sameCandidates },
+  );
+  protected readonly watched = watchSalePromise(this.candidates);
+  protected readonly promise = this.watched.promise;
+  protected readonly promiseNow = computed(() => this.promise()?.now ?? new Date().toISOString());
 
   constructor() {
     this.form.controls.purpose.valueChanges
