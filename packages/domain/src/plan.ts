@@ -409,15 +409,18 @@ class Allocator {
   private collectJobOutputs(): void {
     for (const job of this.input.jobs) {
       const at = this.queue.jobEnds.get(job.id) ?? this.now;
-      if (job.orderLineId !== null) {
+      const plates = job.orderLineId === null ? undefined : this.customPlateCount.get(job.orderLineId);
+      if (plates !== undefined) {
         // Made-to-order pieces never reach the shelf: they belong to their
         // line. A job does not say which of the line's plates it prints, so
         // a line of two plates counts each job as half a unit: queueing only
         // the front never makes the back look done.
-        const plates = this.customPlateCount.get(job.orderLineId) ?? 1;
-        this.forCustomLines.add(job.orderLineId, { units: job.lineUnits / plates, at, run: null });
+        this.forCustomLines.add(job.orderLineId!, { units: job.lineUnits / plates, at, run: null });
         continue;
       }
+      // A job tied to a catalogue line (every job was, before ADR-020) still
+      // leaves its plate's parts on the shelf when it closes, so that is
+      // where the plan expects them.
       for (const output of job.outputs) {
         this.fromJobs.add(output.itemId, { units: output.units, at, run: null });
       }

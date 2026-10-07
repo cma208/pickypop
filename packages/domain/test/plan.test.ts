@@ -754,6 +754,19 @@ describe('plan: jobs already on the printer', () => {
       'a1 mar 18:48',
     ]);
   });
+
+  it('a job tied to a catalogue line still brings its bottle to the shelf, as closing it does', () => {
+    // Before ADR-020 every job was tied to the order line it was for.
+    const result = plan(
+      workshop({
+        items: potionShelf(0, 0, 9),
+        jobs: [{ ...printing(lima('2026-10-06 17:50')), orderLineId: 'l1', lineUnits: 1 }],
+        demands: [order('o1', 'PED-0001', TUESDAY_1800, [catalogueLine('l1', POTION_VARIANT, 1)])],
+      }),
+    );
+    expect(result.demands[0]!.lines[0]!.components[0]).toMatchObject({ fromQueue: 1, toPrint: 0 });
+    expect(result.runs).toEqual([]);
+  });
 });
 
 describe('plan: what is not assembled', () => {
