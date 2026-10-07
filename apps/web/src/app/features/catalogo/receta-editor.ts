@@ -6,9 +6,9 @@ import { readPlateDetails, readSlicedFile, SlicedFileError } from '../../core/sl
 import type { Lookups, Recipe } from './catalogo.models';
 import { SHARED_STYLES } from './catalogo.styles';
 import { messageOf } from './catalogo.util';
-import { partsMadeByPlates } from './costing';
-import { buildDraft, type ImportDraft } from './importacion';
-import { ImportarPlacas, type ImportOutcome } from './importar-placas';
+import { partsMadeByPlates, splitRecipeRows } from './costing';
+import { buildDraft, importSummary, type ImportDraft, type ImportOutcome } from './importacion';
+import { ImportarPlacas } from './importar-placas';
 import { PlacaEditor } from './placa-editor';
 import type { PartOption } from './salida-fila';
 import { SuministroFila } from './suministro-fila';
@@ -167,6 +167,11 @@ export class RecetaEditor {
   /** Labor rate per hour, to say what a minute per unit costs. */
   readonly laborRate = input<number | null>(null);
   readonly changed = output<void>();
+  /**
+   * The workshop's articles changed under the page (an import created parts),
+   * so the lists of options are stale and the page should read them again.
+   */
+  readonly itemsChanged = output<void>();
 
   protected readonly minutesPerHour = MINUTES_PER_HOUR;
   protected readonly busy = signal(false);
@@ -183,17 +188,11 @@ export class RecetaEditor {
   );
 
   /** Printed parts are never bought, so they get their own list, apart from sweets and bags. */
-  private readonly partIds = computed(
-    () => new Set(this.lookups()?.supplies.filter((item) => item.kind === 'part').map((item) => item.id) ?? []),
-  );
   protected readonly partOptions = computed(() => this.lookups()?.supplies.filter((item) => item.kind === 'part') ?? []);
   protected readonly boughtOptions = computed(() => this.lookups()?.supplies.filter((item) => item.kind !== 'part') ?? []);
-  protected readonly partRows = computed(
-    () => this.recipe()?.supplies.filter((supply) => this.partIds().has(supply.inventoryItemId)) ?? [],
-  );
-  protected readonly supplyRows = computed(
-    () => this.recipe()?.supplies.filter((supply) => !this.partIds().has(supply.inventoryItemId)) ?? [],
-  );
+  private readonly rows = computed(() => splitRecipeRows(this.recipe()?.supplies ?? []));
+  protected readonly partRows = computed(() => this.rows().parts);
+  protected readonly supplyRows = computed(() => this.rows().supplies);
   protected readonly madeHere = computed(() => {
     const recipe = this.recipe();
     return recipe ? partsMadeByPlates(recipe) : new Set<string>();
@@ -230,7 +229,12 @@ export class RecetaEditor {
         this.data.learnedObjectParts(),
       ]);
 
-      const draft = buildDraft(fileName, info, details, { skus: this.lookups()?.skus ?? [], parts, learned });
+      const draft = buildDraft(fileName, info, details, {
+        skus: this.lookups()?.skus ?? [],
+        materials: this.lookups()?.materials ?? [],
+        parts,
+        learned,
+      });
       if (draft.plates.length === 0) {
         this.importError.set('Ese archivo no trae placas con material. Revisa que esté laminado.');
         return;
@@ -249,15 +253,11 @@ export class RecetaEditor {
 
   protected onImported(outcome: ImportOutcome, fileName: string): void {
     this.importDraft.set(null);
-    const pending = [
-      outcome.unmatchedFilaments > 0 ? `elige el rollo de ${outcome.unmatchedFilaments} filamento(s) que no reconocimos` : null,
-      outcome.withoutThumbnail > 0 ? `${outcome.withoutThumbnail} vista(s) no se pudieron guardar` : null,
-    ].filter((text): text is string => text !== null);
-
-    this.importNote.set(
-      `Se cargaron ${outcome.created} placa(s) de «${fileName}».` + (pending.length > 0 ? ` Falta: ${pending.join('; ')}.` : ''),
-    );
+    this.importNote.set(importSummary(outcome, fileName));
     this.changed.emit();
+    // The parts of the plates now exist and the database put them in the
+    // recipe; without fresh options their rows had no name to show.
+    this.itemsChanged.emit();
   }
 
   protected readonly header = new FormGroup({

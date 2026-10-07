@@ -2,23 +2,17 @@ import { Component, computed, effect, inject, input, linkedSignal, output, signa
 import { CatalogoData } from './catalogo.data';
 import type { ImportedPlate, MaterialOption, SkuOption } from './catalogo.models';
 import { SHARED_STYLES } from './catalogo.styles';
-import { messageOf } from './catalogo.util';
-import type { ImportDraft } from './importacion';
+import { countOf, messageOf } from './catalogo.util';
+import { newPartsUsed, withCreatedParts, type ImportDraft, type ImportOutcome } from './importacion';
 import { confirmedFilaments, confirmedOutputs, ImportarPlaca, plateDraftGroup, type PlateDraftGroup } from './importar-placa';
 import type { PartOption } from './salida-fila';
-
-export interface ImportOutcome {
-  created: number;
-  withoutThumbnail: number;
-  /** Filaments no roll of the workshop looked like, left for the person to pick. */
-  unmatchedFilaments: number;
-}
 
 /**
  * The step between reading a sliced file and saving its plates: the person
  * sees every plate with its picture and the parts it proposes, and confirms or
- * corrects them. Nothing is written until "Guardar", so a file with plates
- * that belong to something else costs nothing to look at.
+ * corrects them. Nothing is written until "Guardar", not even a part named
+ * here, so a file with plates that belong to something else costs nothing to
+ * look at.
  */
 @Component({
   selector: 'app-importar-placas',
@@ -49,18 +43,19 @@ export interface ImportOutcome {
             [skus]="skus()"
             [materials]="materials()"
             [thumbnailUrl]="urls()[i] ?? null"
-            (partCreated)="addPart($event)"
+            (partAdded)="addPart($event)"
           />
         }
       </div>
       <p class="muted hint">
-        ¿Falta una pieza? Créala con «+ Pieza nueva» en la fila del objeto. Las piezas que elijas se agregan a la
-        receta, una por unidad; si tu producto lleva otra cantidad, cámbiala en «Piezas impresas por unidad».
+        ¿Falta una pieza? Ponle nombre con «+ Pieza nueva» en la fila del objeto: se crea al guardar. Las piezas que
+        elijas se agregan a la receta, una por unidad; si tu producto lleva otra cantidad, cámbiala en «Piezas
+        impresas por unidad».
       </p>
       @if (error(); as message) { <p class="error" role="alert">{{ message }}</p> }
       <div class="bar">
         <button type="button" (click)="save()" [disabled]="busy() || includedCount() === 0">
-          {{ busy() ? 'Guardando…' : 'Guardar ' + includedCount() + ' placa(s)' }}
+          {{ busy() ? 'Guardando…' : 'Guardar ' + countOf(includedCount(), 'placa', 'placas') }}
         </button>
         <button type="button" class="secondary" (click)="cancelled.emit()" [disabled]="busy()">Descartar</button>
       </div>
@@ -79,7 +74,7 @@ export class ImportarPlacas {
   readonly skus = input<SkuOption[]>([]);
   readonly materials = input<MaterialOption[]>([]);
 
-  /** The workshop's parts plus the ones made during this review. */
+  /** The workshop's parts plus the ones named during this review, which do not exist yet. */
   protected readonly allParts = linkedSignal(() => this.parts());
 
   readonly saved = output<ImportOutcome>();
@@ -87,6 +82,14 @@ export class ImportarPlacas {
 
   protected readonly busy = signal(false);
   protected readonly error = signal<string | null>(null);
+  protected readonly countOf = countOf;
+
+  /**
+   * Parts already created for this review, by their temporary id. Only a save
+   * that failed after creating them leaves any here, and only the ones a
+   * saved plate already uses: a retry must reuse them, not create them twice.
+   */
+  private readonly created = new Map<string, string>();
 
   /**
    * Rebuilt only for a new file. The recipe reloads whenever something else
@@ -153,19 +156,45 @@ export class ImportarPlacas {
 
     this.busy.set(true);
     this.error.set(null);
+    const madeNow: string[] = [];
     try {
-      const result = await this.data.importPlates(this.recipeId(), this.firstIndex(), plates);
+      for (const id of newPartsUsed(plates)) {
+        if (this.created.has(id)) continue;
+        const part = await this.data.createPart(this.allParts().find((candidate) => candidate.id === id)?.name ?? '');
+        this.created.set(id, part.id);
+        madeNow.push(id);
+      }
+
+      const result = await this.data.importPlates(
+        this.recipeId(),
+        this.firstIndex(),
+        plates.map((plate) => withCreatedParts(plate, this.created)),
+      );
       this.saved.emit({
         ...result,
+        partsCreated: this.created.size,
         unmatchedFilaments: plates.reduce(
           (total, plate) => total + plate.filaments.filter((filament) => filament.skuId === null).length,
           0,
         ),
       });
     } catch (error) {
+      await this.undoParts(madeNow);
       this.error.set(messageOf(error, 'No pudimos guardar las placas.'));
     } finally {
       this.busy.set(false);
+    }
+  }
+
+  /**
+   * A failed save takes back the parts it created, so discarding the import
+   * afterwards still leaves nothing. A part a plate already saved uses cannot
+   * go (the database refuses), and stays for the next try.
+   */
+  private async undoParts(temporaryIds: readonly string[]): Promise<void> {
+    for (const id of temporaryIds) {
+      const realId = this.created.get(id);
+      if (realId && (await this.data.deleteUnusedPart(realId))) this.created.delete(id);
     }
   }
 }

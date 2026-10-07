@@ -303,7 +303,11 @@ export class CatalogoData {
         .select('*, recipe_plate_filaments(*), recipe_plate_outputs(*)')
         .eq('recipe_id', recipe.id)
         .order('plate_index'),
-      this.supabase.from('recipe_items').select('*').eq('recipe_id', recipe.id).order('created_at'),
+      this.supabase
+        .from('recipe_items')
+        .select('id, inventory_item_id, quantity_per_unit, inventory_items(kind, name, unit, image_path)')
+        .eq('recipe_id', recipe.id)
+        .order('created_at'),
     ]);
     if (plates.error) fail(plates.error, 'No pudimos cargar las placas de la receta.');
     if (items.error) fail(items.error, 'No pudimos cargar los insumos de la receta.');
@@ -349,6 +353,14 @@ export class CatalogoData {
         id: item.id,
         inventoryItemId: item.inventory_item_id,
         quantityPerUnit: Number(item.quantity_per_unit),
+        item: {
+          // The foreign key makes the item always there; the fallback only
+          // keeps a row readable if a policy ever hid it.
+          kind: item.inventory_items?.kind ?? 'supply',
+          name: item.inventory_items?.name ?? 'Artículo',
+          unit: item.inventory_items?.unit ?? '',
+          imagePath: item.inventory_items?.image_path ?? null,
+        },
       })),
     };
   }
@@ -401,17 +413,38 @@ export class CatalogoData {
   }
 
   /**
-   * A new printed part, made while reviewing a sliced file: a new workshop has
-   * none yet, and sending the person to Inventory meant losing the review.
+   * A new printed part, named while reviewing a sliced file: a new workshop has
+   * none yet, and sending the person to Inventory meant losing the review. It
+   * is only called when the import is saved, never while it is reviewed.
    */
   async createPart(name: string): Promise<{ id: string; name: string; unit: string; imagePath: string | null }> {
+    const trimmed = name.trim();
     const { data, error } = await this.supabase
       .from('inventory_items')
-      .insert({ workspace_id: await this.workspaceId(), kind: 'part', name: name.trim(), unit: 'unidad' })
+      .insert({ workspace_id: await this.workspaceId(), kind: 'part', name: trimmed, unit: 'unidad' })
       .select('id, name, unit, image_path')
       .single();
-    if (error) fail(error, 'No pudimos crear la pieza.', 'Ya hay una pieza con ese nombre.');
+    if (error) {
+      // The review already refuses the name of a part it can see, so a
+      // duplicate here is almost always one that was deactivated and is
+      // listed nowhere.
+      fail(
+        error,
+        `No pudimos crear la pieza «${trimmed}».`,
+        `Ya hay una pieza llamada «${trimmed}» (si no la ves en la lista, está desactivada). Elige otro nombre.`,
+      );
+    }
     return { id: data.id, name: data.name, unit: data.unit, imagePath: data.image_path };
+  }
+
+  /**
+   * Undoes a part made by an import that then failed, so a discarded import
+   * leaves nothing behind. A part some plate already uses stays, and so does
+   * one this person may not delete: the answer is false and it is kept.
+   */
+  async deleteUnusedPart(id: string): Promise<boolean> {
+    const { data, error } = await this.supabase.from('inventory_items').delete().eq('id', id).eq('kind', 'part').select('id');
+    return !error && data.length > 0;
   }
 
   async addPlate(recipeId: string, plateIndex: number, input: RecipePlateInput): Promise<void> {

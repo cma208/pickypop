@@ -3,11 +3,18 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormArray, FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { borrowedPhoto } from '../../core/article-photos';
 import { FORMAT_PIPES, ItemPicker, type PickerOption } from '../../ui';
-import { CatalogoData } from './catalogo.data';
-import type { ImportedFilament, MaterialOption, PlateOutputInput, SkuOption } from './catalogo.models';
-import { messageOf } from './catalogo.util';
+import type { DraftFilament, ImportedFilament, MaterialOption, PlateOutputInput, SkuOption } from './catalogo.models';
+import { countOf } from './catalogo.util';
 import { SHARED_STYLES } from './catalogo.styles';
-import { describeObjects, mergeOutputs, productsPerRun, type PlateDraft } from './importacion';
+import {
+  describeObjects,
+  isNewPart,
+  mergeOutputs,
+  newPartId,
+  partNamed,
+  productsPerRun,
+  type PlateDraft,
+} from './importacion';
 import type { PartOption } from './salida-fila';
 
 function objectRow(itemId: string | null, units: number) {
@@ -89,7 +96,7 @@ export type PlateDraftGroup = ReturnType<typeof plateDraftGroup>;
       .new-part { font-size: 0.8rem; white-space: nowrap; }
       .create { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: end; padding: 0.4rem 0 0.2rem; }
       .create label { flex: 1 1 12rem; }
-      .create .error { flex-basis: 100%; margin: 0; }
+      .create p { flex-basis: 100%; margin: 0; }
       .rolls { display: grid; gap: 0.3rem; }
       .roll { display: grid; grid-template-columns: 1rem minmax(0, 1fr) minmax(0, 1.4fr); gap: 0.4rem; align-items: center; font-size: 0.85rem; }
       .swatch { width: 1rem; height: 1rem; border-radius: 50%; border: 1px solid var(--line-strong); }
@@ -154,10 +161,11 @@ export type PlateDraftGroup = ReturnType<typeof plateDraftGroup>;
                   <div class="create">
                     <label class="field">Nombre de la pieza nueva
                       <input [formControl]="newPartName" autocomplete="off" placeholder="Ej.: Tapa de calavera"
-                        (keydown.enter)="$event.preventDefault(); createPart(row)" />
+                        (keydown.enter)="$event.preventDefault(); addPart(row)" />
                     </label>
-                    <button type="button" (click)="createPart(row)" [disabled]="creating()">{{ creating() ? 'Creando…' : 'Crear y usar' }}</button>
-                    <button type="button" class="ghost" (click)="creatingFor.set(null)" [disabled]="creating()">Cancelar</button>
+                    <button type="button" (click)="addPart(row)">Usar</button>
+                    <button type="button" class="ghost" (click)="creatingFor.set(null)">Cancelar</button>
+                    <p class="muted hint">Se crea al guardar las placas. Si descartas la importación, no queda nada.</p>
                     @if (createError(); as message) { <p class="error hint">{{ message }}</p> }
                   </div>
                 }
@@ -171,7 +179,7 @@ export type PlateDraftGroup = ReturnType<typeof plateDraftGroup>;
               @for (control of filamentControls().controls; track $index; let i = $index) {
                 <div class="roll">
                   <span class="swatch" [style.background]="draft().filaments[i]!.colorHex ?? 'transparent'" aria-hidden="true"></span>
-                  <span class="said-roll">Ranura {{ draft().filaments[i]!.slot }} · {{ materialOf(draft().filaments[i]!.materialId) }}{{ draft().filaments[i]!.grams | grams }}</span>
+                  <span class="said-roll">Ranura {{ draft().filaments[i]!.slot }} · {{ materialOf(draft().filaments[i]!) }}{{ draft().filaments[i]!.grams | grams }}</span>
                   <select [formControlName]="i" [attr.aria-label]="'Rollo de la ranura ' + draft().filaments[i]!.slot">
                     <option value="">Sin asignar</option>
                     @for (sku of skuChoices(draft().filaments[i]!.materialId); track sku.id) {
@@ -203,8 +211,6 @@ export type PlateDraftGroup = ReturnType<typeof plateDraftGroup>;
 export class ImportarPlaca implements OnInit {
   private readonly destroyRef = inject(DestroyRef);
 
-  private readonly data = inject(CatalogoData);
-
   readonly group = input.required<PlateDraftGroup>();
   readonly draft = input.required<PlateDraft>();
   readonly parts = input.required<PartOption[]>();
@@ -213,13 +219,12 @@ export class ImportarPlaca implements OnInit {
   readonly materials = input<MaterialOption[]>([]);
   /** A local link to the cropped picture: nothing is uploaded until saving. */
   readonly thumbnailUrl = input<string | null>(null);
-  /** A part made here, so every other plate of the file can choose it too. */
-  readonly partCreated = output<PartOption>();
+  /** A part named here, so every other plate of the file can choose it too. Not created yet. */
+  readonly partAdded = output<PartOption>();
 
   /** The object row whose new part is being named, if any. */
   protected readonly creatingFor = signal<number | null>(null);
   protected readonly newPartName = new FormControl('', { nonNullable: true });
-  protected readonly creating = signal(false);
   protected readonly createError = signal<string | null>(null);
 
   protected readonly filamentControls = computed(() => this.group().controls.filaments);
@@ -235,14 +240,18 @@ export class ImportarPlaca implements OnInit {
   protected readonly said = computed(() => describeObjects(this.draft().objects));
 
   protected readonly options = computed<PickerOption[]>(() =>
-    this.parts().map((part) => ({
-      value: part.id,
-      label: part.name,
-      imagePath: part.imagePath,
-      // A part with no photo of its own shows the plate that prints it.
-      photo: borrowedPhoto(part.id, 'part'),
-      kind: 'part' as const,
-    })),
+    this.parts().map((part) =>
+      isNewPart(part.id)
+        ? { value: part.id, label: part.name, hint: 'Nueva: se crea al guardar', kind: 'part' as const }
+        : {
+            value: part.id,
+            label: part.name,
+            imagePath: part.imagePath,
+            // A part with no photo of its own shows the plate that prints it.
+            photo: borrowedPhoto(part.id, 'part'),
+            kind: 'part' as const,
+          },
+    ),
   );
 
   protected readonly productsHint = computed(() => {
@@ -252,11 +261,12 @@ export class ImportarPlaca implements OnInit {
       return 'Ningún objeto va al estante, así que no hay de dónde sacar los productos por corrida: escríbelos tú.';
     }
     const names = new Map(this.parts().map((part) => [part.id, part.name]));
-    const list = outputs.map((output) => `${output.unitsPerRun} ${names.get(output.inventoryItemId) ?? 'pieza'}`);
+    // «Tapa ×7», as the file's own list reads: «7 Tapa» put a plural number on a singular name.
+    const list = outputs.map((output) => `${names.get(output.inventoryItemId) ?? 'Pieza'} ×${output.unitsPerRun}`);
     const fromRecipe = outputs.some((output) => this.perProduct().has(output.inventoryItemId));
     const products = productsPerRun(outputs, this.perProduct());
     return (
-      `Con ${joinWithAnd(list)} alcanza para ${products} producto(s): manda la pieza que primero se acaba, ` +
+      `Con ${joinWithAnd(list)} alcanza para ${countOf(products, 'producto', 'productos')}: manda la pieza que primero se acaba, ` +
       (fromRecipe ? 'con lo que la receta pide de cada una.' : 'contando una de cada pieza por producto.') +
       ' Corrígelo si tu producto lleva otra cosa.'
     );
@@ -284,28 +294,36 @@ export class ImportarPlaca implements OnInit {
     this.creatingFor.set(index);
   }
 
-  protected async createPart(row: ObjectRow): Promise<void> {
-    const name = this.newPartName.value.trim();
-    if (!name || this.creating()) {
-      this.createError.set(name ? null : 'Escribe cómo se llama la pieza.');
+  /**
+   * Names a part for the object without creating it: it is created when the
+   * import is saved, so discarding the import leaves nothing behind (E2-03).
+   */
+  protected addPart(row: ObjectRow): void {
+    const name = this.newPartName.value.trim().replace(/\s+/g, ' ');
+    if (!name) {
+      this.createError.set('Escribe cómo se llama la pieza.');
       return;
     }
-    this.creating.set(true);
-    this.createError.set(null);
-    try {
-      const part = await this.data.createPart(name);
-      this.partCreated.emit(part);
-      this.choose(row, part.id);
-      this.creatingFor.set(null);
-    } catch (error) {
-      this.createError.set(messageOf(error, 'No pudimos crear la pieza.'));
-    } finally {
-      this.creating.set(false);
+    const existing = partNamed(name, this.parts());
+    if (existing) {
+      this.createError.set(`Ya hay una pieza «${existing.name}»: elígela en la lista.`);
+      return;
     }
+
+    const part: PartOption = { id: newPartId(), name, unit: 'unidad', imagePath: null };
+    this.createError.set(null);
+    this.partAdded.emit(part);
+    this.choose(row, part.id);
+    this.creatingFor.set(null);
   }
 
-  protected materialOf(materialId: string | null): string {
-    const code = this.materials().find((material) => material.id === materialId)?.code;
+  /**
+   * The line says what the file says: its type wins over the material of the
+   * proposed roll, so a PETG slot matched to a PLA roll by colour shows the
+   * mismatch instead of hiding it.
+   */
+  protected materialOf(filament: DraftFilament): string {
+    const code = filament.fileType ?? this.materials().find((material) => material.id === filament.materialId)?.code;
     return code ? `${code} · ` : '';
   }
 
@@ -316,7 +334,7 @@ export class ImportarPlaca implements OnInit {
   }
 }
 
-/** "7 Tapa y 7 Cuerpo", como se dice. */
+/** "Tapa ×7 y Cuerpo ×7", como se dice. */
 function joinWithAnd(items: readonly string[]): string {
   if (items.length <= 1) return items.join('');
   return `${items.slice(0, -1).join(', ')} y ${items[items.length - 1]}`;

@@ -88,6 +88,7 @@ import { VarianteForm } from './variante-form';
                 [context]="context()"
                 (variantSaved)="reloadVariants()"
                 (variantRemoved)="variantRemoved()"
+                (itemsChanged)="reloadLookups()"
               />
             }
           }
@@ -157,6 +158,19 @@ export class ProductoPage {
       this.variants.set(await this.data.listVariants(this.id()));
     } catch (error) {
       this.loadError.set(messageOf(error, 'No pudimos actualizar las variantes.'));
+    }
+  }
+
+  /**
+   * The parts and supplies the recipe offers, read again after an import
+   * created parts. They were read once with the page, and a part made a
+   * moment ago had no name in the recipe until the page was reloaded (E2-01).
+   */
+  protected async reloadLookups(): Promise<void> {
+    try {
+      this.lookups.set(await this.data.lookups());
+    } catch (error) {
+      this.lookupsError.set(messageOf(error, 'No pudimos actualizar las piezas e insumos del taller. Recarga la página.'));
     }
   }
 

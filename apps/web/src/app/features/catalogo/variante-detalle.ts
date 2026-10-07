@@ -38,6 +38,7 @@ import { VariantCostModel } from './variant-cost.model';
           [lookupsError]="lookupsError()"
           [laborRate]="model.profile()?.laborRatePerHour ?? null"
           (changed)="reloadRecipe()"
+          (itemsChanged)="itemsChanged.emit()"
         />
         <div class="stack" style="margin-top: 1rem">
           <app-escalera-precios [variantId]="variant().id" (changed)="reloadTiers()" />
@@ -60,6 +61,8 @@ export class VarianteDetalle implements OnInit {
   /** The variant data changed (saved); the parent should reload its list. */
   readonly variantSaved = output<void>();
   readonly variantRemoved = output<void>();
+  /** Parts or supplies were created here; the page owns the options and must read them again. */
+  readonly itemsChanged = output<void>();
 
   protected readonly loading = signal(true);
   protected readonly loadError = signal<string | null>(null);

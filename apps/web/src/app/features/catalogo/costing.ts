@@ -6,7 +6,7 @@ import {
   type CostProfile,
   type PrinterProfile,
 } from '../../core/pricing';
-import type { Lookups, Recipe, RecipeFilament, SkuOption, SupplyOption } from './catalogo.models';
+import type { Lookups, Recipe, RecipeFilament, RecipeSupply, SkuOption, SupplyOption } from './catalogo.models';
 
 const GRAMS_PER_KG = 1000;
 
@@ -109,6 +109,37 @@ export function partsMadeByPlates(recipe: Pick<Recipe, 'plates'>): Set<string> {
   return new Set(recipe.plates.flatMap((plate) => plate.outputs.map((output) => output.inventoryItemId)));
 }
 
+/**
+ * The recipe's printed parts and its bought supplies, told apart by what each
+ * row says it is. The list of options cannot decide it: it is read once per
+ * page, and a part created a moment ago by an import was missing from it, so
+ * its row fell among the supplies as an empty one (E2-01).
+ */
+export function splitRecipeRows(rows: readonly RecipeSupply[]): { parts: RecipeSupply[]; supplies: RecipeSupply[] } {
+  return {
+    parts: rows.filter((row) => row.item.kind === 'part'),
+    supplies: rows.filter((row) => row.item.kind !== 'part'),
+  };
+}
+
+/**
+ * What the recipe uses with no cost on record, for which a provisional cost
+ * can be tried on screen. The parts its own plates print are not among them,
+ * the same as in `buildBatch`: their cost is already in the runs, so a field
+ * for them changed nothing and said they were missing a cost they have (E2-02).
+ */
+export function itemsWithoutCost(
+  recipe: Pick<Recipe, 'plates' | 'supplies'>,
+  options: readonly SupplyOption[],
+): SupplyOption[] {
+  const madeHere = partsMadeByPlates(recipe);
+  return recipe.supplies.flatMap((row) => {
+    if (madeHere.has(row.inventoryItemId)) return [];
+    const item = options.find((candidate) => candidate.id === row.inventoryItemId);
+    return item && item.costPerUnit === null ? [item] : [];
+  });
+}
+
 export function supplyCostPerUnit(
   inventoryItemId: string,
   quantityPerUnit: number,
@@ -152,12 +183,12 @@ export function buildBatch(sources: CostSources, units: number): { batch: BatchI
   const suppliesPerUnit = recipe.supplies
     .filter((supply) => !madeHere.has(supply.inventoryItemId))
     .map((supply) => {
-      const item = lookups.supplies.find((candidate) => candidate.id === supply.inventoryItemId);
-      const label = item?.name ?? 'Insumo';
+      // The row knows its own item, even one the options were read before.
+      const label = supply.item.name;
       const { cost, known } = supplyCostPerUnit(supply.inventoryItemId, supply.quantityPerUnit, sources);
       if (!known) {
         warnings.push(
-          item?.kind === 'part'
+          supply.item.kind === 'part'
             ? `${label}: la imprime otra receta y todavía no se cerró ninguna impresión suya, no suma al costo.`
             : `${label}: no tiene costo registrado, no suma al costo.`,
         );
