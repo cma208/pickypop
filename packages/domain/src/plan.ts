@@ -444,7 +444,10 @@ class Allocator {
     const recipe = this.recipes.get(line.variantId);
     if (!recipe) {
       this.warnings.add(`"${line.description}" no tiene receta: el plan no sabe cómo hacerla.`);
-      return this.readyNow(line, { onShelf: 0, toAssemble: 0, toMake: quantity });
+      return unknownLine(
+        this.readyNow(line, { onShelf: 0, toAssemble: 0, toMake: quantity }),
+        'No tiene receta: no se sabe cómo hacerla.',
+      );
     }
     if (recipe.components.length === 0) {
       // An empty recipe is no recipe: with nothing to count, every unit would
@@ -456,7 +459,10 @@ class Allocator {
         recipe.assembled && recipe.finishedItemId !== null
           ? this.shelf.take(recipe.finishedItemId, quantity, claimant)
           : 0;
-      return this.readyNow(line, { onShelf, toAssemble: 0, toMake: clean(quantity - onShelf) });
+      const planned = this.readyNow(line, { onShelf, toAssemble: 0, toMake: clean(quantity - onShelf) });
+      return planned.plan.toMake > 0
+        ? unknownLine(planned, 'Su receta no tiene piezas ni insumos: no se sabe cómo hacer lo que falta.')
+        : planned;
     }
     return recipe.assembled
       ? this.planAssembled(claimant, line, quantity, recipe)
@@ -629,7 +635,7 @@ class Allocator {
 
     const components = toMake > 0 ? this.sourceSupplies(custom, toMake, claimant, shortages) : [];
     const handMinutes = toMake > 0 ? custom.setupMinutes + custom.minutesPerUnit * toMake : 0;
-    return this.finish(
+    const planned = this.finish(
       line,
       { onShelf, toAssemble: 0, toMake },
       components,
@@ -638,6 +644,9 @@ class Allocator {
       handMinutes,
       ownRuns,
     );
+    return toMake > 0 && custom.plates.length === 0
+      ? unknownLine(planned, 'Es a medida y no tiene placas: no se sabe cuánto tarda en imprimirse.')
+      : planned;
   }
 
   /** Supplies of a made-to-order line come off the shelf or are bought. One typed by hand is not checked. */
@@ -737,6 +746,7 @@ class Allocator {
         readyAt: formatInstant(readyAt),
         readyAtIfFailure: formatInstant(readyAtIfFailure),
         needsPurchase: shortages.list.length > 0,
+        unknown: null,
       },
       readyAt,
       readyAtIfFailure,
@@ -754,6 +764,11 @@ class Allocator {
     const last = ownRuns.reduce((a, b) => (b.end >= a.end ? b : a));
     return this.queue.endOfSpares(last, spares, longest.durationMs);
   }
+}
+
+/** A line whose date cannot be known: it keeps its counts and says why. */
+function unknownLine(planned: LinePlanned, reason: string): LinePlanned {
+  return { ...planned, plan: { ...planned.plan, unknown: reason } };
 }
 
 function catalogueRunSpec(plate: PlanPlate): RunSpec {
@@ -812,6 +827,7 @@ function demandPlan(claimant: Claimant, allocation: Allocation): PlanDemandPlan 
     readyAt: formatInstant(readyAt),
     readyAtIfFailure: formatInstant(readyAtIfFailure),
     needsPurchase: lines.some((line) => line.plan.needsPurchase),
+    unknown: lines.some((line) => line.plan.unknown !== null),
     late: demand.dueDate !== null && readyAt > allocation.clock.endOfDay(demand.dueDate),
   };
 }

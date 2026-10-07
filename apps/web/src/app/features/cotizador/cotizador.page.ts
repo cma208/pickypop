@@ -393,7 +393,10 @@ export class CotizadorPage {
 
   protected readonly quoteReadyText = computed(() => {
     const readyAt = this.quoteReadyAt();
-    return readyAt === null ? null : readyLine(readyAt, this.promiseNow());
+    if (readyAt === null) return null;
+    const answered = this.watched.promise()?.lines.slice(0, this.lines().length) ?? [];
+    if (answered.some((line) => line?.plan.unknown)) return 'Sin fecha: hay una línea que el plan no sabe cuánto tarda.';
+    return readyLine(readyAt, this.promiseNow());
   });
 
   // ------------------------------------------------------ sliced files

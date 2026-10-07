@@ -207,7 +207,7 @@ describe('¿para cuándo? for a sale nobody saved yet', () => {
     const never: WhatIf = () => {
       throw new Error('nothing to ask');
     };
-    expect(salePromise(input, [null], never)).toEqual({ now: NOW, lines: [null], readyAt: null, needsPurchase: false });
+    expect(salePromise(input, [null], never)).toEqual({ now: NOW, lines: [null], readyAt: null, needsPurchase: false, unknown: false });
   });
 
   it('goes after everybody, even after a demand that took its place a second ago', () => {

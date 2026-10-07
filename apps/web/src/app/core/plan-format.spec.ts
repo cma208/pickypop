@@ -16,6 +16,7 @@ const line = (overrides: Partial<PlanLinePlan> = {}): PlanLinePlan => ({
   readyAt: '2026-10-07T03:52:00.000Z',
   readyAtIfFailure: '2026-10-07T03:52:00.000Z',
   needsPurchase: false,
+  unknown: null,
   ...overrides,
 });
 
@@ -45,6 +46,12 @@ describe('plan vocabulary', () => {
     );
     expect(shortageText([{ kind: 'item', id: 'd', label: 'Dulces surtidos', missing: 2384, unit: 'g' }])).toBe(
       '2.38 kg de Dulces surtidos',
+    );
+  });
+
+  it('never promises a date the plan cannot know', () => {
+    expect(promiseSentence(line({ onShelf: 0, toAssemble: 0, toMake: 8, unknown: 'No tiene receta: no se sabe cómo hacerla.' }), NOW)).toBe(
+      '8 por fabricar. No tiene receta: no se sabe cómo hacerla.',
     );
   });
 

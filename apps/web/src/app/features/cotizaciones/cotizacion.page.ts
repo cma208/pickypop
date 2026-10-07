@@ -157,6 +157,10 @@ export class CotizacionPage {
         snapshot.profile,
         snapshot.printer,
         snapshot.priceSettings,
+        // A catalogue line was priced from the price list, not from its cost
+        // (ADR-019): its frozen price is the list. Recalculating it from the
+        // cost always "drifted" and told the seller the quote was wrong.
+        stored.variantId !== null ? { listPrice: stored.unitPrice, tiers: [] } : null,
       );
 
       return {

@@ -85,6 +85,7 @@ export class CotizacionSituacion {
   }
 
   protected ready(readyAt: string): string {
+    if (this.situation()?.promise.unknown) return 'Sin fecha: hay una línea que el plan no sabe cuánto tarda.';
     return readyLine(readyAt, this.situation()?.promise.now ?? new Date().toISOString());
   }
 

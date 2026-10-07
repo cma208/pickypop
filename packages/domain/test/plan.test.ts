@@ -473,7 +473,12 @@ describe('plan: a variant without recipe', () => {
         ],
       }),
     );
-    expect(result.demands[0]!.lines[0]).toMatchObject({ onShelf: 0, toMake: 2 });
+    expect(result.demands[0]!.lines[0]).toMatchObject({
+      onShelf: 0,
+      toMake: 2,
+      unknown: 'No tiene receta: no se sabe cómo hacerla.',
+    });
+    expect(result.demands[0]!.unknown).toBe(true);
     expect(result.warnings).toEqual(['"Llavero" no tiene receta: el plan no sabe cómo hacerla.']);
   });
 });
@@ -499,6 +504,7 @@ describe('plan: an empty recipe', () => {
     );
 
     expect(result.demands[0]!.lines[0]).toMatchObject({ onShelf: 3, toAssemble: 0, toMake: 5 });
+    expect(result.demands[0]!.lines[0]!.unknown).toContain('no tiene piezas ni insumos');
     expect(result.runs).toEqual([]);
     expect(result.warnings).toEqual([
       'La receta de "Botella de poción · Con chocolates premium" no tiene piezas ni insumos: el plan no sabe cómo hacer lo que falta.',
@@ -1097,6 +1103,7 @@ describe('plan: a made-to-order line typed by hand', () => {
     );
 
     expect(result.demands[0]!.lines[0]).toMatchObject({ onShelf: 0, toMake: 2 });
+    expect(result.demands[0]!.lines[0]!.unknown).toContain('no tiene placas');
     expect(result.warnings).toEqual([
       '"Encargo l1" es a medida y no tiene placas: el plan no sabe cuánto tarda en imprimirse.',
     ]);

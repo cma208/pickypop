@@ -257,6 +257,12 @@ export interface PlanLinePlan {
   /** The same if one plate fails and has to be printed again. Equal to `readyAt` without new runs. */
   readyAtIfFailure: string;
   needsPurchase: boolean;
+  /**
+   * Why the plan cannot tell when it would be ready: no recipe, an empty
+   * recipe, made-to-order work without plates. Null when it can. While set,
+   * `readyAt` only covers what is known and must not be promised.
+   */
+  unknown: string | null;
 }
 
 export interface PlanDemandPlan {
@@ -272,6 +278,8 @@ export interface PlanDemandPlan {
   readyAt: string;
   readyAtIfFailure: string;
   needsPurchase: boolean;
+  /** Some line cannot be dated (see `PlanLinePlan.unknown`). */
+  unknown: boolean;
   /** `readyAt` falls after the end of `dueDate`. */
   late: boolean;
 }

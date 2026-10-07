@@ -56,6 +56,7 @@ export function shortageText(shortages: readonly PlanShortage[]): string {
  */
 export function promiseSentence(line: PlanLinePlan, now: string): string {
   const situation = lineSituation(line);
+  if (line.unknown !== null) return `${situation}. ${line.unknown}`;
   const ready = readyText(line.readyAt, now);
   const when = ready === 'ya' ? 'Está lista ya.' : `Estaría ${ready}.`;
   const risk =

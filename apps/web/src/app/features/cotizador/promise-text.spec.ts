@@ -87,6 +87,7 @@ describe('the words of ¿para cuándo? when selling', () => {
         readyAt: FRIDAY,
         readyAtIfFailure: FRIDAY,
         needsPurchase: true,
+        unknown: null,
       },
       madeToOrder: false,
       holds: [],

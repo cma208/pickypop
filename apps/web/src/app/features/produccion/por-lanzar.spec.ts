@@ -226,6 +226,7 @@ describe('lo que llega tarde', () => {
     readyAt: '2026-10-09T15:00:00.000Z',
     readyAtIfFailure: '2026-10-09T15:00:00.000Z',
     needsPurchase: false,
+    unknown: false,
     late: true,
     ...overrides,
   });

@@ -40,7 +40,7 @@ import type { LinePromise } from './sale-promise';
       }
       @if (buy(); as text) {
         <p class="buy">{{ text }} <span>La fecha supone que llega a tiempo.</span></p>
-      } @else if (promise().plan.quantity > 0) {
+      } @else if (promise().plan.quantity > 0 && promise().plan.unknown === null) {
         <p class="enough">El material alcanza.</p>
       }
     </div>
@@ -72,10 +72,13 @@ export class Promesa {
   /** A newer answer is on its way. */
   readonly stale = input(false);
 
-  protected readonly ready = computed(() => readyLine(this.promise().plan.readyAt, this.now()));
+  /** A line the plan cannot date says why, instead of promising "ya". */
+  protected readonly ready = computed(
+    () => this.promise().plan.unknown ?? readyLine(this.promise().plan.readyAt, this.now()),
+  );
   protected readonly risk = computed(() => {
-    const { readyAt, readyAtIfFailure } = this.promise().plan;
-    return readyAtIfFailure === readyAt ? null : readyPhrase(readyAtIfFailure, this.now());
+    const { readyAt, readyAtIfFailure, unknown } = this.promise().plan;
+    return unknown !== null || readyAtIfFailure === readyAt ? null : readyPhrase(readyAtIfFailure, this.now());
   });
   protected readonly situation = computed(() => saleSituation(this.promise().plan, this.promise().madeToOrder));
   protected readonly ordersText = computed(() => forOrdersText(this.promise().forOrders));

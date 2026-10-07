@@ -13,6 +13,7 @@ const demandPlan = (overrides: Partial<PlanDemandPlan>): PlanDemandPlan => ({
   readyAt: '2026-10-07T12:20:00.000Z',
   readyAtIfFailure: '2026-10-07T12:20:00.000Z',
   needsPurchase: false,
+  unknown: false,
   late: false,
   ...overrides,
 });

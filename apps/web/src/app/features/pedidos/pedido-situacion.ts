@@ -42,12 +42,16 @@ const NAMED_AHEAD = 3;
     @if (demand(); as d) {
       <pp-card heading="Situación">
         <div class="head">
-          <p class="ready">
-            Estaría listo <strong>{{ ready(d.readyAt) }}</strong>
-            @if (d.readyAtIfFailure !== d.readyAt) {
-              <span class="muted"> · si falla una placa, {{ ready(d.readyAtIfFailure) }}</span>
-            }
-          </p>
+          @if (d.unknown) {
+            <p class="ready">Sin fecha: hay una línea que el plan no sabe cuánto tarda.</p>
+          } @else {
+            <p class="ready">
+              Estaría listo <strong>{{ ready(d.readyAt) }}</strong>
+              @if (d.readyAtIfFailure !== d.readyAt) {
+                <span class="muted"> · si falla una placa, {{ ready(d.readyAtIfFailure) }}</span>
+              }
+            </p>
+          }
           @if (d.late) { <pp-badge tone="bad">Llega tarde</pp-badge> }
         </div>
         @if (due(d); as text) { <p class="muted due">{{ text }}</p> }
@@ -59,7 +63,7 @@ const NAMED_AHEAD = 3;
           @for (line of d.lines; track line.lineId) {
             <li>
               <span class="strong">{{ line.quantity }} × {{ line.description }}</span>
-              <span class="muted">{{ situation(line) }} · {{ ready(line.readyAt) }}</span>
+              <span class="muted">{{ situation(line) }} · {{ line.unknown ?? ready(line.readyAt) }}</span>
             </li>
           }
         </ul>

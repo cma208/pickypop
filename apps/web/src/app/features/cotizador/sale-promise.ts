@@ -75,6 +75,8 @@ export interface SalePromise {
   /** When the whole sale would be ready. Null when no line could be asked. */
   readyAt: string | null;
   needsPurchase: boolean;
+  /** Some line cannot be dated: the sale has no date to promise (PlanLinePlan.unknown). */
+  unknown: boolean;
 }
 
 /** The plan computed over a changed copy of the snapshot (`PlanService.whatIf`). */
@@ -103,12 +105,16 @@ export function salePromise(
   whatIf: WhatIf,
 ): SalePromise {
   const asked = wanted.filter((line): line is PlanCandidateLine => line !== null);
-  if (asked.length === 0) return { now: input.now, lines: wanted.map(() => null), readyAt: null, needsPurchase: false };
+  if (asked.length === 0) {
+    return { now: input.now, lines: wanted.map(() => null), readyAt: null, needsPurchase: false, unknown: false };
+  }
 
   const changed = withSale(input, asked);
   const result = whatIf((snapshot) => withSale(snapshot, asked));
   const sale = result.demands.find((demand) => demand.id === SALE_ID);
-  if (!sale) return { now: result.now, lines: wanted.map(() => null), readyAt: null, needsPurchase: false };
+  if (!sale) {
+    return { now: result.now, lines: wanted.map(() => null), readyAt: null, needsPurchase: false, unknown: false };
+  }
 
   let next = 0;
   const lines = wanted.map((line) => {
@@ -119,7 +125,7 @@ export function salePromise(
   if (lines.some((line) => line !== null && line.holds.length > 0)) {
     addReadyWithoutHolds(lines, whatIf((snapshot) => withSale(withoutHolds(snapshot), asked)));
   }
-  return { now: result.now, lines, readyAt: sale.readyAt, needsPurchase: sale.needsPurchase };
+  return { now: result.now, lines, readyAt: sale.readyAt, needsPurchase: sale.needsPurchase, unknown: sale.unknown };
 }
 
 /** The snapshot as if every hold ended now unconfirmed: only confirmed orders keep their claim. */
@@ -147,6 +153,7 @@ export function demandPromise(input: PlanInput, result: PlanResult, demand: Plan
     lines: demand.lines.map((line) => linePromise(input, result, demand.id, line)),
     readyAt: demand.readyAt,
     needsPurchase: demand.needsPurchase,
+    unknown: demand.unknown,
   };
 }
 
