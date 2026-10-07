@@ -454,6 +454,34 @@ describe('plan: a variant without recipe', () => {
   });
 });
 
+describe('plan: an empty recipe', () => {
+  const EMPTY: PlanRecipe = {
+    variantId: 'v-vacia',
+    name: 'Botella de poción · Con chocolates premium',
+    assembled: true,
+    finishedItemId: 'item-chocolates',
+    components: [],
+    setupMinutes: 0,
+    minutesPerUnit: 0,
+  };
+
+  it('does not call anything ready to assemble, and still hands over what was counted', () => {
+    const result = plan(
+      workshop({
+        recipes: [EMPTY],
+        items: [item('item-chocolates', 3, 'finished_good', 'Poción de chocolates')],
+        demands: [order('o1', 'PED-0008', TUESDAY_1800, [catalogueLine('l1', 'v-vacia', 8)])],
+      }),
+    );
+
+    expect(result.demands[0]!.lines[0]).toMatchObject({ onShelf: 3, toAssemble: 0, toMake: 5 });
+    expect(result.runs).toEqual([]);
+    expect(result.warnings).toEqual([
+      'La receta de "Botella de poción · Con chocolates premium" no tiene piezas ni insumos: el plan no sabe cómo hacer lo que falta.',
+    ]);
+  });
+});
+
 describe('plan: a mixed plate gives caps and bodies at once', () => {
   const MIXED: PlanPlate = {
     id: 'plate-mixta',

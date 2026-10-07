@@ -422,6 +422,18 @@ class Allocator {
       this.warnings.add(`"${line.description}" no tiene receta: el plan no sabe cómo hacerla.`);
       return this.readyNow(line, { onShelf: 0, toAssemble: 0, toMake: quantity });
     }
+    if (recipe.components.length === 0) {
+      // An empty recipe is no recipe: with nothing to count, every unit would
+      // look ready to assemble. What was counted on the shelf still goes out.
+      this.warnings.add(
+        `La receta de "${recipe.name}" no tiene piezas ni insumos: el plan no sabe cómo hacer lo que falta.`,
+      );
+      const onShelf =
+        recipe.assembled && recipe.finishedItemId !== null
+          ? this.shelf.take(recipe.finishedItemId, quantity, claimant)
+          : 0;
+      return this.readyNow(line, { onShelf, toAssemble: 0, toMake: clean(quantity - onShelf) });
+    }
     return recipe.assembled
       ? this.planAssembled(claimant, line, quantity, recipe)
       : this.planKit(claimant, line, quantity, recipe);
