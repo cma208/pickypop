@@ -1,9 +1,29 @@
-import { dayKey, plainDate, signedQuantity } from './inventario.format';
+import { dayKey, plainDate, quantity, signedQuantity, sourceLabel } from './inventario.format';
 
 describe('signedQuantity', () => {
   it('shows an explicit sign and unit', () => {
     expect(signedQuantity(250, 'g')).toBe('+250 g');
     expect(signedQuantity(-250, 'g')).toBe('−250 g');
+  });
+
+  it('says "unidades" for anything but one', () => {
+    expect(signedQuantity(50, 'unidad')).toBe('+50 unidades');
+    expect(signedQuantity(-1, 'unidad')).toBe('−1 unidad');
+  });
+});
+
+describe('quantity', () => {
+  it('makes plural only the word the app writes itself', () => {
+    expect(quantity(60, 'unidad')).toBe('60 unidades');
+    expect(quantity(1, 'unidad')).toBe('1 unidad');
+    expect(quantity(2, 'par')).toBe('2 par');
+  });
+});
+
+describe('sourceLabel', () => {
+  it('names in Spanish where an assembly or a maintenance came from', () => {
+    expect(sourceLabel('assembly')).toBe('Armado');
+    expect(sourceLabel('maintenance')).toBe('Mantenimiento');
   });
 });
 

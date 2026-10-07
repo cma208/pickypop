@@ -112,6 +112,11 @@ export interface PurchaseLineView {
   quantity: number;
   unitPrice: number;
   extra: number;
+  /** What the line bought looks like: the item's photo, or the spool's colour. */
+  isSpool: boolean;
+  imagePath: string | null;
+  itemKind: ItemKind | null;
+  colorHex: string | null;
 }
 
 export interface PurchaseSummary {
@@ -236,6 +241,11 @@ export interface MovementRow {
   note: string | null;
   subject: string;
   subjectKind: 'spool' | 'item';
+  /** The item's photo, or null for a spool or an item without one. */
+  imagePath: string | null;
+  itemKind: ItemKind | null;
+  /** A spool is recognised by its colour, not by a photo. */
+  colorHex: string | null;
 }
 
 export interface MovementPage {
@@ -596,7 +606,7 @@ export class InventarioData {
       this.supabase
         .from('purchases')
         .select(
-          'id, purchased_at, document_ref, shipping_cost, other_costs, allocation, note, suppliers(name), purchase_lines(id, filament_sku_id, inventory_item_id, description, quantity, unit_price, allocated_extra_cost, spools(count))',
+          'id, purchased_at, document_ref, shipping_cost, other_costs, allocation, note, suppliers(name), purchase_lines(id, filament_sku_id, inventory_item_id, description, quantity, unit_price, allocated_extra_cost, spools(count), filament_skus(color_hex), inventory_items(kind, image_path))',
         )
         .order('purchased_at', { ascending: false })
         .order('created_at', { ascending: false }),
@@ -626,6 +636,10 @@ export class InventarioData {
         quantity: num(line.quantity),
         unitPrice: num(line.unit_price),
         extra: num(line.allocated_extra_cost),
+        isSpool: line.filament_sku_id !== null,
+        imagePath: line.inventory_items?.image_path ?? null,
+        itemKind: line.inventory_items?.kind ?? null,
+        colorHex: line.filament_skus?.color_hex ?? null,
       }));
 
       const spoolCount = purchase.purchase_lines.reduce(
@@ -968,7 +982,7 @@ export class InventarioData {
     let query = this.supabase
       .from('stock_movements')
       .select(
-        'id, occurred_at, type, quantity, unit_cost, source_type, note, spool_id, inventory_item_id, spools(code, filament_skus(color_name)), inventory_items(name, unit)',
+        'id, occurred_at, type, quantity, unit_cost, source_type, note, spool_id, inventory_item_id, spools(code, filament_skus(color_name, color_hex)), inventory_items(name, unit, kind, image_path)',
       )
       .order('occurred_at', { ascending: false })
       .order('created_at', { ascending: false })
@@ -998,6 +1012,9 @@ export class InventarioData {
         note: row.note,
         subject: isSpool ? `Rollo ${spoolName || 'sin código'}` : (row.inventory_items?.name ?? 'Artículo'),
         subjectKind: isSpool ? 'spool' : 'item',
+        imagePath: isSpool ? null : (row.inventory_items?.image_path ?? null),
+        itemKind: isSpool ? null : (row.inventory_items?.kind ?? null),
+        colorHex: isSpool ? (row.spools?.filament_skus?.color_hex ?? null) : null,
       };
     });
 

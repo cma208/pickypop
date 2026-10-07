@@ -16,15 +16,22 @@ import { plannedCounts, type PartCount } from './produccion.outputs';
   imports: [RouterLink, Badge, Thumb, DecimalPipe, PrintJobClose, ...FORMAT_PIPES],
   template: `
     <article>
+      <div class="top">
+        <!-- What goes on the bed: 96 px while it prints, smaller in the queue and in the history. -->
+        <pp-thumb
+          [size]="job().status === 'printing' ? 'bed' : isClosed() ? 'row' : 'lead'"
+          [path]="job().plateThumbnailPath"
+          [photo]="{ kind: 'job', id: job().id }"
+          [name]="title()"
+        />
+        <div class="summary">
       <header>
-        @if (job().plateId) {
-          <pp-thumb size="lg" [path]="job().plateThumbnailPath" [name]="job().plateLabel ?? title()" />
-        }
         <strong>{{ title() }}</strong>
         <pp-badge [tone]="tone[job().status]">{{ statusLabel[job().status] }}</pp-badge>
       </header>
 
       <p class="meta muted">
+        @if (isClosed() && (job().finishedAt ?? job().startedAt); as when) { {{ when | fecha }} · }
         {{ job().printerName }}
         @if (job().plateLabel) { · Placa {{ job().plateLabel }} }
         · {{ timeText() }}
@@ -52,12 +59,14 @@ import { plannedCounts, type PartCount } from './produccion.outputs';
           }
         </div>
       }
+        </div>
+      </div>
 
       @if (shelf(); as line) {
         <div class="shelf">
           <span class="muted">{{ line.lead }}</span>
           @for (part of line.parts; track part.inventoryItemId) {
-            <span class="part"><pp-thumb size="sm" [path]="part.imagePath" [name]="part.name" /> {{ part.units | number: '1.0-3' }} {{ part.name }}</span>
+            <span class="part"><pp-thumb size="inline" kind="part" [path]="part.imagePath" /> {{ part.units | number: '1.0-3' }} {{ part.name }}</span>
           }
         </div>
       }
@@ -105,9 +114,11 @@ import { plannedCounts, type PartCount } from './produccion.outputs';
   `,
   styles: `
     article { padding: 0.9rem 1rem; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
+    .top { display: flex; align-items: flex-start; gap: 0.9rem; }
+    .summary { flex: 1; min-width: 0; }
     .progress { margin: 0.5rem 0 0.2rem; }
     .bar { height: 0.45rem; border-radius: 999px; background: var(--line); overflow: hidden; }
-    .bar span { display: block; height: 100%; background: var(--accent); transition: width 0.3s; }
+    .bar span { display: block; height: 100%; background: var(--info); transition: width 0.3s; }
     .bar span.late { background: var(--warn); }
     .small { font-size: 0.8rem; margin: 0.25rem 0 0; }
     header { display: flex; align-items: center; flex-wrap: wrap; gap: 0.5rem; }

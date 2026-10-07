@@ -1,6 +1,6 @@
 import { Component, computed, effect, inject, input, output, signal, untracked } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { FORMAT_PIPES } from '../../ui';
+import { FORMAT_PIPES, ItemPicker, type PickerOption } from '../../ui';
 import { CatalogoData } from './catalogo.data';
 import type { RecipeSupply, SupplyOption } from './catalogo.models';
 import { SHARED_STYLES } from './catalogo.styles';
@@ -9,12 +9,13 @@ import { messageOf } from './catalogo.util';
 /** One per-unit supply of the recipe (66 g of sweets, 1 bag), or the row that adds one. */
 @Component({
   selector: 'app-suministro-fila',
-  imports: [ReactiveFormsModule, ...FORMAT_PIPES],
+  imports: [ReactiveFormsModule, ItemPicker, ...FORMAT_PIPES],
   styles: [
     SHARED_STYLES,
     `
       form { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) auto; gap: 0.5rem; align-items: end; padding: 0.5rem 0; border-top: 1px solid var(--line); }
-      label { display: grid; gap: 0.15rem; font-size: 0.72rem; color: var(--muted); }
+      label { display: grid; gap: 0.15rem; font-size: var(--fs-xs); color: var(--muted); }
+      label pp-item-picker, label input { font-size: var(--fs-md); color: var(--text); }
       .actions { display: flex; gap: 0.25rem; }
       .note { grid-column: 1 / -1; margin: 0; }
       @media (max-width: 40rem) { form { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } label.item, .actions { grid-column: 1 / -1; } }
@@ -23,12 +24,7 @@ import { messageOf } from './catalogo.util';
   template: `
     <form [formGroup]="form" (ngSubmit)="save()" novalidate>
       <label class="item">Insumo
-        <select formControlName="itemId">
-          @if (!supply()) { <option value="">Elige un insumo…</option> }
-          @for (item of options(); track item.id) {
-            <option [value]="item.id">{{ item.name }} ({{ item.unit }})</option>
-          }
-        </select>
+        <pp-item-picker formControlName="itemId" [options]="pickerOptions()" placeholder="Elige un insumo…" />
       </label>
       <label>Cantidad por unidad{{ unit() ? ' (' + unit() + ')' : '' }}
         <input type="number" min="0.001" step="any" inputmode="decimal" formControlName="quantity" />
@@ -74,6 +70,17 @@ export class SuministroFila {
     const own = this.supply()?.inventoryItemId;
     return this.supplies().filter((item) => item.id === own || !this.usedIds().includes(item.id));
   });
+
+  /** The same options, with the photo that tells two bags apart. */
+  protected readonly pickerOptions = computed<PickerOption[]>(() =>
+    this.options().map((item) => ({
+      value: item.id,
+      label: item.name,
+      hint: item.unit,
+      imagePath: item.imagePath,
+      kind: item.kind ?? 'supply',
+    })),
+  );
 
   protected readonly selected = computed(() => this.supplies().find((item) => item.id === this.chosenId()) ?? null);
   protected readonly unit = computed(() => this.selected()?.unit ?? '');

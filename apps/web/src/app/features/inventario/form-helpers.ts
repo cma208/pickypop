@@ -36,3 +36,21 @@ export function selectableOptions<T extends { id: string; active: boolean }>(
 export function inactiveSuffix(option: { active: boolean }): string {
   return option.active ? '' : ' (ya no se ofrece)';
 }
+
+/**
+ * The pictures a form with a photo field can delete when it closes.
+ *
+ * Until Save, the article still points at its `original` picture, so a cancel
+ * deletes only what was uploaded meanwhile. After Save only `kept` is in use:
+ * the original (if it was replaced) and every discarded try go.
+ */
+export function photosToDelete(
+  uploaded: Iterable<string>,
+  original: string | null,
+  kept: string | null,
+  saved: boolean,
+): string[] {
+  const candidates = saved ? [...uploaded, original] : [...uploaded];
+  const inUse = saved ? kept : original;
+  return [...new Set(candidates)].filter((path): path is string => !!path && path !== inUse);
+}

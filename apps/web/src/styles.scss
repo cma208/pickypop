@@ -26,9 +26,34 @@
   --radius: 10px;
   --radius-sm: 8px;
   --shadow: 0 1px 2px rgb(0 0 0 / 0.04), 0 1px 8px rgb(0 0 0 / 0.04);
+
+  /* Five sizes of type and no more. There were twenty, and the eye had to
+     learn every screen again. In rem so the browser's own text size still
+     works; the comments say what they are against a 16 px root.
+       xs  12    table headings, notes, badges
+       sm  13.5  the grey second line, labels, hints
+       md  15    body
+       lg  18    card titles and figures
+       xl  26    page titles */
+  --fs-xs: 0.75rem;
+  --fs-sm: 0.84375rem;
+  --fs-md: 0.9375rem;
+  --fs-lg: 1.125rem;
+  --fs-xl: 1.625rem;
+
+  /* Two heights of control. Compact is for a button inside a table row,
+     where the row and not the button sets the rhythm. */
+  --control-h: 2.5rem;
+  --control-h-compact: 2rem;
 }
 
 :root[data-density='compact'] { --row-pad: 0.32rem; }
+
+/* A finger is not a cursor: on a touch screen nothing is smaller than 40 px
+   and the normal control grows to 44. */
+@media (pointer: coarse) {
+  :root { --control-h: 2.75rem; --control-h-compact: 2.5rem; }
+}
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-mode='light']) { @include p.paint(p.$default, dark); }
@@ -54,7 +79,7 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
-  font: 15px/1.5 system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font: var(--fs-md) / 1.5 system-ui, -apple-system, 'Segoe UI', sans-serif;
 }
 
 h1, h2, h3 { line-height: 1.25; }
@@ -76,35 +101,65 @@ th, td { padding: var(--row-pad) 0.7rem; border-bottom: 1px solid var(--line); t
 th {
   padding-top: 0.3rem;
   padding-bottom: 0.3rem;
-  font-size: 0.68rem;
+  font-size: var(--fs-xs);
   text-transform: uppercase;
-  letter-spacing: 0.07em;
+  letter-spacing: 0.06em;
   color: var(--muted);
   font-weight: 600;
 }
 
 /* The first thing in a row is what you scan for, so it carries the weight. */
 td .strong { font-weight: 600; }
-td small.sub { display: block; font-size: 0.78rem; color: var(--muted); }
+td small.sub { display: block; font-size: var(--fs-sm); color: var(--muted); }
 
 tbody tr:hover { background: var(--accent-soft); }
 
-/* Controls */
-button {
-  padding: 0.45rem 0.85rem;
+/* Controls
+
+   A link that does what a button does looks like one with `.button`. It used
+   to be a <button> inside an <a>: two tab stops for one control, invalid
+   HTML, and the button inherited the link colour, so "Volver" came out in
+   the accent while every other secondary button was black. */
+button, .button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  min-height: var(--control-h);
+  padding: 0.35rem 0.85rem;
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
   background: var(--accent);
   color: var(--on-accent);
   font: inherit;
+  line-height: 1.25;
+  text-decoration: none;
   cursor: pointer;
 }
 
 button:disabled { opacity: 0.55; cursor: not-allowed; }
-button.secondary { background: transparent; border-color: var(--line-strong); color: inherit; }
-button.ghost { background: transparent; border-color: transparent; color: inherit; padding: 0.3rem 0.5rem; }
-button.ghost:hover, button.secondary:hover { background: var(--line); }
-button.danger { background: var(--danger); }
+button.secondary, .button.secondary { background: transparent; border-color: var(--line-strong); color: var(--text); }
+button.ghost, .button.ghost { background: transparent; border-color: transparent; color: inherit; padding-inline: 0.5rem; }
+.button.ghost { color: var(--text); }
+button.ghost:hover, button.secondary:hover, .button.ghost:hover, .button.secondary:hover { background: var(--line); }
+button.danger, .button.danger { background: var(--danger); }
+.button:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+/* An action that sits inside a sentence ("Sin foto · Agregar") reads as a link. */
+button.inline-link {
+  display: inline;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  text-decoration: underline;
+}
+button.inline-link:hover { background: none; }
+
+/* Inside a row the row sets the rhythm, not the button. */
+td button, td .button { min-height: var(--control-h-compact); padding-block: 0.2rem; white-space: nowrap; }
 
 /* A field says "you can type here" with its edge, so it uses the stronger
    line: the hairline that separates two table rows is too faint for that, and
@@ -112,6 +167,7 @@ button.danger { background: var(--danger); }
    grid. */
 input, select, textarea {
   width: 100%;
+  min-height: var(--control-h);
   padding: 0.45rem 0.6rem;
   border: 1px solid var(--line-strong);
   border-radius: var(--radius-sm);
@@ -120,9 +176,58 @@ input, select, textarea {
   font: inherit;
 }
 
+input[type='checkbox'], input[type='radio'] { min-height: 0; }
+textarea { min-height: 0; }
+
 input:focus-visible, select:focus-visible, textarea:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
 }
 
 a { color: var(--accent); }
+
+/* Utilities that every package used to carry its own copy of. One of them
+   (`with-thumb`) lived only in the inventory styles, and the print queue used
+   it without importing it: its pictures stuck to the names, and on a phone
+   its table ran out of the card. */
+.table-wrap { overflow-x: auto; }
+.strong { font-weight: 600; }
+.sub { display: block; font-size: var(--fs-sm); color: var(--muted); }
+.nowrap { white-space: nowrap; }
+.right { text-align: right; }
+.pos { color: var(--good); }
+.neg { color: var(--danger); }
+.stack { display: grid; gap: 1rem; }
+.actions-cell { white-space: nowrap; text-align: right; }
+.with-thumb { display: inline-flex; align-items: center; gap: 0.6rem; }
+.alert, .alert-warn { margin: 0 0 1rem; padding: 0.6rem 0.9rem; border-radius: var(--radius-sm); }
+.alert { background: var(--danger-soft); color: var(--danger); }
+.alert-warn { background: var(--warn-soft); color: var(--warn); }
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.only-small { display: none !important; }
+
+/* With room to spare, the article keeps its name on one line: it is what the
+   row is read by, and the numbers can afford to give way first. */
+@media (min-width: 40.01rem) {
+  td > pp-item[data-size] { min-width: 13rem; }
+}
+
+@media (max-width: 40rem) {
+  .only-small { display: block !important; }
+  .hide-small { display: none !important; }
+  th, td { padding: 0.5rem 0.4rem; }
+  /* Stacked, the actions of a row take the width of one button instead of
+     two, and that width goes back to the name. */
+  .actions-cell { white-space: normal; }
+  .actions-cell button, .actions-cell .button { margin-block: 0.1rem; }
+  /* In a phone's table every pixel of the picture is taken from the name. */
+  td pp-thumb[data-size='row'], td pp-thumb[data-size='lead'] { --thumb: 2.5rem; }
+}

@@ -83,7 +83,7 @@ function createFilamentRow(spoolId = '', estimatedG = 0, slot: number | null = n
 
           @if (chosenPlate(); as plate) {
             <div class="plate-preview">
-              <pp-thumb size="xl" [path]="plate.thumbnailPath" [name]="plate.label" />
+              <pp-thumb size="bed" kind="plate" [path]="plate.thumbnailPath" [name]="plate.label" />
               <div class="plate-text">
                 <strong>{{ plate.label }}</strong>
                 <span class="muted">{{ plate.variantLabel }} · {{ plate.printTimeS | duration }} por corrida</span>
@@ -91,7 +91,7 @@ function createFilamentRow(spoolId = '', estimatedG = 0, slot: number | null = n
                   <span class="muted">Una corrida completa deja en el estante:</span>
                   <ul>
                     @for (part of plate.outputs; track part.inventoryItemId) {
-                      <li><pp-thumb size="sm" [path]="part.imagePath" [name]="part.name" /> {{ part.units }} {{ part.name }}</li>
+                      <li><pp-thumb size="option" kind="part" [path]="part.imagePath" /> {{ part.units }} {{ part.name }}</li>
                     }
                   </ul>
                 } @else {

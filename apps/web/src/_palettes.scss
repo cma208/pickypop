@@ -14,9 +14,15 @@
 
 @use 'sass:map';
 
-// Semantic colors (danger, good, warn) barely move between palettes: red means
-// stop everywhere, and tinting it per palette would cost legibility for
+// Semantic colors (danger, good, warn, info) barely move between palettes: red
+// means stop everywhere, and tinting it per palette would cost legibility for
 // nothing. What changes is the ground the app stands on.
+//
+// `info` is "under way": queued, printing, partly paid. It used to be the
+// accent, so the same state changed meaning with the palette: in Terracota
+// "Imprimiendo" sat within a few degrees of "Atrasado" and read as an alarm,
+// and in Grafito it could not be told from the neutral grey. Blue in every
+// palette, like red is red in every palette.
 $semantic-light: (
   danger: #b3261e,
   danger-soft: #fae9e8,
@@ -24,6 +30,8 @@ $semantic-light: (
   good-soft: #e5f2ea,
   warn: #8a5a00,
   warn-soft: #fbf0db,
+  info: #1d5b9e,
+  info-soft: #e5eef8,
 );
 
 $semantic-dark: (
@@ -33,6 +41,8 @@ $semantic-dark: (
   good-soft: #1f3528,
   warn: #e5bf73,
   warn-soft: #39301c,
+  info: #9cc4f2,
+  info-soft: #1c2b3d,
 );
 
 // `line-strong` is the border of something you can type into or click. It is a

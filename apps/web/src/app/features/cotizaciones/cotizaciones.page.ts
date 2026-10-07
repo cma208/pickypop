@@ -42,7 +42,7 @@ function isOverdue(quote: QuoteSummary, today: string): boolean {
   template: `
     <pp-page title="Cotizaciones" subtitle="Lo que se ha presupuestado y en qué quedó">
       <div actions>
-        <a routerLink="/cotizador"><button type="button">Nueva cotización</button></a>
+        <a class="button" routerLink="/cotizador">+ Nueva cotización</a>
       </div>
 
       <pp-async [loading]="loading()" [error]="error()">
@@ -68,7 +68,7 @@ function isOverdue(quote: QuoteSummary, today: string): boolean {
                   : 'Ninguna cotización coincide con ese filtro.'
               "
             >
-              <a routerLink="/cotizador"><button type="button">Ir al cotizador</button></a>
+              <a class="button" routerLink="/cotizador">Ir al cotizador</a>
             </pp-empty>
           } @else {
             <table>

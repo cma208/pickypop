@@ -217,6 +217,8 @@ export class PanelData {
         title: alert.task,
         detail: `${alert.printerName} · ${alert.summary}`,
         route: '/impresoras',
+        photo: null,
+        kind: 'printer',
       }));
 
     return [...orders, ...prints, ...unpaid, ...overdueMaintenance]
@@ -244,6 +246,8 @@ export class PanelData {
           title: `Pedido ${order.number}`,
           detail: dueWording(days),
           route: `/pedidos/${order.id}`,
+          photo: { kind: 'order', id: order.id },
+          kind: 'product',
         };
       });
   }
@@ -266,6 +270,8 @@ export class PanelData {
         title: `Impresión sin cerrar${job.label ? ` · ${job.label}` : ''}`,
         detail: openPrintWording(days),
         route: '/produccion',
+        photo: { kind: 'job', id: job.id },
+        kind: 'plate',
       };
     });
   }
@@ -288,6 +294,8 @@ export class PanelData {
         title: `Cobrar el pedido ${row.number}`,
         detail: owingWording(Number(row.balance ?? 0)),
         route: '/finanzas/por-cobrar',
+        photo: { kind: 'order', id: row.order_id },
+        kind: 'product',
       }));
   }
 

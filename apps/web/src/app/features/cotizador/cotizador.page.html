@@ -3,7 +3,7 @@
   [subtitle]="subtitle()"
 >
   <div actions>
-    <a routerLink="/cotizaciones"><button type="button" class="secondary">Ver cotizaciones</button></a>
+    <a class="button secondary" routerLink="/cotizaciones">Ver cotizaciones</a>
   </div>
 
   <pp-async [loading]="loading()" [error]="error()">
@@ -44,12 +44,14 @@
             @if (ctx.variants.length === 0) {
               <p class="muted">Todavía no hay variantes publicadas.</p>
             } @else {
-              <select (change)="loadVariant($event)" aria-label="Variante del catálogo">
-                <option value="">Elige una variante…</option>
-                @for (variant of ctx.variants; track variant.id) {
-                  <option [value]="variant.id">{{ variant.label }}</option>
-                }
-              </select>
+              <!-- An action, not a value: it loads the recipe and goes back to empty. -->
+              <pp-item-picker
+                value=""
+                [options]="variantOptions()"
+                placeholder="Elige una variante…"
+                label="Variante del catálogo"
+                (chosen)="loadVariant($event)"
+              />
             }
           </pp-field>
 

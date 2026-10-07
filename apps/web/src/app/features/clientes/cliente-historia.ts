@@ -60,7 +60,7 @@ import { ClientesData, type CustomerStory } from './clientes.data';
         <h3>Sus tratos</h3>
         @if (s.opportunities.length === 0) {
           <pp-empty message="Sin tratos registrados. Un trato agrupa lo que se le cotizó y lo que compró.">
-            <a routerLink="/oportunidades"><button type="button" class="secondary">Ir a oportunidades</button></a>
+            <a class="button secondary" routerLink="/oportunidades">Ir a oportunidades</a>
           </pp-empty>
         } @else {
           <div class="table-wrap">

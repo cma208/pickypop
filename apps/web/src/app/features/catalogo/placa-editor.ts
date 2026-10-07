@@ -34,7 +34,7 @@ const SECONDS_PER_MINUTE = 60;
     <section>
       <div class="head">
         @if (plate(); as current) {
-          <pp-thumb size="lg" [path]="current.thumbnailPath" [name]="current.label ?? 'Placa ' + current.plateIndex" />
+          <pp-thumb size="bed" kind="plate" [path]="current.thumbnailPath" [name]="current.label ?? 'Placa ' + current.plateIndex" />
         }
         <h4>{{ plate() ? 'Placa ' + plate()!.plateIndex + (plate()!.label ? ' · ' + plate()!.label : '') : 'Agregar placa' }}</h4>
       </div>

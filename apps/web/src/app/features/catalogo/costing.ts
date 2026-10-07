@@ -69,7 +69,7 @@ function priceOf(sku: SkuOption): number | null {
  * null cost so the screen can say it is missing rather than showing it as free.
  */
 export function supplyOptions(
-  items: { id: string; name: string; unit: string }[],
+  items: { id: string; name: string; unit: string; image_path?: string | null; kind?: SupplyOption['kind'] }[],
   costs: { inventory_item_id: string | null; cost_per_unit: number | null }[],
 ): SupplyOption[] {
   const costPerUnit = new Map(
@@ -84,6 +84,8 @@ export function supplyOptions(
     name: item.name,
     unit: item.unit,
     costPerUnit: costPerUnit.get(item.id) ?? null,
+    imagePath: item.image_path ?? null,
+    kind: item.kind ?? null,
   }));
 }
 

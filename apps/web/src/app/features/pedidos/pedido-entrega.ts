@@ -3,7 +3,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormArray, FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { todayLocal } from '../../core/dates';
 import { errorOf, textOrNull } from '../../core/form-errors';
-import { Card, Field, FORMAT_PIPES, Thumb } from '../../ui';
+import { Card, Field, FORMAT_PIPES, Item } from '../../ui';
 import { PedidoEntregas } from './pedido-entregas';
 import { PedidosData, type OrderDelivery, type OrderLine } from './pedidos.data';
 import {
@@ -23,7 +23,7 @@ import { explainError } from './pedidos.errors';
  */
 @Component({
   selector: 'app-pedido-entrega',
-  imports: [ReactiveFormsModule, Card, Field, Thumb, PedidoEntregas, ...FORMAT_PIPES],
+  imports: [ReactiveFormsModule, Card, Field, Item, PedidoEntregas, ...FORMAT_PIPES],
   template: `
     <pp-card heading="Entrega">
       @if (notice(); as message) { <p class="notice" role="status">{{ message }}</p> }
@@ -55,13 +55,13 @@ import { explainError } from './pedidos.errors';
                 @for (line of pendingLines(); track line.id; let i = $index) {
                   <tr>
                     <td>
-                      <span class="with-thumb">
-                        <pp-thumb [path]="line.imagePath" [name]="line.description" />
-                        <span>
-                          <span class="strong">{{ line.description }}</span>
-                          <small class="sub">Entregado: {{ line.delivered }} de {{ line.quantity }} · {{ line.pending === 1 ? 'falta 1' : 'faltan ' + line.pending }}</small>
-                        </span>
-                      </span>
+                      <pp-item
+                        size="lead"
+                        kind="product"
+                        [path]="line.imagePath"
+                        [name]="line.description"
+                        [sub]="'Entregado: ' + line.delivered + ' de ' + line.quantity + ' · ' + (line.pending === 1 ? 'falta 1' : 'faltan ' + line.pending)"
+                      />
                     </td>
                     <td class="num">
                       <input
@@ -111,7 +111,6 @@ import { explainError } from './pedidos.errors';
     :host { display: block; scroll-margin-top: 1rem; }
     .lead { margin: 0 0 0.75rem; font-size: 0.85rem; }
     .scroll { overflow-x: auto; }
-    .with-thumb { display: inline-flex; align-items: center; gap: 0.6rem; }
     .qty { width: 5.5rem; text-align: right; }
     .details { margin-top: 1rem; }
     .actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }

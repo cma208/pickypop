@@ -20,8 +20,6 @@ export const SECTION_STYLES = `
   .form-box h3 { margin: 0 0 0.75rem; font-size: 0.95rem; }
   .notice { margin: 0 0 1rem; padding: 0.6rem 0.8rem; border-radius: var(--radius-sm); background: var(--accent-soft); font-size: 0.85rem; }
   .notice.warn { background: var(--warn-soft); color: var(--warn); }
-  .table-wrap { overflow-x: auto; }
   fieldset { margin: 0 0 0.9rem; padding: 0.5rem 0.8rem 0.2rem; border: 1px solid var(--line); border-radius: var(--radius-sm); }
   legend { padding: 0 0.3rem; font-size: 0.85rem; font-weight: 500; }
-  .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 `;

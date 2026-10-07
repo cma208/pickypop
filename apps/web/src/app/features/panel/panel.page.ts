@@ -1,6 +1,6 @@
 import { Component, inject, resource } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { AsyncState, Badge, Card, FORMAT_PIPES, Page } from '../../ui';
+import { AsyncState, Badge, Card, FORMAT_PIPES, Item, Page } from '../../ui';
 import { SECTION_STYLES } from '../../core/styles';
 import { DUE_LABELS, DUE_TONES } from '../impresoras/maintenance-due';
 import { PanelData } from './panel.data';
@@ -30,26 +30,18 @@ const TODAY = new Intl.DateTimeFormat('es-PE', {
 
 @Component({
   selector: 'app-panel',
-  imports: [RouterLink, Page, Card, Badge, AsyncState, FORMAT_PIPES],
+  imports: [RouterLink, Page, Card, Badge, AsyncState, Item, FORMAT_PIPES],
   styles: [
     SECTION_STYLES,
     `
       .queue { margin-bottom: 1.25rem; }
-      .task {
-        display: flex; align-items: center; gap: 0.75rem;
-        padding: 0.6rem 0; border-top: 1px solid var(--line);
-      }
+      .task { padding: 0.55rem 0; border-top: 1px solid var(--line); }
       .task:first-of-type { border-top: 0; }
-      .task .grow { flex: 1; min-width: 0; }
-      .task .grow small { display: block; color: var(--muted); }
-      .task a { font-weight: 600; text-decoration: none; }
-      .task a:hover { text-decoration: underline; }
       .cards { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr)); }
       .row-item { display: flex; align-items: center; gap: 0.6rem; padding: 0.45rem 0; border-top: 1px solid var(--line); }
       .row-item:first-of-type { border-top: 0; }
       .row-item .grow { flex: 1; min-width: 0; }
       .row-item small { display: block; color: var(--muted); }
-      .dot { width: 0.8rem; height: 0.8rem; border: 1px solid var(--line); border-radius: 50%; flex: none; }
       .big { font-size: 2rem; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.1; }
       .good-text { color: var(--good); }
       .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; margin: 0.75rem 0; text-align: center; }
@@ -66,13 +58,17 @@ const TODAY = new Intl.DateTimeFormat('es-PE', {
             <p class="positive">Nada vencido ni por vencer. Lo de abajo es cómo va el taller.</p>
           } @else {
             @for (task of tasks.value(); track task.key) {
-              <div class="task">
-                <pp-badge [tone]="urgencyTones[task.urgency]">{{ urgencyLabels[task.urgency] }}</pp-badge>
-                <span class="grow">
-                  <a [routerLink]="task.route">{{ task.title }}</a>
-                  <small>{{ task.detail }}</small>
-                </span>
-              </div>
+              <pp-item
+                class="task"
+                size="option"
+                [photo]="task.photo"
+                [kind]="task.kind"
+                [name]="task.title"
+                [link]="task.route"
+                [sub]="task.detail"
+              >
+                <pp-badge end [tone]="urgencyTones[task.urgency]">{{ urgencyLabels[task.urgency] }}</pp-badge>
+              </pp-item>
             }
           }
         </pp-async>
@@ -86,14 +82,16 @@ const TODAY = new Intl.DateTimeFormat('es-PE', {
               <p class="positive">Todo el filamento está por encima de su mínimo.</p>
             } @else {
               @for (item of low.value(); track item.id) {
-                <div class="row-item">
-                  <span class="dot" [style.background]="item.colorHex ?? 'transparent'"></span>
-                  <span class="grow">
-                    {{ item.name }}
-                    <small>Mínimo {{ item.minimumG | grams }}</small>
-                  </span>
-                  <pp-badge tone="bad">{{ item.availableG | grams }}</pp-badge>
-                </div>
+                <pp-item
+                  class="row-item"
+                  size="option"
+                  kind="spool"
+                  [color]="item.colorHex"
+                  [name]="item.name"
+                  [sub]="'Mínimo ' + (item.minimumG | grams)"
+                >
+                  <pp-badge end tone="bad">{{ item.availableG | grams }}</pp-badge>
+                </pp-item>
               }
             }
           </pp-async>

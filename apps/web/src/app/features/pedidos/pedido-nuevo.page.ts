@@ -20,7 +20,7 @@ import { PURPOSE_HELP, PURPOSE_LABEL, PURPOSES, type OrderPurpose } from './pedi
   imports: [ReactiveFormsModule, RouterLink, Page, Card, Field, AsyncState, PedidoLinea, ...FORMAT_PIPES],
   template: `
     <pp-page title="Nuevo pedido" subtitle="El número se asigna al guardar">
-      <a actions routerLink="/pedidos"><button type="button" class="secondary">Volver</button></a>
+      <a actions class="button secondary" routerLink="/pedidos">Volver</a>
 
       <pp-async [loading]="loading()" [error]="loadError()">
         <form [formGroup]="form" (ngSubmit)="save()" novalidate>
@@ -128,7 +128,7 @@ import { PURPOSE_HELP, PURPOSE_LABEL, PURPOSES, type OrderPurpose } from './pedi
             @if (saveError(); as message) { <p class="error" role="alert">{{ message }}</p> }
             <div class="row">
               <button type="submit" [disabled]="saving()">{{ saving() ? 'Guardando…' : 'Guardar pedido' }}</button>
-              <a routerLink="/pedidos"><button type="button" class="secondary">Cancelar</button></a>
+              <a class="button secondary" routerLink="/pedidos">Cancelar</a>
             </div>
           </pp-card>
         </form>

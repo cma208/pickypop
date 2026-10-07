@@ -16,9 +16,9 @@ import { booleanAttribute, Component, input } from '@angular/core';
   `,
   styles: `
     label { display: grid; gap: 0.3rem; margin-bottom: 0.9rem; }
-    .label { font-size: 0.85rem; font-weight: 500; }
+    .label { font-size: var(--fs-sm); font-weight: 500; }
     .req { color: var(--danger); }
-    small { font-size: 0.75rem; }
+    small { font-size: var(--fs-xs); }
     .error { color: var(--danger); }
   `,
 })

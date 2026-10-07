@@ -37,7 +37,7 @@ apps/web/src/app/
 
 Los iconos del menú viven en `layout/nav-icons.ts`, como un sprite SVG en línea: diecinueve trazos de 24×24, sin relleno, que toman color y grosor de donde estén, así que el estado activo enciende el icono y la palabra a la vez. Son dibujados a mano a propósito: una fuente de iconos sería una dependencia y una petición de red para diecinueve figuras. Si hace falta uno nuevo, se agrega ahí y tiene que ser legible a 18 px, que es el único tamaño al que se dibujan.
 
-**Los colores viven en `_palettes.scss` y en ningún otro sitio.** Es el único archivo del proyecto donde hay un color escrito; `styles.scss` solo tiene la fontanería que decide cuál gana. Los tokens: `--bg`, `--surface`, `--text`, `--muted`, `--line`, `--line-strong`, `--accent`, `--accent-soft`, `--on-accent`, `--danger`, `--good`, `--warn` y sus `-soft`. Más `--radius`, `--radius-sm`, `--shadow` y `--row-pad`.
+**Los colores viven en `_palettes.scss` y en ningún otro sitio.** Es el único archivo del proyecto donde hay un color escrito; `styles.scss` solo tiene la fontanería que decide cuál gana. Los tokens: `--bg`, `--surface`, `--text`, `--muted`, `--line`, `--line-strong`, `--accent`, `--accent-soft`, `--on-accent`, `--danger`, `--good`, `--warn`, `--info` y sus `-soft`. Más `--radius`, `--radius-sm`, `--shadow` y `--row-pad`, y las escalas de `styles.scss` (abajo).
 
 Dos de ellos existen por motivos que no se ven hasta que faltan. **`--on-accent`** es la tinta que va encima del acento, y no puede ser blanca siempre: en modo oscuro el acento es claro, y un `color: #fff` ahí deja el botón en 2.3:1. **`--line-strong`** es el borde de algo en lo que se escribe o se hace clic: la raya que separa dos filas de tabla tiene que desaparecer, y el borde de un campo tiene que verse; con un solo token ganaba la raya.
 
@@ -45,11 +45,26 @@ Dos de ellos existen por motivos que no se ven hasta que faltan. **`--on-accent`
 
 Si agregas una pantalla, no escribas un color. Si de verdad hace falta uno nuevo, va como token en las cinco paletas, o la próxima paleta lo dejará fuera.
 
+**`--info` es «en curso»** (en cola, imprimiendo, cobro parcial) y es azul en las cinco paletas, como el rojo es rojo en todas. Antes era el acento, y el mismo estado cambiaba de significado con la paleta: en Terracota «Imprimiendo» se leía como alerta, y en Grafito no se distinguía de lo neutro. **El acento queda para lo que se toca**: enlaces, botón principal, foco, el menú activo. Y el color es para lo que pide hacer algo: una fila lleva como mucho una insignia de color.
+
+**Escalas** (en `styles.scss`). Letra, cinco tamaños y no más: `--fs-xs` 12 (encabezado de tabla, notas, insignias) · `--fs-sm` 13.5 (la segunda línea gris, etiquetas) · `--fs-md` 15 (cuerpo) · `--fs-lg` 18 (título de tarjeta y cifras) · `--fs-xl` 26 (título de página). Controles, dos alturas: `--control-h` 40 px y `--control-h-compact` 32 px para un botón dentro de una fila; con pantalla táctil, 44 y 40.
+
+**Fotos**, una escala por contexto (`pp-thumb size`): `inline` 24 (dentro de una frase) · `option` 40 (opción de selector) · `row` 48 (fila de artículo) · `lead` 64 (fila donde la foto es lo que distingue: líneas de pedido y cotización) · `bed` 96 (lo que está en la impresora) · `sheet` 240 (ficha) · `fill` (todo el ancho de una tarjeta de galería). La foto se muestra **entera** (`contain`), nunca recortada: la silueta de una botella es lo que la distingue de una tapa. Sin foto va el ícono del tipo de artículo, nunca la inicial.
+
+Cada foto se guarda dos veces al subirla (`core/media.ts`): la original, de hasta 1024 px, y una miniatura de 256 px al lado, `<uuid>.thumb.webp`. `pp-thumb` pide la miniatura hasta 96 px y la original por encima; si la miniatura no existe (fotos subidas antes) cae a la original. Quitar una foto borra las dos.
+
+Cuando una pantalla solo conoce el id de lo que lista (una línea de pedido, un trabajo, un pedido), `pp-thumb` acepta `[photo]="{ kind, id }"` y `core/article-photos.ts` busca la foto con una regla escrita una sola vez: la variante cae a la foto de su producto; la pieza, a la miniatura de una placa que la produce; el trabajo muestra su placa, después la primera pieza de su lista y al final el producto del pedido.
+
 Componentes en `ui/`:
 
 | Componente | Uso |
 |---|---|
-| `<pp-page title subtitle>` | Marco de página, con ranura `[actions]` |
+| `<pp-page title subtitle>` | Marco de página, con ranura `[actions]`. Una ficha lo usa sin título y abre con `pp-resource-header` |
+| `<pp-resource-header heading code meta [action] (acted)>` | Cabecera de ficha: título humano («Ana Quispe · 10 × Botella de poción», con `core/document-title.ts`), el número y el estado debajo (`[status]`), **una** acción principal (la decide la página) y un menú «Más» (`[more]`). En el celular la acción queda fija abajo |
+| `<pp-item name sub [path] [photo] kind size>` | Fila de artículo: foto, nombre, segunda línea gris (`sub` o contenido `[sub]`) y hueco al final (`[end]`). Es la fila de toda lista de artículos |
+| `<pp-thumb size [path] [photo] kind color>` | La foto sola, con la escala de arriba |
+| `<pp-item-picker [options]>` | Elegir un artículo con foto, buscando mientras se escribe. Funciona con `formControlName` o con `value`/`chosen` |
+| `<pp-image-field folder [path] (changed)>` | Subir o quitar la foto de un artículo. En un formulario que se puede cancelar va con `removesPrevious="false"` y el formulario borra lo descartado al cerrar (`photosToDelete`) |
 | `<pp-card heading>` | Bloque de contenido |
 | `<pp-badge tone>` | Estados: `neutral`, `good`, `warn`, `bad`, `info` |
 | `<pp-async [loading] [error]>` | Envuelve lo que carga datos: muestra cargando, error o contenido |
@@ -58,7 +73,7 @@ Componentes en `ui/`:
 
 Pipes: `money` (acepta decimales: `valor \| money:3`), `grams`, `duration`, `fecha`, `percent1`.
 
-Clases útiles: `.muted`, `.error`, `.num` (números alineados a la derecha), `.row`, `.grid.two`. Las tablas se escriben con `<table>` normal y ya tienen estilo. Botones: por defecto, `.secondary`, `.ghost`, `.danger`.
+Clases útiles, todas en `styles.scss` y en ningún paquete: `.muted`, `.error`, `.num` (números alineados a la derecha), `.row`, `.grid.two`, `.table-wrap`, `.hide-small`, `.only-small`, `.sub`, `.strong`, `.alert`, `.alert-warn`, `.actions-cell`, `.sr-only`. Las tablas se escriben con `<table>` normal y ya tienen estilo. Botones: por defecto, `.secondary`, `.ghost`, `.danger`. **Un enlace que hace de botón es `<a class="button">`**, nunca un `<button>` dentro de un `<a>` (dos paradas de tabulación para un control, y el botón hereda el color del enlace). Una acción dentro de una frase («Sin foto · Agregar») es `button.inline-link`.
 
 ## 6.5 Convenciones
 

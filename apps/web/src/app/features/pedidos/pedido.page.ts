@@ -3,7 +3,8 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { date } from '../../core/format';
 import { friendlyError } from '../../core/friendly-error';
-import { AsyncState, Badge, Card, Empty, FORMAT_PIPES, Page, Thumb } from '../../ui';
+import { AsyncState, Badge, Card, Empty, FORMAT_PIPES, Item, Page, ResourceHeader } from '../../ui';
+import { documentTitle } from '../../core/document-title';
 import { PrintJobCard } from '../produccion/print-job-card';
 import { PrintJobForm, type FixedOrderLine } from '../produccion/print-job-form';
 import { ProduccionData, type JobItem } from '../produccion/produccion.data';
@@ -40,7 +41,8 @@ import {
     Badge,
     AsyncState,
     Empty,
-    Thumb,
+    Item,
+    ResourceHeader,
     PrintJobCard,
     PrintJobForm,
     PedidoCobro,
@@ -48,8 +50,20 @@ import {
     ...FORMAT_PIPES,
   ],
   template: `
-    <pp-page [title]="order()?.number ?? 'Pedido'" [subtitle]="subtitle()">
-      <a actions routerLink="/pedidos"><button type="button" class="secondary">Volver</button></a>
+    <pp-page>
+      <!-- The next real step (Entregar, Cobrar saldo…) goes in [action] with (acted). -->
+      <pp-resource-header
+        backLink="/pedidos"
+        backLabel="Pedidos"
+        [heading]="heading()"
+        [code]="order()?.number"
+        [meta]="subtitle()"
+        [photo]="order() ? { kind: 'order', id: order()!.id } : null"
+      >
+        @if (order(); as o) {
+          <pp-badge status [tone]="statusTone[o.status]">{{ statusLabel[o.status] }}</pp-badge>
+        }
+      </pp-resource-header>
 
       <pp-async [loading]="loading()" [error]="error()">
         @if (order(); as o) {
@@ -58,7 +72,6 @@ import {
               <div class="row badges">
                 <pp-badge [tone]="purposeTone[o.purpose]">{{ purposeLabel[o.purpose] }}</pp-badge>
                 @if (o.giftCategoryName) { <pp-badge tone="warn">{{ o.giftCategoryName }}</pp-badge> }
-                <pp-badge [tone]="statusTone[o.status]">{{ statusLabel[o.status] }}</pp-badge>
               </div>
               <dl>
                 @if (o.purpose === 'sale') {
@@ -144,10 +157,13 @@ import {
                     @for (line of o.lines; track line.id) {
                       <tr>
                         <td>
-                          <span class="with-thumb">
-                            <pp-thumb size="sm" [path]="line.imagePath" [name]="line.description" />
-                            <span>{{ line.description }}</span>
-                          </span>
+                          <pp-item
+                            size="lead"
+                            kind="product"
+                            [path]="line.imagePath"
+                            [photo]="{ kind: 'variant', id: line.variantId }"
+                            [name]="line.description"
+                          />
                         </td>
                         <td class="num">{{ line.quantity }}</td>
                         @if (o.purpose === 'sale') {
@@ -235,7 +251,7 @@ import {
           </div>
         } @else {
           <pp-empty message="No encontramos este pedido.">
-            <a routerLink="/pedidos"><button type="button" class="secondary">Ir a pedidos</button></a>
+            <a class="button secondary" routerLink="/pedidos">Ir a pedidos</a>
           </pp-empty>
         }
       </pp-async>
@@ -258,7 +274,6 @@ import {
     tfoot th { font-size: 0.85rem; text-transform: none; color: inherit; }
     .row { margin-top: 0.5rem; }
     select { width: auto; }
-    .with-thumb { display: inline-flex; align-items: center; gap: 0.5rem; }
   `,
 })
 export class PedidoPage {
@@ -299,7 +314,16 @@ export class PedidoPage {
 
   protected readonly subtitle = computed(() => {
     const order = this.order();
-    return order ? `Pedido del ${date(order.orderedOn)}` : undefined;
+    if (!order) return undefined;
+    return order.dueDate ? `entrega ${date(order.dueDate)}` : `pedido del ${date(order.orderedOn)}`;
+  });
+
+  /** Who it is for and what it is, before its number: "Ana Quispe · 10 × Botella de poción". */
+  protected readonly heading = computed(() => {
+    const order = this.order();
+    if (!order) return 'Pedido';
+    const party = order.purpose === 'sale' ? order.customerName : (order.recipient ?? 'Para el taller');
+    return documentTitle(party, order.lines);
   });
 
   /** Something of the order has not left yet: "Entregado" is reached by delivering it. */

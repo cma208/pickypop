@@ -1,11 +1,12 @@
 import { Component, inject, signal } from '@angular/core';
-import { AsyncState, Badge, Empty, FORMAT_PIPES, Page } from '../../ui';
+import { AsyncState, Badge, Empty, FORMAT_PIPES, Item, Page, type ArticleKind } from '../../ui';
 import { CompraForm, type SavedPurchase } from './compra-form';
 import { CompraPago } from './compra-pago';
 import {
   InventarioData,
   type InventoryItemSummary,
   type PaymentAccount,
+  type PurchaseLineView,
   type PurchaseSummary,
   type SkuSummary,
   type SupplierOption,
@@ -16,7 +17,7 @@ import { INVENTORY_STYLES } from './inventario.styles';
 
 @Component({
   selector: 'app-compras',
-  imports: [Page, AsyncState, Empty, Badge, CompraForm, CompraPago, FORMAT_PIPES, INVENTORY_PIPES],
+  imports: [Page, AsyncState, Empty, Badge, Item, CompraForm, CompraPago, FORMAT_PIPES, INVENTORY_PIPES],
   template: `
     <pp-page
       [title]="creating() ? 'Nueva compra' : 'Compras'"
@@ -52,38 +53,46 @@ import { INVENTORY_STYLES } from './inventario.styles';
             <table>
               <thead>
                 <tr>
-                  <th>Fecha</th>
-                  <th>Proveedor</th>
+                  <th class="hide-small">Fecha</th>
+                  <th>Qué se compró</th>
                   <th class="hide-small">Documento</th>
-                  <th class="num">Total</th>
-                  <th>Pago</th>
-                  <th class="num hide-small">Rollos</th>
+                  <th class="num">Total y pago</th>
                   <th><span class="sr-only">Detalle</span></th>
                 </tr>
               </thead>
               <tbody>
                 @for (purchase of purchases(); track purchase.id) {
                   <tr>
-                    <td class="date">{{ purchase.purchasedAt | fechaDia }}</td>
+                    <td class="date hide-small">{{ purchase.purchasedAt | fechaDia }}</td>
                     <td>
-                      {{ purchase.supplierName ?? 'Sin proveedor' }}
-                      <small class="sub only-small">
-                        {{ purchase.spoolCount }} {{ purchase.spoolCount === 1 ? 'rollo' : 'rollos' }}
-                        @if (purchase.documentRef) { · {{ purchase.documentRef }} }
-                      </small>
+                      <pp-item
+                        [path]="purchase.lines[0]?.imagePath"
+                        [kind]="lineKind(purchase.lines[0])"
+                        [color]="purchase.lines[0]?.colorHex"
+                        [name]="boughtName(purchase)"
+                      >
+                        <span sub>
+                          <span class="only-small">{{ purchase.purchasedAt | fechaDia }} · </span>
+                          {{ purchase.supplierName ?? 'Sin proveedor' }}
+                          @if (purchase.spoolCount > 0) {
+                            · {{ purchase.spoolCount }} {{ purchase.spoolCount === 1 ? 'rollo' : 'rollos' }}
+                          }
+                        </span>
+                      </pp-item>
                     </td>
                     <td class="hide-small">{{ purchase.documentRef ?? '—' }}</td>
-                    <td class="num">{{ purchase.total | money }}</td>
-                    <td>
-                      @if (purchase.pending <= 0) {
-                        <pp-badge tone="good">Pagada</pp-badge>
-                      } @else if (purchase.paid > 0) {
-                        <pp-badge tone="warn">Falta {{ purchase.pending | money }}</pp-badge>
-                      } @else {
-                        <pp-badge tone="warn">Por pagar</pp-badge>
-                      }
+                    <td class="num">
+                      {{ purchase.total | money }}
+                      <small class="sub">
+                        @if (purchase.pending <= 0) {
+                          Pagada
+                        } @else if (purchase.paid > 0) {
+                          <pp-badge tone="warn">Falta {{ purchase.pending | money }}</pp-badge>
+                        } @else {
+                          <pp-badge tone="warn">Por pagar</pp-badge>
+                        }
+                      </small>
                     </td>
-                    <td class="num hide-small">{{ purchase.spoolCount }}</td>
                     <td class="actions-cell">
                       <button
                         type="button"
@@ -97,15 +106,21 @@ import { INVENTORY_STYLES } from './inventario.styles';
                   </tr>
                   @if (expandedId() === purchase.id) {
                     <tr class="detail">
-                      <td colspan="7">
+                      <td colspan="5">
                         <ul>
                           @for (line of purchase.lines; track line.id) {
                             <li>
-                              <span>{{ line.label }}</span>
-                              <span class="muted">
-                                {{ line.quantity }} × {{ line.unitPrice | money }}
-                                @if (line.extra > 0) { + {{ line.extra | money }} de envío y otros }
-                              </span>
+                              <pp-item
+                                [path]="line.imagePath"
+                                [kind]="lineKind(line)"
+                                [color]="line.colorHex"
+                                [name]="line.label"
+                              >
+                                <span sub>
+                                  {{ line.quantity }} × {{ line.unitPrice | money }}
+                                  @if (line.extra > 0) { + {{ line.extra | money }} de envío y otros }
+                                </span>
+                              </pp-item>
                             </li>
                           }
                         </ul>
@@ -136,13 +151,8 @@ import { INVENTORY_STYLES } from './inventario.styles';
     `
       .date { white-space: nowrap; }
       .detail td { background: var(--bg); }
-      .detail ul { margin: 0 0 0.5rem; padding: 0; list-style: none; display: grid; gap: 0.25rem; }
-      .detail li { display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
-      .meta { margin: 0; font-size: 0.85rem; }
-      .sr-only {
-        position: absolute; width: 1px; height: 1px; overflow: hidden;
-        clip-path: inset(50%); white-space: nowrap;
-      }
+      .detail ul { margin: 0 0 0.75rem; padding: 0; list-style: none; display: grid; gap: 0.5rem; }
+      .meta { margin: 0; font-size: var(--fs-sm); }
     `,
   ],
 })
@@ -169,6 +179,19 @@ export class ComprasPage {
     this.notice.set(null);
     this.warning.set(null);
     this.creating.set(true);
+  }
+
+  /** The list says what was bought, not only from whom: the first line, and how many more. */
+  protected boughtName(purchase: PurchaseSummary): string {
+    const [first, ...rest] = purchase.lines;
+    if (!first) return 'Compra sin líneas';
+    return rest.length === 0 ? first.label : `${first.label} y ${rest.length} más`;
+  }
+
+  /** The icon of a line without a photo: a spool for filament, the item's kind otherwise. */
+  protected lineKind(line: PurchaseLineView | undefined): ArticleKind {
+    if (!line) return 'supply';
+    return line.isSpool ? 'spool' : (line.itemKind ?? 'supply');
   }
 
   protected toggle(id: string): void {

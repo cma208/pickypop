@@ -6,7 +6,7 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 // core/pricing does not re-export these yet, and rewriting rounding here would
 // be exactly what docs/06-frontend.md 6.3 forbids. See the report.
 import { chargesIgv, roundMoney, sumMoney } from '../../core/pricing';
-import { AsyncState, Badge, Card, Empty, Field, FORMAT_PIPES, Page } from '../../ui';
+import { AsyncState, Badge, Card, Empty, Field, FORMAT_PIPES, ItemPicker, Page, type PickerOption } from '../../ui';
 import type { BatchCostBreakdown, PriceBreakdown } from '../../core/pricing';
 import {
   CotizadorData,
@@ -68,6 +68,7 @@ const MS_PER_DAY = 86_400_000;
     AsyncState,
     Empty,
     Field,
+    ItemPicker,
     Desglose,
     ...FORMAT_PIPES,
   ],
@@ -83,6 +84,16 @@ export class CotizadorPage {
   protected readonly loading = signal(true);
   protected readonly error = signal<string | null>(null);
   protected readonly context = signal<QuotingContext | null>(null);
+
+  /** The catalogue to start from, with photos: the variant is recognised before it is read. */
+  protected readonly variantOptions = computed<PickerOption[]>(() =>
+    (this.context()?.variants ?? []).map((variant) => ({
+      value: variant.id,
+      label: variant.label,
+      photo: { kind: 'variant', id: variant.id },
+      kind: 'product',
+    })),
+  );
 
   /** What the user is composing right now. */
   protected readonly plates = signal<PlateDraft[]>([]);
@@ -511,11 +522,7 @@ export class CotizadorPage {
    * the recipe is in. A value binding would not, because Angular only writes
    * when the bound value itself changes.
    */
-  protected async loadVariant(event: Event): Promise<void> {
-    const select = event.target as HTMLSelectElement;
-    const variantId = select.value;
-    select.value = '';
-
+  protected async loadVariant(variantId: string): Promise<void> {
     const context = this.context();
     const variant = context?.variants.find((item) => item.id === variantId);
     if (context === null || variant === undefined) return;

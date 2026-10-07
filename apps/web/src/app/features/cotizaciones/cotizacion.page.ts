@@ -1,6 +1,7 @@
 import { Component, computed, effect, inject, input, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { AsyncState, Badge, Card, Empty, FORMAT_PIPES, Page, type BadgeTone } from '../../ui';
+import { AsyncState, Badge, Card, Empty, FORMAT_PIPES, Item, Page, ResourceHeader, type BadgeTone, type HeaderAction } from '../../ui';
+import { documentTitle } from '../../core/document-title';
 import { Desglose } from '../cotizador/desglose';
 import {
   CotizadorData,
@@ -36,7 +37,7 @@ const A_CENT = 0.005;
 
 @Component({
   selector: 'app-cotizacion',
-  imports: [RouterLink, Page, Card, Badge, AsyncState, Empty, Desglose, ...FORMAT_PIPES],
+  imports: [RouterLink, Page, Card, Badge, AsyncState, Empty, Item, ResourceHeader, Desglose, ...FORMAT_PIPES],
   templateUrl: './cotizacion.page.html',
   styles: `
     :host { display: block; }
@@ -44,7 +45,7 @@ const A_CENT = 0.005;
     .banner { margin: 0 0 0.75rem; padding: 0.6rem 0.8rem; border-radius: var(--radius-sm); font-size: 0.9rem; }
     .banner.warn { background: var(--warn-soft); color: var(--warn); }
     .banner.bad { background: var(--danger-soft); color: var(--danger); }
-    .banner.info { background: var(--accent-soft); color: var(--accent); }
+    .banner.info { background: var(--info-soft); color: var(--info); }
     dl.facts { display: grid; grid-template-columns: auto 1fr; gap: 0.35rem 1rem; margin: 0; }
     dl.facts dt { color: var(--muted); font-size: 0.85rem; }
     dl.facts dd { margin: 0; }
@@ -54,8 +55,8 @@ const A_CENT = 0.005;
     .totals .big dt, .totals .big dd { font-size: 1.1rem; font-weight: 600; }
     .line { margin-bottom: 1.5rem; padding-bottom: 1rem; border-bottom: 1px solid var(--line); }
     .line:last-child { margin-bottom: 0; padding-bottom: 0; border-bottom: 0; }
-    .line h3 { margin: 0 0 0.25rem; font-size: 1rem; }
-    .line .meta { margin: 0 0 0.75rem; font-size: 0.85rem; }
+    .line-head { margin-bottom: 0.75rem; }
+    .line-head strong { font-size: var(--fs-lg); }
   `,
 })
 export class CotizacionPage {
@@ -164,6 +165,33 @@ export class CotizacionPage {
 
   protected readonly canSend = computed(() => this.quote()?.status === 'draft');
   protected readonly canClose = computed(() => this.quote()?.status === 'sent');
+
+  /** Who it is for and what it is: "Colegio San Martín · 30 × Botella de poción". */
+  protected readonly heading = computed(() => {
+    const quote = this.quote();
+    return quote ? documentTitle(quote.customerName, quote.storedLines) : 'Cotización';
+  });
+
+  protected readonly code = computed(() => {
+    const quote = this.quote();
+    if (!quote) return null;
+    return quote.version > 1 ? `${quote.number} · versión ${quote.version}` : quote.number;
+  });
+
+  /**
+   * The one step this quote asks for next: send the draft, then hear back
+   * from the customer. Rejecting, the PDF and a new version wait in "Más".
+   */
+  protected readonly mainAction = computed<HeaderAction | null>(() => {
+    if (this.canSend()) return { label: 'Marcar como enviada', busy: this.busy() };
+    if (this.canClose()) return { label: 'El cliente aceptó', busy: this.busy() };
+    return null;
+  });
+
+  protected onMainAction(): void {
+    if (this.canSend()) void this.apply('sent');
+    else if (this.canClose()) this.ask('accepted');
+  }
 
   private async load(id: string): Promise<void> {
     this.loading.set(true);

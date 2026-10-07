@@ -1,3 +1,5 @@
+import type { ArticleKind, PhotoRef } from '../../core/article-photos';
+
 /**
  * The pure parts of the "what do I do today" queue, kept apart from the
  * queries so they can be tested. The wording around a due date is exactly
@@ -16,6 +18,10 @@ export interface TodayTask {
   /** Why it is on the list today. */
   detail: string;
   route: string;
+  /** What the row looks like: the order's product, the job's plate. */
+  photo: PhotoRef | null;
+  /** The icon when there is no photo to show. */
+  kind: ArticleKind;
 }
 
 /** Lower sorts first. */

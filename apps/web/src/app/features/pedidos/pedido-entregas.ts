@@ -33,7 +33,7 @@ interface DeliveryEntry {
           <ul class="items">
             @for (item of entry.items; track item.orderLineId) {
               <li>
-                <pp-thumb size="sm" [path]="item.imagePath" [name]="item.description" />
+                <pp-thumb size="option" kind="product" [path]="item.imagePath" />
                 <span><strong>{{ item.quantity }}</strong> × {{ item.description }}</span>
               </li>
             }
