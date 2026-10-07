@@ -170,3 +170,34 @@ Hay tres ramas en juego, ninguna publicada:
 - Una tabla temporal dentro de una función que llama la API depende de permisos del proyecto alojado. Mejor una variable `jsonb`.
 - En una prueba, una consulta de afuera no ve lo que una función creó o cambió dentro de la misma instrucción. Hay que leerlo en otra.
 - Mientras existan worktrees de agentes, las pruebas de la raíz se corren con `pnpm exec vitest run --exclude "**/.claude/**" --exclude "**/node_modules/**" --exclude "**/dist/**" --exclude "apps/**"`.
+
+## La etapa 1, cerrada (2026-10-06, noche)
+
+Todo está integrado en `etapa1-estante`, con 188 pruebas de la raíz y 268 de la aplicación en verde y el build compilando. Tres agentes trabajaron en paralelo y yo revisé e integré cada rama:
+
+| Rama | Qué trajo | Verificado |
+|---|---|---|
+| `etapa1-entregar` (agente A) | «Entregar» en la ficha: lo pendiente ya lleno, por partes, la historia de entregas y el cobro que sigue. «Pasar a Entregado» ya no ofrece un paso que la base rechaza | En el navegador y en la base: entrega parcial, el resto, los dos rechazos y el cobro |
+| `etapa1-placas` (agente B) | Cierre pieza por pieza con foto. Al importar el `.gcode.3mf`, la vista recortada de cada placa, «El archivo dice: Cap ×7, Body1 ×7» y las piezas propuestas. Los productos por corrida salen de las piezas confirmadas (7, no 14 ni 1) | Con el archivo real de la calavera: la placa 6 se cerró con 7 tapas y 6 cuerpos, y entraron 7 y 6 |
+| `etapa1-visual` (agente visual) | Miniatura de 256 px, una sola escala de fotos, ícono por tipo en vez de la inicial, `pp-item`, `pp-resource-header`, selectores con foto y utilidades globales | En el navegador a 1100 y 375 px, en oscuro y en claro |
+| `etapa1-estante` (yo) | «Contar el estante» (`count_shelf`), decidido por el dueño para el arranque. «Entregar» como acción principal de la ficha. «Hoy» en hora de Lima en cinco lugares | En el navegador y en la base; los datos de prueba se borraron |
+
+**Para publicar** (lo decide el dueño):
+
+1. Llevar `etapa1-estante` a `nav-y-plan`, y `nav-y-plan` a `main`.
+2. Aplicar en el proyecto alojado **25 migraciones**, de `20261007100000_opportunities` a `20261010160000_shelf_count`, siempre primero con `--dry-run`. Van antes que la web.
+3. **Contar el estante una vez**, antes de entregar el primer pedido: los pedidos abiertos de hoy se trabarían con «No alcanza para entregar» porque el estante de la aplicación no sabe lo que el taller ya tiene hecho.
+4. Volver a importar los `.gcode.3mf` de las recetas que ya existen, si se quieren la miniatura de cada placa y las piezas propuestas: no se rellenan hacia atrás.
+
+**Pendientes menores que dejaron los agentes:**
+
+- `catalogo.data.ts` (`fail()`) tapa los mensajes `P0001` de la base con uno genérico, contra lo que pide AGENTS.md.
+- Una receta «no se arma» sin ítems se entrega sin mover nada y con costo nulo.
+- «Crear trabajo» sigue apareciendo en un pedido ya entregado.
+- La traducción que propone piezas al importar (`importacion.ts`) es una lista corta escrita a mano. Aprende de lo que la persona confirma.
+- El selector todavía no permite crear un artículo desde ahí.
+- Unas 150 declaraciones `font-size` sueltas en `features/` todavía no usan los tokens nuevos.
+- En Safari, `canvas.toBlob(…, 'image/webp')` devuelve PNG, pero se sube etiquetado como WebP. Ya pasaba antes.
+- El paquete inicial pesa 506 kB y el presupuesto es de 500 kB. Ya se pasaba antes; los 3 kB nuevos son el CSS de la base visual.
+
+**Lo que sigue en el camino 1:** la etapa 2 (la cuenta única con separo, prioridad, horario y promesa) y la etapa 3 (`accept_quote` con líneas a medida, «¿Para cuándo?» y «Por lanzar»).
