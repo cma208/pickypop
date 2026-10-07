@@ -53,3 +53,39 @@ describe('PedidosData.recordPayment', () => {
     expect(calls[0]!['p_reference']).toBeUndefined();
   });
 });
+
+describe('PedidosData.deliver', () => {
+  const SHORTAGE =
+    'No alcanza para entregar. Falta: Tapa impresa (hacen falta 2 y hay 1). Arma o imprime lo que falta, o entrega una parte.';
+
+  it('shows the database refusal word for word', async () => {
+    const data = dataWith(async () => ({ error: { code: 'P0001', message: SHORTAGE } }));
+
+    const failure = await data
+      .deliver({ orderId: 'order-1', lines: [{ order_line_id: 'line-1', quantity: 2 }], deliveredAt: null, note: null })
+      .catch((error: unknown) => error);
+
+    expect(failure).toBeInstanceOf(UserFacingError);
+    expect(friendlyError(failure, 'generic')).toBe(SHORTAGE);
+  });
+
+  it('sends the lines as given and leaves the date and note to the database when empty', async () => {
+    const calls: { name: string; args: Record<string, unknown> }[] = [];
+    const data = dataWith(async (name, args) => {
+      calls.push({ name, args });
+      return { error: null };
+    });
+
+    await data.deliver({
+      orderId: 'order-1',
+      lines: [{ order_line_id: 'line-1', quantity: 2 }],
+      deliveredAt: null,
+      note: null,
+    });
+
+    expect(calls[0]!.name).toBe('deliver_order');
+    expect(calls[0]!.args).toMatchObject({ p_order_id: 'order-1', p_lines: [{ order_line_id: 'line-1', quantity: 2 }] });
+    expect(calls[0]!.args['p_delivered_at']).toBeUndefined();
+    expect(calls[0]!.args['p_note']).toBeUndefined();
+  });
+});

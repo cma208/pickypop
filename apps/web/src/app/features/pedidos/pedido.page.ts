@@ -1,29 +1,52 @@
-import { Component, computed, effect, inject, signal } from '@angular/core';
+import { Component, computed, effect, inject, signal, viewChild } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { date } from '../../core/format';
 import { friendlyError } from '../../core/friendly-error';
-import { AsyncState, Badge, Card, Empty, FORMAT_PIPES, Page } from '../../ui';
+import { AsyncState, Badge, Card, Empty, FORMAT_PIPES, Page, Thumb } from '../../ui';
 import { PrintJobCard } from '../produccion/print-job-card';
 import { PrintJobForm, type FixedOrderLine } from '../produccion/print-job-form';
 import { ProduccionData, type JobItem } from '../produccion/produccion.data';
 import { PedidoCobro } from './pedido-cobro';
-import { PedidosData, type OrderDetail, type OrderLine, type OrderSummary, type PaymentSummary } from './pedidos.data';
+import { PedidoEntrega } from './pedido-entrega';
+import {
+  PedidosData,
+  type OrderDelivery,
+  type OrderDetail,
+  type OrderLine,
+  type OrderSummary,
+  type PaymentSummary,
+} from './pedidos.data';
 import { explainError } from './pedidos.errors';
 import {
   isFinal,
-  nextStatus,
+  nextStep,
   PURPOSE_LABEL,
   PURPOSE_TONE,
+  resumeTargets,
   STATUS_FLOW,
   STATUS_LABEL,
   STATUS_TONE,
+  type NextStep,
   type OrderStatus,
 } from './pedidos.labels';
 
 @Component({
   selector: 'app-pedido',
-  imports: [RouterLink, Page, Card, Badge, AsyncState, Empty, PrintJobCard, PrintJobForm, PedidoCobro, ...FORMAT_PIPES],
+  imports: [
+    RouterLink,
+    Page,
+    Card,
+    Badge,
+    AsyncState,
+    Empty,
+    Thumb,
+    PrintJobCard,
+    PrintJobForm,
+    PedidoCobro,
+    PedidoEntrega,
+    ...FORMAT_PIPES,
+  ],
   template: `
     <pp-page [title]="order()?.number ?? 'Pedido'" [subtitle]="subtitle()">
       <a actions routerLink="/pedidos"><button type="button" class="secondary">Volver</button></a>
@@ -65,7 +88,7 @@ import {
                 <p class="muted">El pedido está en espera. Elige en qué paso retomarlo.</p>
                 <div class="row">
                   <select [value]="resumeAt()" (change)="resumeAt.set(readStatus($event))" aria-label="Retomar en">
-                    @for (step of flow; track step) { <option [value]="step">{{ statusLabel[step] }}</option> }
+                    @for (step of resumeOptions(); track step) { <option [value]="step">{{ statusLabel[step] }}</option> }
                   </select>
                   <button type="button" (click)="change(resumeAt())" [disabled]="changing()">Retomar</button>
                 </div>
@@ -77,7 +100,11 @@ import {
               @if (!final(o.status) && o.status !== 'on_hold') {
                 <div class="row">
                   @if (next(o.status); as step) {
-                    <button type="button" (click)="change(step)" [disabled]="changing()">Pasar a {{ statusLabel[step] }}</button>
+                    @if (step.kind === 'deliver') {
+                      <button type="button" (click)="goToDelivery()">Entregar</button>
+                    } @else {
+                      <button type="button" (click)="change(step.status)" [disabled]="changing()">Pasar a {{ statusLabel[step.status] }}</button>
+                    }
                   }
                   <button type="button" class="secondary" (click)="change('on_hold')" [disabled]="changing()">Poner en espera</button>
                   @if (confirmingCancel()) {
@@ -90,6 +117,18 @@ import {
               }
               @if (statusError(); as message) { <p class="error" role="alert">{{ message }}</p> }
             </pp-card>
+
+            @if (hasPending() || deliveries().length > 0) {
+              <app-pedido-entrega
+                [orderId]="o.id"
+                [lines]="o.lines"
+                [deliveries]="deliveries()"
+                [cancelled]="o.status === 'cancelled'"
+                [balance]="payment()?.balance ?? null"
+                (delivered)="onDelivered()"
+                (collect)="goToPayment()"
+              />
+            }
 
             <pp-card heading="Líneas">
               <div class="scroll">
@@ -104,7 +143,12 @@ import {
                   <tbody>
                     @for (line of o.lines; track line.id) {
                       <tr>
-                        <td>{{ line.description }}</td>
+                        <td>
+                          <span class="with-thumb">
+                            <pp-thumb size="sm" [path]="line.imagePath" [name]="line.description" />
+                            <span>{{ line.description }}</span>
+                          </span>
+                        </td>
                         <td class="num">{{ line.quantity }}</td>
                         @if (o.purpose === 'sale') {
                           <td class="num">{{ line.unitPrice | money }}</td>
@@ -214,6 +258,7 @@ import {
     tfoot th { font-size: 0.85rem; text-transform: none; color: inherit; }
     .row { margin-top: 0.5rem; }
     select { width: auto; }
+    .with-thumb { display: inline-flex; align-items: center; gap: 0.5rem; }
   `,
 })
 export class PedidoPage {
@@ -232,7 +277,11 @@ export class PedidoPage {
   protected readonly purposeLabel = PURPOSE_LABEL;
   protected readonly purposeTone = PURPOSE_TONE;
 
+  private readonly delivery = viewChild(PedidoEntrega);
+  private readonly collection = viewChild(PedidoCobro);
+
   protected readonly order = signal<OrderDetail | null>(null);
+  protected readonly deliveries = signal<OrderDelivery[]>([]);
   protected readonly summary = signal<OrderSummary | null>(null);
   /** Null for anything that is not a sale: only sales are collected. */
   protected readonly payment = signal<PaymentSummary | null>(null);
@@ -253,6 +302,11 @@ export class PedidoPage {
     return order ? `Pedido del ${date(order.orderedOn)}` : undefined;
   });
 
+  /** Something of the order has not left yet: "Entregado" is reached by delivering it. */
+  protected readonly hasPending = computed(() => (this.order()?.lines ?? []).some((line) => line.pending > 0));
+
+  protected readonly resumeOptions = computed(() => resumeTargets(this.hasPending()));
+
   protected readonly estimatedTotal = computed(() =>
     (this.order()?.lines ?? []).reduce((sum, line) => sum + line.estimatedUnitCost * line.quantity, 0),
   );
@@ -271,8 +325,21 @@ export class PedidoPage {
     return isFinal(status);
   }
 
-  protected next(status: OrderStatus): OrderStatus | null {
-    return nextStatus(status);
+  protected next(status: OrderStatus): NextStep | null {
+    return nextStep(status, this.hasPending());
+  }
+
+  protected goToDelivery(): void {
+    this.delivery()?.focus();
+  }
+
+  protected goToPayment(): void {
+    this.collection()?.focus();
+  }
+
+  /** The database moved the stock and maybe the status: read both back. */
+  protected async onDelivered(): Promise<void> {
+    await this.load(this.id(), false);
   }
 
   protected isDone(current: OrderStatus, step: OrderStatus): boolean {
@@ -322,7 +389,9 @@ export class PedidoPage {
       this.payment.set(null);
     }
     try {
-      this.order.set(await this.orders.getOrder(id));
+      const [order, deliveries] = await Promise.all([this.orders.getOrder(id), this.orders.deliveries(id)]);
+      this.order.set(order);
+      this.deliveries.set(deliveries);
       this.error.set(null);
     } catch (error) {
       this.error.set(explainError(error, 'No pudimos leer este pedido. Inténtalo de nuevo.'));

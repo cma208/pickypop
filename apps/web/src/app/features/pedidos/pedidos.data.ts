@@ -1,8 +1,10 @@
 import { inject, Injectable } from '@angular/core';
+import { fetchAll } from '../../core/fetch-all';
 import { UserFacingError } from '../../core/friendly-error';
 import { roundMoney } from '../../core/pricing';
 import { SUPABASE } from '../../core/supabase';
 import { Workshop } from '../../core/workshop';
+import { partialDeliveries, type DeliveryLinePayload, type PartialDelivery } from './pedidos.delivery';
 import type { OrderPaymentStatus, OrderPurpose, OrderStatus, PaymentMethod } from './pedidos.labels';
 import { CurrentWorkspace } from '../../core/workspace';
 
@@ -23,6 +25,8 @@ export interface OrderListItem {
   recipient: string | null;
   customerName: string | null;
   giftCategoryName: string | null;
+  /** Set only while part of the order is out and part is still pending. */
+  partialDelivery: PartialDelivery | null;
 }
 
 export interface OrderLine {
@@ -30,10 +34,32 @@ export interface OrderLine {
   position: number;
   variantId: string | null;
   description: string;
+  /** The variant's photo, or the product's when the variant has none. */
+  imagePath: string | null;
   quantity: number;
   unitPrice: number;
   estimatedUnitCost: number;
   lineTotal: number;
+  /** Already out, according to the recorded deliveries. */
+  delivered: number;
+  /** Still to deliver. Zero on a cancelled order: nothing more goes out. */
+  pending: number;
+}
+
+/** One time something of the order left the workshop. */
+export interface OrderDelivery {
+  id: string;
+  deliveredAt: Date;
+  note: string | null;
+  lines: { orderLineId: string; quantity: number }[];
+}
+
+export interface NewDelivery {
+  orderId: string;
+  lines: DeliveryLinePayload[];
+  /** ISO instant, or null for "now". */
+  deliveredAt: string | null;
+  note: string | null;
 }
 
 export interface OrderDetail extends OrderListItem {
@@ -137,13 +163,31 @@ export class PedidosData {
   private readonly workshop = inject(Workshop);
 
   async listOrders(): Promise<OrderListItem[]> {
-    const { data, error } = await this.supabase
-      .from('orders')
-      .select(
-        'id, number, purpose, status, payment_status, ordered_on, due_date, total, recipient, customers(name), gift_categories(name)',
-      )
-      .order('created_at', { ascending: false });
+    const [{ data, error }, deliveryRows] = await Promise.all([
+      this.supabase
+        .from('orders')
+        .select(
+          'id, number, purpose, status, payment_status, ordered_on, due_date, total, recipient, customers(name), gift_categories(name)',
+        )
+        .order('created_at', { ascending: false }),
+      fetchAll((from, to) =>
+        this.supabase
+          .from('order_line_delivery_status')
+          .select('order_line_id, order_id, quantity, delivered, pending')
+          .order('order_line_id')
+          .range(from, to),
+      ),
+    ]);
     if (error) throw error;
+
+    const partial = partialDeliveries(
+      deliveryRows.map((row) => ({
+        orderId: row.order_id ?? '',
+        quantity: Number(row.quantity ?? 0),
+        delivered: Number(row.delivered ?? 0),
+        pending: Number(row.pending ?? 0),
+      })),
+    );
 
     return data.map((row) => ({
       id: row.id,
@@ -157,11 +201,12 @@ export class PedidosData {
       recipient: row.recipient,
       customerName: row.customers?.name ?? null,
       giftCategoryName: row.gift_categories?.name ?? null,
+      partialDelivery: partial.get(row.id) ?? null,
     }));
   }
 
   async getOrder(id: string): Promise<OrderDetail | null> {
-    const [order, lines] = await Promise.all([
+    const [order, lines, progress] = await Promise.all([
       this.supabase
         .from('orders')
         .select(
@@ -171,13 +216,17 @@ export class PedidosData {
         .maybeSingle(),
       this.supabase
         .from('order_lines')
-        .select('id, position, variant_id, description, quantity, unit_price, estimated_unit_cost, line_total')
+        .select('id, position, variant_id, description, quantity, unit_price, estimated_unit_cost, line_total, product_variants(image_path, catalog_products(image_path))')
         .eq('order_id', id)
         .order('position'),
+      this.supabase.from('order_line_delivery_status').select('order_line_id, delivered, pending').eq('order_id', id),
     ]);
     if (order.error) throw order.error;
     if (lines.error) throw lines.error;
+    if (progress.error) throw progress.error;
     if (!order.data) return null;
+
+    const progressOf = new Map(progress.data.map((row) => [row.order_line_id, row]));
 
     const row = order.data;
     return {
@@ -193,17 +242,56 @@ export class PedidosData {
       note: row.note,
       customerName: row.customers?.name ?? null,
       giftCategoryName: row.gift_categories?.name ?? null,
+      partialDelivery: null,
       lines: lines.data.map((line) => ({
         id: line.id,
         position: line.position,
         variantId: line.variant_id,
         description: line.description,
+        imagePath: line.product_variants?.image_path ?? line.product_variants?.catalog_products?.image_path ?? null,
         quantity: line.quantity,
         unitPrice: Number(line.unit_price),
         estimatedUnitCost: Number(line.estimated_unit_cost),
         lineTotal: Number(line.line_total),
+        delivered: Number(progressOf.get(line.id)?.delivered ?? 0),
+        // A line the view does not know about is not offered: the database
+        // would have nothing to take off the shelf for it.
+        pending: Number(progressOf.get(line.id)?.pending ?? 0),
       })),
     };
+  }
+
+  /** What has already left, most recent first. */
+  async deliveries(orderId: string): Promise<OrderDelivery[]> {
+    const { data, error } = await this.supabase
+      .from('order_deliveries')
+      .select('id, delivered_at, note, order_delivery_lines(order_line_id, quantity)')
+      .eq('order_id', orderId)
+      .order('delivered_at', { ascending: false });
+    if (error) throw error;
+
+    return data.map((row) => ({
+      id: row.id,
+      deliveredAt: new Date(row.delivered_at),
+      note: row.note,
+      lines: row.order_delivery_lines.map((line) => ({ orderLineId: line.order_line_id, quantity: line.quantity })),
+    }));
+  }
+
+  /**
+   * Delivers through the database rule, which takes the things off the shelf,
+   * records their cost and marks the order delivered once nothing is left. Its
+   * refusals say what is missing and how much, so they travel as they are.
+   */
+  async deliver(delivery: NewDelivery): Promise<void> {
+    const { error } = await this.supabase.rpc('deliver_order', {
+      p_order_id: delivery.orderId,
+      p_lines: delivery.lines,
+      p_delivered_at: delivery.deliveredAt ?? undefined,
+      p_note: delivery.note ?? undefined,
+    });
+    if (error?.code === RAISED_BY_DATABASE) throw new UserFacingError(error.message);
+    if (error) throw error;
   }
 
   /** Estimated against real, as computed by the database. */
