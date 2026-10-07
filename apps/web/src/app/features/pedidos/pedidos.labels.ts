@@ -114,6 +114,29 @@ export function nextStep(status: OrderStatus, hasPending: boolean): NextStep | n
   return { kind: 'status', status: next };
 }
 
+/**
+ * «Poner en espera» y «Cancelar pedido» solo mientras nada salió del taller.
+ * Un pedido entregado y cobrado se pudo cancelar (ORD-2026-0001): Resultados
+ * pasó a ventas S/ 0 con la plata en las cuentas y las calaveras fuera del
+ * estante. La base ya lo rechaza; aquí ni se ofrece.
+ */
+export function canStopOrder(status: OrderStatus, hasDeliveries: boolean): boolean {
+  if (isFinal(status) || REACHED_BY_DELIVERING.includes(status)) return false;
+  return !hasDeliveries;
+}
+
+const MONEY = new Intl.NumberFormat('es-PE', { style: 'currency', currency: 'PEN' });
+
+/**
+ * Por qué todavía no se puede cancelar, o null si se puede. Lo cobrado sigue
+ * en las cuentas mientras no se anule, y anular un cobro es de Caja: deja
+ * rastro y pide motivo, que es justo lo que un cambio de estado no hace.
+ */
+export function cancelBlocker(paid: number | null): string | null {
+  if (paid === null || paid <= 0) return null;
+  return `Este pedido tiene ${MONEY.format(paid)} cobrados. Para cancelarlo, primero anula esos cobros en Caja.`;
+}
+
 /** Dónde se puede retomar un pedido en espera, por la misma regla. */
 export function resumeTargets(hasPending: boolean): OrderStatus[] {
   return hasPending ? STATUS_FLOW.filter((step) => !REACHED_BY_DELIVERING.includes(step)) : [...STATUS_FLOW];
