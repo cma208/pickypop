@@ -3,23 +3,30 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormArray, FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { todayLocal } from '../../core/dates';
 import { errorOf, textOrNull } from '../../core/form-errors';
+import { PlanService } from '../../core/plan';
 import { Card, Field, FORMAT_PIPES, Item } from '../../ui';
 import { PedidoEntregas } from './pedido-entregas';
 import { PedidosData, type OrderDelivery, type OrderLine } from './pedidos.data';
 import {
+  deliverableToday,
   deliverButtonLabel,
   deliveredAtFor,
-  deliversEverything,
+  deliveryConfirmation,
   deliveryPayload,
+  readyByLine,
   unitsLeaving,
   type DeliveryQuantity,
 } from './pedidos.delivery';
 import { explainError } from './pedidos.errors';
 
+/** The plan is still being read: nothing is proposed yet. */
+const ASKING = undefined;
+
 /**
- * Hands the order over: what goes out today, already filled with everything
- * that is missing, and below it what already went out. Whether there is enough
- * on the shelf is the database's call; its answer is shown as it comes.
+ * Hands the order over: what goes out today, filled with what the plan says
+ * is ready for this order, and below it what already went out. Whether there
+ * is enough on the shelf is still the database's call; its answer is shown as
+ * it comes. Nothing leaves before a second «Sí»: a delivery cannot be undone.
  */
 @Component({
   selector: 'app-pedido-entrega',
@@ -42,10 +49,8 @@ import { explainError } from './pedidos.errors';
       }
 
       @if (pendingLines().length > 0) {
-        <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
-          <p class="muted lead">
-            Ya está lleno con todo lo que falta. Si hoy se lleva solo una parte, cambia las cantidades: con 0, esa línea no sale hoy.
-          </p>
+        <form [formGroup]="form" (ngSubmit)="ask()" novalidate>
+          <p class="muted lead">{{ lead() }}</p>
           <div class="scroll">
             <table>
               <thead>
@@ -59,9 +64,11 @@ import { explainError } from './pedidos.errors';
                         size="lead"
                         kind="product"
                         [path]="line.imagePath"
+                        [photo]="{ kind: 'variant', id: line.variantId }"
                         [name]="line.description"
-                        [sub]="'Entregado: ' + line.delivered + ' de ' + line.quantity + ' · ' + (line.pending === 1 ? 'falta 1' : 'faltan ' + line.pending)"
+                        [sub]="lineText(line)"
                       />
+                      @if (beyondReady(line, i); as warning) { <small class="warn-text">{{ warning }}</small> }
                     </td>
                     <td class="num">
                       <input
@@ -90,14 +97,22 @@ import { explainError } from './pedidos.errors';
             </pp-field>
           </div>
 
-          <div class="actions">
-            <button #submitButton type="submit" [disabled]="saving() || leaving() === 0">
-              {{ saving() ? 'Entregando…' : buttonLabel() }}
-            </button>
-            @if (!everything()) {
-              <button type="button" class="ghost" (click)="fillAll()">Volver a poner todo lo que falta</button>
-            }
-          </div>
+          @if (confirming()) {
+            <div class="confirm" role="alert">
+              <p>{{ confirmation() }}</p>
+              <div class="actions">
+                <button type="button" (click)="submit()" [disabled]="saving()">{{ saving() ? 'Entregando…' : 'Sí, entregar' }}</button>
+                <button type="button" class="secondary" (click)="confirming.set(false)" [disabled]="saving()">Volver</button>
+              </div>
+            </div>
+          } @else {
+            <div class="actions">
+              <button #submitButton type="submit" [disabled]="leaving() === 0">{{ buttonLabel() }}</button>
+              @if (ready() !== null && !matchesReady()) {
+                <button type="button" class="ghost" (click)="fillReady()">Volver a lo que hay listo</button>
+              }
+            </div>
+          }
           @if (error(); as message) { <p class="error" role="alert">{{ message }}</p> }
         </form>
       }
@@ -115,6 +130,9 @@ import { explainError } from './pedidos.errors';
     .details { margin-top: 1rem; }
     .actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
     .error { margin: 0.6rem 0 0; }
+    .warn-text { display: block; margin-top: 0.25rem; font-size: 0.8rem; color: var(--warn); }
+    .confirm { padding: 0.8rem; border: 1px solid var(--warn); border-radius: var(--radius); background: var(--warn-soft); }
+    .confirm p { margin: 0 0 0.6rem; }
     .notice { margin: 0 0 0.75rem; padding: 0.6rem 0.8rem; border-radius: var(--radius-sm); background: var(--good-soft); color: var(--good); font-size: 0.85rem; }
     .owed {
       display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.5rem;
@@ -127,6 +145,7 @@ import { explainError } from './pedidos.errors';
 })
 export class PedidoEntrega {
   private readonly data = inject(PedidosData);
+  private readonly planner = inject(PlanService);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
 
   readonly orderId = input.required<string>();
@@ -142,8 +161,12 @@ export class PedidoEntrega {
 
   protected readonly today = todayLocal();
   protected readonly saving = signal(false);
+  protected readonly confirming = signal(false);
   protected readonly error = signal<string | null>(null);
   protected readonly notice = signal<string | null>(null);
+
+  /** Ready to hand over, by line, as the plan says. Undefined while it is read; null when it cannot say. */
+  protected readonly ready = signal<ReadonlyMap<string, number> | null | undefined>(ASKING);
 
   private readonly submitButton = viewChild<ElementRef<HTMLButtonElement>>('submitButton');
 
@@ -157,17 +180,37 @@ export class PedidoEntrega {
 
   protected readonly pendingLines = computed(() => this.lines().filter((line) => line.pending > 0));
 
-  private readonly rows = computed<DeliveryQuantity[]>(() =>
+  private readonly rows = computed<(DeliveryQuantity & { kind: OrderLine['kind'] })[]>(() =>
     this.pendingLines().map((line, index) => ({
       orderLineId: line.id,
       pending: line.pending,
       quantity: this.entered()[index] ?? null,
+      kind: line.kind,
     })),
   );
 
+  /** Where the form starts, and where «Volver a lo que hay listo» takes it back. */
+  private readonly proposed = computed(() => deliverableToday(this.pendingLines(), this.ready() ?? null));
+
   protected readonly leaving = computed(() => unitsLeaving(this.rows()));
-  protected readonly everything = computed(() => deliversEverything(this.rows()));
   protected readonly buttonLabel = computed(() => deliverButtonLabel(this.rows()));
+  protected readonly confirmation = computed(() => deliveryConfirmation(this.rows()));
+  protected readonly matchesReady = computed(() =>
+    this.proposed().every((quantity, index) => (this.entered()[index] ?? 0) === quantity),
+  );
+
+  /** What the form was filled with, said before anyone reads the numbers. */
+  protected readonly lead = computed(() => {
+    const ready = this.ready();
+    if (ready === ASKING) return 'Viendo qué hay listo en el estante para este pedido…';
+    if (ready === null) return 'No pudimos saber qué hay listo para este pedido: escribe cuántas salen hoy.';
+
+    const proposed = this.proposed().reduce((total, quantity) => total + quantity, 0);
+    const pending = this.pendingLines().reduce((total, line) => total + line.pending, 0);
+    if (proposed === 0) return 'Todavía no hay nada listo para este pedido. Si igual se lleva algo, escribe cuántas.';
+    if (proposed === pending) return 'Ya está lleno con todo lo que falta: está listo. Si hoy se lleva solo una parte, cambia las cantidades.';
+    return `Ya está lleno con lo que hay listo: ${proposed} de ${pending}. Lo demás todavía no está en el estante.`;
+  });
 
   /** Offered once something went out, so the next step after handing over is collecting. */
   protected readonly owed = computed(() => {
@@ -179,13 +222,22 @@ export class PedidoEntrega {
   constructor() {
     this.form.controls.quantities.valueChanges
       .pipe(takeUntilDestroyed())
-      .subscribe((values) => this.entered.set(values));
+      .subscribe((values) => {
+        this.entered.set(values);
+        this.confirming.set(false);
+      });
 
-    // A reload after a delivery brings what is still pending: the form starts
-    // over from there.
+    // The plan of the whole workshop says what is on the shelf for this order.
     effect(() => {
-      const lines = this.pendingLines();
-      untracked(() => this.fill(lines));
+      const id = this.orderId();
+      this.planner.version();
+      untracked(() => void this.loadReady(id));
+    });
+
+    // A reload after a delivery, or the plan arriving, starts the form over.
+    effect(() => {
+      const proposed = this.proposed();
+      untracked(() => this.fill(proposed));
     });
   }
 
@@ -204,21 +256,43 @@ export class PedidoEntrega {
     return this.form.controls.quantities.at(index);
   }
 
+  protected lineText(line: OrderLine): string {
+    const missing = line.pending === 1 ? 'falta 1' : `faltan ${line.pending}`;
+    const ready = this.ready();
+    const listed = ready ? ` · listas hoy: ${Math.min(line.pending, ready.get(line.id) ?? 0)}` : '';
+    return `Entregado: ${line.delivered} de ${line.quantity} · ${missing}${listed}`;
+  }
+
+  /** A soft warning: more than the plan says is ready. The database has the last word. */
+  protected beyondReady(line: OrderLine, index: number): string | null {
+    const ready = this.ready();
+    const quantity = this.entered()[index] ?? 0;
+    if (!ready || line.kind !== 'catalog') return null;
+    const available = ready.get(line.id) ?? 0;
+    return quantity > available ? `Según el plan hay ${available} listas para este pedido.` : null;
+  }
+
   protected dayError(): string | null {
     return errorOf(this.form.controls.day, { required: 'Indica qué día se entregó.' });
   }
 
-  protected fillAll(): void {
-    this.fill(this.pendingLines());
+  protected fillReady(): void {
+    this.fill(this.proposed());
   }
 
-  protected async submit(): Promise<void> {
+  /** First step: check the form and say what is about to leave. */
+  protected ask(): void {
     this.form.markAllAsTouched();
     this.error.set(null);
     this.notice.set(null);
+    if (this.form.controls.day.invalid || deliveryPayload(this.rows()).length === 0) return;
+    this.confirming.set(true);
+  }
+
+  protected async submit(): Promise<void> {
     const rows = this.rows();
     const lines = deliveryPayload(rows);
-    if (this.form.controls.day.invalid || lines.length === 0) return;
+    if (this.form.controls.day.invalid || lines.length === 0 || this.saving()) return;
 
     const { day, note } = this.form.getRawValue();
     this.saving.set(true);
@@ -231,24 +305,36 @@ export class PedidoEntrega {
       });
     } catch (error) {
       this.error.set(explainError(error, 'No pudimos registrar la entrega. Inténtalo de nuevo.'));
+      this.confirming.set(false);
       return;
     } finally {
       this.saving.set(false);
     }
 
     const units = unitsLeaving(rows);
+    this.confirming.set(false);
     this.notice.set(units === 1 ? 'Entrega registrada: salió 1 unidad.' : `Entrega registrada: salieron ${units} unidades.`);
     this.form.patchValue({ day: todayLocal(), note: '' });
     this.form.markAsUntouched();
     this.delivered.emit();
   }
 
-  private fill(lines: OrderLine[]): void {
-    const quantities = this.form.controls.quantities;
-    quantities.clear({ emitEvent: false });
-    for (const line of lines) {
-      quantities.push(new FormControl<number | null>(line.pending), { emitEvent: false });
+  private async loadReady(orderId: string): Promise<void> {
+    try {
+      const { result } = await this.planner.current();
+      this.ready.set(readyByLine(result, orderId));
+    } catch {
+      this.ready.set(null);
     }
-    this.entered.set(quantities.getRawValue());
+  }
+
+  private fill(quantities: number[]): void {
+    const controls = this.form.controls.quantities;
+    controls.clear({ emitEvent: false });
+    for (const quantity of quantities) {
+      controls.push(new FormControl<number | null>(quantity), { emitEvent: false });
+    }
+    this.entered.set(controls.getRawValue());
+    this.confirming.set(false);
   }
 }

@@ -1,7 +1,10 @@
 import {
   costDifference,
+  deliverableToday,
   deliverButtonLabel,
   deliveredEstimate,
+  deliveryConfirmation,
+  readyByLine,
   deliveredAtFor,
   deliversEverything,
   deliveryPayload,
@@ -9,6 +12,7 @@ import {
   unitsLeaving,
   type DeliveryQuantity,
 } from './pedidos.delivery';
+import type { PlanDemandPlan } from '@pickypop/domain';
 
 const potions: DeliveryQuantity = { orderLineId: 'potions', pending: 6, quantity: 6 };
 const caps: DeliveryQuantity = { orderLineId: 'caps', pending: 2, quantity: 2 };
@@ -97,5 +101,53 @@ describe('what the delivered units cost', () => {
   it('says the difference like every other amount', () => {
     expect(costDifference(7.21, 12.66)).toBe(-5.45);
     expect(costDifference(0.1 + 0.2, 0.3)).toBe(0);
+  });
+});
+
+describe('what the delivery proposes', () => {
+  const line = (lineId: string, onShelf: number) => ({ lineId, onShelf }) as PlanDemandPlan['lines'][number];
+  const plan = {
+    demands: [
+      { kind: 'quote' as const, id: 'ord-1', lines: [line('q-line', 9)] },
+      { kind: 'order' as const, id: 'ord-1', lines: [line('skulls', 1), line('keychain', 0)] },
+    ],
+  };
+
+  it('reads what is ready for this order from the plan, and nothing from a quote with the same id', () => {
+    expect(readyByLine(plan, 'ord-1')).toEqual(new Map([['skulls', 1], ['keychain', 0]]));
+  });
+
+  it('cannot say anything for an order the plan does not have', () => {
+    expect(readyByLine(plan, 'ord-2')).toBeNull();
+    expect(readyByLine(null, 'ord-1')).toBeNull();
+  });
+
+  it('starts with what is ready, not with everything pending', () => {
+    // One assembled skull of the two ordered: «Entregar todo (2 unidades)» was a lie.
+    const ready = new Map([['skulls', 1]]);
+    expect(deliverableToday([{ id: 'skulls', pending: 2 }], ready)).toEqual([1]);
+  });
+
+  it('never proposes more than is pending, nor anything the plan did not mention', () => {
+    const ready = new Map([['skulls', 5]]);
+    expect(deliverableToday([{ id: 'skulls', pending: 2 }, { id: 'caps', pending: 3 }], ready)).toEqual([2, 0]);
+    expect(deliverableToday([{ id: 'skulls', pending: 2 }], null)).toEqual([0]);
+  });
+});
+
+describe('deliveryConfirmation', () => {
+  it('says how many units leave the shelf before anything moves', () => {
+    expect(deliveryConfirmation([{ quantity: 2, kind: 'catalog' }])).toBe(
+      'Van a salir 2 unidades del estante. Esto no se puede deshacer.',
+    );
+    expect(deliveryConfirmation([{ quantity: 1, kind: 'catalog' }, { quantity: 0, kind: 'catalog' }])).toBe(
+      'Va a salir 1 unidad del estante. Esto no se puede deshacer.',
+    );
+  });
+
+  it('does not say made-to-order work leaves the shelf: it never was there', () => {
+    expect(deliveryConfirmation([{ quantity: 2, kind: 'catalog' }, { quantity: 1, kind: 'custom' }])).toBe(
+      'Van a salir 2 unidades del estante. Se entrega 1 unidad hecha para este pedido. Esto no se puede deshacer.',
+    );
   });
 });
