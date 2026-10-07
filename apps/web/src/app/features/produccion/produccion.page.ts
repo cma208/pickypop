@@ -1,29 +1,20 @@
 import { Component, computed, inject, signal } from '@angular/core';
+import { PlanService, type PlanView } from '../../core/plan';
 import { AsyncState, Card, Empty, FORMAT_PIPES, Page } from '../../ui';
 import { explainError } from '../pedidos/pedidos.errors';
+import { PorLanzarCard } from './por-lanzar-card';
 import { PrintJobCard } from './print-job-card';
 import { PrintJobForm } from './print-job-form';
-import { RouterLink } from '@angular/router';
-import { Item } from '../../ui';
-import {
-  ProduccionData,
-  type CloseOutcome,
-  type JobItem,
-  type ProductionNeed,
-} from './produccion.data';
-import { JOB_STATUS_LABEL, type JobStatus } from './produccion.labels';
+import { ProduccionData, type CloseOutcome, type JobItem } from './produccion.data';
+import { queueLanes } from './produccion.queue';
 
 const EFFECTS_ID = 'stock-effects';
-const QUEUE_STATUSES: JobStatus[] = ['printing', 'planned'];
-
-interface JobGroup {
-  status: JobStatus;
-  jobs: JobItem[];
-}
+/** Wording of the plan's warning for a printing job past its estimate (`plan-queue.ts`). */
+const PAST_ESTIMATE = /pasó su tiempo estimado/;
 
 @Component({
   selector: 'app-produccion',
-  imports: [Page, Card, AsyncState, Empty, Item, RouterLink, PrintJobCard, PrintJobForm, ...FORMAT_PIPES],
+  imports: [Page, Card, AsyncState, Empty, PorLanzarCard, PrintJobCard, PrintJobForm, ...FORMAT_PIPES],
   template: `
     <pp-page title="Cola de impresión" subtitle="Lo que está corriendo, lo que sigue y lo que falta producir">
       <button actions type="button" (click)="creating.set(!creating())">
@@ -31,52 +22,13 @@ interface JobGroup {
       </button>
 
       <pp-async [loading]="loading()" [error]="error()">
-        @if (needs().length > 0) {
-          <pp-card heading="Falta producir para los pedidos">
-            <a card-actions routerLink="/pedidos">Ver pedidos</a>
-            <p class="muted">
-              Unidades comprometidas en pedidos sin entregar que todavía no están armadas. No descuenta piezas
-              sueltas ni lo que ya está en la cola, así que pide de más antes que de menos.
-            </p>
-            <div class="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Producto</th>
-                  <th class="num">Faltan</th>
-                  <th class="num hide-small">Vendidas</th>
-                  <th class="num hide-small">Armadas</th>
-                  <th>Primera entrega</th>
-                </tr>
-              </thead>
-              <tbody>
-                @for (need of needs(); track need.variantId) {
-                  <tr>
-                    <td>
-                      <pp-item
-                        size="lead"
-                        kind="product"
-                        [path]="need.imagePath"
-                        [name]="need.productName"
-                        [sub]="need.variantName + ' · ' + need.orderCount + (need.orderCount === 1 ? ' pedido' : ' pedidos')"
-                      />
-                    </td>
-                    <td class="num"><strong>{{ need.missingUnits }}</strong></td>
-                    <td class="num hide-small">{{ need.committedUnits }}</td>
-                    <td class="num hide-small">{{ need.assembledUnits }}</td>
-                    <td>
-                      @if (need.firstDueDate) {
-                        {{ need.firstDueDate | fecha }}
-                      } @else {
-                        <span class="muted">Sin fecha</span>
-                      }
-                    </td>
-                  </tr>
-                }
-              </tbody>
-            </table>
-            </div>
-          </pp-card>
+        @if (warnings().length > 0) {
+          <section class="alert-warn warnings" role="status" aria-label="Avisos del plan">
+            <strong>Avisos del plan</strong>
+            <ul>
+              @for (warning of warnings(); track warning) { <li>{{ warning }}</li> }
+            </ul>
+          </section>
         }
 
         @if (effects(); as result) {
@@ -107,60 +59,95 @@ interface JobGroup {
           <app-print-job-form (saved)="onCreated()" (cancelled)="creating.set(false)" />
         }
 
-        @if (queue().length === 0) {
-          <pp-empty message="No hay nada en la cola. Todo lo cerrado está en el historial.">
-            <button type="button" (click)="creating.set(true)">Crear un trabajo</button>
-          </pp-empty>
+        @if (view(); as plan) {
+          <app-por-lanzar [view]="plan" [pictures]="pictures()" [colors]="colors()" (queued)="reload()" />
         }
 
-        @for (group of groups(); track group.status) {
+        @if (printing().length > 0) {
           <section class="group">
-            <h2>{{ statusLabel[group.status] }} <span class="muted">({{ group.jobs.length }})</span></h2>
+            <h2>Imprimiendo <span class="muted">({{ printing().length }})</span></h2>
             <div class="jobs">
-              @for (job of group.jobs; track job.id) {
+              @for (job of printing(); track job.id) {
                 <app-print-job-card [job]="job" (changed)="onChanged($event)" />
               }
             </div>
           </section>
+        }
+
+        @for (lane of lanes(); track lane.printerId) {
+          <section class="group">
+            <h2>
+              Planificado{{ lanes().length > 1 ? ' en ' + lane.printerName : '' }}
+              <span class="muted">({{ lane.jobs.length }}, se imprimen en este orden)</span>
+            </h2>
+            <ol class="jobs">
+              @for (job of lane.jobs; track job.id; let position = $index) {
+                <li>
+                  <span class="position" [attr.aria-label]="'Turno ' + (position + 1)">{{ position + 1 }}</span>
+                  <app-print-job-card [job]="job" (changed)="onChanged($event)" />
+                </li>
+              }
+            </ol>
+          </section>
+        }
+
+        @if (printing().length === 0 && lanes().length === 0) {
+          <pp-empty [message]="emptyMessage()">
+            <button type="button" (click)="creating.set(true)">Crear un trabajo a mano</button>
+          </pp-empty>
         }
       </pp-async>
     </pp-page>
   `,
   styles: `
     :host ::ng-deep pp-card { margin-bottom: 1rem; }
-    .summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); gap: 1rem; margin-bottom: 1rem; }
-    .summary pp-card { margin-bottom: 0; }
-    .big { font-size: 1.8rem; font-weight: 600; margin: 0; line-height: 1.2; }
-    .big.small { font-size: 1.15rem; }
-    p { margin: 0.2rem 0; }
+    .warnings ul { margin: 0.35rem 0 0; padding-left: 1.2rem; }
     .group { margin-top: 1.5rem; }
     h2 { font-size: 1rem; margin: 0 0 0.6rem; }
-    .jobs { display: grid; gap: 0.6rem; }
-    summary { cursor: pointer; font-weight: 600; margin-bottom: 0.6rem; }
+    h2 .muted { font-weight: 400; }
+    .jobs { display: grid; gap: 0.6rem; margin: 0; padding: 0; list-style: none; }
+    .jobs li { display: flex; gap: 0.6rem; align-items: flex-start; }
+    .jobs li app-print-job-card { flex: 1; min-width: 0; }
+    .position {
+      flex: none; width: 1.8rem; height: 1.8rem; margin-top: 0.9rem; border-radius: 50%;
+      display: grid; place-items: center; font-size: var(--fs-sm); font-weight: 600;
+      background: var(--accent-soft); color: var(--accent);
+    }
     .warn-text { color: var(--warn); }
   `,
 })
 export class ProduccionPage {
   private readonly data = inject(ProduccionData);
+  private readonly plan = inject(PlanService);
 
   protected readonly effectsId = EFFECTS_ID;
-  protected readonly statusLabel = JOB_STATUS_LABEL;
 
   protected readonly jobs = signal<JobItem[]>([]);
-  protected readonly needs = signal<ProductionNeed[]>([]);
+  protected readonly view = signal<PlanView | null>(null);
+  protected readonly pictures = signal<ReadonlyMap<string, string>>(new Map());
+  protected readonly colors = signal<ReadonlyMap<string, string>>(new Map());
   protected readonly loading = signal(true);
   protected readonly error = signal<string | null>(null);
   protected readonly creating = signal(false);
   protected readonly effects = signal<CloseOutcome | null>(null);
 
-  /** Lo cerrado vive en el historial: aquí solo lo que todavía da trabajo. */
-  protected readonly queue = computed(() => this.jobs().filter((job) => QUEUE_STATUSES.includes(job.status)));
+  protected readonly printing = computed(() => this.jobs().filter((job) => job.status === 'printing'));
+  /** Planned jobs per printer, in the order the plan runs them. */
+  protected readonly lanes = computed(() => queueLanes(this.jobs().filter((job) => job.status === 'planned')));
+  /**
+   * The plan's warnings, except the one about a printing job past its
+   * estimate: its card already says it, next to «Cerrar…», and this page
+   * always shows the card. The plan gives warnings as text, so it is told
+   * apart by its words; if they change, it shows twice rather than never.
+   */
+  protected readonly warnings = computed(() =>
+    (this.view()?.result.warnings ?? []).filter((warning) => !PAST_ESTIMATE.test(warning)),
+  );
 
-  protected readonly groups = computed<JobGroup[]>(() =>
-    QUEUE_STATUSES.map((status) => ({
-      status,
-      jobs: this.queue().filter((job) => job.status === status),
-    })).filter((group) => group.jobs.length > 0),
+  protected readonly emptyMessage = computed(() =>
+    (this.view()?.result.proposals.length ?? 0) > 0
+      ? 'No hay nada en la cola. Pon en cola algo de «Por lanzar».'
+      : 'No hay nada en la cola. Todo lo cerrado está en el historial.',
   );
 
   constructor() {
@@ -169,7 +156,7 @@ export class ProduccionPage {
 
   protected onCreated(): void {
     this.creating.set(false);
-    void this.load();
+    this.reload();
   }
 
   protected onChanged(outcome: CloseOutcome | null): void {
@@ -177,20 +164,45 @@ export class ProduccionPage {
       this.effects.set(outcome);
       setTimeout(() => document.getElementById(EFFECTS_ID)?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
     }
+    this.reload();
+  }
+
+  /** Something moved the queue: the plan is computed again from a new snapshot. */
+  protected reload(): void {
+    this.plan.invalidate();
     void this.load();
   }
 
   /** Reloads quietly: the page keeps what it shows while the new data arrives. */
   private async load(): Promise<void> {
     try {
-      const [jobs, needs] = await Promise.all([this.data.jobs(), this.data.productionNeeds()]);
+      const [jobs, view] = await Promise.all([this.data.jobs(), this.plan.current()]);
       this.jobs.set(jobs);
-      this.needs.set(needs);
+      this.view.set(view);
       this.error.set(null);
+      void this.loadPictures(view);
     } catch (error) {
-      this.error.set(explainError(error, 'No pudimos leer las impresiones. Inténtalo de nuevo.'));
+      this.error.set(explainError(error, 'No pudimos leer la cola ni el plan. Inténtalo de nuevo.'));
     } finally {
       this.loading.set(false);
+    }
+  }
+
+  /** Pictures and colours only dress the proposals: if they fail, the rows still read. */
+  private async loadPictures(view: PlanView): Promise<void> {
+    const proposals = view.result.proposals;
+    const plateIds = proposals.flatMap((proposal) => (proposal.lineId === null && proposal.plateId ? [proposal.plateId] : []));
+    const lineIds = proposals.flatMap((proposal) => (proposal.lineId ? [proposal.lineId] : []));
+    const skuIds = [...new Set(proposals.flatMap((proposal) => proposal.filaments.flatMap((use) => (use.skuId ? [use.skuId] : []))))];
+    try {
+      const [pictures, colors] = await Promise.all([
+        this.data.proposalPictures(plateIds, lineIds),
+        this.data.filamentColors(skuIds),
+      ]);
+      this.pictures.set(pictures);
+      this.colors.set(colors);
+    } catch {
+      // Without them each row shows its icon and a grey dot.
     }
   }
 }

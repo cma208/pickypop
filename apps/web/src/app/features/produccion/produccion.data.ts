@@ -6,6 +6,8 @@ import { roundMoney } from '../../core/pricing';
 import { CurrentWorkspace } from '../../core/workspace';
 import type { FailureCause, JobStatus } from './produccion.labels';
 import { outputsOf, type PartCount, type PlatePart } from './produccion.outputs';
+import type { RunToQueue } from './por-lanzar';
+import type { PlateUse, SpoolStatus } from './produccion.spools';
 
 const SECONDS_PER_HOUR = 3600;
 const WATTS_PER_KW = 1000;
@@ -42,6 +44,7 @@ interface JobRow {
   energy_cost: number | null;
   machine_cost: number | null;
   note: string | null;
+  created_at: string;
   printers: { name: string } | null;
   recipe_plates: {
     label: string | null;
@@ -100,20 +103,9 @@ export interface JobItem {
   unitsProduced: number;
   realCost: number | null;
   note: string | null;
+  /** When it was queued: planned jobs of one printer run in this order (the plan's `queuedAt`). */
+  createdAt: string;
   filaments: JobFilament[];
-}
-
-/** Lo que hay que producir para cumplir con lo ya vendido. */
-export interface ProductionNeed {
-  variantId: string;
-  productName: string;
-  variantName: string;
-  imagePath: string | null;
-  committedUnits: number;
-  assembledUnits: number;
-  missingUnits: number;
-  firstDueDate: string | null;
-  orderCount: number;
 }
 
 export interface FailureSummary {
@@ -146,6 +138,7 @@ export interface SpoolOption {
   id: string;
   code: string;
   skuId: string;
+  status: SpoolStatus;
   colorName: string;
   colorHex: string | null;
   onHandG: number;
@@ -274,30 +267,6 @@ export class ProduccionData {
   }
 
   /** Success rate and the most common cause, from the `failure_stats` view. */
-  /**
-   * Lo que el dueño llama "la cuota que me pide ventas": unidades
-   * comprometidas en pedidos sin entregar que todavía no están armadas.
-   */
-  async productionNeeds(): Promise<ProductionNeed[]> {
-    const { data, error } = await this.supabase
-      .from('production_needs')
-      .select('variant_id, product_name, variant_name, image_path, committed_units, assembled_units, missing_units, first_due_date, order_count')
-      .order('first_due_date', { nullsFirst: false });
-    if (error) throw error;
-
-    return (data ?? []).map((row) => ({
-      variantId: row.variant_id!,
-      productName: row.product_name!,
-      variantName: row.variant_name!,
-      imagePath: row.image_path,
-      committedUnits: Number(row.committed_units ?? 0),
-      assembledUnits: Number(row.assembled_units ?? 0),
-      missingUnits: Number(row.missing_units ?? 0),
-      firstDueDate: row.first_due_date,
-      orderCount: Number(row.order_count ?? 0),
-    }));
-  }
-
   async failureSummary(): Promise<FailureSummary> {
     const [stats, failed] = await Promise.all([
       this.supabase.from('failure_stats').select('closed_jobs, failed_jobs'),
@@ -391,7 +360,7 @@ export class ProduccionData {
     const [spools, balances] = await Promise.all([
       this.supabase
         .from('spools')
-        .select('id, code, filament_sku_id, filament_skus(color_name, color_hex)')
+        .select('id, code, status, filament_sku_id, filament_skus(color_name, color_hex)')
         .in('status', [...USABLE_SPOOL_STATUSES]),
       this.supabase.from('spool_balances').select('spool_id, on_hand_g'),
     ]);
@@ -405,6 +374,7 @@ export class ProduccionData {
         id: spool.id,
         code: spool.code ?? 'Sin código',
         skuId: spool.filament_sku_id,
+        status: spool.status as SpoolStatus,
         colorName: spool.filament_skus?.color_name ?? 'Sin color',
         colorHex: spool.filament_skus?.color_hex ?? null,
         onHandG: onHand.get(spool.id) ?? 0,
@@ -449,6 +419,82 @@ export class ProduccionData {
     return job.id;
   }
 
+  /**
+   * «Poner en cola»: one planned job per run, in a single request, so a
+   * failure leaves none of them instead of half the runs. They carry no
+   * rolls: those are confirmed when each one starts (decision of the owner).
+   */
+  async queueRuns(printerId: string, runs: readonly RunToQueue[]): Promise<void> {
+    if (runs.length === 0) return;
+    const workspaceId = await this.workspace.requireId();
+    const { error } = await this.supabase.from('print_jobs').insert(
+      runs.map((run) => ({
+        workspace_id: workspaceId,
+        printer_id: printerId,
+        order_line_id: run.orderLineId,
+        recipe_plate_id: run.plateId,
+        label: run.label,
+        estimated_time_s: run.estimatedTimeS,
+      })),
+    );
+    if (error) throw error;
+  }
+
+  /**
+   * The picture of what each proposal puts on the bed: the plate's thumbnail
+   * or its first piece's photo, or for made-to-order work the thumbnail the
+   * quote kept. Keyed like the proposals (`plate:…`, `line:…`).
+   */
+  async proposalPictures(plateIds: readonly string[], lineIds: readonly string[]): Promise<Map<string, string>> {
+    const [plates, lines] = await Promise.all([
+      plateIds.length === 0
+        ? Promise.resolve({ data: [], error: null })
+        : this.supabase
+            .from('recipe_plates')
+            .select('id, thumbnail_path, recipe_plate_outputs(position, inventory_items(image_path))')
+            .in('id', [...plateIds]),
+      lineIds.length === 0
+        ? Promise.resolve({ data: [], error: null })
+        : this.supabase.from('order_lines').select('id, quote_lines(plates)').in('id', [...lineIds]),
+    ]);
+    if (plates.error) throw plates.error;
+    if (lines.error) throw lines.error;
+
+    const pictures = new Map<string, string>();
+    for (const plate of plates.data) {
+      // Like a job in the queue: the plate, else the first of its pieces with a photo.
+      const piece = [...plate.recipe_plate_outputs]
+        .sort((a, b) => a.position - b.position)
+        .find((output) => output.inventory_items?.image_path);
+      const path = plate.thumbnail_path ?? piece?.inventory_items?.image_path ?? null;
+      if (path) pictures.set(`plate:${plate.id}`, path);
+    }
+    for (const line of lines.data) {
+      const path = firstThumbnail(line.quote_lines?.plates);
+      if (path) pictures.set(`line:${line.id}`, path);
+    }
+    return pictures;
+  }
+
+  /** The colour of each filament, for the dot next to its grams. */
+  async filamentColors(skuIds: readonly string[]): Promise<Map<string, string>> {
+    if (skuIds.length === 0) return new Map();
+    const { data, error } = await this.supabase.from('filament_skus').select('id, color_hex').in('id', [...skuIds]);
+    if (error) throw error;
+    return new Map(data.filter((row) => row.color_hex).map((row) => [row.id, row.color_hex!]));
+  }
+
+  /** What one run of a recipe plate uses, slot by slot: the rolls proposed when the job starts. */
+  async plateFilaments(plateId: string): Promise<PlateUse[]> {
+    const { data, error } = await this.supabase
+      .from('recipe_plate_filaments')
+      .select('slot, grams, filament_sku_id')
+      .eq('recipe_plate_id', plateId)
+      .order('slot');
+    if (error) throw error;
+    return data.map((row) => ({ slot: row.slot, skuId: row.filament_sku_id, grams: Number(row.grams) }));
+  }
+
   async startJob(jobId: string): Promise<void> {
     const { error } = await this.supabase
       .from('print_jobs')
@@ -456,6 +502,33 @@ export class ProduccionData {
       .eq('id', jobId)
       .eq('status', 'planned');
     if (error) throw error;
+  }
+
+  /**
+   * Starts a queued job and records the rolls it takes. The start goes first
+   * because it is what usually fails (another job still on the printer), and
+   * then nothing was written. If the rolls fail after it, the job goes back
+   * to waiting: printing without rolls would close without discounting any
+   * filament.
+   */
+  async startWithRolls(jobId: string, rolls: readonly NewJob['filaments'][number][]): Promise<void> {
+    const workspaceId = await this.workspace.requireId();
+    await this.startJob(jobId);
+    if (rolls.length === 0) return;
+
+    const { error } = await this.supabase.from('print_job_filaments').insert(
+      rolls.map((roll) => ({
+        workspace_id: workspaceId,
+        print_job_id: jobId,
+        spool_id: roll.spoolId,
+        slot: roll.slot,
+        estimated_g: roll.estimatedG,
+      })),
+    );
+    if (error) {
+      await this.supabase.from('print_jobs').update({ status: 'planned', started_at: null }).eq('id', jobId);
+      throw error;
+    }
   }
 
   /**
@@ -609,6 +682,7 @@ function toJobItem(row: JobRow): JobItem {
     unitsProduced: Number(row.units_produced),
     realCost: hasCost ? costs.reduce<number>((sum, cost) => sum + Number(cost ?? 0), 0) : null,
     note: row.note,
+    createdAt: row.created_at,
     filaments: row.print_job_filaments
       .map((filament) => ({
         id: filament.id,
@@ -622,6 +696,20 @@ function toJobItem(row: JobRow): JobItem {
       }))
       .sort((a, b) => (a.slot ?? 0) - (b.slot ?? 0)),
   };
+}
+
+/**
+ * The first plate of a quote line that kept its thumbnail. Where the
+ * decision of the sweep puts it (`plates[].thumbnailPath`); a quote that did
+ * not keep one leaves the plate icon, which is still better than a blank.
+ */
+function firstThumbnail(plates: unknown): string | null {
+  if (!Array.isArray(plates)) return null;
+  for (const plate of plates) {
+    const path = (plate as { thumbnailPath?: unknown } | null)?.thumbnailPath;
+    if (typeof path === 'string' && path) return path;
+  }
+  return null;
 }
 
 function mostCommon(causes: (FailureCause | null)[]): FailureCause | null {
