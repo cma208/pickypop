@@ -90,6 +90,7 @@
 | `order_deliveries` | order_id, delivered_at, note. Cada vez que algo del pedido sale del taller: un pedido se entrega en partes |
 | `order_delivery_lines` | delivery_id, order_line_id, quantity, unit_cost (lo que costó cada unidad que salió, al promedio del estante; nulo si la línea no saca nada) |
 | *vista* `order_line_delivery_status` | Por línea: lo pedido, lo entregado y lo pendiente. Un pedido entregado o cerrado antes de que existieran las entregas cuenta como entregado entero |
+| *vista* `order_production_summary` | Estimado contra real de un pedido: el costo estimado de sus líneas, las impresiones ligadas (solo lo hecho a medida, con la producción en bolsa común) y lo que costó lo entregado al salir del estante (`delivered_cost`, ADR-022) |
 | `order_status_history` | order_id, from_status, to_status, changed_by, changed_at, note. Lo escribe un disparador, no la aplicación |
 | `opportunities` | customer_id, title, stage (`nuevo`, `cotizado`, `negociando`, `ganado`, `cerrado`, `perdido`), owner, expected_close, amount, blocked_reason, note. Las cotizaciones y los pedidos la referencian **de forma opcional** (ADR-015) |
 | `opportunity_stage_history` | opportunity_id, from_stage, to_stage, changed_by, changed_at. Por disparador |
@@ -197,7 +198,7 @@ Estas operaciones escriben en varias tablas y deben hacerlo **todo o nada**. Ser
 | Operación | Escribe en |
 |---|---|
 | `register_purchase` | `purchases`, `purchase_lines`, `spools`, `stock_movements`, `transactions` |
-| `accept_quote` | `quotes` (estado), `orders`, `order_lines`, `stock_movements` (reserva) |
+| `accept_quote` | `quotes` (estado y fin del separo), `orders`, `order_lines`, `order_status_history`. El pedido hereda el lugar del separo si seguía vigente (`priority_at = held_at`); si no, va al final. Copia cliente, canal, oportunidad y las líneas (las a medida, sin variante). Rechaza la cotización que ya tiene pedido, en cualquiera de sus versiones |
 | `complete_print_job` | `print_jobs`, `print_job_filaments`, `stock_movements` (consumo o merma; y, si salió bien, las piezas que salieron como `production`, con el costo de la placa repartido por igual entre todas las unidades). Rechaza una pieza que la placa no da o más de las que da |
 | `deliver_order` | `order_deliveries`, `order_delivery_lines`, `stock_movements` (`delivery`), estado del pedido. Todo o nada: si falta algo no mueve nada y dice qué falta. Lo que se arma saca el producto terminado; lo que no, sus piezas y su empaque |
 | `count_shelf` | `stock_movements` (origen `shelf_count`: lo que sobra como `production`, lo que falta como `adjustment`), `inventory_items` (el producto terminado de una variante que nunca se armó). Todo o nada; pide costo para lo que entra sin uno conocido |
@@ -210,6 +211,6 @@ Estas operaciones escriben en varias tablas y deben hacerlo **todo o nada**. Ser
 | `cancel_order` | Estado de la orden, liberación de reservas, reembolso si corresponde |
 | `assemble_product` | `stock_movements` (consumo de piezas, insumos y empaque). **Todo o nada:** si falta un componente no mueve nada y lanza un `P0001` con qué falta y cuánto, que la pantalla muestra tal cual. Rechaza una receta vacía y un producto que no se arma, y bloquea lo que va a consumir |
 
-Escritas hasta hoy: `complete_print_job`, `record_payment`, `record_purchase_payment`, `assemble_product`, `deliver_order` y `count_shelf`. Faltan `register_purchase`, `accept_quote`, `log_maintenance` y `cancel_order`.
+Escritas hasta hoy: `complete_print_job`, `record_payment`, `record_purchase_payment`, `assemble_product`, `deliver_order`, `count_shelf`, `accept_quote`, `set_quote_hold`, `set_order_hold` y `prioritize_order`. Faltan `register_purchase`, `log_maintenance` y `cancel_order`.
 
 **«Entregado» lo pone la entrega.** Un disparador rechaza pasar un pedido a `delivered` o `closed` a mano mientras quede algo por entregar: el único camino es `deliver_order`, que lo pasa solo cuando ya no queda nada pendiente. Nota: `purchases.account_id` figura en este documento pero nunca se creó, y hace falta si el formulario de compra va a elegir cuenta.

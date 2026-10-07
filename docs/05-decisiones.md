@@ -361,6 +361,34 @@ La causa de fondo era una columna que la documentación daba por existente y nun
 
 ---
 
+## ADR-022 · El costo de lo entregado se ve; el costo de ventas sigue en el estimado
+
+**Estado:** Aceptada en lo que muestra · **Propuesta** en lo que cambiaría Resultados (la decide el dueño) · 2026-10-06
+
+**Contexto.** El ADR-019 dejó el costo de ventas en el estimado de la receta, congelado al tomar el pedido, y avisó que era provisional: el costo real llegaría con `deliver_order`, y ese cambio tenía que publicarse junto con dejar de atar los trabajos de catálogo a un pedido.
+
+Las dos cosas ya existen:
+- Cada entrega guarda lo que costó cada unidad que salió del estante (ADR-020).
+- «Por lanzar» imprime las placas de catálogo en bolsa común (ADR-021).
+
+Al medirlo con la semilla apareció una diferencia que el ADR-019 no previó. Tres pociones estimadas en S/ 12.66 salieron del estante a S/ 7.21. **Lo que sale del estante no incluye la mano de obra** de armar y empacar, porque armar valoriza solo lo que consume. El estimado de la receta sí la incluye. El arreglo P2 se hizo justamente porque la mano de obra, los dulces y el empaque desaparecían del costo de ventas.
+
+**Decisión.**
+
+1. **El pedido muestra lo que costó lo entregado** (`order_production_summary.delivered_cost` y `delivered_units`), al lado del estimado y de las impresiones ligadas. Las impresiones ligadas ahora solo existen para lo hecho a medida.
+2. **El costo de ventas de Resultados no cambia:** sigue siendo el estimado de cada línea. La bolsa común no lo rompe, porque toda línea de catálogo lleva su estimado y no depende de las impresiones ligadas.
+
+**Lo que queda por decidir (el dueño).** Hay dos caminos para el costo de ventas:
+
+- **(a) Seguir con el estimado.** Es estable, incluye la mano de obra, y la diferencia con lo real se ve en cada pedido.
+- **(b) Pasarlo a lo entregado más la mano de obra de la receta.** Es más fiel a los materiales reales. Pide guardar aparte la mano de obra del estimado, porque hoy la línea guarda un solo número.
+
+La migración para (b) es corta. No se hizo porque cambia cuánto gana el negocio en sus reportes, y esa decisión le toca al dueño.
+
+**Consecuencias.** Mientras tanto, la ganancia de Resultados es la del estimado. La de cada pedido se puede contrastar en su ficha con lo que de verdad salió del estante.
+
+---
+
 ## Pendientes
 
 | Tema | Opciones | Comentario |
