@@ -70,6 +70,7 @@ export class Shell {
         { path: '/inventario/filamentos', label: 'Filamentos', icon: 'ic-spool' },
         { path: '/inventario/piezas', label: 'Piezas impresas', icon: 'ic-puzzle' },
         { path: '/inventario/armar', label: 'Armar productos', icon: 'ic-grid' },
+        { path: '/inventario/contar', label: 'Contar el estante', icon: 'ic-checklist' },
         { path: '/inventario/insumos', label: 'Insumos', icon: 'ic-box' },
         { path: '/inventario/empaque', label: 'Empaque', icon: 'ic-bag' },
         { path: '/inventario/compras', label: 'Compras', icon: 'ic-cart' },

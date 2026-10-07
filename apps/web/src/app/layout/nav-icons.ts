@@ -76,6 +76,10 @@ import { Component } from '@angular/core';
     <rect x="3" y="3" width="18" height="18" rx="2" />
     <path d="M7 8h10M7 12h10M7 16h6" />
   </symbol>
+  <symbol id="ic-checklist" viewBox="0 0 24 24">
+    <path d="M4 6l1.5 1.5L8 5M4 12l1.5 1.5L8 11M4 18l1.5 1.5L8 17" />
+    <path d="M11 6h9M11 12h9M11 18h9" />
+  </symbol>
   <symbol id="ic-wallet" viewBox="0 0 24 24">
     <rect x="3" y="6" width="18" height="13" rx="2" />
     <path d="M3 10.5h18" />

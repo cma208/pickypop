@@ -24,6 +24,7 @@ export const routes: Routes = [
       { path: 'inventario/compras', title: 'Compras', loadComponent: () => import('./features/inventario/compras.page').then((m) => m.ComprasPage) },
       { path: 'inventario/piezas', title: 'Piezas impresas', loadComponent: () => import('./features/inventario/piezas.page').then((m) => m.PiezasPage) },
       { path: 'inventario/armar', title: 'Armar productos', loadComponent: () => import('./features/inventario/armar.page').then((m) => m.ArmarPage) },
+      { path: 'inventario/contar', title: 'Contar el estante', loadComponent: () => import('./features/inventario/contar.page').then((m) => m.ContarPage) },
       {
         path: 'inventario/insumos',
         title: 'Insumos',

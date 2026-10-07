@@ -2211,6 +2211,13 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"shelf_count_items": {
+                  Row: {
+                    "cost_per_unit": number | null,"detail": string | null,"image_path": string | null,"inventory_item_id": string | null,"kind": string | null,"name": string | null,"on_hand": number | null,"variant_id": string | null,"workspace_id": string | null
+                  }
+                  Relationships: [
+                    
+                  ]
                 },"spool_balances": {
                   Row: {
                     "available_g": number | null,"cost_per_gram": number | null,"filament_sku_id": string | null,"initial_weight_g": number | null,"on_hand_g": number | null,"reserved_g": number | null,"spool_id": string | null,"status": Database["public"]['Enums']["spool_status"] | null,"workspace_id": string | null
@@ -2324,6 +2331,9 @@ isOneToOne: false
         isOneToOne: true
         isSetofReturn: false
       } },
+"count_shelf":
+{ Args: { "p_counts": Json,"p_note"?: string }; Returns: number
+                           },
 "deliver_order":
 { Args: { "p_delivered_at"?: string,"p_lines"?: Json,"p_note"?: string,"p_order_id": string }; Returns: {
               "created_at": string,

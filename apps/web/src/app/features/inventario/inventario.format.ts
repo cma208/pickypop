@@ -55,6 +55,7 @@ const SOURCE_LABELS: Record<string, string> = {
   print_job: 'Impresión',
   assembly: 'Armado',
   order_delivery: 'Entrega de pedido',
+  shelf_count: 'Conteo del estante',
   maintenance_log: 'Mantenimiento',
   order: 'Pedido',
   weighing: 'Pesaje',

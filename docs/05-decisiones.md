@@ -299,12 +299,13 @@ La causa de fondo era una columna que la documentación daba por existente y nun
 7. **Entregar saca las cosas del estante** (`deliver_order`), también por partes: 6 de 10 hoy y 4 el viernes. Cada entrega guarda qué salió y lo que costó cada unidad, al promedio de lo que había en el estante. Todo o nada: si falta algo, no mueve nada y dice qué falta.
 8. **«Entregado» lo pone la entrega, no una persona.** Un disparador rechaza pasar un pedido a «Entregado» o «Cerrado» a mano mientras quede algo por entregar. Un pedido que ya estaba entregado antes de esta regla cuenta como entregado entero.
 9. **Lo que falta producir se mide contra lo que falta entregar** (`production_needs`), en todo pedido abierto que no esté en espera, incluidos los listos.
+10. **El estante se puede contar** (`count_shelf`, pantalla «Contar el estante», decisión del dueño). Es para el arranque: lo que el taller ya tenía hecho antes de que la aplicación lo supiera. Y sirve después para corregir lo que se rompe o se regala. Solo se mueve la diferencia con lo que la aplicación creía, con origen `shelf_count`. Lo que sobra entra como `production` (se hizo, solo que nadie lo anotó), así lo valoriza la misma regla que a lo armado y a lo impreso. Lo que falta sale como `adjustment` al costo promedio. Lo que entra necesita costo: el que la base ya conoce (el promedio de lo producido o lo que costaría armarlo hoy, `assembly_unit_cost`) o, si no conoce ninguno, uno aproximado que escribe la persona.
 
 **Lo que esta decisión todavía no hace.** Resultados sigue sacando el costo de ventas de la receta (ADR-019). El dato con que se va a reemplazar ya existe: `order_delivery_lines.unit_cost`. El cambio se hace en una etapa siguiente, y tiene que publicarse junto con dejar de atar los trabajos de catálogo a un pedido, como pide el ADR-019.
 
 **Consecuencias.**
 
-- Los pedidos que hoy están «listos» o «en producción» tienen que entregarse con el botón «Entregar» para llegar a «Entregado». Si en el estante no hay con qué entregarlos (porque nunca se registró lo armado), hay que armar o ajustar el stock primero.
+- Los pedidos que hoy están «listos» o «en producción» tienen que entregarse con el botón «Entregar» para llegar a «Entregado». **Antes de empezar a entregar hay que contar el estante una vez**, o los pedidos se traban por falta de lo que el taller sí tiene.
 - Una placa sin piezas en su lista no pone nada en el estante al cerrarse. Hay que cargar la lista en el editor de la receta o desde el archivo laminado.
 - El costo por separado de las piezas de una placa mixta es aproximado (el punto 3).
 

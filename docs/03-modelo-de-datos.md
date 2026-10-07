@@ -99,6 +99,7 @@
 |---|---|
 | `print_jobs` | order_line_id, recipe_plate_id, printer_id, label, status, started_at, finished_at, estimated_time_s, actual_time_s, units_produced, failure_cause, percent_complete, slicer_metadata (jsonb), material_cost, energy_cost, machine_cost, note. **Una impresora imprime un trabajo a la vez**: un disparador rechaza el segundo |
 | `print_job_filaments` | print_job_id, spool_id, slot, estimated_g, actual_g |
+| *vista* `shelf_count_items` | Lo que se cuenta en «Contar el estante»: cada pieza activa y cada variante que se arma (aunque nadie la haya armado todavía), con lo que la aplicación cree que hay y lo que vale una unidad |
 | *vista* `production_needs` | Por variante: lo que falta **entregar** en los pedidos abiertos (no en espera), lo armado y lo que falta producir |
 
 ### Finanzas y comprobantes
@@ -196,12 +197,13 @@ Estas operaciones escriben en varias tablas y deben hacerlo **todo o nada**. Ser
 | `accept_quote` | `quotes` (estado), `orders`, `order_lines`, `stock_movements` (reserva) |
 | `complete_print_job` | `print_jobs`, `print_job_filaments`, `stock_movements` (consumo o merma; y, si salió bien, las piezas que salieron como `production`, con el costo de la placa repartido por igual entre todas las unidades). Rechaza una pieza que la placa no da o más de las que da |
 | `deliver_order` | `order_deliveries`, `order_delivery_lines`, `stock_movements` (`delivery`), estado del pedido. Todo o nada: si falta algo no mueve nada y dice qué falta. Lo que se arma saca el producto terminado; lo que no, sus piezas y su empaque |
+| `count_shelf` | `stock_movements` (origen `shelf_count`: lo que sobra como `production`, lo que falta como `adjustment`), `inventory_items` (el producto terminado de una variante que nunca se armó). Todo o nada; pide costo para lo que entra sin uno conocido |
 | `record_purchase_payment` | `transactions` (egreso ligado a la compra). Rechaza pagar de más (ADR-019) |
 | `record_payment` | `transactions`, estado de la orden |
 | `log_maintenance` | `maintenance_logs`, `stock_movements` (repuestos), `transactions` |
 | `cancel_order` | Estado de la orden, liberación de reservas, reembolso si corresponde |
 | `assemble_product` | `stock_movements` (consumo de piezas, insumos y empaque). **Todo o nada:** si falta un componente no mueve nada y lanza un `P0001` con qué falta y cuánto, que la pantalla muestra tal cual. Rechaza una receta vacía y un producto que no se arma, y bloquea lo que va a consumir |
 
-Escritas hasta hoy: `complete_print_job`, `record_payment`, `record_purchase_payment`, `assemble_product` y `deliver_order`. Faltan `register_purchase`, `accept_quote`, `log_maintenance` y `cancel_order`.
+Escritas hasta hoy: `complete_print_job`, `record_payment`, `record_purchase_payment`, `assemble_product`, `deliver_order` y `count_shelf`. Faltan `register_purchase`, `accept_quote`, `log_maintenance` y `cancel_order`.
 
 **«Entregado» lo pone la entrega.** Un disparador rechaza pasar un pedido a `delivered` o `closed` a mano mientras quede algo por entregar: el único camino es `deliver_order`, que lo pasa solo cuando ya no queda nada pendiente. Nota: `purchases.account_id` figura en este documento pero nunca se creó, y hace falta si el formulario de compra va a elegir cuenta.
