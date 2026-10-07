@@ -1,4 +1,5 @@
 import { Component, computed, inject, signal } from '@angular/core';
+import { RouterLink } from '@angular/router';
 import { Badge, Empty, AsyncState, FORMAT_PIPES, Page } from '../../ui';
 import {
   InventarioData,
@@ -41,7 +42,7 @@ interface SkuRow {
  */
 @Component({
   selector: 'app-filamentos',
-  imports: [Page, AsyncState, Empty, Badge, Modal, SkuForm, WeighForm, SpoolLabelForm, FORMAT_PIPES],
+  imports: [Page, AsyncState, Empty, Badge, Modal, SkuForm, WeighForm, SpoolLabelForm, RouterLink, FORMAT_PIPES],
   template: `
     <pp-page title="Filamentos" subtitle="Lo que compras, y los rollos de cada uno que tienes en el estante">
       <button actions type="button" (click)="editing.set('new')">+ Nuevo filamento</button>
@@ -161,7 +162,8 @@ interface SkuRow {
                         <td [attr.colspan]="columnCount">
                           @if (spoolsOf(sku.id).length === 0) {
                             <p class="muted none">
-                              Sin rollos de este filamento. Los rollos se crean al registrar una compra.
+                              Sin rollos de este filamento. Los rollos se crean al
+                              <a routerLink="/inventario/compras">registrar una compra</a>.
                             </p>
                           } @else {
                             @for (spool of spoolsOf(sku.id); track spool.id) {

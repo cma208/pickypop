@@ -2,6 +2,7 @@ import { plan, type PlanDemand, type PlanInput } from '@pickypop/domain';
 import type { PlanView } from '../../core/plan';
 import {
   amount,
+  assembledMessage,
   assembledText,
   claimsByItem,
   claimsSummary,
@@ -237,6 +238,16 @@ describe('who it is for', () => {
     expect(assembledText(5, [order])).toBe('5 armadas · 3 para PED-0003 · 2 libres');
     expect(assembledText(1, [])).toBe('1 armada en el estante');
     expect(assembledText(5, [order, hold])).toBe('5 armadas · 3 para PED-0003, 2 en el separo de COT-0012');
+  });
+
+  it('says that it built, with the verb agreeing with the number', () => {
+    const product = { productName: 'Calavera dulcera', variantName: 'Con dulces surtidos' };
+    expect(assembledMessage(1, product)).toBe(
+      'Se armó 1 unidad de Calavera dulcera (Con dulces surtidos). Los componentes salieron del estante.',
+    );
+    expect(assembledMessage(3, product)).toBe(
+      'Se armaron 3 unidades de Calavera dulcera (Con dulces surtidos). Los componentes salieron del estante.',
+    );
   });
 
   it('names the kinds instead of every document when there are many', () => {

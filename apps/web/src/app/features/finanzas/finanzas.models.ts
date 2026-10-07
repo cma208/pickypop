@@ -30,6 +30,15 @@ export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
 
 export const PAYMENT_METHODS = Object.keys(PAYMENT_METHOD_LABELS) as PaymentMethod[];
 
+/**
+ * How money moves in an account of this kind, when there is only one answer:
+ * a cash box takes cash. A bank or a wallet can take several (a transfer, Yape
+ * or Plin), so it is left for the person to say.
+ */
+export function defaultMethodFor(kind: AccountKind): PaymentMethod | null {
+  return kind === 'cash' ? 'cash' : null;
+}
+
 export const TRANSACTION_TYPE_LABELS: Record<TransactionType, string> = {
   income: 'Ingreso',
   expense: 'Egreso',

@@ -6,7 +6,7 @@ import { InventarioData, type AssemblyComponent, type AssemblyOption } from './i
 import { INVENTORY_PIPES, ITEM_KIND_LABELS } from './inventario.format';
 import { INVENTORY_STYLES, POSITION_STYLES } from './inventario.styles';
 import { InventoryPlan, type InventoryPositions } from './inventory-plan';
-import { assembledText, claimsTitle } from './stock-position';
+import { assembledMessage, assembledText, claimsTitle } from './stock-position';
 
 /** What the card of a product says it has on the shelf, and whose it is. */
 interface Built {
@@ -127,7 +127,7 @@ interface Built {
                           <td class="num">{{ row.component.onHand | qty: row.component.unit }}</td>
                           <td>
                             @if (row.missing > 0) {
-                              <pp-badge tone="bad">Faltan {{ row.missing | qty: row.component.unit }}</pp-badge>
+                              <pp-badge tone="bad">{{ missingVerb(row.missing) }} {{ row.missing | qty: row.component.unit }}</pp-badge>
                             } @else {
                               <pp-badge tone="good">Alcanza</pp-badge>
                             }
@@ -229,6 +229,11 @@ export class ArmarPage {
     };
   }
 
+  /** «Falta 1 unidad», «Faltan 3 unidades»: the verb agrees with how many are missing. */
+  protected missingVerb(missing: number): string {
+    return missing === 1 ? 'Falta' : 'Faltan';
+  }
+
   protected onUnits(event: Event): void {
     const value = Number.parseInt((event.target as HTMLInputElement).value, 10);
     this.units.set(Number.isFinite(value) && value > 0 ? value : 1);
@@ -264,14 +269,12 @@ export class ArmarPage {
       // Parts went out and products came in: who gets what has changed.
       this.planner.changed();
       void this.loadPlan();
-      this.result.set(
-        `Listo: ${units} unidad(es) de ${option.productName} entraron al inventario de terminados. ` +
-          'Los componentes salieron del stock.',
-      );
       await this.load();
       // La tarjeta elegida trae ahora otros números, y la receta otros saldos.
       const refreshed = this.options().find((row) => row.variantId === option.variantId);
       if (refreshed) await this.choose(refreshed);
+      // Choosing clears the last message, so this one goes after it: it was the only sign that anything happened.
+      this.result.set(assembledMessage(units, option));
     } catch (error) {
       // La base escribe aquí qué falta y cuánto: es mejor mensaje que cualquiera de aquí.
       this.assembleError.set(friendlyError(error, 'No pudimos armar el producto.'));

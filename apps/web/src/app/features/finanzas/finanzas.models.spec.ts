@@ -5,6 +5,7 @@ import {
   dayEnd,
   dayStart,
   defaultCategory,
+  defaultMethodFor,
   monthLabel,
   num,
   numOrNull,
@@ -129,5 +130,16 @@ describe('defaultCategory', () => {
 
   it('has nothing when the workshop has no category of that direction', () => {
     expect(defaultCategory('income', null, [])).toBeNull();
+  });
+});
+
+describe('defaultMethodFor', () => {
+  it('says cash for a cash box, which has no other way to be paid', () => {
+    expect(defaultMethodFor('cash')).toBe('cash');
+  });
+
+  it('leaves a bank or a wallet to the person: they take more than one method', () => {
+    expect(defaultMethodFor('bank')).toBeNull();
+    expect(defaultMethodFor('wallet')).toBeNull();
   });
 });
