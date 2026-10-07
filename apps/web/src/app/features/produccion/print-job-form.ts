@@ -1,10 +1,12 @@
 import { Component, computed, inject, input, OnInit, output, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormArray, FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Card, Field, FORMAT_PIPES } from '../../ui';
+import { Card, Field, FORMAT_PIPES, ItemPicker, Thumb, type PickerOption } from '../../ui';
+import { duration } from '../../core/format';
 import { explainError } from '../pedidos/pedidos.errors';
 import { ProduccionData, type OrderLineOption, type PlateOption, type SpoolOption } from './produccion.data';
 import type { PrinterSummary } from '../../core/workshop';
+import { describeCounts } from './produccion.outputs';
 
 const SECONDS_PER_MINUTE = 60;
 
@@ -31,7 +33,7 @@ function createFilamentRow(spoolId = '', estimatedG = 0, slot: number | null = n
  */
 @Component({
   selector: 'app-print-job-form',
-  imports: [ReactiveFormsModule, Card, Field, ...FORMAT_PIPES],
+  imports: [ReactiveFormsModule, Card, Field, ItemPicker, Thumb, ...FORMAT_PIPES],
   template: `
     <pp-card heading="Nuevo trabajo de impresión">
       @if (loading()) {
@@ -70,14 +72,34 @@ function createFilamentRow(spoolId = '', estimatedG = 0, slot: number | null = n
             </pp-field>
 
             <pp-field label="Placa de la receta" [hint]="plateHint()">
-              <select formControlName="plateId">
-                <option value="">Sin placa (a mano)</option>
-                @for (plate of availablePlates(); track plate.id) {
-                  <option [value]="plate.id">{{ plate.variantLabel }} · {{ plate.label }}</option>
+              <span class="plate-pick">
+                <pp-item-picker placeholder="Sin placa (a mano)" [options]="plateOptions()" [value]="selectedPlate()" (chosen)="choosePlate($event)" />
+                @if (selectedPlate()) {
+                  <button type="button" class="ghost" (click)="choosePlate('')" aria-label="Imprimir sin placa de receta">✕</button>
                 }
-              </select>
+              </span>
             </pp-field>
           </div>
+
+          @if (chosenPlate(); as plate) {
+            <div class="plate-preview">
+              <pp-thumb size="xl" [path]="plate.thumbnailPath" [name]="plate.label" />
+              <div class="plate-text">
+                <strong>{{ plate.label }}</strong>
+                <span class="muted">{{ plate.variantLabel }} · {{ plate.printTimeS | duration }} por corrida</span>
+                @if (plate.outputs.length > 0) {
+                  <span class="muted">Una corrida completa deja en el estante:</span>
+                  <ul>
+                    @for (part of plate.outputs; track part.inventoryItemId) {
+                      <li><pp-thumb size="sm" [path]="part.imagePath" [name]="part.name" /> {{ part.units }} {{ part.name }}</li>
+                    }
+                  </ul>
+                } @else {
+                  <span class="muted">Esta placa no tiene piezas definidas: al cerrarla no entra nada al estante.</span>
+                }
+              </div>
+            </div>
+          }
 
           <pp-field label="Tiempo estimado (minutos)" hint="Se llena con el de la placa; puedes ajustarlo." [error]="fieldError('estimatedMinutes', 'Escribe minutos enteros mayores que cero.')">
             <input type="number" inputmode="numeric" min="1" step="1" formControlName="estimatedMinutes" />
@@ -128,6 +150,12 @@ function createFilamentRow(spoolId = '', estimatedG = 0, slot: number | null = n
     .spool { display: grid; grid-template-columns: 1fr 8rem auto; gap: 0.5rem; align-items: start; }
     .spool button { margin-top: 1.55rem; }
     .fixed { margin: 0 0 1rem; }
+    .plate-pick { display: flex; gap: 0.35rem; align-items: center; }
+    .plate-pick pp-item-picker { flex: 1; min-width: 0; }
+    .plate-preview { display: flex; gap: 0.9rem; align-items: flex-start; margin: -0.25rem 0 1rem; padding: 0.75rem; border: 1px solid var(--line); border-radius: var(--radius); }
+    .plate-text { display: grid; gap: 0.25rem; font-size: 0.85rem; min-width: 0; }
+    .plate-text ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.25rem; }
+    .plate-text li { display: flex; align-items: center; gap: 0.4rem; }
     .warn-text { margin: -0.5rem 0 0.75rem; font-size: 0.8rem; color: var(--warn); }
     @media (max-width: 30rem) { .spool { grid-template-columns: 1fr; } .spool button { margin-top: 0; justify-self: start; } }
   `,
@@ -161,7 +189,7 @@ export class PrintJobForm implements OnInit {
   protected readonly submitted = signal(false);
 
   private readonly selectedLine = signal('');
-  private readonly selectedPlate = signal('');
+  protected readonly selectedPlate = signal('');
 
   protected readonly hasLine = computed(() => this.fixedLine() !== null || this.selectedLine() !== '');
 
@@ -171,12 +199,24 @@ export class PrintJobForm implements OnInit {
     return variantId ? all.filter((plate) => plate.variantId === variantId) : all;
   });
 
-  protected readonly plateHint = computed(() => {
-    const plate = this.plates().find((p) => p.id === this.selectedPlate());
-    return plate
-      ? `Una corrida de esta placa produce ${plate.unitsPerRun} unidad(es).`
-      : 'Opcional. Al elegirla se llenan el tiempo y los rollos sugeridos.';
-  });
+  protected readonly chosenPlate = computed(() => this.plates().find((p) => p.id === this.selectedPlate()) ?? null);
+
+  /** With its picture: "la placa de las tapas" is recognised, not read. */
+  protected readonly plateOptions = computed<PickerOption[]>(() =>
+    this.availablePlates().map((plate) => ({
+      value: plate.id,
+      label: plate.label,
+      hint: [plate.outputs.length > 0 ? describeCounts(plate.outputs) : null, duration(plate.printTimeS)]
+        .filter(Boolean)
+        .join(' · '),
+      group: plate.variantLabel,
+      imagePath: plate.thumbnailPath,
+    })),
+  );
+
+  protected readonly plateHint = computed(() =>
+    this.chosenPlate() ? undefined : 'Opcional. Al elegirla se llenan el tiempo y los rollos sugeridos.',
+  );
 
   constructor() {
     this.form.controls.orderLineId.valueChanges.pipe(takeUntilDestroyed()).subscribe((id) => {
@@ -195,6 +235,11 @@ export class PrintJobForm implements OnInit {
 
   protected get filaments(): FormArray<ReturnType<typeof createFilamentRow>> {
     return this.form.controls.filaments;
+  }
+
+  protected choosePlate(id: string): void {
+    this.form.controls.plateId.setValue(id);
+    this.form.controls.plateId.markAsDirty();
   }
 
   protected addFilament(): void {

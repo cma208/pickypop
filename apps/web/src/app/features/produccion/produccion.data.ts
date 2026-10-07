@@ -5,15 +5,18 @@ import { CostInputs } from '../pedidos/cost-inputs';
 import { roundMoney } from '../../core/pricing';
 import { CurrentWorkspace } from '../../core/workspace';
 import type { FailureCause, JobStatus } from './produccion.labels';
+import { outputsOf, type PartCount, type PlatePart } from './produccion.outputs';
 
 const SECONDS_PER_HOUR = 3600;
 const WATTS_PER_KW = 1000;
 const JOB_HISTORY_LIMIT = 150;
 const FINISHED_ORDER_STATUSES = ['delivered', 'closed', 'cancelled'];
 const USABLE_SPOOL_STATUSES = ['sealed', 'open', 'in_use'] as const;
+/** Job ids per request when reading what they produced: keeps the URL short. */
+const PRODUCED_CHUNK = 50;
 
 const JOB_FIELDS =
-  'id, status, printer_id, order_line_id, recipe_plate_id, label, started_at, finished_at, estimated_time_s, actual_time_s, units_produced, failure_cause, percent_complete, material_cost, energy_cost, machine_cost, note, created_at, printers(name), recipe_plates(label, units_per_run, recipe_plate_outputs(inventory_item_id, units_per_run)), ';
+  'id, status, printer_id, order_line_id, recipe_plate_id, label, started_at, finished_at, estimated_time_s, actual_time_s, units_produced, failure_cause, percent_complete, material_cost, energy_cost, machine_cost, note, created_at, printers(name), recipe_plates(label, thumbnail_path, recipe_plate_outputs(inventory_item_id, units_per_run, position, inventory_items(name, image_path))), ';
 const JOB_RELATIONS = 'order_lines(description, order_id, orders(number)), ';
 const JOB_FILAMENTS =
   'print_job_filaments(id, spool_id, slot, estimated_g, actual_g, spools(code, filament_skus(color_name, color_hex)))';
@@ -26,6 +29,7 @@ interface JobRow {
   id: string;
   status: JobStatus;
   printer_id: string;
+  recipe_plate_id: string | null;
   label: string | null;
   started_at: string | null;
   finished_at: string | null;
@@ -41,8 +45,13 @@ interface JobRow {
   printers: { name: string } | null;
   recipe_plates: {
     label: string | null;
-    units_per_run: number;
-    recipe_plate_outputs: { inventory_item_id: string; units_per_run: number }[];
+    thumbnail_path: string | null;
+    recipe_plate_outputs: {
+      inventory_item_id: string;
+      units_per_run: number;
+      position: number;
+      inventory_items: { name: string; image_path: string | null } | null;
+    }[];
   } | null;
   order_lines: { description: string; order_id: string; orders: { number: string } | null } | null;
   print_job_filaments: {
@@ -71,10 +80,13 @@ export interface JobItem {
   status: JobStatus;
   printerId: string;
   printerName: string;
+  plateId: string | null;
   plateLabel: string | null;
-  plateUnitsPerRun: number | null;
+  plateThumbnailPath: string | null;
   /** The parts the plate puts on the shelf. More than one on a mixed plate. */
-  plateOutputs: { inventoryItemId: string; unitsPerRun: number }[];
+  plateOutputs: PlatePart[];
+  /** What really went on the shelf, part by part. Empty until it closes well. */
+  produced: PartCount[];
   label: string | null;
   orderId: string | null;
   orderNumber: string | null;
@@ -124,7 +136,9 @@ export interface PlateOption {
   variantId: string;
   variantLabel: string;
   printTimeS: number;
-  unitsPerRun: number;
+  thumbnailPath: string | null;
+  /** What a full run puts on the shelf. */
+  outputs: PartCount[];
   filaments: PlateFilament[];
 }
 
@@ -159,7 +173,8 @@ export interface CloseJob {
   usage: { spoolId: string; actualG: number }[];
   failureCause: FailureCause | null;
   percentComplete: number | null;
-  unitsProduced: number | null;
+  /** What came out of each part of the plate; a part left out counts at full yield. */
+  outputs: { inventoryItemId: string; units: number | null }[];
   note: string | null;
 }
 
@@ -194,7 +209,7 @@ export class ProduccionData {
       .limit(JOB_HISTORY_LIMIT)
       .overrideTypes<JobRow[], { merge: false }>();
     if (error) throw error;
-    return data.map(toJobItem);
+    return this.withProduced(data.map(toJobItem));
   }
 
   async jobsForOrder(orderId: string): Promise<JobItem[]> {
@@ -205,7 +220,57 @@ export class ProduccionData {
       .order('created_at', { ascending: false })
       .overrideTypes<JobRow[], { merge: false }>();
     if (error) throw error;
-    return data.map(toJobItem);
+    return this.withProduced(data.map(toJobItem));
+  }
+
+  /**
+   * What each successful job put on the shelf, read from its production
+   * movements: that is what the stock believes, part by part. The job only
+   * keeps a total, and "13 pieces" says nothing about a plate of caps and
+   * bodies.
+   */
+  private async withProduced(jobs: JobItem[]): Promise<JobItem[]> {
+    const ids = jobs.filter((job) => job.status === 'success').map((job) => job.id);
+    if (ids.length === 0) return jobs;
+
+    const chunks: string[][] = [];
+    for (let start = 0; start < ids.length; start += PRODUCED_CHUNK) chunks.push(ids.slice(start, start + PRODUCED_CHUNK));
+
+    const results = await Promise.all(
+      chunks.map((chunk) =>
+        this.supabase
+          .from('stock_movements')
+          .select('source_id, inventory_item_id, quantity, inventory_items(name, image_path)')
+          .eq('source_type', 'print_job')
+          .eq('type', 'production')
+          .in('source_id', chunk),
+      ),
+    );
+
+    const byJob = new Map<string, PartCount[]>();
+    for (const result of results) {
+      if (result.error) throw result.error;
+      for (const row of result.data) {
+        if (!row.source_id || !row.inventory_item_id) continue;
+        const list = byJob.get(row.source_id) ?? [];
+        list.push({
+          inventoryItemId: row.inventory_item_id,
+          name: row.inventory_items?.name ?? 'Pieza',
+          imagePath: row.inventory_items?.image_path ?? null,
+          units: Number(row.quantity),
+        });
+        byJob.set(row.source_id, list);
+      }
+    }
+
+    return jobs.map((job) => {
+      const produced = byJob.get(job.id);
+      if (!produced) return job;
+      // In the order of the plate, which is the order the close form showed.
+      const order = new Map(job.plateOutputs.map((part, index) => [part.inventoryItemId, index]));
+      produced.sort((a, b) => (order.get(a.inventoryItemId) ?? 99) - (order.get(b.inventoryItemId) ?? 99));
+      return { ...job, produced };
+    });
   }
 
   /** Success rate and the most common cause, from the `failure_stats` view. */
@@ -278,7 +343,7 @@ export class ProduccionData {
       this.supabase
         .from('recipe_plates')
         .select(
-          'id, label, plate_index, units_per_run, print_time_s, recipes!inner(variant_id, active), recipe_plate_filaments(slot, grams, filament_sku_id, color_hex)',
+          'id, label, plate_index, print_time_s, thumbnail_path, recipes!inner(variant_id, active), recipe_plate_filaments(slot, grams, filament_sku_id, color_hex), recipe_plate_outputs(inventory_item_id, units_per_run, position, inventory_items(name, image_path))',
         )
         .eq('recipes.active', true)
         .order('plate_index'),
@@ -300,7 +365,15 @@ export class ProduccionData {
         variantId,
         variantLabel: variantNames.get(variantId) ?? 'Receta sin variante',
         printTimeS: plate.print_time_s,
-        unitsPerRun: Number(plate.units_per_run),
+        thumbnailPath: plate.thumbnail_path,
+        outputs: [...plate.recipe_plate_outputs]
+          .sort((a, b) => a.position - b.position)
+          .map((out) => ({
+            inventoryItemId: out.inventory_item_id,
+            name: out.inventory_items?.name ?? 'Pieza',
+            imagePath: out.inventory_items?.image_path ?? null,
+            units: Number(out.units_per_run),
+          })),
         filaments: plate.recipe_plate_filaments
           .map((filament) => ({
             slot: filament.slot,
@@ -412,7 +485,11 @@ export class ProduccionData {
       // Everything the close knows goes in this one call. The units used to be
       // saved afterwards, and the function, which reads them to fill the shelf,
       // found zero and put the whole plate in: 7 caps out, 9 caps in.
-      p_outputs: outputsOf(job, input),
+      p_outputs: outputsOf(
+        job.plateOutputs,
+        input.result,
+        new Map(input.outputs.map((output) => [output.inventoryItemId, output.units])),
+      ),
       p_percent_complete: input.result === 'failed' ? (input.percentComplete ?? undefined) : undefined,
       p_note: input.note ?? undefined,
     });
@@ -498,18 +575,6 @@ export class ProduccionData {
   }
 }
 
-/**
- * What came out of the plate, for `complete_print_job`. The close form asks for
- * a single count, which is exact for a plate that makes one part. For a mixed
- * plate it says nothing yet, and every part counts at its full yield, until the
- * form asks part by part.
- */
-function outputsOf(job: JobItem, input: CloseJob): { inventory_item_id: string; units: number }[] | undefined {
-  if (input.result !== 'success' || input.unitsProduced == null) return undefined;
-  if (job.plateOutputs.length !== 1) return undefined;
-  return [{ inventory_item_id: job.plateOutputs[0].inventoryItemId, units: input.unitsProduced }];
-}
-
 function toJobItem(row: JobRow): JobItem {
   const costs = [row.material_cost, row.energy_cost, row.machine_cost];
   const hasCost = costs.some((cost) => cost != null);
@@ -519,12 +584,18 @@ function toJobItem(row: JobRow): JobItem {
     status: row.status,
     printerId: row.printer_id,
     printerName: row.printers?.name ?? 'Impresora',
+    plateId: row.recipe_plate_id,
     plateLabel: row.recipe_plates?.label ?? null,
-    plateUnitsPerRun: row.recipe_plates ? Number(row.recipe_plates.units_per_run) : null,
-    plateOutputs: (row.recipe_plates?.recipe_plate_outputs ?? []).map((out) => ({
-      inventoryItemId: out.inventory_item_id,
-      unitsPerRun: Number(out.units_per_run),
-    })),
+    plateThumbnailPath: row.recipe_plates?.thumbnail_path ?? null,
+    plateOutputs: [...(row.recipe_plates?.recipe_plate_outputs ?? [])]
+      .sort((a, b) => a.position - b.position)
+      .map((out) => ({
+        inventoryItemId: out.inventory_item_id,
+        name: out.inventory_items?.name ?? 'Pieza',
+        imagePath: out.inventory_items?.image_path ?? null,
+        unitsPerRun: Number(out.units_per_run),
+      })),
+    produced: [],
     label: row.label,
     orderId: row.order_lines?.order_id ?? null,
     orderNumber: row.order_lines?.orders?.number ?? null,

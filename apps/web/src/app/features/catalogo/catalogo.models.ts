@@ -106,6 +106,31 @@ export interface RecipePlate {
   filaments: RecipeFilament[];
   /** Las piezas que salen al estante. Vacía: la placa no aporta stock. */
   outputs: PlateOutput[];
+  /** La vista de la placa recortada del archivo laminado. */
+  thumbnailPath: string | null;
+  sourceFileName: string | null;
+  /** Lo que dijo el archivo laminado; null si la placa se cargó a mano. */
+  fileRecord: PlateFileRecord | null;
+}
+
+/**
+ * Lo que trajo el archivo laminado sobre una placa, tal como se importó. Se
+ * guarda en `recipe_plates.slicer_metadata` para poder decir, junto a la lista
+ * de piezas, "el archivo dice: Cap ×7, Body1 ×7", y para proponer la misma
+ * pieza la próxima vez que aparezca un objeto con ese nombre.
+ */
+export interface PlateFileRecord {
+  /** El número de la placa dentro del archivo, la N de plate_N. */
+  filePlate: number | null;
+  objects: PlateFileObject[];
+}
+
+export interface PlateFileObject {
+  /** El nombre del objeto en Bambu Studio, que casi nunca es el del inventario. */
+  name: string;
+  count: number;
+  /** La pieza que la persona dijo que es; null si dijo que no va al estante. */
+  inventoryItemId: string | null;
 }
 
 /** Una pieza que sale de una placa, y cuántas salen por corrida. */
@@ -123,13 +148,18 @@ export interface RecipePlateInput {
   printTimeS: number;
 }
 
-/** Una placa recién leída de un archivo laminado, lista para guardarse. */
+/** Una placa recién leída de un archivo laminado, ya revisada, lista para guardarse. */
 export interface ImportedPlate {
   label: string | null;
   unitsPerRun: number;
   printTimeS: number;
   sourceFileName: string;
   filaments: ImportedFilament[];
+  /** Las piezas que la persona confirmó, ya sumadas si dos objetos eran la misma. */
+  outputs: PlateOutputInput[];
+  record: PlateFileRecord;
+  /** La miniatura recortada, todavía sin subir. */
+  thumbnail: Blob | null;
 }
 
 export interface ImportedFilament {

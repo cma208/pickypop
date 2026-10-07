@@ -2,6 +2,7 @@ import { inject, Injectable } from '@angular/core';
 import type { PostgrestError } from '@supabase/supabase-js';
 import { SUPABASE } from '../../core/supabase';
 import { CurrentWorkspace } from '../../core/workspace';
+import { Media } from '../../core/media';
 import type { CostProfile, PrinterProfile } from '../../core/pricing';
 import type { Json } from '../../core/database.types';
 import type {
@@ -26,9 +27,12 @@ import type {
   VariantInput,
 } from './catalogo.models';
 import { supplyOptions } from './costing';
+import { learnedParts, recordFromJson, recordToJson } from './importacion';
 import { blankToNull, CatalogoError, todayIso } from './catalogo.util';
 
 const GRAMS_PER_KG = 1000;
+/** Enough past imports to remember every object name the workshop uses. */
+const LEARNED_PLATES_LIMIT = 500;
 
 const PG_UNIQUE = '23505';
 const PG_FOREIGN_KEY = '23503';
@@ -74,6 +78,7 @@ function numberOrNull(value: number | string | null | undefined): number | null 
 export class CatalogoData {
   private readonly supabase = inject(SUPABASE);
   private readonly workspace = inject(CurrentWorkspace);
+  private readonly media = inject(Media);
 
   /** Rows are created inside the person's workshop; RLS keeps it that way. */
   private workspaceId(): Promise<string> {
@@ -320,6 +325,9 @@ export class CatalogoData {
             unitsPerRun: Number(output.units_per_run),
           })),
         printTimeS: plate.print_time_s,
+        thumbnailPath: plate.thumbnail_path,
+        sourceFileName: plate.source_file_name,
+        fileRecord: recordFromJson(plate.slicer_metadata),
         filaments: plate.recipe_plate_filaments
           .map(
             (filament): RecipeFilament => ({
@@ -426,36 +434,65 @@ export class CatalogoData {
   }
 
   /**
-   * Carga placas enteras desde un archivo ya laminado.
+   * Qué pieza dijo la persona que era cada objeto de un archivo laminado, en
+   * todo lo importado antes, para proponerla de nuevo. Basta con lo reciente:
+   * un taller usa pocos nombres de objeto y los repite.
+   */
+  async learnedObjectParts(): Promise<Map<string, string>> {
+    const { data, error } = await this.supabase
+      .from('recipe_plates')
+      .select('slicer_metadata')
+      .not('source_file_name', 'is', null)
+      .order('updated_at', { ascending: false })
+      .limit(LEARNED_PLATES_LIMIT);
+    if (error) fail(error, 'No pudimos leer las importaciones anteriores.');
+    return learnedParts(data.map((row) => recordFromJson(row.slicer_metadata)));
+  }
+
+  /**
+   * Carga placas enteras desde un archivo ya laminado y revisado por la
+   * persona: los minutos y los gramos, la miniatura, lo que dijo el archivo y
+   * las piezas que confirmó.
    *
-   * Es el mismo lector que usa el cotizador, sobre el mismo archivo, para la
-   * misma pregunta: cuántos minutos y cuántos gramos. Que la receta —que es
-   * donde ese dato vive para siempre— lo pidiera escrito a mano era pedirle a
-   * una persona que copiara números de una pantalla a otra.
+   * Es el mismo lector que usa el cotizador, sobre el mismo archivo. Que la
+   * receta —que es donde ese dato vive para siempre— lo pidiera escrito a mano
+   * era pedirle a una persona que copiara números de una pantalla a otra.
    *
    * Si algo falla a medio camino, lo ya creado se queda: son placas visibles y
    * borrables, y deshacerlas a mano desde aquí sería adivinar qué quería la
-   * persona. El error dice en cuál se quedó.
+   * persona. El error dice en cuál se quedó. Una miniatura que no sube no
+   * detiene nada: la placa sirve igual, y se cuenta para avisarlo.
    */
-  async importPlates(recipeId: string, firstIndex: number, plates: ImportedPlate[]): Promise<number> {
+  async importPlates(
+    recipeId: string,
+    firstIndex: number,
+    plates: ImportedPlate[],
+  ): Promise<{ created: number; withoutThumbnail: number }> {
     const workspaceId = await this.workspaceId();
     let created = 0;
+    let withoutThumbnail = 0;
 
     for (const [offset, plate] of plates.entries()) {
+      const plateIndex = firstIndex + offset;
+      const thumbnailPath = await this.uploadThumbnail(plate.thumbnail, plateIndex);
+      if (plate.thumbnail && !thumbnailPath) withoutThumbnail += 1;
+
       const { data, error } = await this.supabase
         .from('recipe_plates')
         .insert({
           workspace_id: workspaceId,
           recipe_id: recipeId,
-          plate_index: firstIndex + offset,
+          plate_index: plateIndex,
           label: blankToNull(plate.label),
           units_per_run: plate.unitsPerRun,
           print_time_s: plate.printTimeS,
           source_file_name: plate.sourceFileName,
+          thumbnail_path: thumbnailPath,
+          slicer_metadata: recordToJson(plate.record),
         })
         .select('id')
         .single();
-      if (error) fail(error, `No pudimos crear la placa ${firstIndex + offset}.`, 'Ya existe una placa con ese número.');
+      if (error) fail(error, `No pudimos crear la placa ${plateIndex}.`, 'Ya existe una placa con ese número.');
 
       if (plate.filaments.length > 0) {
         const { error: filamentError } = await this.supabase.from('recipe_plate_filaments').insert(
@@ -469,13 +506,37 @@ export class CatalogoData {
             grams: filament.grams,
           })),
         );
-        if (filamentError) fail(filamentError, `No pudimos cargar los filamentos de la placa ${firstIndex + offset}.`);
+        if (filamentError) fail(filamentError, `No pudimos cargar los filamentos de la placa ${plateIndex}.`);
+      }
+
+      if (plate.outputs.length > 0) {
+        const { error: outputError } = await this.supabase.from('recipe_plate_outputs').insert(
+          plate.outputs.map((output, position) => ({
+            workspace_id: workspaceId,
+            recipe_plate_id: data.id,
+            inventory_item_id: output.inventoryItemId,
+            units_per_run: output.unitsPerRun,
+            position: position + 1,
+          })),
+        );
+        if (outputError) fail(outputError, `No pudimos guardar las piezas de la placa ${plateIndex}.`);
       }
 
       created += 1;
     }
 
-    return created;
+    return { created, withoutThumbnail };
+  }
+
+  /** The picture is a convenience: if it does not upload, the plate is saved without it. */
+  private async uploadThumbnail(thumbnail: Blob | null, plateIndex: number): Promise<string | null> {
+    if (!thumbnail) return null;
+    try {
+      const file = new File([thumbnail], `placa-${plateIndex}.png`, { type: thumbnail.type || 'image/png' });
+      return await this.media.upload(file, 'impresiones');
+    } catch {
+      return null;
+    }
   }
 
   async updatePlate(id: string, input: RecipePlateInput): Promise<void> {

@@ -1,11 +1,12 @@
 import { Component, computed, effect, inject, input, output, signal, untracked } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { FORMAT_PIPES } from '../../ui';
+import { FORMAT_PIPES, Thumb } from '../../ui';
 import { CatalogoData } from './catalogo.data';
 import type { Lookups, RecipePlate } from './catalogo.models';
 import { SHARED_STYLES } from './catalogo.styles';
 import { messageOf } from './catalogo.util';
 import { FilamentoFila } from './filamento-fila';
+import { describeObjects } from './importacion';
 import { SalidaFila, type PartOption } from './salida-fila';
 
 const SECONDS_PER_MINUTE = 60;
@@ -13,12 +14,14 @@ const SECONDS_PER_MINUTE = 60;
 /** A plate of the recipe with its filaments, or the form that adds a new plate. */
 @Component({
   selector: 'app-placa-editor',
-  imports: [ReactiveFormsModule, FilamentoFila, SalidaFila, ...FORMAT_PIPES],
+  imports: [ReactiveFormsModule, Thumb, FilamentoFila, SalidaFila, ...FORMAT_PIPES],
   styles: [
     SHARED_STYLES,
     `
       section { padding: 0.9rem; border: 1px solid var(--line); border-radius: var(--radius); background: var(--bg); }
-      h4 { margin: 0 0 0.6rem; font-size: 0.95rem; }
+      h4 { margin: 0; font-size: 0.95rem; }
+      .head { display: flex; align-items: center; gap: 0.75rem; margin: 0 0 0.6rem; }
+      .said { margin: 0 0 0.35rem; font-size: 0.82rem; }
       label { display: grid; gap: 0.15rem; font-size: 0.72rem; color: var(--muted); }
       .plate { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 0.9fr) auto; gap: 0.5rem; align-items: end; }
       .filaments, .outputs { margin-top: 0.75rem; }
@@ -29,7 +32,12 @@ const SECONDS_PER_MINUTE = 60;
   ],
   template: `
     <section>
-      <h4>{{ plate() ? 'Placa ' + plate()!.plateIndex + (plate()!.label ? ' · ' + plate()!.label : '') : 'Agregar placa' }}</h4>
+      <div class="head">
+        @if (plate(); as current) {
+          <pp-thumb size="lg" [path]="current.thumbnailPath" [name]="current.label ?? 'Placa ' + current.plateIndex" />
+        }
+        <h4>{{ plate() ? 'Placa ' + plate()!.plateIndex + (plate()!.label ? ' · ' + plate()!.label : '') : 'Agregar placa' }}</h4>
+      </div>
       <form class="plate" [formGroup]="form" (ngSubmit)="save()" novalidate>
         <label class="name">Etiqueta
           <input formControlName="label" placeholder="Ej. Botella, Tapas" autocomplete="off" />
@@ -66,6 +74,16 @@ const SECONDS_PER_MINUTE = 60;
         </div>
         <div class="outputs">
           <h5>Lo que sale de esta placa al estante (piezas de UNA corrida)</h5>
+          @if (current.fileRecord; as record) {
+            @if (record.objects.length > 0) {
+              <p class="said">
+                El archivo dice: <strong>{{ said(record.objects) }}</strong>
+                <span class="muted">
+                  · placa {{ record.filePlate ?? '?' }}@if (current.sourceFileName) { de «{{ current.sourceFileName }}»}
+                </span>
+              </p>
+            }
+          }
           @if (current.outputs.length === 0) {
             <p class="muted hint">Sin piezas, la placa no deja nada en el estante al cerrar la impresión.</p>
           }
@@ -113,6 +131,10 @@ export class PlacaEditor {
         if (!this.form.dirty) this.fill(plate);
       });
     });
+  }
+
+  protected said(objects: { name: string; count: number }[]): string {
+    return describeObjects(objects);
   }
 
   protected async save(): Promise<void> {
