@@ -20,5 +20,6 @@ export const FAILURE_CAUSE_LABELS: Record<Database['public']['Enums']['print_fai
   filament_runout: 'se acabó el filamento',
   power_loss: 'corte de luz',
   wrong_settings: 'ajustes incorrectos',
+  warping: 'warping / deformación',
   other: 'otra causa',
 };
