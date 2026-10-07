@@ -54,6 +54,8 @@ export class PrintQueue {
   private readonly lanes: Lane[];
   /** When each job already on a printer is expected to end. */
   readonly jobEnds = new Map<string, number>();
+  /** When each job already launched starts (or started), for the queue to show its time. */
+  readonly jobStarts = new Map<string, number>();
 
   constructor(
     printers: PlanPrinter[],
@@ -151,6 +153,7 @@ export class PrintQueue {
         end = this.now;
       }
       lane.busyUntil = Math.max(lane.busyUntil ?? end, end);
+      this.jobStarts.set(job.id, started);
       this.jobEnds.set(job.id, end);
     }
 
@@ -164,6 +167,7 @@ export class PrintQueue {
       const durationMs = job.estimatedSeconds * MS_PER_SECOND;
       const start = this.startOn(lane.busyUntil, durationMs, jobName(job));
       lane.busyUntil = start + durationMs;
+      this.jobStarts.set(job.id, start);
       this.jobEnds.set(job.id, lane.busyUntil);
     }
   }

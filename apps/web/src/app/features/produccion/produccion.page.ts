@@ -1,5 +1,6 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { PlanService, type PlanView } from '../../core/plan';
+import { readyText } from '../../core/plan-format';
 import { AsyncState, Card, Empty, FORMAT_PIPES, Page } from '../../ui';
 import { explainError } from '../pedidos/pedidos.errors';
 import { PorLanzarCard } from './por-lanzar-card';
@@ -84,7 +85,12 @@ const PAST_ESTIMATE = /pasó su tiempo estimado/;
               @for (job of lane.jobs; track job.id; let position = $index) {
                 <li>
                   <span class="position" [attr.aria-label]="'Turno ' + (position + 1)">{{ position + 1 }}</span>
-                  <app-print-job-card [job]="job" (changed)="onChanged($event)" />
+                  <div class="slot">
+                    @if (startOf(job.id); as start) {
+                      <p class="when muted">Empezaría {{ start }}</p>
+                    }
+                    <app-print-job-card [job]="job" (changed)="onChanged($event)" />
+                  </div>
                 </li>
               }
             </ol>
@@ -108,6 +114,8 @@ const PAST_ESTIMATE = /pasó su tiempo estimado/;
     .jobs { display: grid; gap: 0.6rem; margin: 0; padding: 0; list-style: none; }
     .jobs li { display: flex; gap: 0.6rem; align-items: flex-start; }
     .jobs li app-print-job-card { flex: 1; min-width: 0; }
+    .slot { display: grid; gap: 0.25rem; min-width: 0; flex: 1; }
+    .when { margin: 0; font-size: 0.85rem; }
     .position {
       flex: none; width: 1.8rem; height: 1.8rem; margin-top: 0.9rem; border-radius: 50%;
       display: grid; place-items: center; font-size: var(--fs-sm); font-weight: 600;
@@ -132,6 +140,16 @@ export class ProduccionPage {
   protected readonly effects = signal<CloseOutcome | null>(null);
 
   protected readonly printing = computed(() => this.jobs().filter((job) => job.status === 'printing'));
+
+  /** When the plan places each queued job, in the workshop's window. */
+  private readonly starts = computed(() => {
+    const view = this.view();
+    return new Map((view?.result.jobs ?? []).map((timing) => [timing.id, readyText(timing.start, view!.result.now)]));
+  });
+
+  protected startOf(jobId: string): string | null {
+    return this.starts().get(jobId) ?? null;
+  }
   /** Planned jobs per printer, in the order the plan runs them. */
   protected readonly lanes = computed(() => queueLanes(this.jobs().filter((job) => job.status === 'planned')));
   /**

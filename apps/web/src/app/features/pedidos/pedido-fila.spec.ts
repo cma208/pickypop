@@ -23,6 +23,7 @@ const result = (demands: PlanDemandPlan[], now = '2026-10-06T23:00:00.000Z'): Pl
   items: [],
   filaments: [],
   runs: [],
+  jobs: [],
   proposals: [],
   warnings: [],
 });

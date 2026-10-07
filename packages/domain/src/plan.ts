@@ -1,5 +1,6 @@
 import type {
   PlanCandidateLine,
+  PlanJobTiming,
   PlanComponentPlan,
   PlanCustomPlate,
   PlanCustomWork,
@@ -70,6 +71,7 @@ export function plan(input: PlanInput): PlanResult {
     items: input.items.map((item) => itemPosition(item, full)),
     filaments: input.filaments.map((row) => filamentPosition(row, full)),
     runs: [...full.runs].sort((a, b) => a.start - b.start).map(toPlanRun),
+    jobs: full.jobs,
     proposals: proposals(full.runs, ordersOnly.runs),
     warnings: full.warnings.list(),
   };
@@ -156,6 +158,7 @@ interface LinePlanned {
 interface Allocation {
   lines: Map<Claimant, LinePlanned[]>;
   runs: Run[];
+  jobs: PlanJobTiming[];
   shelf: Shelf;
   filament: FilamentLedger;
   /** For items[].missing: what had to print or be bought, per article. */
@@ -337,6 +340,8 @@ class Allocator {
   private readonly filament: FilamentLedger;
   private readonly fromJobs = new Lots();
   private readonly forCustomLines = new Lots();
+  /** How many plates each made-to-order line has, to share its jobs among them. */
+  private readonly customPlateCount: Map<string, number>;
   private readonly leftovers = new Lots();
   private readonly runs: Run[] = [];
   private readonly beyondStock = new Map<string, number>();
@@ -347,6 +352,12 @@ class Allocator {
   ) {
     const { settings } = input;
     this.now = parseInstant(input.now);
+    this.customPlateCount = new Map(
+      input.demands
+        .flatMap((demand) => demand.lines)
+        .filter((line) => line.custom !== null)
+        .map((line) => [line.id, Math.max(1, line.custom!.plates.length)] as const),
+    );
     this.clock = workshopClock(settings.timeZone, settings.window);
     this.items = new Map(input.items.map((item) => [item.id, item]));
     this.recipes = new Map(input.recipes.map((recipe) => [recipe.variantId, recipe]));
@@ -377,6 +388,15 @@ class Allocator {
     return {
       lines,
       runs: this.runs,
+      jobs: this.input.jobs
+        .filter((job) => this.queue.jobStarts.has(job.id))
+        .map((job) => ({
+          id: job.id,
+          printerId: job.printerId,
+          start: formatInstant(this.queue.jobStarts.get(job.id)!),
+          end: formatInstant(this.queue.jobEnds.get(job.id)!),
+        }))
+        .sort((a, b) => Date.parse(a.start) - Date.parse(b.start)),
       shelf: this.shelf,
       filament: this.filament,
       beyondStock: this.beyondStock,
@@ -390,8 +410,12 @@ class Allocator {
     for (const job of this.input.jobs) {
       const at = this.queue.jobEnds.get(job.id) ?? this.now;
       if (job.orderLineId !== null) {
-        // Made-to-order pieces never reach the shelf: they belong to their line.
-        this.forCustomLines.add(job.orderLineId, { units: job.lineUnits, at, run: null });
+        // Made-to-order pieces never reach the shelf: they belong to their
+        // line. A job does not say which of the line's plates it prints, so
+        // a line of two plates counts each job as half a unit: queueing only
+        // the front never makes the back look done.
+        const plates = this.customPlateCount.get(job.orderLineId) ?? 1;
+        this.forCustomLines.add(job.orderLineId, { units: job.lineUnits / plates, at, run: null });
         continue;
       }
       for (const output of job.outputs) {

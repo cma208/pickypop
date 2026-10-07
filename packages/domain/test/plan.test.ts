@@ -935,8 +935,13 @@ describe('plan: made-to-order lines', () => {
     expect(line.onShelf).toBe(2);
     expect(line.toAssemble).toBe(0);
     expect(line.toMake).toBe(3);
-    // The queued job (18:00–19:00) makes one; two more need one run of each plate.
-    expect(runTimes(result.runs)).toEqual(['mar 19:15–mar 19:45', 'mar 20:00–mar 20:10']);
+    // The queued job (18:00–19:00) is one plate of two, so half a unit: 2.5
+    // are left, two runs of the body and one of the base.
+    expect(runTimes(result.runs)).toEqual([
+      'mar 19:15–mar 19:45',
+      'mar 20:00–mar 20:30',
+      'mar 20:45–mar 20:55',
+    ]);
     expect(line.components).toEqual([
       {
         itemId: 'item-cinta',
@@ -962,7 +967,7 @@ describe('plan: made-to-order lines', () => {
       ['Caja', 1, 'unidad'],
     ]);
     // 5 min of setup plus 2 per unit still to make, after the last plate.
-    expect(wallClock(line.readyAt)).toBe('mar 20:21');
+    expect(wallClock(line.readyAt)).toBe('mar 21:06');
   });
 
   it('a service takes nothing and is ready now', () => {
@@ -1002,5 +1007,58 @@ describe('plan: filament already promised to the queue', () => {
       plannedGrams: 5.69,
       missingGrams: 3.69,
     });
+  });
+});
+
+describe('plan: the jobs already launched, with their time', () => {
+  it('gives each queued job the start and end the plan places it at', () => {
+    const result = plan(
+      workshop({
+        jobs: [
+          job('j1', { status: 'printing', startedAt: lima('2026-10-06 17:50') }),
+          job('j2', { queuedAt: lima('2026-10-06 17:55') }),
+        ],
+      }),
+    );
+
+    expect(result.jobs.map((timing) => [timing.id, wallClock(timing.start), wallClock(timing.end)])).toEqual([
+      ['j1', 'mar 17:50', 'mar 18:33'],
+      ['j2', 'mar 18:48', 'mar 19:31'],
+    ]);
+  });
+});
+
+describe('plan: a made-to-order line of two plates', () => {
+  const twoPlates = {
+    plates: [
+      { label: 'Frente', printSeconds: 3600, unitsPerRun: 1, filaments: [] },
+      { label: 'Espalda', printSeconds: 3600, unitsPerRun: 1, filaments: [] },
+    ],
+  };
+
+  it('does not take the line as done when only one of its plates is queued', () => {
+    const result = plan(
+      workshop({
+        jobs: [job('front', { orderLineId: 'l1', lineUnits: 1, estimatedSeconds: 3600 })],
+        demands: [order('o1', 'PED-0001', TUESDAY_1800, [customLine('l1', 1, twoPlates)])],
+      }),
+    );
+
+    expect(result.proposals.map((proposal) => proposal.runs)).toEqual([2]);
+    expect(result.demands[0]!.lines[0]!.toMake).toBe(1);
+  });
+
+  it('takes the line as covered when both plates are queued', () => {
+    const result = plan(
+      workshop({
+        jobs: [
+          job('front', { orderLineId: 'l1', lineUnits: 1, estimatedSeconds: 3600 }),
+          job('back', { orderLineId: 'l1', lineUnits: 1, estimatedSeconds: 3600, queuedAt: lima('2026-10-06 18:01') }),
+        ],
+        demands: [order('o1', 'PED-0001', TUESDAY_1800, [customLine('l1', 1, twoPlates)])],
+      }),
+    );
+
+    expect(result.proposals).toEqual([]);
   });
 });

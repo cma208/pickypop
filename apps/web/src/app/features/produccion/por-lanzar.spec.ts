@@ -235,6 +235,7 @@ describe('lo que llega tarde', () => {
     items: [],
     filaments: [],
     runs: [],
+    jobs: [],
     proposals: [],
     warnings: [],
   });

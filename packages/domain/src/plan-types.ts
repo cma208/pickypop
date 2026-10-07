@@ -345,6 +345,14 @@ export interface PlanFilamentPosition {
   missingGrams: number;
 }
 
+/** When a job already printing or queued starts and ends, as the plan places it in the window. */
+export interface PlanJobTiming {
+  id: string;
+  printerId: string;
+  start: string;
+  end: string;
+}
+
 export interface PlanResult {
   now: string;
   /** Active demands only, in priority order. */
@@ -353,6 +361,8 @@ export interface PlanResult {
   filaments: PlanFilamentPosition[];
   /** Every run the plan places, in start order, holds included. */
   runs: PlanRun[];
+  /** The jobs already launched, with the time the plan gives them, in start order. */
+  jobs: PlanJobTiming[];
   /** What to launch, for confirmed orders only, in priority order of what each covers first. */
   proposals: PlanProposal[];
   /** Things a person should know: a plate that does not fit the window, a job past its estimate. */
