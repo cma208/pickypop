@@ -2198,7 +2198,7 @@ isOneToOne: false
                   ]
                 },"order_production_summary": {
                   Row: {
-                    "estimated_cost": number | null,"failed_jobs": number | null,"jobs": number | null,"number": string | null,"order_id": string | null,"printed_hours": number | null,"purpose": Database["public"]['Enums']["order_purpose"] | null,"real_production_cost": number | null,"sold_for": number | null,"status": Database["public"]['Enums']["order_status"] | null,"successful_jobs": number | null,"workspace_id": string | null
+                    "delivered_cost": number | null,"delivered_units": number | null,"estimated_cost": number | null,"failed_jobs": number | null,"jobs": number | null,"number": string | null,"order_id": string | null,"printed_hours": number | null,"purpose": Database["public"]['Enums']["order_purpose"] | null,"real_production_cost": number | null,"sold_for": number | null,"status": Database["public"]['Enums']["order_status"] | null,"successful_jobs": number | null,"workspace_id": string | null
                   }
                   Relationships: [
                     {
