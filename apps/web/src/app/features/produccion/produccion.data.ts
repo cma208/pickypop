@@ -290,11 +290,17 @@ export class ProduccionData {
     return this.workshop.printers();
   }
 
-  /** Lines of orders still in progress, so a job can be tied to one. */
+  /**
+   * Made-to-order lines of orders still in progress, so a job can be tied to
+   * one. Catalogue lines are left out on purpose: «Por lanzar» prints what
+   * they need for every order at once (ADR-021), and a job tied to one of
+   * them is the «Crear trabajo» the order page no longer offers (H33).
+   */
   async openOrderLines(): Promise<OrderLineOption[]> {
     const { data, error } = await this.supabase
       .from('order_lines')
       .select('id, variant_id, description, quantity, position, orders!inner(number, status)')
+      .is('variant_id', null)
       .not('orders.status', 'in', `(${FINISHED_ORDER_STATUSES.join(',')})`)
       .order('created_at', { ascending: false });
     if (error) throw error;

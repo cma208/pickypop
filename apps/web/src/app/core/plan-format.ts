@@ -49,6 +49,20 @@ export function shortageText(shortages: readonly PlanShortage[]): string {
   return `${parts.slice(0, -1).join(', ')} y ${parts[parts.length - 1]}`;
 }
 
+/** The plan's warning when no printer can take a run (`plan-queue.ts`). */
+export const NO_PRINTER_WARNING = /^No hay ninguna impresora disponible/;
+
+/**
+ * The plan only sees printers that can print now, so it says «ninguna
+ * impresora disponible» alike for one in maintenance and for a workshop that
+ * never registered one. The second is not waiting for a printer to come back:
+ * it is missing a step, and that is what the screen says.
+ */
+export function planWarningText(warning: string, printersRegistered: boolean): string {
+  if (printersRegistered || !NO_PRINTER_WARNING.test(warning)) return warning;
+  return 'Falta registrar la impresora: sin ella el plan no sabe cuándo se imprime nada. Regístrala en Impresoras.';
+}
+
 /**
  * The full answer to "¿para cuándo?" in one sentence: what there is, when it
  * would be ready, and what has to be bought first. It informs and never

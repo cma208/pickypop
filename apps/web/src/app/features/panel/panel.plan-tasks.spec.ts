@@ -323,6 +323,13 @@ describe('warningTasks, against the real plan', () => {
     expect(tasks.map((task) => [task.title, task.route])).toEqual([['Ninguna impresora disponible', '/impresoras']]);
   });
 
+  it('says a printer has to be registered when the workshop has none at all', () => {
+    // An empty workshop is not waiting for a printer to come back.
+    const tasks = warningTasks(view(workshop({ printers: [] })).result.warnings, false);
+    expect(tasks.map((task) => [task.title, task.route])).toEqual([['Falta registrar la impresora', '/impresoras']]);
+    expect(tasks[0]!.detail).not.toMatch(/vuelve/);
+  });
+
   it('leaves out a plate longer than the window: a condition, not something to do today', () => {
     const input = workshop();
     input.plates = input.plates.map((plate) => ({ ...plate, printSeconds: 20 * 3600 }));

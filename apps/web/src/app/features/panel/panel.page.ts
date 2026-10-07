@@ -1,4 +1,4 @@
-import { Component, inject, resource } from '@angular/core';
+import { Component, computed, inject, resource } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { AsyncState, Badge, Card, FORMAT_PIPES, Item, Page } from '../../ui';
 import { SECTION_STYLES } from '../../core/styles';
@@ -6,6 +6,7 @@ import { DUE_LABELS, DUE_TONES } from '../impresoras/maintenance-due';
 import { PanelData } from './panel.data';
 import type { TaskUrgency } from './panel.tasks';
 import { FAILURE_CAUSE_LABELS, ORDER_STATUS_LABELS } from './panel.labels';
+import { firstSteps, type SetupCounts } from './panel.setup';
 
 const HIGH_SUCCESS = 0.9;
 
@@ -48,10 +49,28 @@ const TODAY = new Intl.DateTimeFormat('es-PE', {
       .stats span { display: block; font-size: 1.1rem; font-weight: 600; font-variant-numeric: tabular-nums; }
       .stats small { color: var(--muted); }
       .positive { margin: 0; color: var(--good); }
+      .first-steps { margin-bottom: 1.25rem; }
+      .first-steps ol { margin: 0; padding-left: 1.2rem; display: grid; gap: 0.6rem; }
+      .first-steps li a { font-weight: 600; }
+      .first-steps li span { display: block; color: var(--muted); font-size: var(--fs-sm); }
     `,
   ],
   template: `
     <pp-page title="Hoy" [subtitle]="today">
+      @if (steps().length > 0) {
+        <pp-card class="first-steps" heading="Primeros pasos">
+          <p class="muted">Para que el taller pueda cotizar, planificar y vender, falta cargar:</p>
+          <ol>
+            @for (step of steps(); track step.key) {
+              <li>
+                <a [routerLink]="step.route">{{ step.title }}</a>
+                <span>{{ step.why }}</span>
+              </li>
+            }
+          </ol>
+        </pp-card>
+      }
+
       <pp-card class="queue" heading="Lo que vence">
         <pp-async [loading]="tasks.isLoading()" [error]="problem(tasks.error(), 'los pendientes')">
           @if (tasks.value()?.planFailed) {
@@ -85,7 +104,11 @@ const TODAY = new Intl.DateTimeFormat('es-PE', {
           <a card-actions routerLink="/inventario/filamentos">Ver filamentos</a>
           <pp-async [loading]="low.isLoading()" [error]="problem(low.error(), 'los filamentos')">
             @if ((low.value() ?? []).length === 0) {
-              <p class="positive">Todo el filamento está por encima de su mínimo.</p>
+              @if (none('filaments')) {
+                <p class="muted">Todavía no hay filamentos registrados.</p>
+              } @else if (!setup.isLoading()) {
+                <p class="positive">Todo el filamento está por encima de su mínimo.</p>
+              }
             } @else {
               @for (item of low.value(); track item.id) {
                 <pp-item
@@ -98,6 +121,36 @@ const TODAY = new Intl.DateTimeFormat('es-PE', {
                 >
                   <pp-badge end tone="bad">{{ item.onHandG | grams }}</pp-badge>
                 </pp-item>
+              }
+            }
+          </pp-async>
+        </pp-card>
+
+        <pp-card heading="Piezas e insumos bajo mínimo">
+          <pp-async [loading]="lowItems.isLoading()" [error]="problem(lowItems.error(), 'las piezas y los insumos')">
+            @if (lowItems.value(); as stock) {
+              @if (stock.items.length > 0) {
+                @for (item of stock.items; track item.id) {
+                  <pp-item
+                    class="row-item"
+                    size="option"
+                    [kind]="item.kind"
+                    [photo]="{ kind: 'item', id: item.id }"
+                    [name]="item.name"
+                    [link]="item.route"
+                    [sub]="item.minimumText"
+                  >
+                    <pp-badge end tone="bad">{{ item.onHandText }}</pp-badge>
+                  </pp-item>
+                }
+              } @else if (stock.watched === 0) {
+                <p class="muted">
+                  Ninguna pieza ni insumo tiene mínimo todavía. Ponlo en su ficha, en
+                  <a routerLink="/inventario/piezas">Piezas impresas</a> o <a routerLink="/inventario/insumos">Insumos</a>,
+                  y aquí avisa cuando falte.
+                </p>
+              } @else {
+                <p class="positive">Todas las piezas e insumos están sobre su mínimo.</p>
               }
             }
           </pp-async>
@@ -123,7 +176,11 @@ const TODAY = new Intl.DateTimeFormat('es-PE', {
           <a card-actions routerLink="/impresoras">Ver impresoras</a>
           <pp-async [loading]="maintenance.isLoading()" [error]="problem(maintenance.error(), 'el mantenimiento')">
             @if ((maintenance.value() ?? []).length === 0) {
-              <p class="positive">Sin mantenimientos pendientes: las impresoras están al día.</p>
+              @if (none('printers')) {
+                <p class="muted">Todavía no hay impresoras registradas.</p>
+              } @else if (!setup.isLoading()) {
+                <p class="positive">Sin mantenimientos pendientes: las impresoras están al día.</p>
+              }
             } @else {
               @for (alert of maintenance.value(); track alert.key) {
                 <div class="row-item">
@@ -179,11 +236,23 @@ export class PanelPage {
   protected readonly urgencyLabels = URGENCY_LABELS;
   protected readonly urgencyTones = URGENCY_TONES;
 
+  protected readonly setup = resource({ loader: () => this.data.setupCounts() });
+  /** What a new workshop still has to load. Nothing while it cannot be read: better silent than wrong. */
+  protected readonly steps = computed(() => {
+    const counts = this.setup.value();
+    return counts ? firstSteps(counts) : [];
+  });
   protected readonly tasks = resource({ loader: () => this.data.todayTasks() });
   protected readonly low = resource({ loader: () => this.data.lowFilaments() });
+  protected readonly lowItems = resource({ loader: () => this.data.lowItems() });
   protected readonly orders = resource({ loader: () => this.data.ordersInProgress() });
   protected readonly maintenance = resource({ loader: () => this.data.maintenanceAlerts() });
   protected readonly prints = resource({ loader: () => this.data.weekPrints() });
+
+  /** The workshop has none of these yet, so a card must not say they are fine. */
+  protected none(key: keyof SetupCounts): boolean {
+    return this.setup.value()?.[key] === 0;
+  }
 
   protected isHealthy(rate: number | null): boolean {
     return (rate ?? 0) >= HIGH_SUCCESS;

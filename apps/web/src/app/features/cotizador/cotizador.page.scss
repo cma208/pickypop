@@ -86,3 +86,6 @@ button.danger-text { color: var(--danger); }
   table { display: block; overflow-x: auto; }
   .plate { padding: 0.75rem 0.6rem; }
 }
+
+/* The new customer's form takes the whole row under the picker. */
+.quick-customer { grid-column: 1 / -1; }

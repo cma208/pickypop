@@ -2,7 +2,15 @@
   title="Cotizador"
   [subtitle]="subtitle()"
 >
-  <div actions>
+  <div actions class="row">
+    @if (hasWork()) {
+      @if (confirmingDiscard()) {
+        <button type="button" class="danger" (click)="discardDraft()">Sí, empezar de cero</button>
+        <button type="button" class="ghost" (click)="confirmingDiscard.set(false)">No</button>
+      } @else {
+        <button type="button" class="ghost" (click)="confirmingDiscard.set(true)">Empezar de cero</button>
+      }
+    }
     <a class="button secondary" routerLink="/cotizaciones">Ver cotizaciones</a>
   </div>
 
@@ -145,8 +153,10 @@
                         }
                       </td>
                       <td>
+                        <!-- Each option says whether it is the chosen one: a [value] on the
+                             select is written before its options exist, and a plate loaded
+                             from a recipe then showed «Elige el filamento…» over a chosen SKU. -->
                         <select
-                          [value]="filament.filamentSkuId ?? ''"
                           (change)="
                             updateFilament(plateIndex, slotIndex, {
                               filamentSkuId: value($event) === '' ? null : value($event)
@@ -154,9 +164,9 @@
                           "
                           [attr.aria-label]="'Filamento de la ranura ' + filament.slot"
                         >
-                          <option value="">Elige el filamento…</option>
+                          <option value="" [selected]="!filament.filamentSkuId">Elige el filamento…</option>
                           @for (sku of ctx.filaments; track sku.id) {
-                            <option [value]="sku.id">{{ sku.label }}</option>
+                            <option [value]="sku.id" [selected]="sku.id === filament.filamentSkuId">{{ sku.label }}</option>
                           }
                         </select>
                         @if (!filament.filamentSkuId) {
@@ -268,13 +278,14 @@
                 <tr>
                   <td>
                     <select
-                      [value]="supply.inventoryItemId ?? ''"
                       (change)="pickSupplyItem($index, value($event))"
                       aria-label="Insumo del inventario"
                     >
-                      <option value="">Otro (a mano)</option>
+                      <option value="" [selected]="!supply.inventoryItemId">Otro (a mano)</option>
                       @for (item of ctx.supplies; track item.id) {
-                        <option [value]="item.id">{{ item.name }} ({{ item.unit }})</option>
+                        <option [value]="item.id" [selected]="item.id === supply.inventoryItemId">
+                          {{ item.name }} ({{ item.unit }})
+                        </option>
                       }
                     </select>
                     @if (!supply.inventoryItemId) {
@@ -309,12 +320,11 @@
                   </td>
                   <td>
                     <select
-                      [value]="supply.scope"
                       (change)="updateSupply($index, { scope: value($event) === 'batch' ? 'batch' : 'unit' })"
                       aria-label="Se cobra por"
                     >
-                      <option value="unit">por unidad</option>
-                      <option value="batch">una vez por lote</option>
+                      <option value="unit" [selected]="supply.scope === 'unit'">por unidad</option>
+                      <option value="batch" [selected]="supply.scope === 'batch'">una vez por lote</option>
                     </select>
                   </td>
                   <td class="num">
@@ -517,11 +527,19 @@
             <pp-field label="Cliente">
               <select formControlName="customerId">
                 <option value="">Sin cliente todavía</option>
+                <option [value]="newCustomer">+ Nuevo cliente</option>
                 @for (customer of ctx.customers; track customer.id) {
                   <option [value]="customer.id">{{ customer.name }}</option>
                 }
               </select>
             </pp-field>
+            @if (creatingCustomer()) {
+              <app-cliente-rapido
+                class="quick-customer"
+                (created)="onCustomerCreated($event)"
+                (cancelled)="creatingCustomer.set(false)"
+              />
+            }
             @if (ctx.requests.length > 0) {
               <pp-field label="Responde a un pedido de cotización">
                 <select formControlName="requestId">

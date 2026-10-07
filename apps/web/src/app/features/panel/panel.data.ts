@@ -18,6 +18,8 @@ import {
 import { ImpresorasData } from '../impresoras/impresoras.data';
 import { totalHours } from '../impresoras/impresoras.models';
 import { dueStatuses, needsAttention, type DueState } from '../impresoras/maintenance-due';
+import { belowMinimum, type LowStock } from './panel.stock';
+import type { SetupCounts } from './panel.setup';
 
 type OrderStatus = Database['public']['Enums']['order_status'];
 type FailureCause = Database['public']['Enums']['print_failure_cause'];
@@ -137,6 +139,31 @@ export class PanelData {
       .sort((a, b) => a.onHandG / (a.minimumG || 1) - b.onHandG / (b.minimumG || 1));
   }
 
+  /**
+   * Printed parts, supplies and packaging under their minimum. What is on the
+   * shelf against the minimum, like the filaments: who it is for is the plan's
+   * business.
+   */
+  async lowItems(): Promise<LowStock> {
+    const [rows, active] = await Promise.all([
+      fetchAll((from, to) =>
+        this.supabase
+          .from('inventory_balances')
+          .select('inventory_item_id, kind, name, unit, min_stock, on_hand')
+          .gt('min_stock', 0)
+          .order('inventory_item_id')
+          .range(from, to),
+      ),
+      // The view keeps archived items too: nobody restocks what was retired.
+      fetchAll((from, to) =>
+        this.supabase.from('inventory_items').select('id').eq('active', true).gt('min_stock', 0).order('id').range(from, to),
+      ),
+    ]);
+    const kept = new Set(active.map((item) => item.id));
+    const watched = rows.filter((row) => row.inventory_item_id !== null && kept.has(row.inventory_item_id));
+    return { items: belowMinimum(watched), watched: watched.filter((row) => row.kind !== 'finished_good').length };
+  }
+
   async ordersInProgress(): Promise<StatusCount[]> {
     const orders = await fetchAll((from, to) =>
       this.supabase.from('orders').select('id, status').in('status', IN_PROGRESS_STATUSES).order('id').range(from, to),
@@ -225,12 +252,13 @@ export class PanelData {
    */
   async todayTasks(): Promise<TodayAgenda> {
     const today = todayLocal();
-    const [view, orders, prints, unpaid, maintenance] = await Promise.all([
+    const [view, orders, prints, unpaid, maintenance, printers] = await Promise.all([
       this.plan(),
       this.dueOrders(today),
       this.openPrints(),
       this.unpaidDeliveries(),
       this.maintenanceAlerts(),
+      this.countPrinters(),
     ]);
     const pastEstimate = view ? pastEstimateJobs(view.input) : new Set<string>();
 
@@ -247,13 +275,46 @@ export class PanelData {
       }));
 
     const tasks = uniqueTasks([
-      ...(view ? planTasks(view) : []),
+      ...(view ? planTasks(view, printers > 0) : []),
       ...orders,
       ...prints.map((job) => openPrintTask(job, today, pastEstimate.has(job.id))),
       ...unpaid,
       ...overdueMaintenance,
     ]);
     return { tasks: tasks.sort(byUrgency).slice(0, TASK_LIMIT), planFailed: view === null };
+  }
+
+  /**
+   * How much of what a workshop needs before anything else is already there:
+   * «Primeros pasos» lists what is still at zero, and the cards below stop
+   * saying "todo al día" about things that do not exist yet.
+   */
+  async setupCounts(): Promise<SetupCounts> {
+    const [profiles, printers, filaments, products] = await Promise.all([
+      this.supabase.from('cost_profiles').select('id', { count: 'exact', head: true }).lte('valid_from', todayLocal()),
+      this.countPrinters(),
+      this.supabase.from('filament_skus').select('id', { count: 'exact', head: true }),
+      this.supabase.from('catalog_products').select('id', { count: 'exact', head: true }).neq('status', 'archived'),
+    ]);
+    for (const result of [profiles, filaments, products]) {
+      if (result.error) throw result.error;
+    }
+    return {
+      profiles: profiles.count ?? 0,
+      printers,
+      filaments: filaments.count ?? 0,
+      products: products.count ?? 0,
+    };
+  }
+
+  /** Printers not retired: one in maintenance still exists and comes back. */
+  private async countPrinters(): Promise<number> {
+    const { count, error } = await this.supabase
+      .from('printers')
+      .select('id', { count: 'exact', head: true })
+      .neq('status', 'retired');
+    if (error) throw error;
+    return count ?? 0;
   }
 
   /** The plan is one part of the list: when it fails, the rest still shows. */

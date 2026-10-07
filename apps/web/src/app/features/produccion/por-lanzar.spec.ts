@@ -7,7 +7,9 @@ import {
   holdLead,
   holdsBehind,
   lateNotices,
+  orderNumberIn,
   proposalKey,
+  proposalsFor,
   runsText,
   runsToQueue,
   startText,
@@ -280,5 +282,36 @@ describe('lo que llega tarde', () => {
   it('names a day in the workshop calendar, with the month only when it changes', () => {
     expect(dayName('2026-10-08', '2026-10-06')).toBe('jueves 8');
     expect(dayName('2026-11-02', '2026-10-06')).toBe('lunes 2 de noviembre');
+  });
+});
+
+describe('«Por lanzar» for one order', () => {
+  // Five caps on the shelf: the hold takes 2 and PED-0003 the other 3, so
+  // only PED-0005 is still waiting for the plate of caps.
+  const result = plan(
+    workshop({
+      items: [
+        { id: 'bottle', name: 'Botella impresa', kind: 'part', unit: 'unidad', onHand: 2 },
+        { id: 'cap', name: 'Tapa', kind: 'part', unit: 'unidad', onHand: 5 },
+      ],
+    }),
+  );
+
+  it('shows only the plates that print something the order is waiting for', () => {
+    expect(proposalsFor(result.proposals, 'o1').map((proposal) => proposal.plateId)).toEqual(['plate-bottle']);
+    expect(proposalsFor(result.proposals, 'o2').map((proposal) => proposal.plateId).sort()).toEqual([
+      'plate-bottle',
+      'plate-caps',
+    ]);
+  });
+
+  it('shows everything without an order, and nothing for one that waits for nothing', () => {
+    expect(proposalsFor(result.proposals, null)).toHaveLength(result.proposals.length);
+    expect(proposalsFor(result.proposals, 'delivered-long-ago')).toEqual([]);
+  });
+
+  it('names the order by its number when the plan knows it', () => {
+    expect(orderNumberIn(result, 'o2')).toBe('PED-0005');
+    expect(orderNumberIn(result, 'delivered-long-ago')).toBeNull();
   });
 });

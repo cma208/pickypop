@@ -1,11 +1,12 @@
 /**
  * Where a supply's cost per unit came from, as `inventory_item_costs` reports
- * it. 'unknown' means there is neither a purchase nor a standard cost, so the
- * number a quote shows for it is a zero we did not choose, not a real price.
+ * it, or `part_stock` for a printed part ('produced': what printing it cost).
+ * 'unknown' means there is no cost at all, so the number a quote shows for it
+ * is a zero we did not choose, not a real price.
  */
-export type SupplyCostSource = 'purchase' | 'standard' | 'unknown';
+export type SupplyCostSource = 'purchase' | 'produced' | 'standard' | 'unknown';
 
-const KNOWN_SOURCES: readonly SupplyCostSource[] = ['purchase', 'standard'];
+const KNOWN_SOURCES: readonly SupplyCostSource[] = ['purchase', 'produced', 'standard'];
 
 /**
  * The view types its columns as nullable text, so anything we do not

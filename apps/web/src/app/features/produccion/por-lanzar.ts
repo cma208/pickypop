@@ -19,6 +19,24 @@ const MS_PER_SECOND = 1000;
 /** Runs of one line whose durations differ by less than this are "the same plate". */
 const SAME_DURATION_S = 1;
 
+/**
+ * «Por lanzar» narrowed to one order, as the order page links to it: only the
+ * plates that print something it is waiting for. The runs still serve
+ * everyone the plate covers; this only hides what the order does not need.
+ */
+export function proposalsFor(proposals: readonly PlanProposal[], orderId: string | null): PlanProposal[] {
+  if (orderId === null) return [...proposals];
+  return proposals.filter((proposal) => proposal.covers.some((order) => order.id === orderId));
+}
+
+/** How the filtered order is named: its number when the plan knows it. */
+export function orderNumberIn(result: PlanResult, orderId: string): string | null {
+  const demand = result.demands.find((candidate) => candidate.kind === 'order' && candidate.id === orderId);
+  if (demand) return demand.number;
+  const covered = result.proposals.flatMap((proposal) => proposal.covers).find((order) => order.id === orderId);
+  return covered?.number ?? null;
+}
+
 /** One row of «Por lanzar». A plate prints for everybody; made-to-order work for its line only. */
 export function proposalKey(proposal: Pick<PlanProposal, 'plateId' | 'lineId'>): string {
   return proposal.lineId ? `line:${proposal.lineId}` : `plate:${proposal.plateId}`;

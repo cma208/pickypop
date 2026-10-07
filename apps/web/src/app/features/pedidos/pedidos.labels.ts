@@ -28,6 +28,23 @@ export const PURPOSE_HELP: Record<OrderPurpose, string> = {
 
 export const PURPOSES: OrderPurpose[] = ['sale', 'personal', 'gift'];
 
+/**
+ * How a line gets made. A catalogue line comes off the shelf and «Por lanzar»
+ * prints what is missing for every order at once (ADR-021); made-to-order
+ * work is printed for this line alone; a service is not printed at all.
+ */
+export type LineKind = Enums['quote_line_kind'];
+
+/**
+ * Lines without a variant are made to order unless the quote they came from
+ * says they were a service. One written by hand in «Nuevo pedido» has no
+ * quote, and there «A medida» is the only kind without a variant.
+ */
+export function lineKind(variantId: string | null, quoteKind: LineKind | null): LineKind {
+  if (variantId !== null) return 'catalog';
+  return quoteKind === 'service' ? 'service' : 'custom';
+}
+
 export const STATUS_LABEL: Record<OrderStatus, string> = {
   confirmed: 'Confirmado',
   queued: 'En cola',
@@ -95,6 +112,29 @@ export function nextStep(status: OrderStatus, hasPending: boolean): NextStep | n
   if (next === null) return null;
   if (hasPending && REACHED_BY_DELIVERING.includes(next)) return { kind: 'deliver' };
   return { kind: 'status', status: next };
+}
+
+/**
+ * «Poner en espera» y «Cancelar pedido» solo mientras nada salió del taller.
+ * Un pedido entregado y cobrado se pudo cancelar (ORD-2026-0001): Resultados
+ * pasó a ventas S/ 0 con la plata en las cuentas y las calaveras fuera del
+ * estante. La base ya lo rechaza; aquí ni se ofrece.
+ */
+export function canStopOrder(status: OrderStatus, hasDeliveries: boolean): boolean {
+  if (isFinal(status) || REACHED_BY_DELIVERING.includes(status)) return false;
+  return !hasDeliveries;
+}
+
+const MONEY = new Intl.NumberFormat('es-PE', { style: 'currency', currency: 'PEN' });
+
+/**
+ * Por qué todavía no se puede cancelar, o null si se puede. Lo cobrado sigue
+ * en las cuentas mientras no se anule, y anular un cobro es de Caja: deja
+ * rastro y pide motivo, que es justo lo que un cambio de estado no hace.
+ */
+export function cancelBlocker(paid: number | null): string | null {
+  if (paid === null || paid <= 0) return null;
+  return `Este pedido tiene ${MONEY.format(paid)} cobrados. Para cancelarlo, primero anula esos cobros en Caja.`;
 }
 
 /** Dónde se puede retomar un pedido en espera, por la misma regla. */

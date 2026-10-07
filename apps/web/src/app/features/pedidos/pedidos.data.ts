@@ -6,7 +6,7 @@ import { roundMoney } from '../../core/pricing';
 import { SUPABASE } from '../../core/supabase';
 import { Workshop } from '../../core/workshop';
 import { partialDeliveries, type DeliveryLinePayload, type PartialDelivery } from './pedidos.delivery';
-import type { OrderPaymentStatus, OrderPurpose, OrderStatus, PaymentMethod } from './pedidos.labels';
+import { lineKind, type LineKind, type OrderPaymentStatus, type OrderPurpose, type OrderStatus, type PaymentMethod } from './pedidos.labels';
 import { CurrentWorkspace } from '../../core/workspace';
 
 const DOCUMENT_KIND_ORDER = 'order';
@@ -34,6 +34,8 @@ export interface OrderLine {
   id: string;
   position: number;
   variantId: string | null;
+  /** Catalogue, made to order or a service: it decides how the line gets made. */
+  kind: LineKind;
   description: string;
   /** The variant's photo, or the product's when the variant has none. */
   imagePath: string | null;
@@ -221,7 +223,7 @@ export class PedidosData {
         .maybeSingle(),
       this.supabase
         .from('order_lines')
-        .select('id, position, variant_id, description, quantity, unit_price, estimated_unit_cost, line_total, product_variants(image_path, catalog_products(image_path))')
+        .select('id, position, variant_id, description, quantity, unit_price, estimated_unit_cost, line_total, product_variants(image_path, catalog_products(image_path)), quote_lines(kind)')
         .eq('order_id', id)
         .order('position'),
       this.supabase.from('order_line_delivery_status').select('order_line_id, delivered, pending').eq('order_id', id),
@@ -252,6 +254,7 @@ export class PedidosData {
         id: line.id,
         position: line.position,
         variantId: line.variant_id,
+        kind: lineKind(line.variant_id, line.quote_lines?.kind ?? null),
         description: line.description,
         imagePath: line.product_variants?.image_path ?? line.product_variants?.catalog_products?.image_path ?? null,
         quantity: line.quantity,

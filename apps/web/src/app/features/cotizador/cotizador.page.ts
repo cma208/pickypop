@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, effect, inject, signal, untracked } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import type { Observable } from 'rxjs';
@@ -8,7 +8,6 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { chargesIgv, roundMoney, sumMoney } from '../../core/pricing';
 import { localDate } from '../../core/dates';
 import { AsyncState, Badge, Card, Empty, Field, FORMAT_PIPES, Item, ItemPicker, Page, type PickerOption } from '../../ui';
-import type { BatchCostBreakdown, PriceBreakdown } from '../../core/pricing';
 import {
   CotizadorData,
   DataError,
@@ -40,15 +39,9 @@ import { candidateLine, sameCandidates } from './plan-candidate';
 import { Promesa } from './promesa';
 import { readyLine } from './promise-text';
 import { watchSalePromise } from './sale-promise.watch';
-
-/** A line already added to the quote being built. */
-interface QuoteLineDraft {
-  key: number;
-  draft: LineDraft;
-  cost: BatchCostBreakdown;
-  price: PriceBreakdown;
-  materials: MaterialLineRow[];
-}
+import { ClienteRapido, NEW_CUSTOMER, watchNewCustomerOption } from './cliente-rapido';
+import { draftOwner, type QuoteDraft, type QuoteLineDraft } from './quote-draft';
+import { QuoteDraftStore } from './quote-draft.store';
 
 const PERCENT = 100;
 
@@ -78,6 +71,7 @@ const MS_PER_DAY = 86_400_000;
     ItemPicker,
     Desglose,
     Promesa,
+    ClienteRapido,
     ...FORMAT_PIPES,
   ],
   templateUrl: './cotizador.page.html',
@@ -88,6 +82,7 @@ export class CotizadorPage {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly fb = inject(FormBuilder);
+  private readonly drafts = inject(QuoteDraftStore);
 
   protected readonly loading = signal(true);
   protected readonly error = signal<string | null>(null);
@@ -123,6 +118,17 @@ export class CotizadorPage {
 
   private nextKey = 1;
 
+  protected readonly newCustomer = NEW_CUSTOMER;
+  /** «+ Nuevo cliente» is open under the customer picker. */
+  protected readonly creatingCustomer = signal(false);
+
+  /**
+   * Off until the draft in storage (or the version being made) is back in
+   * the forms: saving before that would overwrite it with an empty quote.
+   */
+  private readonly restored = signal(false);
+  protected readonly confirmingDiscard = signal(false);
+
   // ------------------------------------------------------------- forms
 
   protected readonly lineForm = this.fb.nonNullable.group({
@@ -155,6 +161,16 @@ export class CotizadorPage {
     this.watch(this.priceForm.valueChanges);
     this.watch(this.quoteForm.valueChanges);
 
+    watchNewCustomerOption(this.quoteForm.controls.customerId, () => this.creatingCustomer.set(true));
+
+    // Whatever the person types is kept as they type it, so going to Clientes
+    // and coming back, or reloading, finds the quote where it was.
+    effect(() => {
+      if (!this.restored()) return;
+      const draft = this.currentDraft();
+      if (draft !== null) untracked(() => this.drafts.write(draft));
+    });
+
     void this.load();
   }
 
@@ -177,7 +193,15 @@ export class CotizadorPage {
       this.priceForm.controls.printerId.setValue(context.printers[0]?.id ?? '');
 
       const source = this.route.snapshot.queryParamMap.get('nuevaVersionDe');
-      if (source !== null) await this.loadPreviousVersion(source, context);
+      const draft = this.drafts.read(draftOwner(context.workspaceId, context.userId));
+      // Coming back to a new version already being written finds it as it was
+      // left; asking for a new version of another quote starts that one.
+      if (draft !== null && (source === null || draft.previousVersion?.quoteId === source)) {
+        this.restoreDraft(draft);
+      } else if (source !== null) {
+        await this.loadPreviousVersion(source, context);
+      }
+      this.restored.set(true);
     } catch (cause) {
       this.error.set(
         cause instanceof DataError ? cause.message : 'No pudimos preparar el cotizador.',
@@ -226,6 +250,72 @@ export class CotizadorPage {
     this.notice.set(
       `Vas a crear la versión ${quote.version + 1} de ${quote.number}. Ajusta lo que haga falta y guarda.`,
     );
+  }
+
+  // ------------------------------------------------------------- draft
+
+  /** Everything typed so far, as the store keeps it. Null until the context is in. */
+  private readonly currentDraft = computed<QuoteDraft | null>(() => {
+    this.formTick();
+    const context = this.context();
+    if (context === null) return null;
+
+    return {
+      owner: draftOwner(context.workspaceId, context.userId),
+      line: this.lineForm.getRawValue(),
+      plates: this.plates(),
+      supplies: this.supplies(),
+      lines: this.lines(),
+      price: this.priceForm.getRawValue(),
+      quote: this.quoteForm.getRawValue(),
+      previousVersion: this.previousVersion(),
+    };
+  });
+
+  /** There is something a person would lose by starting over. */
+  protected readonly hasWork = computed(() => {
+    const draft = this.currentDraft();
+    return draft !== null && (draft.lines.length > 0 || draft.plates.length > 0 || draft.supplies.length > 0);
+  });
+
+  private restoreDraft(draft: QuoteDraft): void {
+    this.lineForm.patchValue(draft.line);
+    this.plates.set(draft.plates);
+    this.supplies.set(draft.supplies);
+    this.lines.set(draft.lines);
+    this.nextKey = Math.max(0, ...draft.lines.map((line) => line.key)) + 1;
+    this.priceForm.patchValue(draft.price);
+    this.quoteForm.patchValue(draft.quote);
+    this.previousVersion.set(draft.previousVersion);
+    this.notice.set('Seguimos con la cotización que estabas armando.');
+  }
+
+  /** Starts a blank quote: the one in progress is gone for good. */
+  protected discardDraft(): void {
+    const context = this.context();
+    this.clearLine();
+    this.lines.set([]);
+    this.previousVersion.set(null);
+    this.priceForm.reset({ printerId: context?.printers[0]?.id ?? '' });
+    this.quoteForm.reset();
+    this.creatingCustomer.set(false);
+    this.confirmingDiscard.set(false);
+    this.notice.set(null);
+    this.drafts.clear();
+  }
+
+  /** The customer created from the quote is the one it is for. */
+  protected onCustomerCreated(customer: { id: string; name: string }): void {
+    this.context.update((context) =>
+      context === null
+        ? context
+        : {
+            ...context,
+            customers: [...context.customers, customer].sort((a, b) => a.name.localeCompare(b.name, 'es')),
+          },
+    );
+    this.quoteForm.controls.customerId.setValue(customer.id);
+    this.creatingCustomer.set(false);
   }
 
   // ------------------------------------------------------- derived state
@@ -688,6 +778,9 @@ export class CotizadorPage {
         previousVersionOf: this.previousVersion(),
       });
 
+      // Saved: from here on it lives in Cotizaciones, not in the calculator.
+      this.restored.set(false);
+      this.drafts.clear();
       await this.router.navigate(['/cotizaciones', saved.id]);
     } catch (cause) {
       this.error.set(

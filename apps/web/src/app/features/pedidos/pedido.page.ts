@@ -10,8 +10,9 @@ import { PrintJobForm, type FixedOrderLine } from '../produccion/print-job-form'
 import { ProduccionData, type JobItem } from '../produccion/produccion.data';
 import { PedidoCobro } from './pedido-cobro';
 import { PedidoEntrega } from './pedido-entrega';
-import { costDifference, deliveredEstimate } from './pedidos.delivery';
-import { PedidoSeparo } from './pedido-separo';
+import { PedidoEstimado } from './pedido-estimado';
+import { lineEstimate, orderEstimate } from './pedidos.delivery';
+import { PedidoAvance } from './pedido-avance';
 import { PedidoSituacion } from './pedido-situacion';
 import { PlanService } from '../../core/plan';
 import {
@@ -23,18 +24,7 @@ import {
   type PaymentSummary,
 } from './pedidos.data';
 import { explainError } from './pedidos.errors';
-import {
-  isFinal,
-  nextStep,
-  PURPOSE_LABEL,
-  PURPOSE_TONE,
-  resumeTargets,
-  STATUS_FLOW,
-  STATUS_LABEL,
-  STATUS_TONE,
-  type NextStep,
-  type OrderStatus,
-} from './pedidos.labels';
+import { isFinal, PURPOSE_LABEL, PURPOSE_TONE, STATUS_LABEL, STATUS_TONE, type OrderStatus } from './pedidos.labels';
 
 @Component({
   selector: 'app-pedido',
@@ -51,7 +41,8 @@ import {
     PrintJobForm,
     PedidoCobro,
     PedidoEntrega,
-    PedidoSeparo,
+    PedidoEstimado,
+    PedidoAvance,
     PedidoSituacion,
     ...FORMAT_PIPES,
   ],
@@ -99,46 +90,15 @@ import {
               <pp-card heading="Cobro"><p class="error">{{ message }}</p></pp-card>
             }
 
-            <pp-card heading="Avance">
-              <ol class="flow" aria-label="Estados del pedido">
-                @for (step of flow; track step) {
-                  <li [class.done]="isDone(o.status, step)" [class.current]="o.status === step">{{ statusLabel[step] }}</li>
-                }
-              </ol>
-              @if (o.status === 'on_hold') {
-                <p class="muted">El pedido está en espera. Elige en qué paso retomarlo.</p>
-                <app-pedido-separo [orderId]="o.id" (changed)="onDelivered()" />
-                <div class="row">
-                  <select [value]="resumeAt()" (change)="resumeAt.set(readStatus($event))" aria-label="Retomar en">
-                    @for (step of resumeOptions(); track step) { <option [value]="step">{{ statusLabel[step] }}</option> }
-                  </select>
-                  <button type="button" (click)="change(resumeAt())" [disabled]="changing()">Retomar</button>
-                </div>
-              } @else if (o.status === 'cancelled') {
-                <p class="muted">Este pedido fue cancelado.</p>
-              } @else if (o.status === 'closed') {
-                <p class="muted">Este pedido está cerrado.</p>
-              }
-              @if (!final(o.status) && o.status !== 'on_hold') {
-                <div class="row">
-                  @if (next(o.status); as step) {
-                    @if (step.kind === 'deliver') {
-                      <button type="button" class="secondary" (click)="goToDelivery()">Entregar</button>
-                    } @else {
-                      <button type="button" (click)="change(step.status)" [disabled]="changing()">Pasar a {{ statusLabel[step.status] }}</button>
-                    }
-                  }
-                  <button type="button" class="secondary" (click)="change('on_hold')" [disabled]="changing()">Poner en espera</button>
-                  @if (confirmingCancel()) {
-                    <button type="button" class="danger" (click)="change('cancelled')" [disabled]="changing()">Sí, cancelar pedido</button>
-                    <button type="button" class="ghost" (click)="confirmingCancel.set(false)">No</button>
-                  } @else {
-                    <button type="button" class="ghost" (click)="confirmingCancel.set(true)">Cancelar pedido</button>
-                  }
-                </div>
-              }
-              @if (statusError(); as message) { <p class="error" role="alert">{{ message }}</p> }
-            </pp-card>
+            <app-pedido-avance
+              [orderId]="o.id"
+              [status]="o.status"
+              [hasPending]="hasPending()"
+              [hasDeliveries]="deliveries().length > 0"
+              [paid]="payment()?.paid ?? null"
+              (changed)="onDelivered()"
+              (deliver)="goToDelivery()"
+            />
 
             <app-pedido-situacion [orderId]="o.id" (changed)="onDelivered()" />
 
@@ -182,10 +142,16 @@ import {
                           <td class="num">{{ line.unitPrice | money }}</td>
                           <td class="num">{{ line.lineTotal | money }}</td>
                         }
-                        <td class="num">{{ line.estimatedUnitCost * line.quantity | money }}</td>
+                        <td class="num">{{ lineEstimate(line) | money }}</td>
                         <td class="num">
                           @if (!final(o.status) && line.pending > 0) {
-                            <button type="button" class="secondary" (click)="startJob(line)">Crear trabajo</button>
+                            @if (line.kind === 'catalog') {
+                              <!-- «Por lanzar» prints for every order at once (ADR-021): a job
+                                   made here would never be tied to this order anyway. -->
+                              <a class="button secondary" routerLink="/produccion" [queryParams]="{ pedido: o.id }">Ver qué falta imprimir</a>
+                            } @else if (line.kind === 'custom') {
+                              <button type="button" class="secondary" (click)="startJob(line)">Imprimir para este pedido</button>
+                            }
                           }
                         </td>
                       </tr>
@@ -209,68 +175,29 @@ import {
               <app-print-job-form [fixedLine]="line" (saved)="onJobSaved()" (cancelled)="jobLine.set(null)" />
             }
 
-            <pp-card heading="Impresiones de este pedido">
-              @if (jobsError(); as message) {
-                <p class="error">{{ message }}</p>
-              } @else if (jobs().length === 0) {
-                <pp-empty message="Todavía no hay trabajos de impresión para este pedido. Crea uno desde una línea." />
-              } @else {
-                <div class="jobs">
-                  @for (job of jobs(); track job.id) {
-                    <app-print-job-card [job]="job" [showOrder]="false" (changed)="reloadProduction()" />
-                  }
-                </div>
-              }
-            </pp-card>
-
-            <pp-card heading="Estimado contra real">
-              @if (summary(); as s) {
-                <div class="scroll">
-                  <table>
-                    <thead><tr><th></th><th class="num">Estimado</th><th class="num">Real</th><th class="num">Diferencia</th></tr></thead>
-                    <tbody>
-                      @if (s.deliveredUnits > 0) {
-                        <tr>
-                          <td>Lo entregado ({{ s.deliveredUnits }} {{ s.deliveredUnits === 1 ? 'unidad' : 'unidades' }})</td>
-                          <td class="num">{{ deliveredEstimate() | money }}</td>
-                          <td class="num">{{ s.deliveredCost | money }}</td>
-                          <td class="num" [class.error]="s.deliveredCost > deliveredEstimate()">{{ difference(s.deliveredCost, deliveredEstimate()) | money }}</td>
-                        </tr>
-                      }
-                      <tr>
-                        <td>{{ s.deliveredUnits > 0 ? 'Todo el pedido' : 'Costo de producción' }}</td>
-                        <td class="num">{{ s.estimatedCost | money }}</td>
-                        <td class="num">{{ hasClosedJobs(s) ? (s.realProductionCost | money) : '—' }}</td>
-                        <td class="num" [class.error]="hasClosedJobs(s) && s.realProductionCost > s.estimatedCost">
-                          {{ hasClosedJobs(s) ? (difference(s.realProductionCost, s.estimatedCost) | money) : '—' }}
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-                <dl class="facts">
-                  <dt>Trabajos</dt><dd>{{ s.jobs }} ({{ s.successfulJobs }} exitosos, {{ s.failedJobs }} fallidos)</dd>
-                  <dt>Horas impresas</dt><dd>{{ s.printedHours }} h</dd>
-                  @if (o.purpose === 'sale') {
-                    <dt>Vendido por</dt><dd>{{ s.soldFor | money }}</dd>
-                    @if (hasClosedJobs(s)) {
-                      <dt>Ganancia real</dt><dd>{{ difference(s.soldFor, s.realProductionCost) | money }}</dd>
+            @if (printsForIt()) {
+              <pp-card heading="Impresiones de este pedido">
+                @if (jobsError(); as message) {
+                  <p class="error">{{ message }}</p>
+                } @else if (jobs().length === 0) {
+                  <pp-empty message="Todavía no hay impresiones para lo hecho a medida. Créalas con «Imprimir para este pedido» en su línea." />
+                } @else {
+                  <div class="jobs">
+                    @for (job of jobs(); track job.id) {
+                      <app-print-job-card [job]="job" [showOrder]="false" (changed)="reloadProduction()" />
                     }
-                  }
-                </dl>
-                <p class="muted note">
-                  @if (s.deliveredUnits > 0) {
-                    Lo entregado cuesta lo que salió del estante: piezas, insumos y empaque al promedio de lo que había, sin la mano de obra de armar, que el estimado sí incluye.
-                  }
-                  El costo real de producción suma material, luz y máquina de las impresiones ligadas a este pedido (lo hecho a medida), y es parcial mientras falten por imprimir.
-                  @if (!hasClosedJobs(s)) { Todavía no hay impresiones cerradas, por eso no hay costo real. }
-                </p>
-              } @else if (summaryError(); as message) {
-                <p class="error">{{ message }}</p>
-              } @else {
-                <p class="muted">No hay resumen de producción para este pedido.</p>
-              }
-            </pp-card>
+                  </div>
+                }
+              </pp-card>
+            }
+
+            <app-pedido-estimado
+              [summary]="summary()"
+              [error]="summaryError()"
+              [lines]="o.lines"
+              [purpose]="o.purpose"
+              [printsForIt]="printsForIt()"
+            />
           </div>
         } @else {
           <pp-empty message="No encontramos este pedido.">
@@ -286,17 +213,10 @@ import {
     dl { display: grid; grid-template-columns: max-content 1fr; gap: 0.3rem 1rem; margin: 0; }
     dt { color: var(--muted); }
     dd { margin: 0; }
-    .facts { margin-top: 1rem; }
-    .flow { list-style: none; display: flex; flex-wrap: wrap; gap: 0.35rem; padding: 0; margin: 0 0 1rem; }
-    .flow li { padding: 0.2rem 0.6rem; border: 1px solid var(--line); border-radius: 999px; font-size: 0.8rem; color: var(--muted); }
-    .flow li.done { color: var(--good); border-color: var(--good); }
-    .flow li.current { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 600; }
     .scroll { overflow-x: auto; }
     .jobs { display: grid; gap: 0.6rem; }
     .note { font-size: 0.82rem; margin: 0.75rem 0 0; }
     tfoot th { font-size: 0.85rem; text-transform: none; color: inherit; }
-    .row { margin-top: 0.5rem; }
-    select { width: auto; }
   `,
 })
 export class PedidoPage {
@@ -310,7 +230,6 @@ export class PedidoPage {
   /** The `:id` of the route. */
   protected readonly id = computed(() => this.params().get('id') ?? '');
 
-  protected readonly flow = STATUS_FLOW;
   protected readonly statusLabel = STATUS_LABEL;
   protected readonly statusTone = STATUS_TONE;
   protected readonly purposeLabel = PURPOSE_LABEL;
@@ -330,10 +249,6 @@ export class PedidoPage {
   protected readonly summaryError = signal<string | null>(null);
   protected readonly paymentError = signal<string | null>(null);
   protected readonly jobsError = signal<string | null>(null);
-  protected readonly statusError = signal<string | null>(null);
-  protected readonly changing = signal(false);
-  protected readonly confirmingCancel = signal(false);
-  protected readonly resumeAt = signal<OrderStatus>('queued');
   protected readonly jobLine = signal<FixedOrderLine | null>(null);
 
   protected readonly subtitle = computed(() => {
@@ -353,11 +268,9 @@ export class PedidoPage {
   /** Something of the order has not left yet: "Entregado" is reached by delivering it. */
   protected readonly hasPending = computed(() => (this.order()?.lines ?? []).some((line) => line.pending > 0));
 
-  protected readonly resumeOptions = computed(() => resumeTargets(this.hasPending()));
-
-  protected readonly estimatedTotal = computed(() =>
-    (this.order()?.lines ?? []).reduce((sum, line) => sum + line.estimatedUnitCost * line.quantity, 0),
-  );
+  /** In cents, line by line, as the database adds it up: no arithmetic of money here. */
+  protected readonly estimatedTotal = computed(() => orderEstimate(this.order()?.lines ?? []));
+  protected readonly lineEstimate = lineEstimate;
 
   constructor() {
     effect(() => {
@@ -365,23 +278,18 @@ export class PedidoPage {
     });
   }
 
-  /** What the estimate said the units already handed over would cost. */
-  protected readonly deliveredEstimate = computed(() => deliveredEstimate(this.order()?.lines ?? []));
-
-  protected difference(real: number, estimated: number): number {
-    return costDifference(real, estimated);
-  }
-
-  protected hasClosedJobs(summary: OrderSummary): boolean {
-    return summary.successfulJobs + summary.failedJobs > 0;
-  }
+  /**
+   * Made-to-order work is printed for this order alone, so its jobs belong
+   * here. Catalogue products are printed by «Por lanzar» for every order at
+   * once and never tie a job to one. Jobs already tied (older orders) stay
+   * visible all the same: hiding them would hide what they cost.
+   */
+  protected readonly printsForIt = computed(
+    () => (this.order()?.lines ?? []).some((line) => line.kind === 'custom') || this.jobs().length > 0,
+  );
 
   protected final(status: OrderStatus): boolean {
     return isFinal(status);
-  }
-
-  protected next(status: OrderStatus): NextStep | null {
-    return nextStep(status, this.hasPending());
   }
 
   /**
@@ -408,31 +316,8 @@ export class PedidoPage {
     await this.load(this.id(), false);
   }
 
-  protected isDone(current: OrderStatus, step: OrderStatus): boolean {
-    const at = STATUS_FLOW.indexOf(current);
-    return at > STATUS_FLOW.indexOf(step);
-  }
-
-  protected readStatus(event: Event): OrderStatus {
-    return (event.target as HTMLSelectElement).value as OrderStatus;
-  }
-
   protected startJob(line: OrderLine): void {
     this.jobLine.set({ id: line.id, label: `${line.description} × ${line.quantity}`, variantId: line.variantId });
-  }
-
-  protected async change(status: OrderStatus): Promise<void> {
-    this.changing.set(true);
-    this.statusError.set(null);
-    try {
-      await this.orders.setStatus(this.id(), status);
-      this.confirmingCancel.set(false);
-      await this.load(this.id(), false);
-    } catch (error) {
-      this.statusError.set(explainError(error, 'No pudimos cambiar el estado. Inténtalo de nuevo.'));
-    } finally {
-      this.changing.set(false);
-    }
   }
 
   protected onJobSaved(): void {

@@ -9,6 +9,7 @@ import { ProduccionData, type OrderLineOption, type PlateOption, type SpoolOptio
 import type { PrinterSummary } from '../../core/workshop';
 import { describeCounts } from './produccion.outputs';
 import { rowsForPlate, suggestSpool } from './produccion.spools';
+import { labelForPlate } from './job-label';
 
 const SECONDS_PER_MINUTE = 60;
 
@@ -47,7 +48,10 @@ function createFilamentRow(spoolId = '', estimatedG = 0, slot: number | null = n
           @if (fixedLine(); as line) {
             <p class="fixed"><span class="muted">Línea del pedido</span><br /><strong>{{ line.label }}</strong></p>
           } @else {
-            <pp-field label="Línea de pedido" hint="Déjalo vacío para una prueba o una impresión para stock.">
+            <pp-field
+              label="Línea a medida de un pedido"
+              hint="Déjalo vacío para una prueba o para stock. Lo del catálogo se lanza desde «Por lanzar»."
+            >
               <select formControlName="orderLineId">
                 <option value="">Sin pedido (prueba o stock)</option>
                 @for (line of lines(); track line.id) {
@@ -193,6 +197,8 @@ export class PrintJobForm implements OnInit {
 
   private readonly selectedLine = signal('');
   protected readonly selectedPlate = signal('');
+  /** What a plate wrote in «Qué se imprime», while the person leaves it as it is. */
+  private labelFromPlate: string | null = null;
 
   protected readonly hasLine = computed(() => this.fixedLine() !== null || this.selectedLine() !== '');
 
@@ -304,7 +310,10 @@ export class PrintJobForm implements OnInit {
         printerId: value.printerId,
         orderLineId: lineId,
         plateId: value.plateId || null,
-        label: value.label.trim() || null,
+        // The field is only shown without an order line: the line already
+        // says what is printed, and a plate's name left in a hidden field
+        // must not replace it.
+        label: lineId === null ? value.label.trim() || null : null,
         estimatedTimeS: value.estimatedMinutes ? value.estimatedMinutes * SECONDS_PER_MINUTE : null,
         note: value.note.trim() || null,
         filaments: value.filaments.map((row) => ({
@@ -329,9 +338,12 @@ export class PrintJobForm implements OnInit {
     }
   }
 
-  /** Fills the time and the suggested rolls from the recipe plate. */
+  /** Fills «Qué se imprime», the time and the suggested rolls from the recipe plate. */
   private applyPlate(plateId: string): void {
     const plate = this.plates().find((p) => p.id === plateId);
+    const label = labelForPlate({ label: this.form.controls.label.value, fromPlate: this.labelFromPlate }, plate?.label ?? null);
+    this.form.controls.label.setValue(label.label);
+    this.labelFromPlate = label.fromPlate;
     if (!plate) return;
 
     this.form.controls.estimatedMinutes.setValue(Math.max(1, Math.round(plate.printTimeS / SECONDS_PER_MINUTE)));
