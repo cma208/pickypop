@@ -4,6 +4,8 @@ import {
   deliverButtonLabel,
   deliveredEstimate,
   deliveryConfirmation,
+  lineEstimate,
+  orderEstimate,
   readyByLine,
   deliveredAtFor,
   deliversEverything,
@@ -149,5 +151,22 @@ describe('deliveryConfirmation', () => {
     expect(deliveryConfirmation([{ quantity: 2, kind: 'catalog' }, { quantity: 1, kind: 'custom' }])).toBe(
       'Van a salir 2 unidades del estante. Se entrega 1 unidad hecha para este pedido. Esto no se puede deshacer.',
     );
+  });
+});
+
+describe('the estimate of an order', () => {
+  it('adds the lines in cents, as the database does', () => {
+    const lines = [
+      { estimatedUnitCost: 7.85, quantity: 2 },
+      { estimatedUnitCost: 1, quantity: 1 },
+      { estimatedUnitCost: null, quantity: 3 },
+    ];
+    expect(lines.map(lineEstimate)).toEqual([15.7, 1, 0]);
+    expect(orderEstimate(lines)).toBe(16.7);
+  });
+
+  it('does not drift with floating point, however many lines', () => {
+    const lines = Array.from({ length: 10 }, () => ({ estimatedUnitCost: 0.1, quantity: 3 }));
+    expect(orderEstimate(lines)).toBe(3);
   });
 });

@@ -13,6 +13,7 @@ import {
   type VariantOption,
 } from './pedidos.data';
 import { explainError } from './pedidos.errors';
+import { orderEstimate } from './pedidos.delivery';
 import { PURPOSE_HELP, PURPOSE_LABEL, PURPOSES, type OrderPurpose } from './pedidos.labels';
 import { PlanService } from '../../core/plan';
 import type { PlanCandidateLine } from '@pickypop/domain';
@@ -202,9 +203,10 @@ export class PedidoNuevoPage {
     return this.form.controls.purpose.value;
   });
   protected readonly saleTotal = computed(() => this.sum((line) => line.unitPrice * line.quantity));
-  protected readonly estimatedTotal = computed(() =>
-    this.sum((line) => (line.estimatedUnitCost ?? 0) * line.quantity),
-  );
+  protected readonly estimatedTotal = computed(() => {
+    this.changes();
+    return orderEstimate(this.lines.getRawValue());
+  });
 
   /**
    * "¿Para cuándo?" for every catalogue line, placed together at the end of

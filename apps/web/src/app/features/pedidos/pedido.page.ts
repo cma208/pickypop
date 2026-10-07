@@ -11,6 +11,7 @@ import { ProduccionData, type JobItem } from '../produccion/produccion.data';
 import { PedidoCobro } from './pedido-cobro';
 import { PedidoEntrega } from './pedido-entrega';
 import { PedidoEstimado } from './pedido-estimado';
+import { lineEstimate, orderEstimate } from './pedidos.delivery';
 import { PedidoAvance } from './pedido-avance';
 import { PedidoSituacion } from './pedido-situacion';
 import { PlanService } from '../../core/plan';
@@ -141,7 +142,7 @@ import { isFinal, PURPOSE_LABEL, PURPOSE_TONE, STATUS_LABEL, STATUS_TONE, type O
                           <td class="num">{{ line.unitPrice | money }}</td>
                           <td class="num">{{ line.lineTotal | money }}</td>
                         }
-                        <td class="num">{{ line.estimatedUnitCost * line.quantity | money }}</td>
+                        <td class="num">{{ lineEstimate(line) | money }}</td>
                         <td class="num">
                           @if (!final(o.status) && line.pending > 0) {
                             @if (line.kind === 'catalog') {
@@ -267,9 +268,9 @@ export class PedidoPage {
   /** Something of the order has not left yet: "Entregado" is reached by delivering it. */
   protected readonly hasPending = computed(() => (this.order()?.lines ?? []).some((line) => line.pending > 0));
 
-  protected readonly estimatedTotal = computed(() =>
-    (this.order()?.lines ?? []).reduce((sum, line) => sum + line.estimatedUnitCost * line.quantity, 0),
-  );
+  /** In cents, line by line, as the database adds it up: no arithmetic of money here. */
+  protected readonly estimatedTotal = computed(() => orderEstimate(this.order()?.lines ?? []));
+  protected readonly lineEstimate = lineEstimate;
 
   constructor() {
     effect(() => {

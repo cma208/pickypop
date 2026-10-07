@@ -160,6 +160,22 @@ export function partialDeliveries(rows: readonly LineDeliveryRow[]): Map<string,
 }
 
 /**
+ * What a line was estimated to cost: its unit estimate times how many, in
+ * cents, the way `order_production_summary` and the cost of sales add it up.
+ * A line keeps only its unit cost, rounded to cents, so a batch of S/ 15.69
+ * in two units reads S/ 15.70 here and in Resultados alike. Saying S/ 15.69
+ * needs the line to keep the batch's own cost, in the database (H31).
+ */
+export function lineEstimate(line: { estimatedUnitCost: number | null; quantity: number }): number {
+  return roundMoney((line.estimatedUnitCost ?? 0) * line.quantity);
+}
+
+/** The order's estimate, line by line. */
+export function orderEstimate(lines: readonly { estimatedUnitCost: number | null; quantity: number }[]): number {
+  return sumMoney(lines.map(lineEstimate));
+}
+
+/**
  * What the estimate said the delivered units would cost, line by line, so it
  * can stand next to what they really cost when they left the shelf.
  */
