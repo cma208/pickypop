@@ -311,6 +311,56 @@ La causa de fondo era una columna que la documentación daba por existente y nun
 
 ---
 
+## ADR-021 · La cuenta única: se guardan las decisiones, se calcula el reparto
+
+**Estado:** Aceptada · 2026-10-06 · en la rama `etapa2-cuenta`, sin publicar
+
+**Contexto.** El barrido encontró que nadie sabía de quién era lo que había en el estante. Los movimientos `reservation` y `release` existían, pero nadie los escribía. Cuatro pantallas le ponían cuatro nombres al mismo número, y producción veía "faltan 41 botellas" cuando la impresora imprime placas de piezas. El dueño decidió cómo tiene que funcionar:
+
+- La venta y la producción van por carriles distintos: al vender se informa y nunca se bloquea.
+- Una proforma enviada o un pedido en espera separan por un plazo corto. Ese plazo se puede fijar a mano con día y hora, o soltarse ya.
+- Va primero quien confirma o separa antes. Se puede pasar a otro adelante, con un aviso de quién separó antes.
+- Una placa empieza entre las 6:00 y las 23:00 y termina antes de medianoche.
+- El cambio de placa varía: se mide, no se configura.
+
+**Decisión.**
+
+1. **Se guardan solo las decisiones de una persona.**
+   - Quién va primero: `orders.priority_at` y, en una proforma, `quotes.held_at`.
+   - Hasta cuándo dura un separo: `quotes.hold_until` y `orders.hold_until`.
+   - El horario del taller y el plazo por defecto de un separo: `workshop_settings`.
+   - Cada cambio de prioridad hecho a mano: `order_priority_changes`, con motivo.
+2. **Todo lo demás se calcula en cada lectura**, y no se escribe ninguna reserva:
+   - de quién es cada unidad del estante, de la cola y de lo que falta imprimir;
+   - qué hay que imprimir, armar o comprar;
+   - para cuándo estaría cada pedido.
+
+   Un separo vencido se libera solo porque el plan deja de contarlo, sin que nadie escriba un `release`. `reservation` y `release` quedan prohibidos con un `check`: si alguien volviera a escribirlos, el "disponible" de las vistas viejas se separaría del plan en silencio.
+3. **La cuenta es una función pura en `packages/domain` (`plan`), no una función de la base.** La síntesis del barrido la ponía en la base; la mudé por tres razones.
+   - **Se puede probar.** Es un reparto en varios niveles más una simulación de la cola con el horario. Los dos errores más caros del proyecto fueron cálculos que pasaban el build y las pruebas, y aquí cada regla tiene su prueba en vitest, con los ejemplos del diseño como casos.
+   - **Sigue siendo una sola cuenta.** Todas las pantallas llaman a la misma función, con la misma instantánea, y no hay cuenta paralela posible.
+   - **La base sigue mandando en lo que importa.** La instantánea sale de una sola función (`planning_snapshot`), así que el estante, la cola y los pedidos se leen en el mismo momento. Las decisiones viven en la base con su seguridad por fila. Un bot futuro puede llamar a `plan` desde una función de Supabase, que corre TypeScript.
+4. **El reparto:**
+   - Recorre pedidos y separos vigentes por prioridad; si empatan, por número.
+   - A cada línea le da, en este orden: el producto armado, los componentes del estante, lo que sale de la cola, los sobrantes de corridas ya propuestas y corridas nuevas. Lo que no puede hacerse en el taller se compra.
+   - Una placa mixta da todas sus piezas, y lo que no usa uno es para el siguiente.
+   - Lo que falta comprar no bloquea: la fecha se calcula como si llegara, y se marca.
+5. **La fecha** sale de simular la cola, placa por placa, en el horario del taller:
+   - Una placa empieza antes de su último inicio, que es `mínimo(último inicio, fin del día − duración)`, o pasa al día siguiente.
+   - El cambio de placa es el percentil 75 de lo medido, desde cinco muestras. Antes de eso, 15 minutos.
+   - Los fallos se cuentan aparte: la fecha más probable, y otra "si falla una placa".
+6. **Producción no propone placas para un separo.** El separo se lleva el estante y guarda su lugar en la cola, así que mueve las fechas de quienes van detrás. "Por lanzar" dice cuántas corridas solo hacen falta por un separo, y el taller decide si espera.
+7. **El separo nace al enviar la proforma o al poner el pedido en espera**, nunca en el borrador, y vence por defecto a las 23:00 del día siguiente. Volver a separar después de que venció, o retomar un pedido con el separo vencido, lo manda al final de la fila.
+
+**Consecuencias.**
+
+- Cambiar el horario mueve al instante todas las fechas estimadas. Las fechas prometidas a un cliente (`due_date`) no se tocan: solo avisan "llega tarde".
+- Las columnas `reserved` y `available` de las vistas viejas ya no significan nada. Las pantallas tienen que leer la posición que da el plan.
+- Los pedidos que existían se ordenan por su creación, y los que empatan, por número.
+- Un pedido que ya estaba en espera recibe el plazo de siempre, contado desde que se publica.
+
+---
+
 ## Pendientes
 
 | Tema | Opciones | Comentario |

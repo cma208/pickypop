@@ -28,6 +28,8 @@ Está **en producción** desde el 2026-10-05, con datos reales entrando. Las pan
 
 **El estante solo se mueve por sus flujos** (ADR-020). Cerrar una impresión mete las piezas que salieron de verdad; armar las consume y mete el producto; entregar lo saca. Un pedido llega a «Entregado» porque se entregó, no porque alguien cambió el estado: la base rechaza el atajo. Contar el estante (`count_shelf`) corrige lo que no coincide. Si una pantalla tuya mueve stock por fuera de `complete_print_job`, `assemble_product`, `deliver_order` o `count_shelf`, detente.
 
+**Lo separado se calcula, no se escribe** (ADR-021). De quién es cada unidad, qué imprimir y para cuándo lo dice una sola función, `plan` en `packages/domain`, sobre la instantánea de `planning_snapshot`. La base guarda solo las decisiones: `priority_at`, `hold_until` y el horario. Si una pantalla tuya calcula "lo que queda libre" por su cuenta, o escribe un movimiento `reservation`, detente: da otro número que el resto.
+
 **Todo lo que es un artículo lleva su foto.** Producto, variante, pieza impresa, insumo, empaque, repuesto: en cualquier lista donde aparezca, aparece con su imagen. Es regla del dueño y es de sentido práctico: en un taller donde casi todo se llama "la botella roja" o "la tapa chica", el nombre escrito es el peor identificador que hay. Si agregas una pantalla que lista artículos y no muestra la foto, está incompleta.
 
 **Nada se borra: se anula.** Los movimientos de dinero se anulan con motivo obligatorio y desaparecen de los reportes dejando rastro.
@@ -77,7 +79,7 @@ Si creas datos de prueba, **bórralos al terminar** y di cuáles fueron.
 | `docs/02-dominio.md` | Modelo de negocio, fórmula de costo y precio, ejemplos con números reales |
 | `docs/03-modelo-de-datos.md` | Todas las tablas y vistas |
 | `docs/04-arquitectura.md` | Cómo encaja, y por qué el coste de operación es cero |
-| `docs/05-decisiones.md` | 20 decisiones de arquitectura, con su porqué |
+| `docs/05-decisiones.md` | 21 decisiones de arquitectura, con su porqué |
 | `docs/06-frontend.md` | Contrato del frontend: estructura, diseño, pantallas |
 | `docs/07-plan-de-trabajo.md` | **El reparto de trabajo vigente** |
 | `packages/domain` | Las reglas de dinero |
