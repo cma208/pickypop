@@ -23,14 +23,15 @@ import { SECTION_STYLES } from '../../core/styles';
           <p class="notice warn">Solo el dueño del taller puede cambiar los materiales. Aquí los ves en modo lectura.</p>
         }
         <div class="toolbar">
-          @if (canEdit() && !formOpen()) {
-            <button type="button" (click)="open(null)">Nuevo material</button>
+          @if (canEdit()) {
+            <!-- Always there: when it vanished while the form was open, the form's own title took its place and looked like the button. -->
+            <button type="button" [class.secondary]="formOpen()" (click)="open(null)">+ Nuevo material</button>
           }
         </div>
 
         @if (formOpen()) {
           <form class="form-box" [formGroup]="form" (ngSubmit)="submit()">
-            <h3>{{ editing() ? 'Editar material' : 'Nuevo material' }}</h3>
+            <h3>{{ editing() ? 'Editar material' : 'Datos del material nuevo' }}</h3>
             <div class="grid two">
               <pp-field label="Código" [required]="true" [error]="codeError()" hint="Se guarda en mayúsculas.">
                 <input formControlName="code" placeholder="Ej.: PLA, PETG, TPU" />

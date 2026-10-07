@@ -38,14 +38,15 @@ const DIRECTION_LABEL: Record<MovementDirection, string> = {
           <p class="notice warn">Solo el dueño del taller puede cambiar las categorías. Aquí las ves en modo lectura.</p>
         }
         <div class="toolbar">
-          @if (canEdit() && !formOpen()) {
-            <button type="button" (click)="open(null)">Nueva categoría</button>
+          @if (canEdit()) {
+            <!-- Always there: when it vanished while the form was open, the form's own title took its place and looked like the button. -->
+            <button type="button" [class.secondary]="formOpen()" (click)="open(null)">+ Nueva categoría</button>
           }
         </div>
 
         @if (formOpen()) {
           <form class="form-box" [formGroup]="form" (ngSubmit)="submit()">
-            <h3>{{ editing() ? 'Editar categoría' : 'Nueva categoría' }}</h3>
+            <h3>{{ editing() ? 'Editar categoría' : 'Datos de la categoría nueva' }}</h3>
             <pp-field label="Nombre" [required]="true" [error]="nameError()">
               <input formControlName="name" placeholder="Ej.: Publicidad, Ferias, Envíos" />
             </pp-field>

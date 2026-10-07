@@ -34,14 +34,15 @@ import { SECTION_STYLES } from '../../core/styles';
           <p class="notice warn">Solo el dueño del taller puede cambiar los acabados. Aquí los ves en modo lectura.</p>
         }
         <div class="toolbar">
-          @if (canEdit() && !formOpen()) {
-            <button type="button" (click)="open(null)">Nuevo acabado</button>
+          @if (canEdit()) {
+            <!-- Always there: when it vanished while the form was open, the form's own title took its place and looked like the button. -->
+            <button type="button" [class.secondary]="formOpen()" (click)="open(null)">+ Nuevo acabado</button>
           }
         </div>
 
         @if (formOpen()) {
           <form class="form-box" [formGroup]="form" (ngSubmit)="submit()">
-            <h3>{{ editing() ? 'Editar acabado' : 'Nuevo acabado' }}</h3>
+            <h3>{{ editing() ? 'Editar acabado' : 'Datos del acabado nuevo' }}</h3>
             <pp-field label="Nombre" [required]="true" [error]="nameError()">
               <input formControlName="name" placeholder="Ej.: Básico, Mate, Seda, Glow" />
             </pp-field>

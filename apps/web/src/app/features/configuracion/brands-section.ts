@@ -23,14 +23,15 @@ import { SECTION_STYLES } from '../../core/styles';
           <p class="notice warn">Solo el dueño del taller puede cambiar las marcas. Aquí las ves en modo lectura.</p>
         }
         <div class="toolbar">
-          @if (canEdit() && !formOpen()) {
-            <button type="button" (click)="open(null)">Nueva marca</button>
+          @if (canEdit()) {
+            <!-- Always there: when it vanished while the form was open, the form's own title took its place and looked like the button. -->
+            <button type="button" [class.secondary]="formOpen()" (click)="open(null)">+ Nueva marca</button>
           }
         </div>
 
         @if (formOpen()) {
           <form class="form-box" [formGroup]="form" (ngSubmit)="submit()">
-            <h3>{{ editing() ? 'Renombrar marca' : 'Nueva marca' }}</h3>
+            <h3>{{ editing() ? 'Renombrar marca' : 'Datos de la marca nueva' }}</h3>
             <pp-field label="Nombre" [required]="true" [error]="nameError()">
               <input formControlName="name" placeholder="Ej.: Bambu Lab, Krear3D, eSun" />
             </pp-field>

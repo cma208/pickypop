@@ -66,6 +66,7 @@ export interface SavedPurchase {
   paymentFailed: boolean;
 }
 
+const MADE_HERE: ReadonlySet<string> = new Set(['part', 'finished_good']);
 const SKU_PREFIX = 'sku:';
 /** The "todavía no" answer to how it was paid. Never a uuid, so it cannot clash with an account. */
 const NOT_PAID = 'not-paid';
@@ -327,7 +328,9 @@ export class CompraForm {
       color: sku.colorHex,
       group: 'Filamentos',
     })),
-    ...this.items().map((item) => ({
+    // A printed part and an assembled product are made here, never bought
+    // (ADR-016, ADR-018): offering them would value the shelf at a price paid.
+    ...this.items().filter((item) => !MADE_HERE.has(item.kind)).map((item) => ({
       value: ITEM_PREFIX + item.id,
       label: item.name,
       hint: item.unit,

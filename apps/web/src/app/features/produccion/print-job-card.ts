@@ -1,6 +1,7 @@
 import { Component, computed, inject, input, output, signal } from '@angular/core';
 import { DecimalPipe } from '@angular/common';
 import { RouterLink } from '@angular/router';
+import { borrowedPhoto } from '../../core/article-photos';
 import { duration } from '../../core/format';
 import { PlanService } from '../../core/plan';
 import { Badge, FORMAT_PIPES, Thumb } from '../../ui';
@@ -73,7 +74,7 @@ import { plannedCounts, type PartCount } from './produccion.outputs';
         <div class="shelf">
           <span class="muted">{{ line.lead }}</span>
           @for (part of line.parts; track part.inventoryItemId) {
-            <span class="part"><pp-thumb size="inline" kind="part" [path]="part.imagePath" /> {{ part.units | number: '1.0-3' }} {{ part.name }}</span>
+            <span class="part"><pp-thumb size="inline" kind="part" [path]="part.imagePath" [photo]="borrowedPhoto(part.inventoryItemId, 'part')" /> {{ part.units | number: '1.0-3' }} {{ part.name }}</span>
           }
         </div>
       }
@@ -150,6 +151,8 @@ import { plannedCounts, type PartCount } from './produccion.outputs';
 export class PrintJobCard {
   private readonly data = inject(ProduccionData);
   private readonly plan = inject(PlanService);
+  /** A part with no photo of its own shows the plate that prints it. */
+  protected readonly borrowedPhoto = borrowedPhoto;
 
   readonly job = input.required<JobItem>();
   readonly showOrder = input(true);

@@ -2,6 +2,7 @@ import { Component, computed, inject, input, OnInit, output, signal } from '@ang
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormArray, FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Card, Field, FORMAT_PIPES, ItemPicker, Thumb, type PickerOption } from '../../ui';
+import { borrowedPhoto } from '../../core/article-photos';
 import { duration } from '../../core/format';
 import { PlanService } from '../../core/plan';
 import { spoolLabel } from '../../core/spool-label';
@@ -98,7 +99,7 @@ function createFilamentRow(spoolId = '', estimatedG = 0, slot: number | null = n
                   <span class="muted">Una corrida completa deja en el estante:</span>
                   <ul>
                     @for (part of plate.outputs; track part.inventoryItemId) {
-                      <li><pp-thumb size="option" kind="part" [path]="part.imagePath" /> {{ part.units }} {{ part.name }}</li>
+                      <li><pp-thumb size="option" kind="part" [path]="part.imagePath" [photo]="borrowedPhoto(part.inventoryItemId, 'part')" /> {{ part.units }} {{ part.name }}</li>
                     }
                   </ul>
                 } @else {
@@ -170,6 +171,8 @@ function createFilamentRow(spoolId = '', estimatedG = 0, slot: number | null = n
 export class PrintJobForm implements OnInit {
   private readonly data = inject(ProduccionData);
   private readonly plan = inject(PlanService);
+  /** A part with no photo of its own shows the plate that prints it. */
+  protected readonly borrowedPhoto = borrowedPhoto;
 
   /** When set, the job is for this order line and the line cannot be changed. */
   readonly fixedLine = input<FixedOrderLine | null>(null);
