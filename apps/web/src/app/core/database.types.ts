@@ -613,6 +613,49 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"order_priority_changes": {
+                  Row: {
+                    "changed_at": string,"changed_by": string | null,"from_priority_at": string,"id": string,"order_id": string,"passed_id": string,"passed_kind": string,"passed_label": string,"reason": string,"to_priority_at": string,"workspace_id": string
+                  }
+                  Insert: {
+                    "changed_at"?: string,"changed_by"?: string | null,"from_priority_at": string,"id"?: string,"order_id": string,"passed_id": string,"passed_kind": string,"passed_label": string,"reason": string,"to_priority_at": string,"workspace_id": string
+                  }
+                  Update: {
+                    "changed_at"?: string,"changed_by"?: string | null,"from_priority_at"?: string,"id"?: string,"order_id"?: string,"passed_id"?: string,"passed_kind"?: string,"passed_label"?: string,"reason"?: string,"to_priority_at"?: string,"workspace_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "order_priority_changes_order_id_fkey"
+      columns: ["order_id"]
+isOneToOne: false
+      referencedRelation: "order_payment_summary"
+      referencedColumns: ["order_id"]
+    },{
+      foreignKeyName: "order_priority_changes_order_id_fkey"
+      columns: ["order_id"]
+isOneToOne: false
+      referencedRelation: "order_production_summary"
+      referencedColumns: ["order_id"]
+    },{
+      foreignKeyName: "order_priority_changes_order_id_fkey"
+      columns: ["order_id"]
+isOneToOne: false
+      referencedRelation: "orders"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "order_priority_changes_order_id_fkey"
+      columns: ["order_id"]
+isOneToOne: false
+      referencedRelation: "receivables"
+      referencedColumns: ["order_id"]
+    },{
+      foreignKeyName: "order_priority_changes_workspace_id_fkey"
+      columns: ["workspace_id"]
+isOneToOne: false
+      referencedRelation: "workspaces"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"order_status_history": {
                   Row: {
                     "changed_at": string,"changed_by": string | null,"from_status": Database["public"]['Enums']["order_status"] | null,"id": string,"note": string | null,"order_id": string,"to_status": Database["public"]['Enums']["order_status"],"workspace_id": string
@@ -658,13 +701,13 @@ isOneToOne: false
                   ]
                 },"orders": {
                   Row: {
-                    "channel_id": string | null,"created_at": string,"created_by": string | null,"customer_id": string | null,"due_date": string | null,"gift_category_id": string | null,"id": string,"note": string | null,"number": string,"opportunity_id": string | null,"ordered_on": string,"payment_status": Database["public"]['Enums']["order_payment_status"],"purpose": Database["public"]['Enums']["order_purpose"],"quote_id": string | null,"recipient": string | null,"status": Database["public"]['Enums']["order_status"],"total": number,"updated_at": string,"workspace_id": string
+                    "channel_id": string | null,"created_at": string,"created_by": string | null,"customer_id": string | null,"due_date": string | null,"gift_category_id": string | null,"hold_until": string | null,"id": string,"note": string | null,"number": string,"opportunity_id": string | null,"ordered_on": string,"payment_status": Database["public"]['Enums']["order_payment_status"],"priority_at": string,"purpose": Database["public"]['Enums']["order_purpose"],"quote_id": string | null,"recipient": string | null,"status": Database["public"]['Enums']["order_status"],"total": number,"updated_at": string,"workspace_id": string
                   }
                   Insert: {
-                    "channel_id"?: string | null,"created_at"?: string,"created_by"?: string | null,"customer_id"?: string | null,"due_date"?: string | null,"gift_category_id"?: string | null,"id"?: string,"note"?: string | null,"number": string,"opportunity_id"?: string | null,"ordered_on"?: string,"payment_status"?: Database["public"]['Enums']["order_payment_status"],"purpose"?: Database["public"]['Enums']["order_purpose"],"quote_id"?: string | null,"recipient"?: string | null,"status"?: Database["public"]['Enums']["order_status"],"total"?: number,"updated_at"?: string,"workspace_id": string
+                    "channel_id"?: string | null,"created_at"?: string,"created_by"?: string | null,"customer_id"?: string | null,"due_date"?: string | null,"gift_category_id"?: string | null,"hold_until"?: string | null,"id"?: string,"note"?: string | null,"number": string,"opportunity_id"?: string | null,"ordered_on"?: string,"payment_status"?: Database["public"]['Enums']["order_payment_status"],"priority_at"?: string,"purpose"?: Database["public"]['Enums']["order_purpose"],"quote_id"?: string | null,"recipient"?: string | null,"status"?: Database["public"]['Enums']["order_status"],"total"?: number,"updated_at"?: string,"workspace_id": string
                   }
                   Update: {
-                    "channel_id"?: string | null,"created_at"?: string,"created_by"?: string | null,"customer_id"?: string | null,"due_date"?: string | null,"gift_category_id"?: string | null,"id"?: string,"note"?: string | null,"number"?: string,"opportunity_id"?: string | null,"ordered_on"?: string,"payment_status"?: Database["public"]['Enums']["order_payment_status"],"purpose"?: Database["public"]['Enums']["order_purpose"],"quote_id"?: string | null,"recipient"?: string | null,"status"?: Database["public"]['Enums']["order_status"],"total"?: number,"updated_at"?: string,"workspace_id"?: string
+                    "channel_id"?: string | null,"created_at"?: string,"created_by"?: string | null,"customer_id"?: string | null,"due_date"?: string | null,"gift_category_id"?: string | null,"hold_until"?: string | null,"id"?: string,"note"?: string | null,"number"?: string,"opportunity_id"?: string | null,"ordered_on"?: string,"payment_status"?: Database["public"]['Enums']["order_payment_status"],"priority_at"?: string,"purpose"?: Database["public"]['Enums']["order_purpose"],"quote_id"?: string | null,"recipient"?: string | null,"status"?: Database["public"]['Enums']["order_status"],"total"?: number,"updated_at"?: string,"workspace_id"?: string
                   }
                   Relationships: [
                     {
@@ -1174,13 +1217,13 @@ isOneToOne: false
                   ]
                 },"quotes": {
                   Row: {
-                    "channel_id": string | null,"cost_profile_snapshot": NonNullable<Json>,"created_at": string,"created_by": string | null,"customer_id": string | null,"discount": number,"id": string,"igv": number,"issued_on": string,"note": string | null,"number": string,"opportunity_id": string | null,"parent_quote_id": string | null,"request_id": string | null,"status": Database["public"]['Enums']["quote_status"],"subtotal": number,"total": number,"updated_at": string,"valid_until": string | null,"version": number,"workspace_id": string
+                    "channel_id": string | null,"cost_profile_snapshot": NonNullable<Json>,"created_at": string,"created_by": string | null,"customer_id": string | null,"discount": number,"held_at": string | null,"hold_until": string | null,"id": string,"igv": number,"issued_on": string,"note": string | null,"number": string,"opportunity_id": string | null,"parent_quote_id": string | null,"request_id": string | null,"status": Database["public"]['Enums']["quote_status"],"subtotal": number,"total": number,"updated_at": string,"valid_until": string | null,"version": number,"workspace_id": string
                   }
                   Insert: {
-                    "channel_id"?: string | null,"cost_profile_snapshot"?: NonNullable<Json>,"created_at"?: string,"created_by"?: string | null,"customer_id"?: string | null,"discount"?: number,"id"?: string,"igv"?: number,"issued_on"?: string,"note"?: string | null,"number": string,"opportunity_id"?: string | null,"parent_quote_id"?: string | null,"request_id"?: string | null,"status"?: Database["public"]['Enums']["quote_status"],"subtotal"?: number,"total"?: number,"updated_at"?: string,"valid_until"?: string | null,"version"?: number,"workspace_id": string
+                    "channel_id"?: string | null,"cost_profile_snapshot"?: NonNullable<Json>,"created_at"?: string,"created_by"?: string | null,"customer_id"?: string | null,"discount"?: number,"held_at"?: string | null,"hold_until"?: string | null,"id"?: string,"igv"?: number,"issued_on"?: string,"note"?: string | null,"number": string,"opportunity_id"?: string | null,"parent_quote_id"?: string | null,"request_id"?: string | null,"status"?: Database["public"]['Enums']["quote_status"],"subtotal"?: number,"total"?: number,"updated_at"?: string,"valid_until"?: string | null,"version"?: number,"workspace_id": string
                   }
                   Update: {
-                    "channel_id"?: string | null,"cost_profile_snapshot"?: NonNullable<Json>,"created_at"?: string,"created_by"?: string | null,"customer_id"?: string | null,"discount"?: number,"id"?: string,"igv"?: number,"issued_on"?: string,"note"?: string | null,"number"?: string,"opportunity_id"?: string | null,"parent_quote_id"?: string | null,"request_id"?: string | null,"status"?: Database["public"]['Enums']["quote_status"],"subtotal"?: number,"total"?: number,"updated_at"?: string,"valid_until"?: string | null,"version"?: number,"workspace_id"?: string
+                    "channel_id"?: string | null,"cost_profile_snapshot"?: NonNullable<Json>,"created_at"?: string,"created_by"?: string | null,"customer_id"?: string | null,"discount"?: number,"held_at"?: string | null,"hold_until"?: string | null,"id"?: string,"igv"?: number,"issued_on"?: string,"note"?: string | null,"number"?: string,"opportunity_id"?: string | null,"parent_quote_id"?: string | null,"request_id"?: string | null,"status"?: Database["public"]['Enums']["quote_status"],"subtotal"?: number,"total"?: number,"updated_at"?: string,"valid_until"?: string | null,"version"?: number,"workspace_id"?: string
                   }
                   Relationships: [
                     {
@@ -1766,6 +1809,25 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"workshop_settings": {
+                  Row: {
+                    "changeover_default_minutes": number,"hold_default_days": number,"hold_default_time": string,"print_end_by": string,"print_first_start": string,"print_last_start": string,"updated_at": string,"workspace_id": string
+                  }
+                  Insert: {
+                    "changeover_default_minutes"?: number,"hold_default_days"?: number,"hold_default_time"?: string,"print_end_by"?: string,"print_first_start"?: string,"print_last_start"?: string,"updated_at"?: string,"workspace_id": string
+                  }
+                  Update: {
+                    "changeover_default_minutes"?: number,"hold_default_days"?: number,"hold_default_time"?: string,"print_end_by"?: string,"print_first_start"?: string,"print_last_start"?: string,"updated_at"?: string,"workspace_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "workshop_settings_workspace_id_fkey"
+      columns: ["workspace_id"]
+isOneToOne: true
+      referencedRelation: "workspaces"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"workspace_members": {
                   Row: {
                     "created_at": string,"display_name": string | null,"id": string,"labor_rate_per_hour": number | null,"role": Database["public"]['Enums']["member_role"],"updated_at": string,"user_id": string,"workspace_id": string
@@ -1858,6 +1920,19 @@ isOneToOne: false
                   Relationships: [
                     {
       foreignKeyName: "product_variants_workspace_id_fkey"
+      columns: ["workspace_id"]
+isOneToOne: false
+      referencedRelation: "workspaces"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"changeover_estimate": {
+                  Row: {
+                    "p75_minutes": number | null,"samples": number | null,"workspace_id": string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "print_jobs_workspace_id_fkey"
       columns: ["workspace_id"]
 isOneToOne: false
       referencedRelation: "workspaces"
@@ -2359,6 +2434,36 @@ isOneToOne: false
 "price_for_quantity":
 { Args: { "p_on_date"?: string,"p_quantity": number,"p_variant": string }; Returns: number
                            },
+"prioritize_order":
+{ Args: { "p_before_id": string,"p_before_kind": string,"p_order_id": string,"p_reason": string }; Returns: {
+              "channel_id": string | null,
+"created_at": string,
+"created_by": string | null,
+"customer_id": string | null,
+"due_date": string | null,
+"gift_category_id": string | null,
+"hold_until": string | null,
+"id": string,
+"note": string | null,
+"number": string,
+"opportunity_id": string | null,
+"ordered_on": string,
+"payment_status": Database["public"]['Enums']["order_payment_status"],
+"priority_at": string,
+"purpose": Database["public"]['Enums']["order_purpose"],
+"quote_id": string | null,
+"recipient": string | null,
+"status": Database["public"]['Enums']["order_status"],
+"total": number,
+"updated_at": string,
+"workspace_id": string
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "orders"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
 "record_payment":
 { Args: { "p_account_id": string,"p_amount": number,"p_category_id"?: string,"p_note"?: string,"p_occurred_at"?: string,"p_order_id": string,"p_payment_method"?: Database["public"]['Enums']["payment_method"],"p_reference"?: string }; Returns: {
               "account_id": string,
@@ -2443,20 +2548,22 @@ isOneToOne: false
         isOneToOne: true
         isSetofReturn: false
       } },
-"set_order_status":
-{ Args: { "p_order_id": string,"p_reason"?: string,"p_status": Database["public"]['Enums']["order_status"] }; Returns: {
+"set_order_hold":
+{ Args: { "p_order_id": string,"p_until": string }; Returns: {
               "channel_id": string | null,
 "created_at": string,
 "created_by": string | null,
 "customer_id": string | null,
 "due_date": string | null,
 "gift_category_id": string | null,
+"hold_until": string | null,
 "id": string,
 "note": string | null,
 "number": string,
 "opportunity_id": string | null,
 "ordered_on": string,
 "payment_status": Database["public"]['Enums']["order_payment_status"],
+"priority_at": string,
 "purpose": Database["public"]['Enums']["order_purpose"],
 "quote_id": string | null,
 "recipient": string | null,
@@ -2468,6 +2575,68 @@ isOneToOne: false
                           SetofOptions: {
         from: "*"
         to: "orders"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
+"set_order_status":
+{ Args: { "p_order_id": string,"p_reason"?: string,"p_status": Database["public"]['Enums']["order_status"] }; Returns: {
+              "channel_id": string | null,
+"created_at": string,
+"created_by": string | null,
+"customer_id": string | null,
+"due_date": string | null,
+"gift_category_id": string | null,
+"hold_until": string | null,
+"id": string,
+"note": string | null,
+"number": string,
+"opportunity_id": string | null,
+"ordered_on": string,
+"payment_status": Database["public"]['Enums']["order_payment_status"],
+"priority_at": string,
+"purpose": Database["public"]['Enums']["order_purpose"],
+"quote_id": string | null,
+"recipient": string | null,
+"status": Database["public"]['Enums']["order_status"],
+"total": number,
+"updated_at": string,
+"workspace_id": string
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "orders"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
+"set_quote_hold":
+{ Args: { "p_quote_id": string,"p_until": string }; Returns: {
+              "channel_id": string | null,
+"cost_profile_snapshot": NonNullable<Json>,
+"created_at": string,
+"created_by": string | null,
+"customer_id": string | null,
+"discount": number,
+"held_at": string | null,
+"hold_until": string | null,
+"id": string,
+"igv": number,
+"issued_on": string,
+"note": string | null,
+"number": string,
+"opportunity_id": string | null,
+"parent_quote_id": string | null,
+"request_id": string | null,
+"status": Database["public"]['Enums']["quote_status"],
+"subtotal": number,
+"total": number,
+"updated_at": string,
+"valid_until": string | null,
+"version": number,
+"workspace_id": string
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "quotes"
         isOneToOne: true
         isSetofReturn: false
       } }
