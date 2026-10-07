@@ -74,6 +74,12 @@ h3 { margin: 1.25rem 0 0.5rem; font-size: 0.95rem; }
 
 button.danger-text { color: var(--danger); }
 
+/* "¿Para cuándo?" sits right under the quantity it answers. */
+.promise { display: block; margin: 0.75rem 0 0; }
+.promise-row td { padding-top: 0; border-top: 0; }
+.quote-ready { margin: 0.75rem 0 0; }
+.quote-ready small { margin-left: 0.25rem; }
+
 /* Tables of plate rows do not fit a phone, so they scroll on their own. */
 @media (max-width: 40rem) {
   table { display: block; overflow-x: auto; }
