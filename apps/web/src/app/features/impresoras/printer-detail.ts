@@ -1,7 +1,7 @@
 import { Component, computed, inject, input, output, signal } from '@angular/core';
 import { Badge, Card, FORMAT_PIPES } from '../../ui';
 import { todayLocal } from '../../core/dates';
-import { friendlyError } from '../../core/friendly-error';
+import { friendlyError, isPermissionError } from '../../core/friendly-error';
 import { SECTION_STYLES } from '../../core/styles';
 import { CurrentWorkspace } from '../../core/workspace';
 import { ComponentsTab } from './components-tab';
@@ -44,11 +44,13 @@ const HOURS = new Intl.NumberFormat('es-PE', { maximumFractionDigits: 1 });
         <pp-badge [tone]="printer().status === 'active' ? 'good' : 'neutral'">
           {{ stateLabels[printer().status] }}
         </pp-badge>
-        <button type="button" class="secondary" [disabled]="busy()" (click)="edit.emit()">Editar</button>
-        @if (printer().status === 'retired') {
-          <button type="button" class="secondary" [disabled]="busy()" (click)="reactivate()">Reactivar</button>
-        } @else {
-          <button type="button" class="ghost" [disabled]="busy()" (click)="retire()">Dar de baja</button>
+        @if (isOwner()) {
+          <button type="button" class="secondary" [disabled]="busy()" (click)="edit.emit()">Editar</button>
+          @if (printer().status === 'retired') {
+            <button type="button" class="secondary" [disabled]="busy()" (click)="reactivate()">Reactivar</button>
+          } @else {
+            <button type="button" class="ghost" [disabled]="busy()" (click)="retire()">Dar de baja</button>
+          }
         }
         @if (canDelete()) {
           <button type="button" class="ghost" [disabled]="busy()" (click)="remove()">Borrar</button>
@@ -58,12 +60,26 @@ const HOURS = new Intl.NumberFormat('es-PE', { maximumFractionDigits: 1 });
       @if (error(); as message) {
         <p class="error" role="alert">{{ message }}</p>
       }
+      @if (!isOwner()) {
+        <p class="notice">
+          @if (canOperate()) {
+            La impresora, sus planes y sus componentes los cambia el dueño del taller. El mantenimiento y los incidentes
+            los registras tú.
+          } @else {
+            Tu rol es de solo lectura: aquí ves la impresora sin registrar nada.
+          }
+        </p>
+      }
       @if (rateGaps().length > 0) {
         <div class="notice warn" role="status">
           @for (gap of rateGaps(); track gap) {
             <p>{{ gap }}</p>
           }
-          <button type="button" class="secondary" (click)="edit.emit()">Completar datos</button>
+          @if (isOwner()) {
+            <button type="button" class="secondary" (click)="edit.emit()">Completar datos</button>
+          } @else {
+            <p>Pídele al dueño del taller que complete los datos.</p>
+          }
         </div>
       }
 
@@ -154,10 +170,12 @@ export class PrinterDetail {
   protected readonly stateLabels = PRINTER_STATE_LABELS;
   protected readonly active = signal<TabId>('maintenance');
 
+  /** Changing the printer is configuration, the owner's; maintenance and incidents are the day to day. */
+  protected readonly isOwner = this.workspace.isOwner;
+  protected readonly canOperate = this.workspace.canOperate;
+
   /** The database lets only owners delete, and refuses a printer that has printed. */
-  protected readonly canDelete = computed(
-    () => this.workspace.role() === 'owner' && this.printer().jobCount === 0,
-  );
+  protected readonly canDelete = computed(() => this.isOwner() && this.printer().jobCount === 0);
 
   /** What makes this printer's hourly rate incomplete, said out loud rather than left as a low number. */
   protected readonly rateGaps = computed(() => {
@@ -234,6 +252,7 @@ export class PrinterDetail {
     fallback: string,
     removes = false,
   ): Promise<void> {
+    if (this.busy()) return;
     if (confirmation && !confirm(confirmation)) return;
 
     this.busy.set(true);
@@ -244,6 +263,8 @@ export class PrinterDetail {
       this.changed.emit();
     } catch (error) {
       this.error.set(friendlyError(error, fallback));
+      // A refusal may mean the role changed in another tab: read it again.
+      if (isPermissionError(error)) await this.workspace.refresh().catch(() => undefined);
     } finally {
       this.busy.set(false);
     }

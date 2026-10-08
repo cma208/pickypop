@@ -21,7 +21,8 @@ import type {
 import { printedSeconds } from './impresoras.models';
 
 const SECONDS_PER_HOUR = 3600;
-const PRINTER_NAME_KEY = 'printers_workspace_id_name_key';
+/** The exact key and the one that ignores capitals (T1-11). */
+const PRINTER_NAME_KEYS = ['printers_workspace_id_name_key', 'printers_name_ci_key'];
 const FOREIGN_KEY_VIOLATION = '23503';
 
 interface JobStats {
@@ -151,68 +152,30 @@ export class ImpresorasData {
 
   /**
    * Creates or updates a printer together with the asset its hourly rate is
-   * computed from, and returns the printer id.
-   *
-   * The two inserts cannot share a transaction from the browser, so the asset
-   * goes first and is removed again if the printer then fails: otherwise a
-   * failed save would leave an orphan asset behind. The name is checked up
-   * front because that is by far the likeliest reason for the second insert to
-   * fail, and an ordinary member is not allowed to delete the asset afterwards.
+   * computed from, and returns the printer id. `save_printer` does both in one
+   * transaction: when the printer used to fail after the asset was saved, the
+   * new cost stayed, every quote moved, and the screen said nothing had been
+   * saved (T1-07). The name is checked by the database, capitals ignored.
    */
   async savePrinter(
     printer: Pick<PrinterRecord, 'id' | 'assetId'> | null,
     draft: PrinterDraft,
   ): Promise<string> {
-    const name = draft.name.trim();
-    await this.assertNameFree(name, printer?.id ?? null);
-
-    const workspaceId = await this.workspace.requireId();
-    const assetValues = { cost: draft.assetCost, useful_life_hours: draft.usefulLifeHours };
-    const printerValues = {
-      name,
-      model: draft.model,
-      status: draft.status,
-      initial_hours: draft.initialHours,
-      avg_power_w: draft.avgPowerW,
-      maintenance_budget_per_year: draft.maintenanceBudgetPerYear,
-      expected_hours_per_year: draft.expectedHoursPerYear,
-    };
-
-    if (printer?.assetId) {
-      const { data, error } = await this.supabase
-        .from('assets')
-        .update(assetValues)
-        .eq('id', printer.assetId)
-        .select('id');
-      if (error) throw error;
-      if (!data?.length) throw permissionError();
-    }
-
-    const assetId = printer?.assetId ?? (await this.insertAsset(workspaceId, name, assetValues));
-
-    try {
-      if (printer) {
-        const { data, error } = await this.supabase
-          .from('printers')
-          .update({ ...printerValues, asset_id: assetId })
-          .eq('id', printer.id)
-          .select('id');
-        if (error) throw translatePrinterError(error);
-        if (!data?.length) throw permissionError();
-        return printer.id;
-      }
-
-      const { data, error } = await this.supabase
-        .from('printers')
-        .insert({ ...printerValues, asset_id: assetId, workspace_id: workspaceId })
-        .select('id')
-        .single();
-      if (error) throw translatePrinterError(error);
-      return data.id;
-    } catch (failure) {
-      if (!printer?.assetId) await this.supabase.from('assets').delete().eq('id', assetId);
-      throw failure;
-    }
+    const { data, error } = await this.supabase.rpc('save_printer', {
+      p_printer_id: printer?.id,
+      p_workspace_id: printer ? undefined : await this.workspace.requireId(),
+      p_name: draft.name.trim(),
+      p_model: draft.model ?? undefined,
+      p_status: printer ? draft.status : undefined,
+      p_initial_hours: draft.initialHours,
+      p_avg_power_w: draft.avgPowerW,
+      p_maintenance_budget_per_year: draft.maintenanceBudgetPerYear,
+      p_expected_hours_per_year: draft.expectedHoursPerYear,
+      p_asset_cost: draft.assetCost,
+      p_useful_life_hours: draft.usefulLifeHours,
+    });
+    if (error) throw translatePrinterError(error);
+    return data;
   }
 
   async setPrinterStatus(printerId: string, status: PrinterState): Promise<void> {
@@ -240,20 +203,6 @@ export class ImpresorasData {
     if (printer.assetId) await this.deleteAssetIfUnused(printer.assetId);
   }
 
-  private async insertAsset(
-    workspaceId: string,
-    printerName: string,
-    values: { cost: number; useful_life_hours: number },
-  ): Promise<string> {
-    const { data, error } = await this.supabase
-      .from('assets')
-      .insert({ ...values, name: `Impresora ${printerName}`, workspace_id: workspaceId })
-      .select('id')
-      .single();
-    if (error) throw error;
-    return data.id;
-  }
-
   private async deleteAssetIfUnused(assetId: string): Promise<void> {
     const { count, error } = await this.supabase
       .from('printers')
@@ -261,15 +210,6 @@ export class ImpresorasData {
       .eq('asset_id', assetId);
     if (error || count) return;
     await this.supabase.from('assets').delete().eq('id', assetId);
-  }
-
-  private async assertNameFree(name: string, exceptId: string | null): Promise<void> {
-    let query = this.supabase.from('printers').select('id', { count: 'exact', head: true }).eq('name', name);
-    if (exceptId) query = query.neq('id', exceptId);
-
-    const { count, error } = await query;
-    if (error) throw error;
-    if (count) throw new UserFacingError('Ya hay una impresora con ese nombre. Usa otro para distinguirlas.');
   }
 
   async savePlan(printerId: string, planId: string | null, draft: PlanDraft): Promise<void> {
@@ -281,18 +221,23 @@ export class ImpresorasData {
       active: draft.active,
     };
 
-    const { error } = planId
-      ? await this.supabase.from('maintenance_plans').update(values).eq('id', planId)
-      : await this.supabase
-          .from('maintenance_plans')
-          .insert({ ...values, printer_id: printerId, workspace_id: await this.workspace.requireId() });
+    if (planId) {
+      const { data, error } = await this.supabase.from('maintenance_plans').update(values).eq('id', planId).select('id');
+      if (error) throw error;
+      if (data.length === 0) throw permissionError();
+      return;
+    }
 
+    const { error } = await this.supabase
+      .from('maintenance_plans')
+      .insert({ ...values, printer_id: printerId, workspace_id: await this.workspace.requireId() });
     if (error) throw error;
   }
 
   async setPlanActive(planId: string, active: boolean): Promise<void> {
-    const { error } = await this.supabase.from('maintenance_plans').update({ active }).eq('id', planId);
+    const { data, error } = await this.supabase.from('maintenance_plans').update({ active }).eq('id', planId).select('id');
     if (error) throw error;
+    if (data.length === 0) throw permissionError();
   }
 
   async logMaintenance(printerId: string, draft: LogDraft): Promise<void> {
@@ -323,11 +268,13 @@ export class ImpresorasData {
   }
 
   async retireComponent(componentId: string, retiredOn: string): Promise<void> {
-    const { error } = await this.supabase
+    const { data, error } = await this.supabase
       .from('printer_components')
       .update({ retired_on: retiredOn })
-      .eq('id', componentId);
+      .eq('id', componentId)
+      .select('id');
     if (error) throw error;
+    if (data.length === 0) throw permissionError();
   }
 
   async saveIncident(printerId: string, incidentId: string | null, draft: IncidentDraft): Promise<void> {
@@ -341,12 +288,16 @@ export class ImpresorasData {
       resolved_at: draft.resolvedAt,
     };
 
-    const { error } = incidentId
-      ? await this.supabase.from('incidents').update(values).eq('id', incidentId)
-      : await this.supabase
-          .from('incidents')
-          .insert({ ...values, printer_id: printerId, workspace_id: await this.workspace.requireId() });
+    if (incidentId) {
+      const { data, error } = await this.supabase.from('incidents').update(values).eq('id', incidentId).select('id');
+      if (error) throw error;
+      if (data.length === 0) throw permissionError();
+      return;
+    }
 
+    const { error } = await this.supabase
+      .from('incidents')
+      .insert({ ...values, printer_id: printerId, workspace_id: await this.workspace.requireId() });
     if (error) throw error;
   }
 
@@ -372,7 +323,7 @@ export class ImpresorasData {
 }
 
 function translatePrinterError(error: { code?: string; message?: string }): unknown {
-  if (error.message?.includes(PRINTER_NAME_KEY)) {
+  if (PRINTER_NAME_KEYS.some((key) => error.message?.includes(key))) {
     return new UserFacingError('Ya hay una impresora con ese nombre. Usa otro para distinguirlas.');
   }
   if (error.code === FOREIGN_KEY_VIOLATION) {

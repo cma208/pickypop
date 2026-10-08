@@ -2,11 +2,11 @@ import { Component, inject, input, output, signal } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Field } from '../../ui';
 import { todayLocal } from '../../core/dates';
-import { errorOf, textOrNull } from '../../core/form-errors';
+import { errorOf, notInFuture, textOrNull } from '../../core/form-errors';
 import { friendlyError } from '../../core/friendly-error';
 import { SECTION_STYLES } from '../../core/styles';
 import { ImpresorasData } from './impresoras.data';
-import { COMPONENT_KINDS, COMPONENT_LABELS, type ComponentKind } from './impresoras.models';
+import { COMPONENT_KINDS, COMPONENT_LABELS, PRINTER_LIMITS, type ComponentKind } from './impresoras.models';
 
 const HOURS_PRECISION = 100;
 
@@ -31,7 +31,7 @@ const HOURS_PRECISION = 100;
           <input formControlName="description" placeholder="Ej.: Boquilla 0.4 mm de acero endurecido" />
         </pp-field>
         <pp-field label="Fecha de instalación" [required]="true" [error]="dateError()">
-          <input type="date" formControlName="installedOn" />
+          <input type="date" formControlName="installedOn" [max]="today" />
         </pp-field>
         <pp-field label="Horas de la impresora al instalar" [required]="true" hint="Por defecto, las horas acumuladas de hoy." [error]="hoursError()">
           <input type="number" min="0" step="any" formControlName="hoursAtInstall" inputmode="decimal" />
@@ -56,6 +56,7 @@ export class ComponentForm {
   readonly saved = output<void>();
   readonly cancelled = output<void>();
 
+  protected readonly today = todayLocal();
   protected readonly kinds = COMPONENT_KINDS;
   protected readonly labels = COMPONENT_LABELS;
   protected readonly saving = signal(false);
@@ -64,8 +65,12 @@ export class ComponentForm {
   protected readonly form = new FormGroup({
     kind: new FormControl<ComponentKind>('nozzle', { nonNullable: true }),
     description: new FormControl('', { nonNullable: true }),
-    installedOn: new FormControl(todayLocal(), { nonNullable: true, validators: [Validators.required] }),
-    hoursAtInstall: new FormControl<number | null>(null, [Validators.required, Validators.min(0)]),
+    installedOn: new FormControl(todayLocal(), { nonNullable: true, validators: [Validators.required, notInFuture] }),
+    hoursAtInstall: new FormControl<number | null>(null, [
+      Validators.required,
+      Validators.min(0),
+      Validators.max(PRINTER_LIMITS.hours),
+    ]),
   });
 
   ngOnInit(): void {
@@ -73,19 +78,24 @@ export class ComponentForm {
   }
 
   protected dateError(): string | null {
-    return errorOf(this.form.controls.installedOn, { required: 'Indica la fecha de instalación.' });
+    return errorOf(this.form.controls.installedOn, {
+      required: 'Indica la fecha de instalación.',
+      future: 'Se registra lo que ya se instaló: la fecha no puede ser futura.',
+    });
   }
 
   protected hoursError(): string | null {
     return errorOf(this.form.controls.hoursAtInstall, {
       required: 'Indica las horas de la impresora.',
       min: 'Las horas no pueden ser negativas.',
+      max: 'No puede pasar de 99,999,999.99 horas.',
     });
   }
 
   protected async submit(): Promise<void> {
+    if (this.saving()) return;
     this.form.markAllAsTouched();
-    if (this.form.invalid || this.saving()) return;
+    if (this.form.invalid) return;
 
     const value = this.form.getRawValue();
     this.saving.set(true);

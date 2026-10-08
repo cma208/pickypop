@@ -1,12 +1,17 @@
 import { Component, inject, input, output, signal } from '@angular/core';
 import { Badge, Empty } from '../../ui';
-import { friendlyError } from '../../core/friendly-error';
+import { friendlyError, isPermissionError } from '../../core/friendly-error';
 import { SECTION_STYLES } from '../../core/styles';
+import { CurrentWorkspace } from '../../core/workspace';
 import { ImpresorasData } from './impresoras.data';
 import type { PlanRecord } from './impresoras.models';
 import { PlanForm } from './plan-form';
 
-/** The maintenance plans of one printer: create, edit, activate or pause. */
+/**
+ * The maintenance plans of one printer: create, edit, activate or pause. What
+ * is checked and how often is part of the printer's configuration, so only
+ * the owner changes it (ADR-025); anyone who operates logs the work.
+ */
 @Component({
   selector: 'app-plans-tab',
   imports: [Badge, Empty, PlanForm],
@@ -14,7 +19,7 @@ import { PlanForm } from './plan-form';
   template: `
     <div class="toolbar">
       <span class="grow muted">Cada plan define una tarea y cada cuánto toca.</span>
-      @if (!formOpen()) {
+      @if (isOwner() && !formOpen()) {
         <button type="button" (click)="openForm(null)">Nuevo plan</button>
       }
     </div>
@@ -48,12 +53,14 @@ import { PlanForm } from './plan-form';
             @if (plan.checklist.length > 0) {
               <p class="muted">Lista de verificación: {{ plan.checklist.length }} pasos.</p>
             }
-            <div class="actions">
-              <button type="button" class="secondary" (click)="openForm(plan)">Editar</button>
-              <button type="button" class="ghost" [disabled]="busy()" (click)="toggleActive(plan)">
-                {{ plan.active ? 'Pausar' : 'Activar' }}
-              </button>
-            </div>
+            @if (isOwner()) {
+              <div class="actions">
+                <button type="button" class="secondary" (click)="openForm(plan)">Editar</button>
+                <button type="button" class="ghost" [disabled]="busy()" (click)="toggleActive(plan)">
+                  {{ plan.active ? 'Pausar' : 'Activar' }}
+                </button>
+              </div>
+            }
           </li>
         }
       </ul>
@@ -62,6 +69,8 @@ import { PlanForm } from './plan-form';
 })
 export class PlansTab {
   private readonly data = inject(ImpresorasData);
+  private readonly workspace = inject(CurrentWorkspace);
+  protected readonly isOwner = this.workspace.isOwner;
 
   readonly printerId = input.required<string>();
   readonly plans = input.required<PlanRecord[]>();
@@ -97,6 +106,7 @@ export class PlansTab {
   }
 
   protected async toggleActive(plan: PlanRecord): Promise<void> {
+    if (this.busy()) return;
     this.busy.set(true);
     this.error.set(null);
     try {
@@ -104,6 +114,7 @@ export class PlansTab {
       this.changed.emit();
     } catch (error) {
       this.error.set(friendlyError(error, 'No pudimos cambiar el estado del plan.'));
+      if (isPermissionError(error)) await this.workspace.refresh().catch(() => undefined);
     } finally {
       this.busy.set(false);
     }

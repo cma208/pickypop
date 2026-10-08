@@ -1,11 +1,11 @@
 import { Component, inject, input, output, signal } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Field } from '../../ui';
-import { atLeastOneOf, errorOf, textOrNull } from '../../core/form-errors';
+import { atLeastOneOf, errorOf, requiredText, textOrNull, wholeNumber } from '../../core/form-errors';
 import { friendlyError } from '../../core/friendly-error';
 import { SECTION_STYLES } from '../../core/styles';
 import { ImpresorasData } from './impresoras.data';
-import type { PlanRecord } from './impresoras.models';
+import { PRINTER_LIMITS, type PlanRecord } from './impresoras.models';
 
 /** Create or edit a maintenance plan: task, triggers and checklist. */
 @Component({
@@ -21,10 +21,10 @@ import type { PlanRecord } from './impresoras.models';
       </pp-field>
 
       <div class="grid two">
-        <pp-field label="Cada cuántas horas" hint="Horas de impresión. Vacío si solo cuenta por días.">
+        <pp-field label="Cada cuántas horas" hint="Horas de impresión. Vacío si solo cuenta por días." [error]="hoursError()">
           <input type="number" min="0" step="any" formControlName="everyHours" inputmode="decimal" />
         </pp-field>
-        <pp-field label="Cada cuántos días" hint="Días calendario. Vacío si solo cuenta por horas.">
+        <pp-field label="Cada cuántos días" hint="Días calendario. Vacío si solo cuenta por horas." [error]="daysError()">
           <input type="number" min="1" step="1" formControlName="everyDays" inputmode="numeric" />
         </pp-field>
       </div>
@@ -64,9 +64,13 @@ export class PlanForm {
 
   protected readonly form = new FormGroup(
     {
-      task: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
-      everyHours: new FormControl<number | null>(null, [Validators.min(0.01)]),
-      everyDays: new FormControl<number | null>(null, [Validators.min(1)]),
+      task: new FormControl('', { nonNullable: true, validators: [requiredText] }),
+      everyHours: new FormControl<number | null>(null, [Validators.min(0.01), Validators.max(PRINTER_LIMITS.hours)]),
+      everyDays: new FormControl<number | null>(null, [
+        Validators.min(1),
+        wholeNumber,
+        Validators.max(PRINTER_LIMITS.everyDays),
+      ]),
       checklist: new FormControl('', { nonNullable: true }),
       active: new FormControl(true, { nonNullable: true }),
     },
@@ -89,6 +93,21 @@ export class PlanForm {
     return errorOf(this.form.controls.task, { required: 'Escribe qué hay que hacer.' });
   }
 
+  protected hoursError(): string | null {
+    return errorOf(this.form.controls.everyHours, {
+      min: 'Debe ser mayor que 0.',
+      max: 'No puede pasar de 99,999,999.99 horas.',
+    });
+  }
+
+  protected daysError(): string | null {
+    return errorOf(this.form.controls.everyDays, {
+      min: 'Debe ser al menos 1 día.',
+      integer: 'Escribe los días sin decimales.',
+      max: 'No puede pasar de 10 años (3650 días).',
+    });
+  }
+
   protected triggerError(): string | null {
     const touched = this.form.controls.everyHours.touched || this.form.controls.everyDays.touched;
     return touched && this.form.errors?.['trigger']
@@ -97,8 +116,9 @@ export class PlanForm {
   }
 
   protected async submit(): Promise<void> {
+    if (this.saving()) return;
     this.form.markAllAsTouched();
-    if (this.form.invalid || this.saving()) return;
+    if (this.form.invalid) return;
 
     const value = this.form.getRawValue();
     this.saving.set(true);

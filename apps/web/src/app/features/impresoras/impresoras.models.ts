@@ -1,6 +1,23 @@
 import type { Database } from '../../core/database.types';
 
 export type PrinterState = Database['public']['Enums']['printer_status'];
+
+/**
+ * The most each field can hold, so a typo gets a message next to the field
+ * instead of a database overflow (T1-18). Columns: power numeric(8, 2), hours
+ * numeric(10, 2), money numeric(12, 2). The rest are what makes sense in a
+ * workshop: a year has 8784 hours at most, a maintenance takes less than a
+ * day, a printer is not down for more than a year in one incident.
+ */
+export const PRINTER_LIMITS = {
+  powerW: 999_999.99,
+  hours: 99_999_999.99,
+  hoursPerYear: 8784,
+  money: 9_999_999_999.99,
+  maintenanceMinutes: 1440,
+  downtimeMinutes: 525_600,
+  everyDays: 3650,
+} as const;
 export type ComponentKind = Database['public']['Enums']['component_kind'];
 type JobStatus = Database['public']['Enums']['print_job_status'];
 

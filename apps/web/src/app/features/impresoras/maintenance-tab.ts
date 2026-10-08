@@ -1,6 +1,7 @@
-import { Component, computed, input, output, signal } from '@angular/core';
+import { Component, computed, inject, input, output, signal } from '@angular/core';
 import { Badge, Empty, FORMAT_PIPES } from '../../ui';
 import { SECTION_STYLES } from '../../core/styles';
+import { CurrentWorkspace } from '../../core/workspace';
 import type { LogRecord, PlanRecord, PrinterRecord } from './impresoras.models';
 import { LogForm } from './log-form';
 import { DUE_LABELS, DUE_TONES, needsAttention, type DueStatus } from './maintenance-due';
@@ -27,7 +28,7 @@ const HISTORY_LIMIT = 10;
   template: `
     <div class="toolbar">
       <span class="grow muted">{{ attentionSummary() }}</span>
-      @if (!formOpen()) {
+      @if (canOperate() && !formOpen()) {
         <button type="button" (click)="openForm(null)">Registrar mantenimiento</button>
       }
     </div>
@@ -45,7 +46,9 @@ const HISTORY_LIMIT = 10;
 
     <h3>Qué toca ahora</h3>
     @if (statuses().length === 0) {
-      <pp-empty message="No hay planes activos. Crea uno en la pestaña «Planes»." />
+      <pp-empty
+        [message]="isOwner() ? 'No hay planes activos. Crea uno en la pestaña «Planes».' : 'No hay planes activos. Los crea el dueño del taller en la pestaña «Planes».'"
+      />
     } @else {
       <ul class="items">
         @for (status of statuses(); track status.plan.id) {
@@ -58,11 +61,13 @@ const HISTORY_LIMIT = 10;
             <p class="muted">
               @if (status.lastDoneAt) { Última vez: {{ status.lastDoneAt | fecha }} } @else { Nunca registrado }
             </p>
-            <div class="actions">
-              <button type="button" [class.secondary]="status.state === 'ok'" (click)="openForm(status.plan.id)">
-                Registrar
-              </button>
-            </div>
+            @if (canOperate()) {
+              <div class="actions">
+                <button type="button" [class.secondary]="status.state === 'ok'" (click)="openForm(status.plan.id)">
+                  Registrar
+                </button>
+              </div>
+            }
           </li>
         }
       </ul>
@@ -113,6 +118,10 @@ export class MaintenanceTab {
   readonly logs = input.required<LogRecord[]>();
   readonly changed = output<void>();
 
+  private readonly workspace = inject(CurrentWorkspace);
+  /** Logging the work is the day to day; creating plans is the owner's. */
+  protected readonly canOperate = this.workspace.canOperate;
+  protected readonly isOwner = this.workspace.isOwner;
   protected readonly tones = DUE_TONES;
   protected readonly labels = DUE_LABELS;
   protected readonly formOpen = signal(false);

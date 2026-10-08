@@ -3,11 +3,11 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Field } from '../../ui';
 import { inputToIso, nowForInput } from '../../core/dates';
-import { errorOf, textOrNull } from '../../core/form-errors';
+import { errorOf, notInFuture, textOrNull, wholeNumber } from '../../core/form-errors';
 import { friendlyError } from '../../core/friendly-error';
 import { SECTION_STYLES } from '../../core/styles';
 import { ImpresorasData } from './impresoras.data';
-import type { LogDraft, PlanRecord } from './impresoras.models';
+import { PRINTER_LIMITS, type LogDraft, type PlanRecord } from './impresoras.models';
 
 const NO_PLAN = '';
 const HOURS_PRECISION = 100;
@@ -52,10 +52,10 @@ export function composeLogContent(
         <pp-field label="Horas de la impresora" [required]="true" hint="Lo que marca la máquina hoy. Por defecto, las horas acumuladas." [error]="hoursError()">
           <input type="number" min="0" step="any" formControlName="printerHours" inputmode="decimal" />
         </pp-field>
-        <pp-field label="Duración (minutos)">
+        <pp-field label="Duración (minutos)" [error]="durationError()">
           <input type="number" min="0" step="1" formControlName="durationMin" inputmode="numeric" />
         </pp-field>
-        <pp-field label="Costo (S/)" hint="Repuestos u otros gastos. 0 si no hubo.">
+        <pp-field label="Costo (S/)" hint="Repuestos u otros gastos. 0 si no hubo." [error]="costError()">
           <input type="number" min="0" step="0.01" formControlName="cost" inputmode="decimal" />
         </pp-field>
       </div>
@@ -103,10 +103,18 @@ export class LogForm {
 
   protected readonly form = new FormGroup({
     planId: new FormControl(NO_PLAN, { nonNullable: true }),
-    performedAt: new FormControl(nowForInput(), { nonNullable: true, validators: [Validators.required] }),
-    printerHours: new FormControl<number | null>(null, [Validators.required, Validators.min(0)]),
-    durationMin: new FormControl<number | null>(null, [Validators.min(0)]),
-    cost: new FormControl<number | null>(0, [Validators.min(0)]),
+    performedAt: new FormControl(nowForInput(), { nonNullable: true, validators: [Validators.required, notInFuture] }),
+    printerHours: new FormControl<number | null>(null, [
+      Validators.required,
+      Validators.min(0),
+      Validators.max(PRINTER_LIMITS.hours),
+    ]),
+    durationMin: new FormControl<number | null>(null, [
+      Validators.min(0),
+      wholeNumber,
+      Validators.max(PRINTER_LIMITS.maintenanceMinutes),
+    ]),
+    cost: new FormControl<number | null>(0, [Validators.min(0), Validators.max(PRINTER_LIMITS.money)]),
     note: new FormControl('', { nonNullable: true }),
   });
 
@@ -128,19 +136,39 @@ export class LogForm {
   }
 
   protected dateError(): string | null {
-    return errorOf(this.form.controls.performedAt, { required: 'Indica cuándo se hizo.' });
+    return errorOf(this.form.controls.performedAt, {
+      required: 'Indica cuándo se hizo.',
+      future: 'Se registra lo que ya se hizo: la fecha no puede ser futura.',
+    });
+  }
+
+  protected durationError(): string | null {
+    return errorOf(this.form.controls.durationMin, {
+      min: 'La duración no puede ser negativa.',
+      integer: 'Escribe los minutos sin decimales.',
+      max: 'Un mantenimiento no dura más de 24 horas (1440 minutos).',
+    });
+  }
+
+  protected costError(): string | null {
+    return errorOf(this.form.controls.cost, {
+      min: 'El costo no puede ser negativo.',
+      max: 'No puede pasar de S/ 9,999,999,999.99.',
+    });
   }
 
   protected hoursError(): string | null {
     return errorOf(this.form.controls.printerHours, {
       required: 'Indica las horas de la impresora.',
       min: 'Las horas no pueden ser negativas.',
+      max: 'No puede pasar de 99,999,999.99 horas.',
     });
   }
 
   protected async submit(): Promise<void> {
+    if (this.saving()) return;
     this.form.markAllAsTouched();
-    if (this.form.invalid || this.saving()) return;
+    if (this.form.invalid) return;
 
     const value = this.form.getRawValue();
     this.saving.set(true);
