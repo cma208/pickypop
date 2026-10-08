@@ -476,7 +476,9 @@ begin
      and l.order_id = p_order_id
      and l.variant_id is not null
      and s.pending = 0
-     and j.status in ('planned', 'printing');
+     and j.status in ('planned', 'printing')
+     -- Running as its owner, it sees every workshop: only this one's prints.
+     and j.workspace_id = v_order.workspace_id;
 
   -- Nothing left to deliver: the order is delivered. A partial delivery leaves
   -- the order where it was.

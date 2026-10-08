@@ -28,8 +28,11 @@
 -- hoy está agotado.
 --
 -- Y una cosa más, que estos disparadores pueden ver y la seguridad por fila
--- no: un rollo de otro taller atado a un trabajo se rechaza (la llave foránea
--- solo dice que el rollo existe).
+-- no: un rollo de otro taller atado a un trabajo se rechaza, y también la
+-- fila de un taller atada al trabajo de otro (la llave foránea solo dice que
+-- el rollo y el trabajo existen). `complete_print_job` corre como su dueño
+-- desde 20261027100000 y escribe todos los rollos de su trabajo: así no
+-- escribe la fila de otro taller.
 
 -- ------------------------------------------------------- qué hacer con él
 
@@ -64,6 +67,15 @@ declare
   v_spool public.spools;
   v_code text;
 begin
+  -- The row, the job and the roll are of one workshop. complete_print_job
+  -- runs as its owner and writes every roll of its job.
+  if exists (
+    select 1 from public.print_jobs j
+    where j.id = new.print_job_id and j.workspace_id <> new.workspace_id
+  ) then
+    raise exception 'Ese trabajo es de otro taller: sus rollos no se cambian desde aquí. Recarga la página.';
+  end if;
+
   select * into v_spool from public.spools s where s.id = new.spool_id;
   if not found then
     -- The foreign key says it.

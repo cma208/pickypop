@@ -787,6 +787,15 @@ begin
     perform pg_temp.fail('Un movimiento de stock sobre la pieza de otro taller: pasó');
   exception when sqlstate 'P0001' then null;
   end;
+  -- Ni un rollo de un taller atado al trabajo de otro: cerrar ese trabajo
+  -- corre como su dueño y escribe todos sus rollos.
+  begin
+    insert into public.print_job_filaments (workspace_id, print_job_id, spool_id, estimated_g)
+    values ('00000000-7e57-4000-8000-000000000002', '00000000-7e57-4000-8000-000000000481',
+            '00000000-7e57-4000-8000-000000000451', 5);
+    perform pg_temp.fail('Un rollo de otro taller atado a un trabajo: pasó');
+  exception when sqlstate 'P0001' then null;
+  end;
 end;
 $$;
 
