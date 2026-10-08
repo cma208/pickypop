@@ -31,12 +31,19 @@
 --      more than what is left to pay. The rules of `record_payment` and
 --      `record_purchase_payment`, repeated for whatever skips them. Both
 --      lock the row first, as those functions do.
+--    * A refund never leaves a sale to «Clientes varios» owing: no screen
+--      writes refunds, but the API could, and the debt would land in «Por
+--      cobrar» in the name of nobody (T5-05, ADR-024).
 -- 2. A movement written is never edited (`app.guard_ledger_change`). The only
 --    change is voiding it, once, by the owner, with a reason. It cannot be
 --    voided twice nor revived. And the collection of a quick sale to
 --    «Clientes varios» is not voided: «Clientes varios» never owes (T5-05,
---    ADR-024).
--- 3. A movement is never deleted (`app.ledger_is_never_deleted`).
+--    ADR-024). The refusal says what to do instead: a transfer when the money
+--    went to another account, an expense when it never came. Voiding a refund
+--    does not leave its order collected beyond its total either.
+-- 3. A movement is never deleted (`app.ledger_is_never_deleted`), while its
+--    workshop exists: a whole workshop removed takes its book with it, like
+--    the stock movements and the catalogue (20261025170000).
 -- 4. Voiding goes through `void_transaction`, for the owner only, which says
 --    in words why it cannot when it cannot (T5-10, T1-21).
 --
@@ -79,6 +86,7 @@ declare
   v_counter public.accounts;
   v_category public.transaction_categories;
   v_order public.orders;
+  v_walk_in text;
   v_paid numeric;
   v_total numeric;
 begin
@@ -166,9 +174,22 @@ begin
           to_char(v_order.total - v_paid, 'FM999999999990.00'),
           to_char(new.amount, 'FM999999999990.00');
       end if;
-    elsif new.type = 'expense' and new.amount > v_paid then
-      raise exception 'La devolución del pedido % (S/ %) pasa de lo que se le cobró (S/ %).',
-        v_order.number, to_char(new.amount, 'FM999999999990.00'), to_char(v_paid, 'FM999999999990.00');
+    elsif new.type = 'expense' then
+      if new.amount > v_paid then
+        raise exception 'La devolución del pedido % (S/ %) pasa de lo que se le cobró (S/ %).',
+          v_order.number, to_char(new.amount, 'FM999999999990.00'), to_char(v_paid, 'FM999999999990.00');
+      end if;
+      -- «Clientes varios» pays on the spot and never owes (ADR-024): a refund
+      -- against its sale would put the order back in «Por cobrar», in the
+      -- name of nobody, which is what refusing to void its collection avoids.
+      select c.name into v_walk_in
+      from public.customers c
+      where c.id = v_order.customer_id and c.walk_in;
+      if found and v_order.total > v_paid - new.amount then
+        raise exception 'El pedido % es una venta a «%», que se paga en el acto y nunca debe: con esta devolución quedaría debiendo S/ % a nombre de nadie. Si le devolviste dinero al cliente, regístralo como un egreso sin pedido, con el motivo en la nota.',
+          v_order.number, v_walk_in,
+          to_char(v_order.total - (v_paid - new.amount), 'FM999999999990.00');
+      end if;
     end if;
   end if;
 
@@ -216,6 +237,7 @@ declare
   c_voiding constant text[] := array['voided_at', 'void_reason', 'voided_by', 'updated_at', 'expected_direction'];
   v_order record;
   v_left numeric;
+  v_paid_after numeric;
 begin
   if auth.uid() is null then
     return new;
@@ -252,18 +274,40 @@ begin
     raise exception 'Escribe el motivo de la anulación: queda en el registro.';
   end if;
 
-  if new.type = 'income' and new.order_id is not null then
-    select o.number, o.total, c.name as customer_name into v_order
+  if new.order_id is not null and new.type in ('income', 'expense') then
+    -- Locked like a collection locks it: a collection and a voiding of the
+    -- same order at once would each see the other's money.
+    select o.number, o.total, c.name as customer_name, coalesce(c.walk_in, false) as walk_in,
+           a.name as account_name
+      into v_order
     from public.orders o
-    join public.customers c on c.id = o.customer_id and c.walk_in
-    where o.id = new.order_id;
+    left join public.customers c on c.id = o.customer_id
+    join public.accounts a on a.id = new.account_id
+    where o.id = new.order_id
+    for update of o;
 
-    if found then
-      v_left := v_order.total - (app.order_amount_paid(new.order_id) - new.amount);
+    -- What the order will have collected once this one stops counting.
+    v_paid_after := app.order_amount_paid(new.order_id)
+      - case new.type when 'income' then new.amount else -new.amount end;
+
+    -- Both ways out are said, because both happen: the money went to another
+    -- account, or it never came (a Yape that did not go through, a forged
+    -- note). The sale did happen and the goods left: what is corrected is
+    -- where the money is, or that it is not anywhere.
+    if new.type = 'income' and v_order.walk_in then
+      v_left := v_order.total - v_paid_after;
       if v_left > 0 then
-        raise exception 'Este cobro es de %, una venta a «%», que se paga en el acto y nunca debe: anulado, el pedido quedaría debiendo S/ % a nombre de nadie. Si el dinero entró en otra cuenta, corrígelo con una transferencia entre cuentas.',
-          v_order.number, v_order.customer_name, to_char(v_left, 'FM999999999990.00');
+        raise exception 'Este cobro es de %, una venta a «%», que se paga en el acto y nunca debe: anulado, el pedido quedaría debiendo S/ % a nombre de nadie, así que no se anula. Si el dinero entró en otra cuenta, regístralo como una transferencia de % a esa cuenta. Si nunca llegó (un Yape que no entró, un billete falso), registra un egreso de S/ % en %: la venta queda hecha y lo que no llegó queda como pérdida.',
+          v_order.number, v_order.customer_name, to_char(v_left, 'FM999999999990.00'),
+          v_order.account_name, to_char(new.amount, 'FM999999999990.00'), v_order.account_name;
       end if;
+    end if;
+
+    -- A refund voided counts as collected again: never beyond the total, the
+    -- rule every collection already meets.
+    if new.type = 'expense' and v_paid_after > v_order.total then
+      raise exception 'Anulada esta devolución, el pedido % quedaría cobrado de más: el total es S/ % y contaría S/ % cobrados. Si la devolución nunca se hizo, anula antes el cobro que la reemplazó.',
+        v_order.number, to_char(v_order.total, 'FM999999999990.00'), to_char(v_paid_after, 'FM999999999990.00');
     end if;
   end if;
 
@@ -283,7 +327,10 @@ returns trigger
 language plpgsql
 as $$
 begin
-  if auth.uid() is not null then
+  -- A whole workshop removed takes its book with it: when the cascade gets
+  -- here the workshop is already gone, and there is nothing left to explain.
+  if auth.uid() is not null
+     and exists (select 1 from public.workspaces w where w.id = old.workspace_id) then
     raise exception 'Un movimiento de dinero no se borra: se anula, con su motivo, y queda en el registro.';
   end if;
   return old;
