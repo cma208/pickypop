@@ -78,7 +78,7 @@
 
 | Tabla | Columnas clave |
 |---|---|
-| `customers` | kind (`person`, `company`), name, doc_type (`dni`, `ruc`, `ce`, `none`), doc_number, phone, email, notes |
+| `customers` | kind (`person`, `company`), name, doc_type (`dni`, `ruc`, `ce`, `none`), doc_number, phone, email, notes, **walk_in** (el «Cliente al paso» de las ventas rápidas sin nombre: uno por taller, por índice único; lo crea `app.walk_in_customer` con la primera y se puede renombrar, ADR-024) |
 | `sales_channels` | name, commission_rate |
 | `quote_requests` | channel_id, contact, description, attachments, status (`new`, `awaiting_slicing`, `quoted`, `discarded`), quote_id |
 | `quotes` | number, version, parent_quote_id, customer_id, channel_id, status, valid_until, cost_profile_snapshot (jsonb), subtotal, discount, tax, total, **held_at** (cuándo separó: su lugar en la fila), **hold_until** (hasta cuándo separa). El separo nace al enviarla y termina al cerrarla (ADR-021) |
@@ -119,7 +119,7 @@
 | *vista* `account_balances` | Saldo por cuenta: el de apertura más lo que se movió desde su fecha. Lo anterior ya está dentro del saldo de apertura: no lo cambia y se cuenta aparte (`movements_before_opening`, `net_before_opening`) |
 | *vista* `order_payment_summary` | Total, cobrado y saldo por pedido de venta |
 | *vista* `receivables` | Órdenes entregadas con saldo pendiente |
-| *vista* `monthly_income_statement` | Ventas, costo de ventas, gastos, producción no vendida y utilidad por mes, en la hora del taller. La producción no vendida incluye los moldes, herramientas y pruebas con sus intentos fallidos. Aparte, las impresiones fallidas de producción sobre lo impreso para producir (`print_cost`, sin moldes, herramientas ni pruebas) contra la reserva por fallos (ADR-023) |
+| *vista* `monthly_income_statement` | Ventas, costo de ventas, gastos, producción no vendida, otros ingresos y utilidad por mes, en la hora del taller. La producción no vendida incluye los moldes, herramientas y pruebas con sus intentos fallidos. **Los otros ingresos** (`other_income`: ingresos de Caja que no cobran un pedido, como un reembolso) **suman a la utilidad neta** en su propia línea desde `20261019110000_other_income_in_net_profit.sql` (E5-01, ADR-024). Aparte, las impresiones fallidas de producción sobre lo impreso para producir (`print_cost`, sin moldes, herramientas ni pruebas) contra la reserva por fallos (ADR-023) |
 
 Construido el 2026-10-04 (migración `20261004130000_finance.sql`). Las reglas de este módulo están en [ADR-014](05-decisiones.md): el saldo se deriva, la transferencia es **una** fila con dos cuentas, nada se borra sino que se anula con motivo, y `orders.payment_status` es una proyección que recalcula un disparador y que la aplicación nunca escribe. Queda fuera `documents` (boletas y facturas): el taller todavía no tiene RUC.
 
@@ -203,6 +203,7 @@ Estas operaciones escriben en varias tablas y deben hacerlo **todo o nada**. Ser
 | `accept_quote` | `quotes` (estado y fin del separo), `orders`, `order_lines`, `order_status_history`. El pedido hereda el lugar del separo si seguía vigente (`priority_at = held_at`); si no, va al final. Copia cliente, canal, oportunidad y las líneas (las a medida, sin variante). Rechaza la cotización que ya tiene pedido, en cualquiera de sus versiones |
 | `complete_print_job` | `print_jobs`, `print_job_filaments`, `stock_movements` (consumo o merma; y, si salió bien, las piezas que salieron como `production`, con el costo de la placa repartido por igual entre todas las unidades). Rechaza una pieza que la placa no da o más de las que da |
 | `deliver_order` | `order_deliveries`, `order_delivery_lines`, `stock_movements` (`delivery`), estado del pedido. Todo o nada: si falta algo no mueve nada y dice qué falta. Lo que se arma saca el producto terminado; lo que no, sus piezas y su empaque |
+| `quick_sale` | La **Venta rápida** (ADR-024): `document_counters`, `customers` (el nuevo, o el «Cliente al paso» la primera vez), `orders`, `order_lines`, `order_status_history` (los dos pasos con «Venta rápida.»), y lo que escriben `deliver_order` y `record_payment`, que llama en vez de repetir. Recibe las líneas con su precio y su costo estimado (obligatorio, cero incluido), el cliente o un nombre y teléfono, la cuenta, el medio, el monto cobrado (cero es «me paga después») y la fecha (nula es ahora; no futura). Todo o nada: lo que no alcanza, un cobro mayor al total o una cuenta desactivada se rechazan con su `P0001` y no queda nada. No sabe qué está separado: eso lo dice el plan, en la pantalla |
 | `count_shelf` | `stock_movements` (origen `shelf_count`: lo que sobra como `production`, lo que falta como `adjustment`), `inventory_items` (el producto terminado de una variante que nunca se armó). Todo o nada; pide costo para lo que entra sin uno conocido |
 | `planning_snapshot` | Nada: lee. Devuelve en una sola instantánea todo lo que necesita `plan` (`PlanInput`, `packages/domain/src/plan-types.ts`) |
 | `set_quote_hold`, `set_order_hold` | `quotes.hold_until` o `orders.hold_until`. Un momento pasado es «soltar ya»; volver a separar algo vencido lo manda al final de la fila |
@@ -213,6 +214,6 @@ Estas operaciones escriben en varias tablas y deben hacerlo **todo o nada**. Ser
 | `cancel_order` | Estado de la orden, liberación de reservas, reembolso si corresponde |
 | `assemble_product` | `stock_movements` (consumo de piezas, insumos y empaque). **Todo o nada:** si falta un componente no mueve nada y lanza un `P0001` con qué falta y cuánto, que la pantalla muestra tal cual. Rechaza una receta vacía y un producto que no se arma, y bloquea lo que va a consumir |
 
-Escritas hasta hoy: `complete_print_job`, `record_payment`, `record_purchase_payment`, `assemble_product`, `deliver_order`, `count_shelf`, `accept_quote`, `set_quote_hold`, `set_order_hold` y `prioritize_order`. Faltan `register_purchase`, `log_maintenance` y `cancel_order`.
+Escritas hasta hoy: `complete_print_job`, `record_payment`, `record_purchase_payment`, `assemble_product`, `deliver_order`, `quick_sale`, `count_shelf`, `accept_quote`, `set_quote_hold`, `set_order_hold` y `prioritize_order`. Faltan `register_purchase`, `log_maintenance` y `cancel_order`.
 
 **«Entregado» lo pone la entrega.** Un disparador rechaza pasar un pedido a `delivered` o `closed` a mano mientras quede algo por entregar: el único camino es `deliver_order`, que lo pasa solo cuando ya no queda nada pendiente. Nota: `purchases.account_id` figura en este documento pero nunca se creó, y hace falta si el formulario de compra va a elegir cuenta.

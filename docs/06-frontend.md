@@ -94,6 +94,8 @@ Dos mitades que responden preguntas distintas. Arriba, **Lo que vence**: la cola
 
 El filamento bajo mínimo **no** entra en la cola de arriba: es una condición, no un vencimiento, y repetirlo ahogaría lo que sí caduca. Las partes puras (el texto de cada fila y el orden) viven en `panel.tasks.ts`, con pruebas: "se entregaba ayer" y "se entrega hoy" se diferencian en un día.
 
+Arriba a la derecha, el botón **Venta rápida**: es lo que el taller más hace en el día (ADR-024).
+
 `/panel` redirige aquí.
 
 ### Inventario
@@ -120,14 +122,20 @@ El filamento bajo mínimo **no** entra en la cola de arriba: es una condición, 
 ### Pedidos y producción
 - **Pedidos** (`/pedidos`): lista filtrable por estado y propósito.
 - **Nuevo pedido** (`/pedidos/nuevo`): propósito (venta, uso personal o regalo con su categoría), cliente cuando es venta, líneas con variante, cantidad y precio sugerido por la escalera.
+- **Venta rápida** (`/pedidos/venta-rapida`, con botón en Pedidos y en Hoy; ADR-024): vender lo que está armado en el estante en un solo paso.
+  - **El estante**: cada producto armado con unidades libres, con su foto, su precio de lista y cuántas hay libres. Lo libre sale del plan (`core/plan`, ADR-021), nunca de una cuenta propia; un producto que no se arma o que no tiene nada libre no aparece, y una línea manda lo demás a un pedido normal. Tocar un producto suma una unidad, sin pasar de lo libre.
+  - **La venta**: por línea, cantidad con − y +, precio de la escalera para esa cantidad (editable, con «Usar» para volver al de lista) y el costo del estimador de «Nuevo pedido» con la parte exacta del lote. Los totales salen de `quick-sale.ts`, que usa `totalFor` y `sumMoney` de `core/pricing.ts`, con el precio redondeado como lo guardará la base.
+  - **Cliente**: opcional. Vacío es «Cliente al paso». Nombre y teléfono crean el cliente al vender; si se parecen a uno que ya existe (mismo teléfono, o mismo nombre con otras tildes o mayúsculas), la pantalla ofrece elegirlo.
+  - **Cobro**: lo cobrado sigue al total mientras nadie lo escriba; «Todo» y «Me paga después» son atajos. Con monto, cuenta y medio. La fecha es la de vender salvo que se elija otro día, y avisa si cae antes de la apertura de la cuenta.
+  - **Vender** dice lo que lo detiene antes de pulsarlo (`saleProblem`, con las palabras de la base), vuelve a leer el plan justo antes y llama a `quick_sale`, que hace todo en una transacción. Un rechazo de la base se muestra tal cual; cualquier otro error pide revisar Pedidos antes de repetir, porque la venta pudo quedar guardada. Al terminar, un resumen (pedido con enlace, vendido, cobrado y saldo) y la pantalla lista para la siguiente, con la misma cuenta.
 - **Pedido** (`/pedidos/:id`): detalle, avance de estado, trabajos de impresión asociados, el resumen de estimado contra real, y el **cobro**: total, cobrado, saldo y el formulario que llama a `record_payment`. Cuando la base rechaza un cobro, su mensaje se muestra tal cual, porque ya trae los importes exactos.
 - **Impresiones** (`/produccion`): cola y historial. Crear un trabajo desde una línea de pedido o suelto, iniciarlo, y **cerrarlo** indicando resultado, tiempo real y gramos por rollo. El cierre llama a `complete_print_job`, que descuenta el stock. Si falla, pide la causa.
 
 ### Finanzas
 - **Cuentas** (`/finanzas/cuentas`): caja, banco y billeteras con su saldo de apertura y su saldo actual, que sale de los movimientos. Alta y edición.
-- **Movimientos de dinero** (`/finanzas/movimientos`): el libro, con filtros. Registra los cinco tipos; la transferencia es **un** formulario con dos cuentas, nunca dos registros. Un movimiento se anula con motivo, no se borra.
+- **Movimientos de dinero** (`/finanzas/movimientos`): el libro, con filtros. Registra los cinco tipos; la transferencia es **un** formulario con dos cuentas, nunca dos registros. Un movimiento se anula con motivo, no se borra. Un «Ingreso» es dinero que entra y no es venta ni aporte (un reembolso, la devolución de un proveedor); al elegirlo, el formulario manda las ventas a Pedidos o a la Venta rápida (E5-01).
 - **Por cobrar** (`/finanzas/por-cobrar`): pedidos entregados con saldo pendiente y días de atraso; desde aquí también se cobra.
-- **Resultados** (`/finanzas/resultados`): estado de resultados por mes. Las compras de inventario se informan aparte porque su costo ya llega por el costo de ventas; los aportes y retiros del dueño son capital y no utilidad.
+- **Resultados** (`/finanzas/resultados`): estado de resultados por mes. Las compras de inventario se informan aparte porque su costo ya llega por el costo de ventas; los aportes y retiros del dueño son capital y no utilidad. Los otros ingresos suman a la utilidad neta en su propia columna y su propia línea, así la tabla cuadra: utilidad bruta − gastos − no vendido + otros ingresos = utilidad neta.
 
 ### Resto
 - **Impresoras** (`/impresoras`): fichas con horas acumuladas y hora de máquina, mantenimientos pendientes y vencidos, registrar mantenimiento, historial e incidentes.

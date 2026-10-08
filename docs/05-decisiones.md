@@ -418,6 +418,38 @@ El mes quedaba igual de rentable con o sin ellas. El costo de ventas es el estim
 
 ---
 
+## ADR-024 · Venta rápida, y lo que entra sin ser venta
+
+**Estado:** Aceptada · 2026-10-07 · decisión E5-01 del dueño
+
+**Contexto.** El taller está empezando y trabaja así: primero produce stock (canastitas armadas) y después sale a ofrecerlo a mucha gente. Hacer un pedido completo por cada venta es lento —propósito, cliente, líneas, guardar, entregar, cobrar: tres pantallas—, y en el recorrido desde cero la gente terminaba registrando esas ventas en Caja como «Ingreso». Eso descuadra todo a la vez:
+
+- el producto no sale del estante, y el plan lo sigue ofreciendo a otros pedidos;
+- su costo no se cuenta;
+- Resultados no lo suma a las ventas. Lo dejaba en «Otros ingresos», fuera de la utilidad (E5-01), justamente porque ahí caían ventas sin costo.
+
+**Decisión.**
+
+1. **«Venta rápida»** (`/pedidos/venta-rapida`, con botón en Pedidos y en Hoy) vende lo que está **armado en el estante y libre**, en un solo paso.
+   - Lo libre lo dice el plan (ADR-021): la posición del artículo terminado, sin lo que tienen separado los pedidos y los separos. La pantalla no lo calcula por su cuenta, y lo vuelve a leer justo antes de vender, porque en esos segundos alguien pudo vender o separar la última.
+   - Cada producto aparece con su foto y con cuántos hay libres. Se agrega tocándolo, sin pasar de lo libre. Lo que no está en el estante no aparece: va por un pedido normal, que lo separa y lo manda a producir.
+   - El precio es el de lista con la escalera para esa cantidad (`price_for_quantity`) y se puede cambiar. El costo de cada línea es el del estimador de «Nuevo pedido», con la parte exacta del lote a seis decimales, así Resultados la cuenta igual que cualquier venta.
+   - El cliente es opcional. Sin cliente, la venta queda a nombre de **«Cliente al paso»**, un cliente del taller marcado con `customers.walk_in` (uno por taller): se crea con la primera venta y se reutiliza. Lo marca la columna y no el nombre, así el dueño puede renombrarlo. Con nombre y teléfono se crea el cliente; si se parecen a uno que ya existe (el mismo teléfono, o el mismo nombre escrito de otra forma), la pantalla lo ofrece antes de crear una copia.
+   - Se cobra en el mismo paso: cuenta, medio y monto, que por defecto es el total. Un monto parcial deja el resto en «Por cobrar», y cero es «me paga después». La fecha es la del momento de vender, salvo que se elija otra (las ventas de una feria se anotan de noche), con el aviso de la apertura de la cuenta (E5-02).
+2. **Todo en una sola transacción de la base: `quick_sale`.** Pide el número con `next_document_number`, crea el pedido de venta con sus líneas, lo entrega entero con `deliver_order` y registra el cobro con `record_payment`. No mueve stock ni dinero por su cuenta: el estante solo se mueve por sus flujos (ADR-020) y el cobro tiene una sola regla. Si algo no alcanza, la base lo rechaza con su mensaje (`P0001`) y no queda pedido, número, cliente ni cobro a medias. El pedido llega a «Entregado» porque se entregó: nace «Confirmado» y `deliver_order` lo pasa cuando ya no queda nada pendiente, por los mismos disparadores que cualquier pedido, y el historial dice «Venta rápida.» en los dos pasos.
+3. **«Ingreso» en Caja queda para lo que no es venta ni aporte**: un reembolso, la devolución de un proveedor. Caja lo dice al elegir el tipo, y manda las ventas a Pedidos o a la Venta rápida.
+4. **«Otros ingresos» suma a la utilidad neta**, en su propia línea (`monthly_income_statement.net_profit`, `20261019110000_other_income_in_net_profit.sql`). Con las ventas fuera de Caja, ese dinero es del taller y ya no esconde una venta sin costo.
+
+**Consecuencias.**
+
+- Una venta del estante deja el mismo rastro que un pedido: número, líneas con su costo, entrega con lo que costó lo que salió, cobro en Caja y saldo en «Por cobrar». Se abre, se cobra el resto y se lee en Resultados igual que cualquier otro.
+- La utilidad de los meses con ingresos sueltos en Caja sube por lo que esos ingresos traen. Si alguno era en realidad una venta, hay que anularlo en Caja, con su motivo, y registrarla por la Venta rápida con su fecha: así sale del estante y lleva su costo.
+- `quick_sale` no sabe qué está separado: eso lo dice el plan, que vive en el dominio. Si alguien llama a la función directamente, la base solo rechaza lo que no está en el estante, no lo que está separado para otro.
+- Una receta sin placas no tiene costo estimado (el estimador de pedidos lo devuelve vacío) y la venta lleva costo cero, como en «Nuevo pedido». La pantalla lo avisa en la línea.
+- Lo que no se arma (un kit que se entrega en piezas) no se ofrece en la Venta rápida, aunque la base sabría entregarlo: va por un pedido normal.
+
+---
+
 ## Pendientes
 
 | Tema | Opciones | Comentario |
