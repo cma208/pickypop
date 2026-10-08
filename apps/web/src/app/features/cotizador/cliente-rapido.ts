@@ -6,6 +6,7 @@ import { friendlyError } from '../../core/friendly-error';
 import { Field } from '../../ui';
 import { ClientesData } from '../clientes/clientes.data';
 import { isWalkInName, sameName, WALK_IN_NAME } from '../clientes/customer-match';
+import { CurrentWorkspace } from '../../core/workspace';
 
 /** The customer picker's own option that opens «Nuevo cliente» instead of choosing one. */
 export const NEW_CUSTOMER = '__nuevo__';
@@ -87,6 +88,7 @@ export function watchNewCustomerOption(control: FormControl<string>, open: () =>
 })
 export class ClienteRapido {
   private readonly data = inject(ClientesData);
+  private readonly workspace = inject(CurrentWorkspace);
 
   /** Who is already in the list, to recognise the name being typed. */
   readonly customers = input<readonly QuickCustomer[]>([]);
@@ -142,6 +144,7 @@ export class ClienteRapido {
       this.form.reset();
     } catch (cause) {
       this.failed.set(friendlyError(cause, 'No pudimos crear el cliente. Inténtalo de nuevo.'));
+      void this.workspace.afterRefusal(cause);
     } finally {
       this.busy.set(false);
     }

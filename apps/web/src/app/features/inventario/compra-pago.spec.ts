@@ -3,6 +3,7 @@ import { provideRouter } from '@angular/router';
 import { FinanzasData } from '../finanzas/finanzas.data';
 import { CompraPago } from './compra-pago';
 import { InventarioData, type PaymentAccount, type PurchasePaymentInput, type PurchaseSummary } from './inventario.data';
+import { workspaceAs } from '../../core/workspace.testing';
 
 const PURCHASE: PurchaseSummary = {
   id: 'purchase-1',
@@ -36,6 +37,7 @@ function open(record: () => Promise<void>, options: { accounts?: PaymentAccount[
   TestBed.configureTestingModule({
     providers: [
       provideRouter([]),
+      workspaceAs(options.isOwner ? 'owner' : 'operator'),
       { provide: FinanzasData, useValue: { paymentCategories: async () => ({ order: null, purchase: null }) } },
       {
         provide: InventarioData,
@@ -51,7 +53,6 @@ function open(record: () => Promise<void>, options: { accounts?: PaymentAccount[
   const fixture = TestBed.createComponent(CompraPago);
   fixture.componentRef.setInput('purchase', PURCHASE);
   fixture.componentRef.setInput('accounts', options.accounts ?? [CASH]);
-  fixture.componentRef.setInput('isOwner', options.isOwner ?? false);
   const opened: Opened = { fixture, calls, paid: 0, refused: 0 };
   fixture.componentInstance.paid.subscribe(() => opened.paid++);
   fixture.componentInstance.refused.subscribe(() => opened.refused++);

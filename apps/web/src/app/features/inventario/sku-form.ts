@@ -16,6 +16,7 @@ import {
 import { describeError } from './inventario.errors';
 import { INVENTORY_STYLES } from './inventario.styles';
 import { QuickAdd } from './quick-add';
+import { CurrentWorkspace } from '../../core/workspace';
 
 const DEFAULT_DIAMETER_MM = 1.75;
 const DEFAULT_NET_WEIGHT_G = 1000;
@@ -143,6 +144,7 @@ const TWO_DECIMALS = maxDecimals(ARTICLE_DECIMALS.filament);
 })
 export class SkuForm {
   private readonly data = inject(InventarioData);
+  private readonly workspace = inject(CurrentWorkspace);
   private readonly fb = inject(NonNullableFormBuilder);
 
   readonly sku = input<SkuSummary | null>(null);
@@ -265,6 +267,7 @@ export class SkuForm {
       await this.data.saveSku(this.sku()?.id ?? null, this.toInput());
       this.saved.emit();
     } catch (error) {
+      void this.workspace.afterRefusal(error);
       this.error.set(
         describeError(
           error,

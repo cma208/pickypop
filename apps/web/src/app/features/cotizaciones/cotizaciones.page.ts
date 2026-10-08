@@ -9,6 +9,7 @@ import {
   type QuoteStatus,
   type QuoteSummary,
 } from '../cotizador/cotizador.data';
+import { CurrentWorkspace, READ_ONLY_NOTE } from '../../core/workspace';
 
 type Filter = QuoteStatus | 'all' | 'overdue';
 
@@ -42,9 +43,13 @@ function isOverdue(quote: QuoteSummary, today: string): boolean {
   imports: [RouterLink, Page, Card, Badge, AsyncState, Empty, ...FORMAT_PIPES],
   template: `
     <pp-page title="Cotizaciones" subtitle="Lo que se ha presupuestado y en qué quedó">
-      <div actions>
-        <a class="button" routerLink="/cotizador">+ Nueva cotización</a>
-      </div>
+      @if (canOperate()) {
+        <div actions>
+          <a class="button" routerLink="/cotizador">+ Nueva cotización</a>
+        </div>
+      } @else if (roleKnown()) {
+        <p class="muted">{{ readOnlyNote }}</p>
+      }
 
       <pp-async [loading]="loading()" [error]="error()">
         <pp-card>
@@ -122,6 +127,11 @@ function isOverdue(quote: QuoteSummary, today: string): boolean {
 })
 export class CotizacionesPage {
   private readonly data = inject(CotizadorData);
+  private readonly workspace = inject(CurrentWorkspace);
+  /** Owner and operator sell; a viewer only reads (ADR-025). */
+  protected readonly canOperate = this.workspace.canOperate;
+  protected readonly roleKnown = this.workspace.roleKnown;
+  protected readonly readOnlyNote = READ_ONLY_NOTE;
 
   protected readonly filters = FILTERS;
   protected readonly loading = signal(true);

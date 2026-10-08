@@ -26,6 +26,7 @@ import {
 } from './pedidos.data';
 import { explainError } from './pedidos.errors';
 import { isFinal, PURPOSE_LABEL, PURPOSE_TONE, STATUS_LABEL, STATUS_TONE, type OrderStatus } from './pedidos.labels';
+import { CurrentWorkspace } from '../../core/workspace';
 
 @Component({
   selector: 'app-pedido',
@@ -157,7 +158,7 @@ import { isFinal, PURPOSE_LABEL, PURPOSE_TONE, STATUS_LABEL, STATUS_TONE, type O
                               <!-- «Por lanzar» prints for every order at once (ADR-021): a job
                                    made here would never be tied to this order anyway. -->
                               <a class="button secondary" routerLink="/produccion" [queryParams]="{ pedido: o.id }">Ver qué falta imprimir</a>
-                            } @else if (line.kind === 'custom') {
+                            } @else if (line.kind === 'custom' && canOperate()) {
                               <button type="button" class="secondary" (click)="startJob(line)">Imprimir para este pedido</button>
                             }
                           }
@@ -179,7 +180,7 @@ import { isFinal, PURPOSE_LABEL, PURPOSE_TONE, STATUS_LABEL, STATUS_TONE, type O
               }
             </pp-card>
 
-            @if (jobLine(); as line) {
+            @if (canOperate() && jobLine(); as line) {
               <app-print-job-form [fixedLine]="line" (saved)="onJobSaved()" (cancelled)="jobLine.set(null)" />
             }
 
@@ -240,6 +241,9 @@ export class PedidoPage {
   private readonly orders = inject(PedidosData);
   private readonly planner = inject(PlanService);
   private readonly production = inject(ProduccionData);
+  private readonly workspace = inject(CurrentWorkspace);
+  /** Owner and operator sell, deliver and collect; a viewer only reads (ADR-025). */
+  protected readonly canOperate = this.workspace.canOperate;
 
   private readonly route = inject(ActivatedRoute);
   private readonly params = toSignal(this.route.paramMap, { initialValue: this.route.snapshot.paramMap });
@@ -329,7 +333,7 @@ export class PedidoPage {
    */
   protected readonly primaryAction = computed<HeaderAction | null>(() => {
     const status = this.order()?.status;
-    if (!status || isFinal(status) || status === 'on_hold' || !this.hasPending()) return null;
+    if (!this.canOperate() || !status || isFinal(status) || status === 'on_hold' || !this.hasPending()) return null;
     return { label: 'Entregar' };
   });
 

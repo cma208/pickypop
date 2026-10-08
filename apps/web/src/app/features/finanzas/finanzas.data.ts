@@ -8,11 +8,9 @@ import {
   dayEnd,
   dayStart,
   defaultCategory,
-  financeAccess,
   num,
   type AccountKind,
   type CategoryOption,
-  type FinanceAccess,
   type PaymentMethod,
   type TransactionType,
 } from './finanzas.models';
@@ -158,26 +156,6 @@ export function isRefusal(error: unknown): boolean {
 export class FinanzasData {
   private readonly supabase = inject(SUPABASE);
   private readonly workspace = inject(CurrentWorkspace);
-
-  /**
-   * What the signed-in person may do here: the owner sets up the accounts and
-   * voids, the owner and the operators register and collect (the owner's
-   * decision of 2026-10-08). Read fresh each time, not from the workshop's
-   * cached role: after a refusal the screens ask again, and a role changed in
-   * another tab counts at once instead of at the next sign-in.
-   */
-  async access(): Promise<FinanceAccess> {
-    const { id, userId } = await this.workspace.info();
-    if (!userId) return financeAccess(null);
-    const { data, error } = await this.supabase
-      .from('workspace_members')
-      .select('role')
-      .eq('workspace_id', id)
-      .eq('user_id', userId)
-      .maybeSingle();
-    if (error) throw error;
-    return financeAccess(data?.role);
-  }
 
   // ---------------------------------------------------------------- accounts
 

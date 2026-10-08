@@ -6,6 +6,7 @@ import { explainProductionError } from './production-errors';
 import { ProduccionData, type JobItem, type SpoolOption } from './produccion.data';
 import { rowsForPlate, suggestSpool, type SpoolStatus } from './produccion.spools';
 import { GRAMS_MESSAGE, hundredths, MAX_GRAMS } from './job-grams';
+import { CurrentWorkspace } from '../../core/workspace';
 
 const STATUS_LABEL: Record<SpoolStatus, string> = { in_use: 'en uso', open: 'abierto', sealed: 'sellado' };
 
@@ -69,6 +70,7 @@ function createRollRow(spoolId = '', estimatedG = 0, slot: number | null = null)
 })
 export class PrintJobStart implements OnInit {
   private readonly data = inject(ProduccionData);
+  private readonly workspace = inject(CurrentWorkspace);
 
   readonly job = input.required<JobItem>();
   readonly started = output<void>();
@@ -136,6 +138,7 @@ export class PrintJobStart implements OnInit {
     } catch (error) {
       const message = explainProductionError(error, 'No pudimos iniciar la impresión. Inténtalo de nuevo.');
       this.error.set(message);
+      void this.workspace.afterRefusal(error);
       this.refused.emit(message);
     } finally {
       this.busy.set(false);

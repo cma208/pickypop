@@ -3,7 +3,7 @@ import type { PostgrestError } from '@supabase/supabase-js';
 import { todayLocal } from '../../core/dates';
 import { tiersInForce } from '../../core/workshop';
 import { fetchAll } from '../../core/fetch-all';
-import { friendlyError } from '../../core/friendly-error';
+import { friendlyError, UserFacingError } from '../../core/friendly-error';
 import { SUPABASE } from '../../core/supabase';
 import { CurrentWorkspace, type WorkspaceInfo } from '../../core/workspace';
 import type { Database } from '../../core/database.types';
@@ -283,7 +283,7 @@ export function explain(error: unknown, fallback: string): string {
   const postgrest = error as Partial<PostgrestError> | null;
   const code = postgrest?.code ?? '';
 
-  if (code === 'PGRST301' || code === '42501') {
+  if (code === 'PGRST301') {
     return 'No tienes permiso para hacer esto en este taller.';
   }
   if (code === '23505') return 'Ese documento ya existe. Vuelve a intentarlo.';
@@ -294,10 +294,14 @@ export function explain(error: unknown, fallback: string): string {
   return friendlyError(error, fallback);
 }
 
-export class DataError extends Error {}
+/**
+ * An error already said for a person. It is a `UserFacingError`, with what the
+ * database said as its cause, so `afterRefusal` tells a refusal of the role.
+ */
+export class DataError extends UserFacingError {}
 
 function fail(error: PostgrestError | null, fallback: string): void {
-  if (error !== null) throw new DataError(explain(error, fallback));
+  if (error !== null) throw new DataError(explain(error, fallback), { cause: error });
 }
 
 function parseFilaments(raw: unknown): PlateDraft['filaments'] {
@@ -701,7 +705,7 @@ export class CotizadorData {
         .lte('valid_from', todayLocal());
       return (few ? query.in('variant_id', ids) : query).order('id').range(from, to);
     }).catch((error: unknown) => {
-      throw new DataError(explain(error, 'No pudimos leer la escalera de precios.'));
+      throw new DataError(explain(error, 'No pudimos leer la escalera de precios.'), { cause: error });
     });
 
     return listed

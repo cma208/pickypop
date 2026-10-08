@@ -3,7 +3,7 @@ import { TestBed, type ComponentFixture } from '@angular/core/testing';
 import { ArticlePhotos } from '../../core/article-photos';
 import { Media } from '../../core/media';
 import { PlanService } from '../../core/plan';
-import { ProductionAccess } from '../produccion/production-access';
+import { workspaceAs } from '../../core/workspace.testing';
 import type { CountRow } from './conteo';
 import { ConteoData } from './conteo.data';
 import { ContarPage } from './contar.page';
@@ -27,7 +27,7 @@ function open(canOperate: boolean) {
     providers: [
       { provide: ConteoData, useValue: { rows: async () => [CAP], save } },
       { provide: PlanService, useValue: { invalidate: () => undefined } },
-      { provide: ProductionAccess, useValue: { canOperate: signal(canOperate) } },
+      workspaceAs(canOperate ? 'operator' : 'viewer'),
       { provide: Media, useValue: { url: async () => null, version: signal(0) } },
       { provide: ArticlePhotos, useValue: { resolve: async () => ({ path: null, kind: 'part' }) } },
     ],

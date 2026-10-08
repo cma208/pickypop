@@ -19,6 +19,7 @@ import {
   PAYMENT_STATUS_TONE,
   type PaymentMethod,
 } from './pedidos.labels';
+import { CurrentWorkspace } from '../../core/workspace';
 
 const NO_ACCOUNT = '';
 const NO_METHOD = '';
@@ -59,6 +60,9 @@ const NO_METHOD = '';
         <p class="muted">Esta venta suma {{ 0 | money }}: no hay nada que cobrar.</p>
       } @else if (summary().balance <= 0) {
         <p class="muted">Este pedido está cobrado por completo.</p>
+      } @else if (!canOperate()) {
+        <!-- Collecting is writing: a viewer sees what is owed, not the form (ADR-025). -->
+        <p class="muted">Falta cobrar {{ summary().balance | money }}. Lo cobran el dueño o un operador.</p>
       } @else if (accountsError(); as message) {
         <p class="error" role="alert">{{ message }}</p>
       } @else if (accountsLoading()) {
@@ -126,6 +130,9 @@ const NO_METHOD = '';
 })
 export class PedidoCobro {
   private readonly data = inject(PedidosData);
+  private readonly workspace = inject(CurrentWorkspace);
+  /** Owner and operator sell, deliver and collect; a viewer only reads (ADR-025). */
+  protected readonly canOperate = this.workspace.canOperate;
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
 
   readonly orderId = input.required<string>();
@@ -325,6 +332,7 @@ export class PedidoCobro {
    * stays as it was, and so does its key.
    */
   private async failed(error: unknown): Promise<void> {
+    void this.workspace.afterRefusal(error);
     this.error.set(
       refusedByDatabase(error)
         ? friendlyError(error, 'No pudimos registrar el cobro. Inténtalo de nuevo.')

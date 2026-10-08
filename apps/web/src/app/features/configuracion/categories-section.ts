@@ -7,7 +7,7 @@ import type { CategoryRecord, MovementDirection } from './configuracion.models';
 import { errorOf, requiredText } from '../../core/form-errors';
 import { friendlyError } from '../../core/friendly-error';
 import { SECTION_STYLES } from '../../core/styles';
-import { isOwnerRole } from '../../core/workspace';
+import { CurrentWorkspace } from '../../core/workspace';
 
 const DIRECTION_LABEL: Record<MovementDirection, string> = {
   income: 'Ingreso',
@@ -154,7 +154,9 @@ export class CategoriesSection {
   protected readonly categories = signal<CategoryRecord[]>([]);
   protected readonly loading = signal(true);
   protected readonly loadError = signal<string | null>(null);
-  protected readonly canEdit = signal(false);
+  private readonly workspace = inject(CurrentWorkspace);
+  /** Configuration is the owner's (ADR-025); anyone else reads it. Read from `CurrentWorkspace`, the one place that reads the role. */
+  protected readonly canEdit = this.workspace.isOwner;
   protected readonly formOpen = signal(false);
   protected readonly editing = signal<CategoryRecord | null>(null);
   protected readonly saving = signal(false);
@@ -230,7 +232,7 @@ export class CategoriesSection {
       this.changed.emit();
     } catch (error) {
       this.error.set(friendlyError(error, 'No pudimos guardar la categoría.'));
-      if (await this.data.afterRefusal(error)) {
+      if (await this.workspace.afterRefusal(error)) {
         this.formOpen.set(false);
         this.listError.set(this.error());
         await this.reload();
@@ -258,7 +260,7 @@ export class CategoriesSection {
       this.changed.emit();
     } catch (error) {
       this.listError.set(friendlyError(error, 'No pudimos cambiar el estado de la categoría.'));
-      if (await this.data.afterRefusal(error)) await this.reload();
+      if (await this.workspace.afterRefusal(error)) await this.reload();
     } finally {
       this.saving.set(false);
     }
@@ -267,9 +269,8 @@ export class CategoriesSection {
   /** Read again: choosing the category of collections marks it as one of sales in the database. */
   async reload(): Promise<void> {
     try {
-      const [categories, role] = await Promise.all([this.data.categories(), this.data.currentRole()]);
+      const [categories] = await Promise.all([this.data.categories(), this.workspace.info()]);
       this.categories.set(categories);
-      this.canEdit.set(isOwnerRole(role));
       this.loadError.set(null);
     } catch (error) {
       this.loadError.set(friendlyError(error, 'No pudimos cargar las categorías.'));

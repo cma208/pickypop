@@ -2,11 +2,12 @@ import { Component, computed, effect, inject, input, output, signal, untracked }
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { CatalogoData } from './catalogo.data';
 import type { Lookups, RecipeFilament } from './catalogo.models';
-import { CatalogoPermissions } from './catalogo.permissions';
 import { SHARED_STYLES } from './catalogo.styles';
 import { messageOf } from './catalogo.util';
 import { maxDecimals, wholeNumber } from '../../core/form-errors';
 import { DECIMALS, decimalsText, fieldError, LIMITS, limitText } from './catalogo.validators';
+import { CurrentWorkspace } from '../../core/workspace';
+import { lockWhileReadOnly } from '../../core/read-only';
 
 const DEFAULT_COLOR = '#808080';
 
@@ -43,6 +44,7 @@ const GRAMS_MESSAGES: Record<string, string> = {
     `,
   ],
   template: `
+    @if (filament() || canOperate()) {
     <form [formGroup]="form" (ngSubmit)="save()" novalidate>
       <label>Ranura
         <input type="number" min="1" step="1" inputmode="numeric" formControlName="slot" />
@@ -69,15 +71,17 @@ const GRAMS_MESSAGES: Record<string, string> = {
       <label>Gramos por corrida
         <input type="number" min="0" step="0.01" inputmode="decimal" formControlName="grams" />
       </label>
-      <div class="actions">
-        <button type="submit" [disabled]="busy() || (filament() !== null && form.pristine)"
-          [attr.aria-label]="filament() ? 'Guardar filamento' : 'Agregar filamento'">
-          {{ filament() ? 'Guardar' : 'Agregar' }}
-        </button>
-        @if (filament() && permissions.isOwner()) {
-          <button type="button" class="ghost" [disabled]="busy()" (click)="remove()" aria-label="Quitar filamento">✕</button>
-        }
-      </div>
+      @if (canOperate()) {
+        <div class="actions">
+          <button type="submit" [disabled]="busy() || (filament() !== null && form.pristine)"
+            [attr.aria-label]="filament() ? 'Guardar filamento' : 'Agregar filamento'">
+            {{ filament() ? 'Guardar' : 'Agregar' }}
+          </button>
+          @if (filament() && isOwner()) {
+            <button type="button" class="ghost" [disabled]="busy()" (click)="remove()" aria-label="Quitar filamento">✕</button>
+          }
+        </div>
+      }
       @if (formError(); as message) {
         <p class="err error">{{ message }}</p>
       }
@@ -85,11 +89,16 @@ const GRAMS_MESSAGES: Record<string, string> = {
         <p class="err error" role="alert">{{ message }}</p>
       }
     </form>
+    }
   `,
 })
 export class FilamentoFila {
   private readonly data = inject(CatalogoData);
-  protected readonly permissions = inject(CatalogoPermissions);
+  private readonly workspace = inject(CurrentWorkspace);
+  /** The day to day: owner and operator. A viewer is shown what there is, with nothing to change (ADR-025). */
+  protected readonly canOperate = this.workspace.canOperate;
+  /** Removing is the owner's: the database refuses everyone else (T2-10). */
+  protected readonly isOwner = this.workspace.isOwner;
 
   readonly plateId = input.required<string>();
   readonly filament = input<RecipeFilament | null>(null);
@@ -129,6 +138,7 @@ export class FilamentoFila {
   });
 
   constructor() {
+    lockWhileReadOnly(this.form, this.canOperate);
     effect(() => {
       const filament = this.filament();
       const next = this.nextSlot();
@@ -179,6 +189,7 @@ export class FilamentoFila {
       this.changed.emit();
     } catch (error) {
       this.error.set(messageOf(error, 'No pudimos guardar el filamento.'));
+      void this.workspace.afterRefusal(error);
       // A refusal may come from a tab that is behind: read the recipe again.
       this.changed.emit();
     } finally {
@@ -196,6 +207,7 @@ export class FilamentoFila {
       await this.data.deleteFilament(current.id);
     } catch (error) {
       this.error.set(messageOf(error, 'No pudimos quitar el filamento.'));
+      void this.workspace.afterRefusal(error);
     } finally {
       this.busy.set(false);
     }

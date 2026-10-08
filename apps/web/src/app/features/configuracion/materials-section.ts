@@ -6,7 +6,7 @@ import { ABRASIVE_HELP, HYGROSCOPIC_HELP, MAX_DENSITY, type MaterialRecord } fro
 import { errorOf, requiredText } from '../../core/form-errors';
 import { friendlyError } from '../../core/friendly-error';
 import { SECTION_STYLES } from '../../core/styles';
-import { canOperateRole } from '../../core/workspace';
+import { CurrentWorkspace } from '../../core/workspace';
 
 /**
  * Filament materials and the two properties that drive the drying and nozzle warnings.
@@ -109,7 +109,9 @@ export class MaterialsSection {
   protected readonly materials = signal<MaterialRecord[]>([]);
   protected readonly loading = signal(true);
   protected readonly loadError = signal<string | null>(null);
-  protected readonly canEdit = signal(false);
+  private readonly workspace = inject(CurrentWorkspace);
+  /** Owner and operator keep these lists (ADR-025); a viewer reads them. Read from `CurrentWorkspace`, the one place that reads the role. */
+  protected readonly canEdit = this.workspace.canOperate;
   protected readonly formOpen = signal(false);
   protected readonly editing = signal<MaterialRecord | null>(null);
   protected readonly saving = signal(false);
@@ -172,7 +174,7 @@ export class MaterialsSection {
       await this.reload();
     } catch (error) {
       this.error.set(friendlyError(error, 'No pudimos guardar el material.'));
-      if (await this.data.afterRefusal(error)) {
+      if (await this.workspace.afterRefusal(error)) {
         this.formOpen.set(false);
         this.listError.set(this.error());
         await this.reload();
@@ -199,7 +201,7 @@ export class MaterialsSection {
       await this.reload();
     } catch (error) {
       this.listError.set(friendlyError(error, 'No pudimos cambiar el estado del material.'));
-      if (await this.data.afterRefusal(error)) await this.reload();
+      if (await this.workspace.afterRefusal(error)) await this.reload();
     } finally {
       this.saving.set(false);
     }
@@ -207,9 +209,8 @@ export class MaterialsSection {
 
   private async reload(): Promise<void> {
     try {
-      const [materials, role] = await Promise.all([this.data.materials(), this.data.currentRole()]);
+      const [materials] = await Promise.all([this.data.materials(), this.workspace.info()]);
       this.materials.set(materials);
-      this.canEdit.set(canOperateRole(role));
       this.loadError.set(null);
     } catch (error) {
       this.loadError.set(friendlyError(error, 'No pudimos cargar los materiales.'));

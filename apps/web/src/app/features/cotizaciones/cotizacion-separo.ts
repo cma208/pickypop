@@ -4,6 +4,7 @@ import { Card } from '../../ui';
 import { CotizadorData, DataError, type QuoteStatus } from '../cotizador/cotizador.data';
 import { holdState, holdUntilProblem } from './quote-hold';
 import { PlanService } from '../../core/plan';
+import { CurrentWorkspace } from '../../core/workspace';
 
 /** Often enough for "vence" to turn into "venció" while the page stays open. */
 const CLOCK_TICK_MS = 30_000;
@@ -29,7 +30,9 @@ type Editing = 'change' | 'renew' | 'release' | null;
             <strong>{{ long(holdUntil()!) }}</strong>: lo suelta sola cuando se envíe o se acepte la versión nueva. No se
             alarga.
           </p>
-          @if (editing() === 'release') {
+          @if (!canOperate()) {
+            <!-- A viewer reads the hold; changing it is writing (ADR-025). -->
+          } @else if (editing() === 'release') {
             <div class="ask" role="alert">
               <p>¿Soltar el separo ahora? Lo que aparta queda libre para otros pedidos desde ya.</p>
               <div class="row">
@@ -67,7 +70,10 @@ type Editing = 'change' | 'renew' | 'release' | null;
           }
         }
 
-        @switch (editing()) {
+        @switch (canOperate() ? editing() : 'reading') {
+          @case ('reading') {
+            <!-- A viewer reads the hold; changing it is writing (ADR-025). -->
+          }
           @case ('release') {
             <div class="ask" role="alert">
               <p>
@@ -127,6 +133,9 @@ type Editing = 'change' | 'renew' | 'release' | null;
 })
 export class CotizacionSeparo {
   private readonly data = inject(CotizadorData);
+  private readonly workspace = inject(CurrentWorkspace);
+  /** Owner and operator sell; a viewer only reads (ADR-025). */
+  protected readonly canOperate = this.workspace.canOperate;
   private readonly planner = inject(PlanService);
 
   readonly quoteId = input.required<string>();
@@ -206,6 +215,7 @@ export class CotizacionSeparo {
       // Said by the page, over the quote it reads again: this card may be gone by then.
       this.editing.set(null);
       this.stale.emit(cause instanceof DataError ? cause.message : 'No pudimos cambiar el separo.');
+      void this.workspace.afterRefusal(cause);
     } finally {
       this.busy.set(false);
     }

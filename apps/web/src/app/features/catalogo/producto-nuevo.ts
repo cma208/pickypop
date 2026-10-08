@@ -8,6 +8,7 @@ import { SHARED_STYLES } from './catalogo.styles';
 import { messageOf, parseTags, repeatedProductMessage, SLUG_PATTERN, slugify } from './catalogo.util';
 import { requiredText, wholeNumber } from '../../core/form-errors';
 import { fieldError, LIMITS } from './catalogo.validators';
+import { CurrentWorkspace } from '../../core/workspace';
 
 const LEAD_MESSAGES: Record<string, string> = {
   min: 'No puede ser negativo.',
@@ -63,6 +64,7 @@ const LEAD_MESSAGES: Record<string, string> = {
 })
 export class ProductoNuevo {
   private readonly data = inject(CatalogoData);
+  private readonly workspace = inject(CurrentWorkspace);
   private readonly router = inject(Router);
 
   readonly cancelled = output<void>();
@@ -135,6 +137,7 @@ export class ProductoNuevo {
       await this.router.navigate(['/catalogo', id]);
     } catch (error) {
       this.error.set(messageOf(error, 'No pudimos crear el producto.'));
+      void this.workspace.afterRefusal(error);
     } finally {
       this.busy.set(false);
     }

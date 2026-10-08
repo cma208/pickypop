@@ -2,7 +2,8 @@ import { TestBed, type ComponentFixture } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { UserFacingError } from '../../core/friendly-error';
 import { FinanzasData, type AccountSummary, type LedgerRow } from './finanzas.data';
-import type { FinanceAccess } from './finanzas.models';
+import type { MemberRole } from '../../core/workspace';
+import { workspaceAs } from '../../core/workspace.testing';
 import { MovimientosFinancierosPage } from './movimientos.page';
 
 function account(id: string, name: string, balance: number): AccountSummary {
@@ -59,22 +60,20 @@ function row(overrides: Partial<LedgerRow> = {}): LedgerRow {
 
 const ALREADY_VOIDED = 'Este movimiento ya estaba anulado (motivo: «Se anotó dos veces»).';
 
-const OWNER: FinanceAccess = { isOwner: true, canOperate: true };
-
 /** Caja, for the owner unless said otherwise. The book is read once per call to `ledger`, in this order. */
 async function open(
   books: LedgerRow[][],
   voidTransaction: () => Promise<void> = async () => undefined,
-  access: FinanceAccess = OWNER,
+  role: MemberRole = 'owner',
 ) {
   let reads = 0;
   TestBed.configureTestingModule({
     providers: [
       provideRouter([]),
+      workspaceAs(role),
       {
         provide: FinanzasData,
         useValue: {
-          access: async () => access,
           accounts: async () => ACCOUNTS,
           categories: async () => [],
           ledger: async () => books[Math.min(reads++, books.length - 1)],
@@ -123,7 +122,7 @@ const labels = (fixture: ComponentFixture<MovimientosFinancierosPage>) =>
 
 describe('MovimientosFinancierosPage', () => {
   it('offers an operator to register but not to void', async () => {
-    const fixture = await open([[row()]], undefined, { isOwner: false, canOperate: true });
+    const fixture = await open([[row()]], undefined, 'operator');
 
     expect(labels(fixture)).toContain('Registrar movimiento');
     expect(labels(fixture)).not.toContain('Anular');
@@ -131,7 +130,7 @@ describe('MovimientosFinancierosPage', () => {
   });
 
   it('offers a viewer neither, and says whose they are', async () => {
-    const fixture = await open([[row()]], undefined, { isOwner: false, canOperate: false });
+    const fixture = await open([[row()]], undefined, 'viewer');
 
     expect(labels(fixture)).not.toContain('Registrar movimiento');
     expect(labels(fixture)).not.toContain('Anular');

@@ -3,7 +3,6 @@ import { FormControl, FormGroup, ReactiveFormsModule, Validators, type AbstractC
 import { FORMAT_PIPES, Thumb } from '../../ui';
 import { CatalogoData } from './catalogo.data';
 import type { Lookups, RecipePlate } from './catalogo.models';
-import { CatalogoPermissions } from './catalogo.permissions';
 import { SHARED_STYLES } from './catalogo.styles';
 import { messageOf } from './catalogo.util';
 import { maxDecimals } from '../../core/form-errors';
@@ -12,6 +11,8 @@ import { isOnlySourceOf, partsOnlyThisPlateMakes, removePlateQuestion, splitByRe
 import { FilamentoFila } from './filamento-fila';
 import { describeObjects } from './importacion';
 import { SalidaFila, type PartOption } from './salida-fila';
+import { CurrentWorkspace } from '../../core/workspace';
+import { lockWhileReadOnly } from '../../core/read-only';
 
 const SECONDS_PER_MINUTE = 60;
 /**
@@ -60,6 +61,8 @@ const MINUTES_MESSAGES: Record<string, string> = {
     `,
   ],
   template: `
+    <!-- The empty plate that adds one is not shown to someone who only reads (ADR-025). -->
+    @if (plate() || canOperate()) {
     <section>
       <div class="head">
         @if (plate(); as current) {
@@ -77,14 +80,16 @@ const MINUTES_MESSAGES: Record<string, string> = {
         <label>Tiempo (minutos)
           <input type="number" min="1" step="any" inputmode="decimal" formControlName="printMinutes" />
         </label>
-        <div class="bar" style="margin: 0">
-          <button type="submit" [disabled]="busy() || (plate() !== null && form.pristine)">
-            {{ plate() ? 'Guardar' : 'Agregar' }}
-          </button>
-          @if (plate() && permissions.isOwner()) {
-            <button type="button" class="ghost" [disabled]="busy()" (click)="remove()" aria-label="Quitar placa">✕</button>
-          }
-        </div>
+        @if (canOperate()) {
+          <div class="bar" style="margin: 0">
+            <button type="submit" [disabled]="busy() || (plate() !== null && form.pristine)">
+              {{ plate() ? 'Guardar' : 'Agregar' }}
+            </button>
+            @if (plate() && isOwner()) {
+              <button type="button" class="ghost" [disabled]="busy()" (click)="remove()" aria-label="Quitar placa">✕</button>
+            }
+          </div>
+        }
       </form>
       @if (formError(); as message) {
         <p class="err error">{{ message }}</p>
@@ -123,12 +128,17 @@ const MINUTES_MESSAGES: Record<string, string> = {
         </div>
       }
     </section>
+    }
   `,
 })
 export class PlacaEditor {
   private readonly data = inject(CatalogoData);
 
-  protected readonly permissions = inject(CatalogoPermissions);
+  private readonly workspace = inject(CurrentWorkspace);
+  /** The day to day: owner and operator. A viewer is shown what there is, with nothing to change (ADR-025). */
+  protected readonly canOperate = this.workspace.canOperate;
+  /** Removing is the owner's: the database refuses everyone else (T2-10). */
+  protected readonly isOwner = this.workspace.isOwner;
 
   readonly recipeId = input.required<string>();
   readonly plate = input<RecipePlate | null>(null);
@@ -202,6 +212,7 @@ export class PlacaEditor {
   }
 
   constructor() {
+    lockWhileReadOnly(this.form, this.canOperate);
     effect(() => {
       const plate = this.plate();
       untracked(() => {
@@ -242,6 +253,7 @@ export class PlacaEditor {
       this.changed.emit();
     } catch (error) {
       this.error.set(messageOf(error, 'No pudimos guardar la placa.'));
+      void this.workspace.afterRefusal(error);
       // A refusal may come from a tab that is behind: read the recipe again.
       this.changed.emit();
     } finally {
@@ -267,6 +279,7 @@ export class PlacaEditor {
       await this.data.deletePlate(current.id);
     } catch (error) {
       this.error.set(messageOf(error, 'No pudimos quitar la placa.'));
+      void this.workspace.afterRefusal(error);
     } finally {
       this.busy.set(false);
     }

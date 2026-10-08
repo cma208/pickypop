@@ -4,10 +4,11 @@ import { provideRouter } from '@angular/router';
 import { ArticlePhotos } from '../../core/article-photos';
 import { UserFacingError } from '../../core/friendly-error';
 import { Media } from '../../core/media';
-import { CurrentWorkspace, type MemberRole } from '../../core/workspace';
+import type { MemberRole } from '../../core/workspace';
 import type { QueuedPrint } from './order-prints';
 import { PedidoCancelar } from './pedido-cancelar';
 import { PedidosData } from './pedidos.data';
+import { workspaceAs } from '../../core/workspace.testing';
 
 const KEYCHAIN: QueuedPrint = {
   id: 'j1',
@@ -37,7 +38,7 @@ function open(
   TestBed.configureTestingModule({
     providers: [
       provideRouter([]),
-      { provide: CurrentWorkspace, useValue: { role: signal(role), info: async () => ({ role }) } },
+      workspaceAs(role),
       // The pictures are not what is being tested: nothing is signed or looked up.
       { provide: Media, useValue: { url: async () => null, version: signal(0) } },
       { provide: ArticlePhotos, useValue: { resolve: async () => ({ path: null, kind: 'part' }) } },

@@ -16,6 +16,7 @@ import { INVENTORY_PIPES, unitFor } from './inventario.format';
 import { INVENTORY_STYLES } from './inventario.styles';
 import { InventoryPlan } from './inventory-plan';
 import { savedPurchaseNotice } from './purchase-entries';
+import { CurrentWorkspace, READ_ONLY_NOTE } from '../../core/workspace';
 
 /** What a supply line is counted in when its item has no unit of its own. */
 const DEFAULT_UNIT = 'unidad';
@@ -28,8 +29,11 @@ const DEFAULT_UNIT = 'unidad';
       [title]="creating() ? 'Nueva compra' : 'Compras'"
       [subtitle]="creating() ? 'Cada rollo entra con su costo real, envío incluido' : 'Lo que compraste y los rollos que generó'"
     >
-      @if (!creating()) {
+      @if (!creating() && canOperate()) {
         <button actions type="button" [disabled]="loading() || !!error()" (click)="startNew()">+ Nueva compra</button>
+      }
+      @if (roleKnown() && !canOperate()) {
+        <p class="muted">{{ readOnlyNote }}</p>
       }
 
       @if (notice(); as text) {
@@ -37,20 +41,21 @@ const DEFAULT_UNIT = 'unidad';
       }
 
       <pp-async [loading]="loading()" [error]="error()">
-        @if (creating()) {
+        @if (creating() && canOperate()) {
           <app-compra-form
             [skuOptions]="skus()"
             [itemOptions]="items()"
             [supplierOptions]="suppliers()"
             [accountOptions]="accounts()"
-            [isOwner]="isOwner()"
             (saved)="onSaved($event)"
             (refused)="refresh()"
             (cancelled)="onCancelled()"
           />
         } @else if (purchases().length === 0) {
           <pp-empty message="Todavía no registraste ninguna compra.">
-            <button type="button" (click)="startNew()">Registrar la primera compra</button>
+            @if (canOperate()) {
+              <button type="button" (click)="startNew()">Registrar la primera compra</button>
+            }
           </pp-empty>
         } @else {
           <div class="table-wrap">
@@ -134,14 +139,15 @@ const DEFAULT_UNIT = 'unidad';
                           <pp-badge>{{ purchase.allocation === 'by_weight' ? 'por peso' : 'por monto' }}</pp-badge>
                           @if (purchase.note) { · {{ purchase.note }} }
                         </p>
-                        @if (purchase.pending > 0) {
+                        @if (purchase.pending > 0 && canOperate()) {
                           <app-compra-pago
                             [purchase]="purchase"
                             [accounts]="accounts()"
-                            [isOwner]="isOwner()"
                             (paid)="onPaid()"
                             (refused)="refresh()"
                           />
+                        } @else if (purchase.pending > 0) {
+                          <p class="muted meta">Pagado: {{ purchase.paid | money }} · falta {{ purchase.pending | money }}.</p>
                         } @else {
                           <p class="muted meta">Pagada: {{ purchase.paid | money }}.</p>
                         }
@@ -175,8 +181,11 @@ export class ComprasPage {
   protected readonly items = signal<InventoryItemSummary[]>([]);
   protected readonly suppliers = signal<SupplierOption[]>([]);
   protected readonly accounts = signal<PaymentAccount[]>([]);
-  /** Only to word what the operator cannot do (create an account); the database decides. */
-  protected readonly isOwner = signal(false);
+  private readonly workspace = inject(CurrentWorkspace);
+  /** Owner and operator keep the inventory; a viewer only reads it (ADR-025). */
+  protected readonly canOperate = this.workspace.canOperate;
+  protected readonly roleKnown = this.workspace.roleKnown;
+  protected readonly readOnlyNote = READ_ONLY_NOTE;
   protected readonly loading = signal(true);
   protected readonly error = signal<string | null>(null);
   protected readonly notice = signal<string | null>(null);
@@ -254,22 +263,12 @@ export class ComprasPage {
 
   private async load(): Promise<void> {
     this.error.set(null);
-    void this.readRole();
     try {
       await this.fetchLists();
     } catch (error) {
       this.error.set(describeError(error, 'No pudimos cargar las compras. Inténtalo de nuevo.'));
     } finally {
       this.loading.set(false);
-    }
-  }
-
-  /** Without it the page still works: the wording falls back to the operator's, which is true for anyone. */
-  private async readRole(): Promise<void> {
-    try {
-      this.isOwner.set((await this.data.currentRole()) === 'owner');
-    } catch (error) {
-      console.error(error);
     }
   }
 

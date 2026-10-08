@@ -1,9 +1,8 @@
-import { signal } from '@angular/core';
 import { TestBed, type ComponentFixture } from '@angular/core/testing';
 import { describe, expect, it, vi } from 'vitest';
 import { CatalogoData } from './catalogo.data';
 import type { PriceTierRow } from './catalogo.models';
-import { CatalogoPermissions } from './catalogo.permissions';
+import { workspaceAs } from '../../core/workspace.testing';
 import { CatalogoError } from './catalogo.util';
 import { EscaleraPrecios } from './escalera-precios';
 import { VariantCostModel } from './variant-cost.model';
@@ -16,7 +15,7 @@ function open(options: { owner?: boolean; addTier?: ReturnType<typeof vi.fn>; ti
     providers: [
       VariantCostModel,
       { provide: CatalogoData, useValue: { addTier } },
-      { provide: CatalogoPermissions, useValue: { isOwner: signal(options.owner ?? true) } },
+      workspaceAs((options.owner ?? true) ? 'owner' : 'operator'),
     ],
   });
   TestBed.inject(VariantCostModel).tiers.set(options.tiers ?? [TIER]);

@@ -4,6 +4,7 @@ import { UserFacingError } from '../../core/friendly-error';
 import { FinanzasData } from '../finanzas/finanzas.data';
 import { PedidoCobro } from './pedido-cobro';
 import { PedidosData, type NewPayment, type PaymentSummary } from './pedidos.data';
+import { workspaceAs } from '../../core/workspace.testing';
 
 const OWED: PaymentSummary = { total: 12.99, paid: 0, balance: 12.99, paymentStatus: 'unpaid', lastPaymentAt: null };
 const CASH = { id: 'cash', name: 'Efectivo', defaultMethod: 'cash' as const, openingBalanceOn: '2026-09-01' };
@@ -27,6 +28,7 @@ async function open(summary: PaymentSummary = OWED, recorded = false): Promise<O
   TestBed.configureTestingModule({
     providers: [
       provideRouter([]),
+      workspaceAs('operator'),
       { provide: FinanzasData, useValue: { paymentCategories: async () => ({ order: null, purchase: null }) } },
       {
         provide: PedidosData,

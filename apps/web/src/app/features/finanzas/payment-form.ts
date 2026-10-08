@@ -21,6 +21,7 @@ import {
 import { FINANCE_STYLES } from './finanzas.styles';
 import { beforeOpening, beforeOpeningNotice } from './opening-balance';
 import { FUTURE_DATE_PROBLEM, isInTheFuture, TOO_LARGE_PROBLEM } from './transaction-draft';
+import { CurrentWorkspace } from '../../core/workspace';
 
 /**
  * Collects money against an order. The amount, the overpayment check and the
@@ -119,6 +120,7 @@ import { FUTURE_DATE_PROBLEM, isInTheFuture, TOO_LARGE_PROBLEM } from './transac
 })
 export class PaymentForm {
   private readonly data = inject(FinanzasData);
+  private readonly workspace = inject(CurrentWorkspace);
   private readonly fb = inject(NonNullableFormBuilder);
 
   readonly receivable = input.required<ReceivableRow>();
@@ -306,5 +308,6 @@ export class PaymentForm {
       : `${friendlyError(error, 'No pudimos registrar el cobro.')} Vuelve a tocar «Registrar cobro» sin cambiar nada: si llegó a guardarse, no se cobra dos veces.`;
     this.failure.set(message);
     if (isRefusal(error)) this.refused.emit(message);
+    void this.workspace.afterRefusal(error);
   }
 }

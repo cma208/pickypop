@@ -9,6 +9,7 @@ import { FAILURE_CAUSE_LABELS, ORDER_STATUS_LABELS } from './panel.labels';
 import { firstSteps, type SetupCounts } from './panel.setup';
 import { failedLabel, joinLabels } from './panel.prints';
 import { maintenanceNotes } from './panel.maintenance';
+import { CurrentWorkspace } from '../../core/workspace';
 
 type FailureCause = WeekPrints['commonCauses'][number];
 
@@ -62,8 +63,10 @@ const TODAY = new Intl.DateTimeFormat('es-PE', {
   ],
   template: `
     <pp-page title="Hoy" [subtitle]="today">
-      <a actions class="button" routerLink="/pedidos/venta-rapida">Venta rápida</a>
-      @if (steps().length > 0) {
+      @if (canOperate()) {
+        <a actions class="button" routerLink="/pedidos/venta-rapida">Venta rápida</a>
+      }
+      @if (steps().length > 0 && canOperate()) {
         <pp-card class="first-steps" heading="Primeros pasos">
           <p class="muted">Para que el taller pueda cotizar, planificar y vender, falta cargar:</p>
           <ol>
@@ -242,6 +245,8 @@ const TODAY = new Intl.DateTimeFormat('es-PE', {
 })
 export class PanelPage {
   private readonly data = inject(PanelData);
+  /** Selling and loading the first data are writing: a viewer is offered neither (ADR-025). */
+  protected readonly canOperate = inject(CurrentWorkspace).canOperate;
 
   protected readonly today = capitalize(TODAY.format(new Date()));
   protected readonly statusLabels = ORDER_STATUS_LABELS;

@@ -5,6 +5,7 @@ import { blankToNull } from './form-helpers';
 import { InventarioData, type SpoolSummary } from './inventario.data';
 import { describeError } from './inventario.errors';
 import { INVENTORY_STYLES } from './inventario.styles';
+import { CurrentWorkspace } from '../../core/workspace';
 
 const UNIQUE_VIOLATION = '23505';
 
@@ -37,6 +38,7 @@ const UNIQUE_VIOLATION = '23505';
 })
 export class SpoolLabelForm {
   private readonly data = inject(InventarioData);
+  private readonly workspace = inject(CurrentWorkspace);
   private readonly fb = inject(NonNullableFormBuilder);
 
   readonly spool = input.required<SpoolSummary>();
@@ -66,6 +68,7 @@ export class SpoolLabelForm {
       await this.data.updateSpoolLabel(this.spool().id, blankToNull(code), blankToNull(location));
       this.saved.emit();
     } catch (error) {
+      void this.workspace.afterRefusal(error);
       const duplicated = (error as { code?: string } | null)?.code === UNIQUE_VIOLATION;
       this.error.set(
         duplicated

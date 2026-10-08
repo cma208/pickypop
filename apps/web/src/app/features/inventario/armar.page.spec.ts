@@ -2,7 +2,7 @@ import { signal } from '@angular/core';
 import { TestBed, type ComponentFixture } from '@angular/core/testing';
 import { ArticlePhotos } from '../../core/article-photos';
 import { Media } from '../../core/media';
-import { ProductionAccess } from '../produccion/production-access';
+import { workspaceAs } from '../../core/workspace.testing';
 import { ArmarData } from './armar.data';
 import { ArmarPage } from './armar.page';
 import { InventarioData, type AssemblyComponent, type AssemblyOption } from './inventario.data';
@@ -36,7 +36,7 @@ function open(options: AssemblyOption[][], components: AssemblyComponent[][], ca
     providers: [
       { provide: InventarioData, useValue: { assemblyOptions, assemblyComponents } },
       { provide: ArmarData, useValue: { assemble } },
-      { provide: ProductionAccess, useValue: { canOperate: signal(canOperate) } },
+      workspaceAs(canOperate ? 'operator' : 'viewer'),
       { provide: InventoryPlan, useValue: { read: async () => null, changed: () => undefined, problem: () => 'sin plan' } },
       { provide: Media, useValue: { url: async () => null, version: signal(0) } },
       { provide: ArticlePhotos, useValue: { resolve: async () => ({ path: null, kind: 'part' }) } },

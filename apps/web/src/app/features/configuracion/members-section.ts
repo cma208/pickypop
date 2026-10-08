@@ -13,7 +13,7 @@ import {
 import { errorOf, maxDecimals, requiredText, textOrNull } from '../../core/form-errors';
 import { friendlyError } from '../../core/friendly-error';
 import { SECTION_STYLES } from '../../core/styles';
-import { isOwnerRole } from '../../core/workspace';
+import { CurrentWorkspace } from '../../core/workspace';
 
 /** numeric(12, 2), the column of the rate. */
 const MAX_RATE = 9_999_999_999.99;
@@ -111,7 +111,9 @@ export class MembersSection {
   protected readonly members = signal<MemberRecord[]>([]);
   protected readonly loading = signal(true);
   protected readonly loadError = signal<string | null>(null);
-  protected readonly canEdit = signal(false);
+  private readonly workspace = inject(CurrentWorkspace);
+  /** Configuration is the owner's (ADR-025); anyone else reads it. Read from `CurrentWorkspace`, the one place that reads the role. */
+  protected readonly canEdit = this.workspace.isOwner;
   protected readonly editing = signal<MemberRecord | null>(null);
   protected readonly saving = signal(false);
   protected readonly error = signal<string | null>(null);
@@ -176,7 +178,7 @@ export class MembersSection {
       await this.load();
     } catch (error) {
       this.error.set(friendlyError(error, 'No pudimos guardar los cambios del miembro.'));
-      if (await this.data.afterRefusal(error)) {
+      if (await this.workspace.afterRefusal(error)) {
         this.listError.set(this.error());
         this.editing.set(null);
         await this.load();
@@ -188,9 +190,8 @@ export class MembersSection {
 
   private async load(): Promise<void> {
     try {
-      const [members, role] = await Promise.all([this.data.members(), this.data.currentRole()]);
+      const [members] = await Promise.all([this.data.members(), this.workspace.info()]);
       this.members.set(members);
-      this.canEdit.set(isOwnerRole(role));
       this.loadError.set(null);
     } catch (error) {
       this.loadError.set(friendlyError(error, 'No pudimos cargar los miembros.'));

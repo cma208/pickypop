@@ -13,6 +13,7 @@ import { filamentName } from '../../core/spool-label';
 import { secondsToSave, type ProposedTime } from './job-time';
 import { closeProposal } from './close-proposal';
 import { GRAMS_MESSAGE, hundredths, MAX_GRAMS, MAX_MINUTES, toHundredths } from './job-grams';
+import { CurrentWorkspace } from '../../core/workspace';
 
 type CloseResult = CloseJob['result'];
 
@@ -172,6 +173,7 @@ function createUsageRow(spoolId: string, actualG: number | null) {
 })
 export class PrintJobClose implements OnInit {
   private readonly data = inject(ProduccionData);
+  private readonly workspace = inject(CurrentWorkspace);
 
   readonly job = input.required<JobItem>();
   /**
@@ -403,6 +405,7 @@ export class PrintJobClose implements OnInit {
       this.confirming.set(false);
       const message = explainProductionError(error, 'No pudimos cerrar la impresión. No se movió nada; inténtalo de nuevo.');
       this.error.set(message);
+      void this.workspace.afterRefusal(error);
       this.refused.emit(message);
     } finally {
       this.busy.set(false);

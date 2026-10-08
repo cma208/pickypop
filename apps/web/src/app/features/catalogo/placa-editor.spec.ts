@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { FORMAT_PIPES } from '../../ui';
 import { CatalogoData } from './catalogo.data';
 import type { Lookups, RecipePlate } from './catalogo.models';
-import { CatalogoPermissions } from './catalogo.permissions';
+import { workspaceAs } from '../../core/workspace.testing';
 import { PlacaEditor } from './placa-editor';
 
 const LOOKUPS: Lookups = { materials: [], skus: [], supplies: [], printedBy: new Map() };
@@ -37,7 +37,7 @@ function open(askedIds: string[] = ['cap']) {
   TestBed.configureTestingModule({
     providers: [
       { provide: CatalogoData, useValue: data },
-      { provide: CatalogoPermissions, useValue: { isOwner: signal(true) } },
+      workspaceAs('owner'),
     ],
   });
   // Filament and output rows have their own tests; the plate's own form is what matters here.

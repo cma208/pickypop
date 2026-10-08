@@ -4,7 +4,7 @@ import { ReactiveFormsModule } from '@angular/forms';
 import { describe, expect, it } from 'vitest';
 import { Card, Field, FORMAT_PIPES } from '../../ui';
 import { CatalogoData } from './catalogo.data';
-import { CatalogoPermissions } from './catalogo.permissions';
+import { workspaceAs } from '../../core/workspace.testing';
 import type { Lookups, Recipe } from './catalogo.models';
 import { RecetaEditor } from './receta-editor';
 
@@ -33,7 +33,7 @@ function open(inputs: { lookupsError?: string; lookupsRefreshError?: string; loo
   TestBed.configureTestingModule({
     providers: [
       { provide: CatalogoData, useValue: {} },
-      { provide: CatalogoPermissions, useValue: { isOwner: signal(true) } },
+      workspaceAs('owner'),
     ],
   });
   // Plates, rows and the import review have their own tests; the card is what matters here.

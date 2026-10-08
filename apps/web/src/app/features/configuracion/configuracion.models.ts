@@ -1,8 +1,10 @@
 import type { Database } from '../../core/database.types';
+import type { MemberRole } from '../../core/workspace';
 import type { BadgeTone } from '../../ui';
 
 export type TaxRegime = Database['public']['Enums']['tax_regime'];
-export type MemberRole = Database['public']['Enums']['member_role'];
+/** The one definition is core's (`CurrentWorkspace`); re-exported for the members screen. */
+export type { MemberRole };
 export type Valuation = Database['public']['Enums']['material_valuation'];
 export type GiftTreatment = Database['public']['Enums']['gift_treatment'];
 

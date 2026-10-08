@@ -11,7 +11,6 @@ import {
   TRANSACTION_TYPE_TONES,
   timeLabel,
   type CategoryOption,
-  type FinanceAccess,
   type TransactionType,
 } from './finanzas.models';
 import { FINANCE_STYLES } from './finanzas.styles';
@@ -19,6 +18,7 @@ import { ledgerTotals, markVoidable, transfersCaption } from './ledger-totals';
 import type { TransactionPreset } from './transaction-draft';
 import { TransactionForm } from './transaction-form';
 import { VoidForm } from './void-form';
+import { CurrentWorkspace } from '../../core/workspace';
 
 const NO_FILTER: LedgerFilter = { accountId: null, type: null, from: null, to: null };
 
@@ -236,13 +236,14 @@ export class MovimientosFinancierosPage {
   private readonly injector = inject(Injector);
   private readonly forms = viewChild<ElementRef<HTMLElement>>('forms');
 
+  private readonly workspace = inject(CurrentWorkspace);
   /**
-   * Only the owner voids, and a viewer registers nothing: nobody is offered a
-   * button the database would refuse. Null until it is known.
+   * Who may do what, from `CurrentWorkspace` (ADR-025): only the owner voids
+   * and sets up, and a viewer registers nothing. Null until the role is read,
+   * so nothing is offered or explained before.
    */
-  private readonly access = signal<FinanceAccess | null>(null);
-  protected readonly isOwner = computed(() => this.access()?.isOwner ?? null);
-  protected readonly canOperate = computed(() => this.access()?.canOperate ?? null);
+  protected readonly isOwner = computed(() => (this.workspace.roleKnown() ? this.workspace.isOwner() : null));
+  protected readonly canOperate = computed(() => (this.workspace.roleKnown() ? this.workspace.canOperate() : null));
 
   protected readonly types = TRANSACTION_TYPES;
   protected readonly typeLabels = TRANSACTION_TYPE_LABELS;
@@ -285,16 +286,6 @@ export class MovimientosFinancierosPage {
   constructor() {
     void this.loadOptions();
     void this.load();
-    void this.readAccess();
-  }
-
-  /** Read again after a refusal: the role may have changed in another tab. */
-  private async readAccess(): Promise<void> {
-    try {
-      this.access.set(await this.data.access());
-    } catch {
-      this.access.set({ isOwner: false, canOperate: false });
-    }
   }
 
   protected hora(row: LedgerRow): string {
@@ -341,7 +332,6 @@ export class MovimientosFinancierosPage {
    */
   protected async reloadAfterRefusal(message: string): Promise<void> {
     void this.loadOptions();
-    void this.readAccess();
     await this.load();
     const open = this.voiding();
     if (!open) return;
@@ -357,12 +347,11 @@ export class MovimientosFinancierosPage {
   }
 
   /**
-   * A refused movement may come from an account that changed meanwhile, or a
-   * role: the pickers and the role are read again.
+   * A refused movement may come from an account that changed meanwhile: the
+   * pickers are read again. A refused role is read again by the form itself.
    */
   protected afterMovementRefused(): void {
     void this.loadOptions();
-    void this.readAccess();
   }
 
   /** Clicked from a row far down the book, the form opened out of sight and the button seemed dead. */

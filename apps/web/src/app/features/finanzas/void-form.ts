@@ -6,6 +6,7 @@ import { FinanzasData, isRefusal, type LedgerRow } from './finanzas.data';
 import { FINANCE_STYLES } from './finanzas.styles';
 import type { TransactionPreset } from './transaction-draft';
 import { voidSummary } from './void-summary';
+import { CurrentWorkspace } from '../../core/workspace';
 
 /**
  * Annuls a movement. There is no delete: the row stays on the record with the
@@ -67,6 +68,7 @@ import { voidSummary } from './void-summary';
 })
 export class VoidForm {
   private readonly data = inject(FinanzasData);
+  private readonly workspace = inject(CurrentWorkspace);
 
   readonly row = input.required<LedgerRow>();
   readonly voided = output<string>();
@@ -106,6 +108,7 @@ export class VoidForm {
       this.voided.emit('Movimiento anulado. Los saldos ya no lo cuentan.');
     } catch (error) {
       const message = friendlyError(error, 'No pudimos anular el movimiento. Inténtalo de nuevo.');
+      void this.workspace.afterRefusal(error);
       this.failure.set(message);
       if (isRefusal(error)) this.refused.emit(message);
     } finally {

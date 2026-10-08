@@ -16,6 +16,7 @@ import {
   type CustomerRecord,
   type DocType,
 } from './clientes.models';
+import { CurrentWorkspace } from '../../core/workspace';
 
 /** Create or edit a customer, validating the document the way the database does. */
 @Component({
@@ -102,6 +103,7 @@ import {
 })
 export class CustomerForm {
   private readonly data = inject(ClientesData);
+  private readonly workspace = inject(CurrentWorkspace);
 
   readonly customer = input<CustomerRecord | null>(null);
   /** The customers already in the list, to recognise the name being typed (T4-10). */
@@ -204,6 +206,7 @@ export class CustomerForm {
       });
       this.saved.emit();
     } catch (error) {
+      void this.workspace.afterRefusal(error);
       this.error.set(friendlyError(error, 'No pudimos guardar el cliente. Inténtalo de nuevo.'));
     } finally {
       this.saving.set(false);

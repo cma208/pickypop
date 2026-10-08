@@ -1,7 +1,8 @@
 import { TestBed, type ComponentFixture } from '@angular/core/testing';
 import { UserFacingError } from '../../core/friendly-error';
 import { FinanzasData, type AccountSummary, type ReceivableRow } from './finanzas.data';
-import type { FinanceAccess } from './finanzas.models';
+import type { MemberRole } from '../../core/workspace';
+import { workspaceAs } from '../../core/workspace.testing';
 import { PorCobrarPage } from './por-cobrar.page';
 
 const CASH: AccountSummary = {
@@ -49,15 +50,15 @@ const OVERPAYMENT =
  */
 async function open(
   after: ReceivableRow[],
-  access: FinanceAccess = { isOwner: false, canOperate: true },
+  role: MemberRole = 'operator',
 ): Promise<ComponentFixture<PorCobrarPage>> {
   let reads = 0;
   TestBed.configureTestingModule({
     providers: [
+      workspaceAs(role),
       {
         provide: FinanzasData,
         useValue: {
-          access: async () => access,
           accounts: async () => [CASH],
           categories: async () => [],
           paymentCategories: async () => ({ order: null, purchase: null }),
@@ -135,7 +136,7 @@ describe('PorCobrarPage after a refused collection', () => {
 
 describe('PorCobrarPage for a viewer', () => {
   it('lists what is owed without offering «Cobrar», and says whose it is', async () => {
-    const fixture = await open([], { isOwner: false, canOperate: false });
+    const fixture = await open([], 'viewer');
 
     const labels = Array.from(fixture.nativeElement.querySelectorAll('button')).map((button) =>
       (button as HTMLButtonElement).textContent?.trim(),

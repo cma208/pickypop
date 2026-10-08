@@ -58,6 +58,7 @@ import {
 import { errorOf, requiredText, wholeNumber } from '../../core/form-errors';
 import { requestKey, type SentRequest } from '../pedidos/request-key';
 import type { NewQuote } from './cotizador.data';
+import { CurrentWorkspace, READ_ONLY_NOTE } from '../../core/workspace';
 
 const PERCENT = 100;
 
@@ -88,6 +89,11 @@ export class CotizadorPage {
   private readonly router = inject(Router);
   private readonly fb = inject(FormBuilder);
   private readonly drafts = inject(QuoteDraftStore);
+  private readonly workspace = inject(CurrentWorkspace);
+  /** Owner and operator sell; a viewer only reads (ADR-025). */
+  protected readonly canOperate = this.workspace.canOperate;
+  protected readonly roleKnown = this.workspace.roleKnown;
+  protected readonly readOnlyNote = READ_ONLY_NOTE;
 
   protected readonly loading = signal(true);
   protected readonly error = signal<string | null>(null);
@@ -886,6 +892,7 @@ export class CotizadorPage {
       this.saveError.set(
         cause instanceof DataError ? cause.message : 'No pudimos guardar la cotización.',
       );
+      void this.workspace.afterRefusal(cause);
     } finally {
       this.saving.set(false);
     }

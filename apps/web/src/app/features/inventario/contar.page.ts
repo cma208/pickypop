@@ -17,8 +17,8 @@ import {
 } from './conteo';
 import { ConteoData } from './conteo.data';
 import { productionProblem } from '../produccion/production-errors';
-import { ProductionAccess } from '../produccion/production-access';
 import { INVENTORY_STYLES } from './inventario.styles';
+import { CurrentWorkspace } from '../../core/workspace';
 
 /**
  * Contar el estante: decir cuántas hay de verdad.
@@ -160,7 +160,9 @@ export class ContarPage {
   private readonly data = inject(ConteoData);
   private readonly planner = inject(PlanService);
   /** Counting the shelf is the day to day of an owner or an operator, never of a viewer. */
-  protected readonly canOperate = inject(ProductionAccess).canOperate;
+  private readonly workspace = inject(CurrentWorkspace);
+  /** Owner and operator run production; a viewer only reads (ADR-025). */
+  protected readonly canOperate = this.workspace.canOperate;
 
   protected readonly rows = signal<CountRow[]>([]);
   protected readonly note = signal('');
@@ -252,6 +254,7 @@ export class ContarPage {
       await this.load();
     } catch (error) {
       this.saveError.set(productionProblem(error) ?? friendlyError(error, 'No pudimos guardar el conteo. Inténtalo de nuevo.'));
+      void this.workspace.afterRefusal(error);
       // Turned down, what «La app cree» says may be stale: it is read again,
       // and what the person counted stays where they wrote it.
       await this.reloadKeepingCounts();

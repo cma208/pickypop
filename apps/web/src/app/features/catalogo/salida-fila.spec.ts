@@ -5,7 +5,7 @@ import { ArticlePhotos } from '../../core/article-photos';
 import { Media } from '../../core/media';
 import { CatalogoData } from './catalogo.data';
 import type { PlateOutput } from './catalogo.models';
-import { CatalogoPermissions } from './catalogo.permissions';
+import { workspaceAs } from '../../core/workspace.testing';
 import { SalidaFila, type PartOption } from './salida-fila';
 
 const BACK: PlateOutput = {
@@ -28,7 +28,7 @@ function open(soleSource: boolean, options: { asked?: boolean; owner?: boolean }
   TestBed.configureTestingModule({
     providers: [
       { provide: CatalogoData, useValue: data },
-      { provide: CatalogoPermissions, useValue: { isOwner: signal(options.owner ?? true) } },
+      workspaceAs((options.owner ?? true) ? 'owner' : 'operator'),
       { provide: Media, useValue: { url: async () => null, version: signal(0) } },
       { provide: ArticlePhotos, useValue: { resolve: async () => ({ path: null, kind: 'part' }) } },
     ],

@@ -9,6 +9,7 @@ import { FinanzasData, isRefusal, type AccountSummary } from './finanzas.data';
 import { ACCOUNT_KIND_LABELS, PAYMENT_METHOD_LABELS } from './finanzas.models';
 import { FINANCE_STYLES } from './finanzas.styles';
 import { beforeOpeningSummary } from './opening-balance';
+import { CurrentWorkspace } from '../../core/workspace';
 
 /**
  * The question before deactivating. With money still in it the account keeps
@@ -195,8 +196,12 @@ export class CuentasPage {
   protected readonly notice = signal<string | null>(null);
   protected readonly formOpen = signal(false);
   protected readonly editing = signal<AccountSummary | null>(null);
-  /** Accounts are the owner's to set up: an operator sees them without the buttons the database would refuse. */
-  protected readonly isOwner = signal<boolean | null>(null);
+  private readonly workspace = inject(CurrentWorkspace);
+  /**
+   * Accounts are the owner's to set up (ADR-025): anyone else sees them without
+   * the buttons the database would refuse. Null until the role is read.
+   */
+  protected readonly isOwner = computed(() => (this.workspace.roleKnown() ? this.workspace.isOwner() : null));
   protected readonly switching = signal(false);
 
   /** Every account holds workshop money, active or not. */
@@ -219,16 +224,6 @@ export class CuentasPage {
 
   constructor() {
     void this.load();
-    void this.readRole();
-  }
-
-  /** Read again after a refusal: the role may have changed in another tab. */
-  private async readRole(): Promise<void> {
-    try {
-      this.isOwner.set((await this.data.access()).isOwner);
-    } catch {
-      this.isOwner.set(false);
-    }
   }
 
   protected openForm(account: AccountSummary | null): void {
@@ -254,10 +249,9 @@ export class CuentasPage {
     void this.load();
   }
 
-  /** The database refused: what the list shows, or the role, may be out of date. */
+  /** The database refused: what the list shows may be out of date. The form read the role again. */
   protected reload(): void {
     void this.load();
-    void this.readRole();
   }
 
   /** The account changed elsewhere while it was being edited: the old form goes, the list is read again. */
@@ -281,7 +275,7 @@ export class CuentasPage {
     } catch (error) {
       this.actionError.set(friendlyError(error, 'No pudimos cambiar el estado de la cuenta.'));
       if (!isRefusal(error)) return;
-      void this.readRole();
+      void this.workspace.afterRefusal(error);
     } finally {
       this.switching.set(false);
     }

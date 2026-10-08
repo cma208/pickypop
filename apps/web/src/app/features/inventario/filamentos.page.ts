@@ -25,6 +25,7 @@ import { SpoolLabelForm } from './spool-label-form';
 import { filamentCells, type PositionCells } from './stock-position';
 import { WeighForm } from './weigh-form';
 import { needsWeighingToReturn, statusNotice, statusWarning, weighingNotice } from './spool-notices';
+import { CurrentWorkspace, READ_ONLY_NOTE } from '../../core/workspace';
 
 const COST_PER_GRAM_DIGITS = 3;
 
@@ -54,7 +55,12 @@ interface SkuRow {
   imports: [Page, AsyncState, Empty, Badge, Modal, SkuForm, WeighForm, SpoolLabelForm, RouterLink, FORMAT_PIPES],
   template: `
     <pp-page title="Filamentos" subtitle="Lo que compras, y los rollos de cada uno que tienes en el estante">
-      <button actions type="button" (click)="editing.set('new')">+ Nuevo filamento</button>
+      @if (canOperate()) {
+        <button actions type="button" (click)="editing.set('new')">+ Nuevo filamento</button>
+      }
+      @if (roleKnown() && !canOperate()) {
+        <p class="muted">{{ readOnlyNote }}</p>
+      }
 
       @if (notice(); as text) {
         <p class="notice" role="status">{{ text }}</p>
@@ -69,7 +75,9 @@ interface SkuRow {
       <pp-async [loading]="loading()" [error]="error()">
         @if (skus().length === 0) {
           <pp-empty message="Aún no hay filamentos registrados.">
-            <button type="button" (click)="editing.set('new')">Registrar el primero</button>
+            @if (canOperate()) {
+              <button type="button" (click)="editing.set('new')">Registrar el primero</button>
+            }
           </pp-empty>
         } @else {
           <div class="toolbar">
@@ -162,7 +170,9 @@ interface SkuRow {
                       </td>
                       <td class="num hide-small">{{ sku.weightedCostPerGram | money: costDigits }}</td>
                       <td class="actions-cell">
-                        <button type="button" class="secondary" (click)="editing.set(sku)">Editar</button>
+                        @if (canOperate()) {
+                          <button type="button" class="secondary" (click)="editing.set(sku)">Editar</button>
+                        }
                       </td>
                     </tr>
 
@@ -193,7 +203,7 @@ interface SkuRow {
                                   <select
                                     class="status"
                                     [value]="spool.status"
-                                    [disabled]="busyId() === spool.id"
+                                    [disabled]="busyId() === spool.id || !canOperate()"
                                     [attr.aria-label]="'Estado del rollo ' + (spool.code ?? '')"
                                     (change)="onStatusChange(spool, $event)"
                                   >
@@ -211,14 +221,16 @@ interface SkuRow {
                                     <small class="sub">Para volver a usarlo, pésalo.</small>
                                   }
                                 </div>
-                                <div class="spool-actions">
-                                  <button type="button" class="secondary" (click)="dialog.set({ kind: 'weigh', spool })">
-                                    Pesar
-                                  </button>
-                                  <button type="button" class="ghost" (click)="dialog.set({ kind: 'label', spool })">
-                                    Ubicación
-                                  </button>
-                                </div>
+                                @if (canOperate()) {
+                                  <div class="spool-actions">
+                                    <button type="button" class="secondary" (click)="dialog.set({ kind: 'weigh', spool })">
+                                      Pesar
+                                    </button>
+                                    <button type="button" class="ghost" (click)="dialog.set({ kind: 'label', spool })">
+                                      Ubicación
+                                    </button>
+                                  </div>
+                                }
                               </div>
                             }
                           }
@@ -333,6 +345,11 @@ interface SkuRow {
 })
 export class FilamentosPage {
   private readonly data = inject(InventarioData);
+  private readonly workspace = inject(CurrentWorkspace);
+  /** Owner and operator keep the inventory; a viewer only reads it (ADR-025). */
+  protected readonly canOperate = this.workspace.canOperate;
+  protected readonly roleKnown = this.workspace.roleKnown;
+  protected readonly readOnlyNote = READ_ONLY_NOTE;
   private readonly planner = inject(InventoryPlan);
 
   protected readonly costDigits = COST_PER_GRAM_DIGITS;
@@ -499,6 +516,7 @@ export class FilamentosPage {
     } catch (error) {
       // Refused: somebody changed the roll meanwhile, or it cannot go back without grams.
       this.actionError.set(describeError(error, 'No pudimos cambiar el estado del rollo. Inténtalo de nuevo.'));
+      void this.workspace.afterRefusal(error);
     } finally {
       this.busyId.set(null);
     }

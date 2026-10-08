@@ -33,6 +33,7 @@ import { QuickSaleData, type SoldOrder } from './venta-rapida.data';
 import { VentaRapidaEstante } from './venta-rapida-estante';
 import { VentaRapidaHecha } from './venta-rapida-hecha';
 import { createQuickLine, VentaRapidaLinea, type QuickLineForm } from './venta-rapida-linea';
+import { CurrentWorkspace, READ_ONLY_NOTE } from '../../core/workspace';
 
 /** Shown for a line whose product left the shelf before its name could be read. */
 const UNKNOWN_ITEM: Omit<VariantInfo, 'id'> = { productName: 'Producto', variantName: '', imagePath: null, listPrice: null };
@@ -72,6 +73,10 @@ const NO_CHANNELS: ChannelOptions = { channels: [], defaultId: null };
     <pp-page title="Venta rápida" subtitle="Lo armado del estante: se entrega y se cobra en un solo paso">
       <a actions class="button secondary" routerLink="/pedidos" [queryParams]="allOrders">Ver pedidos</a>
 
+      @if (roleKnown() && !canOperate()) {
+        <!-- Reached by a link: a viewer is shown why, not a form the database would refuse (ADR-025). -->
+        <p class="muted">{{ readOnlyNote }}</p>
+      } @else {
       <pp-async [loading]="loading()" [error]="loadError()">
         <div class="layout">
           <section aria-labelledby="shelf-title">
@@ -143,6 +148,7 @@ const NO_CHANNELS: ChannelOptions = { channels: [], defaultId: null };
           </div>
         </div>
       </pp-async>
+      }
     </pp-page>
   `,
   styles: `
@@ -162,6 +168,11 @@ const NO_CHANNELS: ChannelOptions = { channels: [], defaultId: null };
 })
 export class VentaRapidaPage {
   private readonly data = inject(QuickSaleData);
+  private readonly workspace = inject(CurrentWorkspace);
+  /** Owner and operator sell, deliver and collect; a viewer only reads (ADR-025). */
+  protected readonly canOperate = this.workspace.canOperate;
+  protected readonly roleKnown = this.workspace.roleKnown;
+  protected readonly readOnlyNote = READ_ONLY_NOTE;
   private readonly pedidos = inject(PedidosData);
   private readonly injector = inject(Injector);
   private readonly summary = viewChild(VentaRapidaHecha);
@@ -280,6 +291,7 @@ export class VentaRapidaPage {
       if (!(await this.stillFree())) return;
       await this.sold(payload, await this.data.sell(payload, key));
     } catch (error) {
+      void this.workspace.afterRefusal(error);
       await this.failed(error, key, payload);
     } finally {
       this.selling.set(false);

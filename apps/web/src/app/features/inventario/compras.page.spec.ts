@@ -7,6 +7,7 @@ import { FinanzasData } from '../finanzas/finanzas.data';
 import { ComprasPage } from './compras.page';
 import { InventarioData } from './inventario.data';
 import { InventoryPlan } from './inventory-plan';
+import { workspaceAs } from '../../core/workspace.testing';
 
 /** The page's protected steps, as the template reaches them. */
 interface Internals {
@@ -31,6 +32,7 @@ describe('ComprasPage', () => {
         { provide: ArticlePhotos, useValue: { resolve: async () => ({ path: null, kind: 'supply' }) } },
         { provide: FinanzasData, useValue: { paymentCategories: async () => ({ order: null, purchase: null }) } },
         { provide: InventoryPlan, useValue: { changed: () => undefined } },
+        workspaceAs('operator'),
         {
           provide: InventarioData,
           useValue: {
@@ -39,7 +41,6 @@ describe('ComprasPage', () => {
             items: () => answer([]),
             suppliers: () => answer([]),
             paymentAccounts: () => answer([]),
-            currentRole: async () => 'operator',
           },
         },
       ],

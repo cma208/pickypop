@@ -103,13 +103,9 @@ export class PedidoCancelar {
   protected readonly error = signal<string | null>(null);
 
   /** Voiding a payment is the owner's alone: the operator is told whom to ask. */
-  protected readonly isOwner = computed(() => this.workspace.role() === 'owner');
+  protected readonly isOwner = this.workspace.isOwner;
   protected readonly blocker = computed(() => cancelBlocker(this.paid(), this.isOwner()));
 
-  constructor() {
-    // The role is read once per session; this makes sure it is there.
-    void this.workspace.info().catch(() => undefined);
-  }
   private readonly plannedIds = computed(() =>
     this.prints()
       .filter((print) => !print.printing)
@@ -130,6 +126,7 @@ export class PedidoCancelar {
     } catch (error) {
       const message = friendlyError(error, 'No pudimos cancelar el pedido. Inténtalo de nuevo.');
       this.error.set(message);
+      void this.workspace.afterRefusal(error);
       this.stale.emit(message);
     } finally {
       this.busy.set(false);

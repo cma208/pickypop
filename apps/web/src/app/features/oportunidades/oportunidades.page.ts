@@ -16,6 +16,7 @@ import {
   STALE_AFTER_DAYS,
   type Stage,
 } from './oportunidades.models';
+import { CurrentWorkspace, READ_ONLY_NOTE } from '../../core/workspace';
 
 /**
  * El tablero comercial. Seis columnas, y arrastrar una tarjeta cambia su etapa.
@@ -85,9 +86,13 @@ import {
       title="Oportunidades"
       subtitle="Los tratos en curso: lo que un cliente pidió, lo que se le cotizó y en qué quedó"
     >
-      <button actions type="button" (click)="openForm(null)">Nuevo trato</button>
+      @if (canOperate()) {
+        <button actions type="button" (click)="openForm(null)">Nuevo trato</button>
+      } @else if (roleKnown()) {
+        <p class="muted">{{ readOnlyNote }}</p>
+      }
 
-      @if (formOpen()) {
+      @if (formOpen() && canOperate()) {
         @for (key of [editing()?.id ?? 'new']; track key) {
           <app-oportunidad-form [opportunity]="editing()" (saved)="afterSave()" (cancelled)="closeForm()" />
         }
@@ -107,7 +112,9 @@ import {
           <pp-empty
             message="Todavía no hay ningún trato. Un trato agrupa las cotizaciones que le mandaste a un cliente y los pedidos que salieron de ahí."
           >
-            <button type="button" (click)="openForm(null)">Nuevo trato</button>
+            @if (canOperate()) {
+              <button type="button" (click)="openForm(null)">Nuevo trato</button>
+            }
           </pp-empty>
         } @else {
           @if (moveError(); as message) { <p class="error" role="alert">{{ message }}</p> }
@@ -132,7 +139,7 @@ import {
                   <div
                     class="card"
                     [class.dragging]="dragging() === card.id"
-                    [draggable]="!derived(stage)"
+                    [draggable]="canOperate() && !derived(stage)"
                     (dragstart)="onDragStart($event, card)"
                     (dragend)="dragging.set(null)"
                   >
@@ -165,7 +172,7 @@ import {
                           <button type="button" class="ghost" (click)="askingReasonFor.set(null)">Cancelar</button>
                         </div>
                       </div>
-                    } @else if (!derived(stage)) {
+                    } @else if (canOperate() && !derived(stage)) {
                       <label class="move">
                         <span>Mover a</span>
                         <select [value]="stage" (change)="onPick(card, $event)">
@@ -191,6 +198,11 @@ import {
 })
 export class OportunidadesPage {
   private readonly data = inject(OportunidadesData);
+  private readonly workspace = inject(CurrentWorkspace);
+  /** Owner and operator sell; a viewer only reads (ADR-025). */
+  protected readonly canOperate = this.workspace.canOperate;
+  protected readonly roleKnown = this.workspace.roleKnown;
+  protected readonly readOnlyNote = READ_ONLY_NOTE;
 
   protected readonly stages = STAGES;
   protected readonly droppable = DROPPABLE_STAGES;
@@ -298,6 +310,7 @@ export class OportunidadesPage {
       this.askingReasonFor.set(null);
       await this.reload(false);
     } catch (error) {
+      void this.workspace.afterRefusal(error);
       this.moveError.set(friendlyError(error, 'No pudimos mover el trato. Inténtalo de nuevo.'));
     } finally {
       this.moving.set(false);

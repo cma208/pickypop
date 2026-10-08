@@ -9,6 +9,7 @@ import { friendlyError } from '../../core/friendly-error';
 import { SECTION_STYLES } from '../../core/styles';
 import { todayLocal } from '../../core/dates';
 import { date as formatDate } from '../../core/format';
+import { CurrentWorkspace } from '../../core/workspace';
 
 const PERCENT_SCALE = 100;
 const MAX_PERCENT = 99.99;
@@ -116,6 +117,7 @@ const PERCENT_CONTROLS = new Set(['materialWastePct', 'failurePct', 'marginPct',
 })
 export class CostProfileForm {
   private readonly data = inject(ConfiguracionData);
+  private readonly workspace = inject(CurrentWorkspace);
 
   /** The profile in force, used as the starting point; the one being corrected when there is one. */
   readonly base = input.required<CostProfileRecord | null>();
@@ -245,7 +247,7 @@ export class CostProfileForm {
     } catch (error) {
       const message = friendlyError(error, editing ? 'No pudimos guardar la corrección.' : 'No pudimos guardar la nueva versión.');
       this.error.set(message);
-      if (await this.data.afterRefusal(error)) this.refused.emit(message);
+      if (await this.workspace.afterRefusal(error)) this.refused.emit(message);
     } finally {
       this.saving.set(false);
     }

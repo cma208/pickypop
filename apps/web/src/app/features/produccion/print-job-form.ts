@@ -17,6 +17,7 @@ import { proposeTime, secondsToSave, type ProposedTime } from './job-time';
 import { GRAMS_MESSAGE, hundredths, MAX_GRAMS, MAX_MINUTES } from './job-grams';
 import { requestKey, type SentRequest } from './request-key';
 import { NOTE_MAX_LENGTH } from './print-job-close';
+import { CurrentWorkspace } from '../../core/workspace';
 
 /** What a person can type as the name of a job; `create_print_job` refuses more. */
 export const LABEL_MAX_LENGTH = 200;
@@ -184,6 +185,7 @@ function createFilamentRow(spoolId = '', estimatedG = 0, slot: number | null = n
 })
 export class PrintJobForm implements OnInit {
   private readonly data = inject(ProduccionData);
+  private readonly workspace = inject(CurrentWorkspace);
   private readonly plan = inject(PlanService);
   /** A part with no photo of its own shows the plate that prints it. */
   protected readonly borrowedPhoto = borrowedPhoto;
@@ -366,6 +368,7 @@ export class PrintJobForm implements OnInit {
       this.saved.emit();
     } catch (error) {
       this.saveError.set(explainProductionError(error, 'No pudimos crear el trabajo. Inténtalo de nuevo.'));
+      void this.workspace.afterRefusal(error);
     } finally {
       this.saving.set(false);
     }

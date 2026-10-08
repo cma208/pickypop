@@ -8,6 +8,7 @@ import { describeError, noAnswerReason, outcomeUnknown } from './inventario.erro
 import { countedWhole, MOVEMENT_TYPE_LABELS, quantity, signedQuantity, type MovementType } from './inventario.format';
 import { PURCHASE_LIMITS } from '../../core/pricing';
 import { INVENTORY_STYLES } from './inventario.styles';
+import { CurrentWorkspace } from '../../core/workspace';
 
 type Mode = 'in' | 'out' | 'count';
 type OutReason = Extract<MovementType, 'consumption' | 'waste'>;
@@ -112,6 +113,7 @@ const QUANTITY_PRECISION = 1000;
 })
 export class ItemMovementForm {
   private readonly data = inject(InventarioData);
+  private readonly workspace = inject(CurrentWorkspace);
   private readonly fb = inject(NonNullableFormBuilder);
 
   readonly item = input.required<InventoryItemSummary>();
@@ -244,6 +246,7 @@ export class ItemMovementForm {
       this.requestKey = crypto.randomUUID();
       this.saved.emit(this.resultText(result));
     } catch (error) {
+      void this.workspace.afterRefusal(error);
       if (outcomeUnknown(error)) {
         this.uncertain.set(noAnswerReason(error));
       } else {

@@ -9,6 +9,7 @@ import { acceptPlace } from './quote-hold';
 import { PlanService } from '../../core/plan';
 import { compareReady, saleBuyText, type ReadyComparison } from '../cotizador/promise-text';
 import { quoteSituation } from './quote-situation';
+import { CurrentWorkspace } from '../../core/workspace';
 
 /** "¿Para cuándo?" as the panel says it: what the customer heard against today. */
 interface AcceptWhen extends ReadyComparison {
@@ -121,6 +122,7 @@ interface AcceptWhen extends ReadyComparison {
 })
 export class CotizacionAceptar implements OnInit {
   private readonly data = inject(CotizadorData);
+  private readonly workspace = inject(CurrentWorkspace);
   private readonly planner = inject(PlanService);
   private readonly router = inject(Router);
 
@@ -225,6 +227,7 @@ export class CotizacionAceptar implements OnInit {
       // Said by the page, over the quote it reads again: this panel may be gone by then.
       this.busy.set(false);
       this.stale.emit(cause instanceof DataError ? cause.message : 'No pudimos crear el pedido.');
+      void this.workspace.afterRefusal(cause);
     }
   }
 }

@@ -1,4 +1,5 @@
 import { TestBed } from '@angular/core/testing';
+import { UserFacingError } from './friendly-error';
 import type { MemberRole } from './workspace';
 import { CurrentWorkspace } from './workspace';
 import { SUPABASE } from './supabase';
@@ -55,6 +56,41 @@ describe('CurrentWorkspace', () => {
     expect(refused).toBe(true);
     expect(workspace.isOwner()).toBe(false);
     expect((await workspace.info()).role).toBe('operator');
+  });
+
+  it('offers a viewer nothing to write, and nobody anything before the role is read', async () => {
+    const { workspace } = workshopWhereRoleIs('viewer');
+    expect(workspace.roleKnown()).toBe(false);
+    expect(workspace.canOperate()).toBe(false);
+
+    await workspace.info();
+
+    expect(workspace.roleKnown()).toBe(true);
+    expect(workspace.canOperate()).toBe(false);
+    expect(workspace.isOwner()).toBe(false);
+  });
+
+  it('forgets the role with the session, so the next person does not inherit it', async () => {
+    const { workspace } = workshopWhereRoleIs('owner');
+    await workspace.info();
+
+    workspace.forget();
+
+    expect(workspace.roleKnown()).toBe(false);
+    expect(workspace.isOwner()).toBe(false);
+  });
+
+  it('reads the role again after a refusal hidden behind a message already translated', async () => {
+    const { workspace, state } = workshopWhereRoleIs('operator');
+    await workspace.info();
+    state.role = 'viewer';
+
+    const refused = await workspace.afterRefusal(
+      new UserFacingError('No tienes permiso.', { cause: { code: '42501', message: 'new row violates row-level security policy' } }),
+    );
+
+    expect(refused).toBe(true);
+    expect(workspace.canOperate()).toBe(false);
   });
 
   it('leaves the role alone when what was refused is what was written', async () => {

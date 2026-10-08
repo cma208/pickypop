@@ -6,6 +6,7 @@ import { ClientesData } from './clientes.data';
 import { DOC_TYPE_LABELS, KIND_LABELS, type CustomerRecord } from './clientes.models';
 import { ClienteHistoria } from './cliente-historia';
 import { CustomerForm } from './customer-form';
+import { CurrentWorkspace, READ_ONLY_NOTE } from '../../core/workspace';
 
 /** Lowercase and strip accents so "perez" finds "Pérez". */
 function normalize(text: string): string {
@@ -26,13 +27,17 @@ function normalize(text: string): string {
   ],
   template: `
     <pp-page title="Clientes" subtitle="A quién le vendes, cómo contactarlo y cuántos pedidos tiene">
-      <button actions type="button" (click)="openForm(null)">Nuevo cliente</button>
+      @if (canOperate()) {
+        <button actions type="button" (click)="openForm(null)">Nuevo cliente</button>
+      } @else if (roleKnown()) {
+        <p class="muted">{{ readOnlyNote }}</p>
+      }
 
       @if (showing(); as customer) {
         <app-cliente-historia [customerId]="customer.id" [name]="customer.name" />
       }
 
-      @if (formOpen()) {
+      @if (formOpen() && canOperate()) {
         <!-- Keyed by customer so the form restarts when another one is picked. -->
         @for (key of [editing()?.id ?? 'new']; track key) {
           <app-customer-form [customer]="editing()" [existing]="customers()" (saved)="afterSave()" (cancelled)="closeForm()" />
@@ -42,7 +47,9 @@ function normalize(text: string): string {
       <pp-async [loading]="loading()" [error]="error()">
         @if (customers().length === 0) {
           <pp-empty message="Todavía no tienes clientes. Crea el primero para poder vender a su nombre.">
-            <button type="button" (click)="openForm(null)">Nuevo cliente</button>
+            @if (canOperate()) {
+              <button type="button" (click)="openForm(null)">Nuevo cliente</button>
+            }
           </pp-empty>
         } @else {
           <div class="toolbar">
@@ -78,7 +85,9 @@ function normalize(text: string): string {
                           {{ kindLabels[customer.kind] }}
                           @if (!customer.active) { · <pp-badge>Inactivo</pp-badge> }
                         </small>
-                        <button type="button" class="secondary edit" (click)="openForm(customer)">Editar</button>
+                        @if (canOperate()) {
+                          <button type="button" class="secondary edit" (click)="openForm(customer)">Editar</button>
+                        }
                         <button type="button" class="ghost edit" (click)="toggleStory(customer)">
                           {{ showingId() === customer.id ? 'Ocultar historia' : 'Ver historia' }}
                         </button>
@@ -106,6 +115,11 @@ function normalize(text: string): string {
 })
 export class ClientesPage {
   private readonly data = inject(ClientesData);
+  private readonly workspace = inject(CurrentWorkspace);
+  /** Owner and operator sell; a viewer only reads (ADR-025). */
+  protected readonly canOperate = this.workspace.canOperate;
+  protected readonly roleKnown = this.workspace.roleKnown;
+  protected readonly readOnlyNote = READ_ONLY_NOTE;
 
   protected readonly customers = signal<CustomerRecord[]>([]);
   protected readonly loading = signal(true);

@@ -5,7 +5,7 @@ import { ArticlePhotos } from '../../core/article-photos';
 import { Media } from '../../core/media';
 import { CatalogoData } from './catalogo.data';
 import type { Variant, VariantUsage } from './catalogo.models';
-import { CatalogoPermissions } from './catalogo.permissions';
+import { workspaceAs } from '../../core/workspace.testing';
 import { VarianteForm } from './variante-form';
 
 const VARIANT: Variant = {
@@ -30,7 +30,7 @@ async function open(options: { usage: VariantUsage; owner?: boolean; data?: obje
   TestBed.configureTestingModule({
     providers: [
       { provide: CatalogoData, useValue: data },
-      { provide: CatalogoPermissions, useValue: { isOwner: signal(options.owner ?? true) } },
+      workspaceAs((options.owner ?? true) ? 'owner' : 'operator'),
       { provide: Media, useValue: { url: async () => null, version: signal(0) } },
       { provide: ArticlePhotos, useValue: { resolve: async () => ({ path: null, kind: 'product' }) } },
     ],

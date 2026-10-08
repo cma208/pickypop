@@ -4,9 +4,9 @@ import { provideRouter } from '@angular/router';
 import { ArticlePhotos } from '../../core/article-photos';
 import { Media } from '../../core/media';
 import { PlanService } from '../../core/plan';
-import { CurrentWorkspace } from '../../core/workspace';
 import { CotizadorData, DataError, type QuoteDetail, type QuoteStatus } from '../cotizador/cotizador.data';
 import { CotizacionPage } from './cotizacion.page';
+import { workspaceAs } from '../../core/workspace.testing';
 
 const IN_A_DAY = new Date(Date.now() + 24 * 3_600_000).toISOString();
 const ORD_4 = { id: 'order-4', number: 'ORD-2026-0004' };
@@ -67,7 +67,7 @@ async function open(shown: QuoteDetail, refusal: string | null = null): Promise<
           setHold: async () => ({ heldAt: null, holdUntil: null }),
         },
       },
-      { provide: CurrentWorkspace, useValue: { info: async () => ({ id: 'ws-1', name: 'Pickypop' }) } },
+      workspaceAs('operator'),
       {
         provide: PlanService,
         useValue: { version: signal(0), current: () => Promise.reject(new Error('sin plan')), invalidate: () => {} },

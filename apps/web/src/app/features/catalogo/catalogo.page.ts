@@ -1,5 +1,6 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { CurrentWorkspace, READ_ONLY_NOTE } from '../../core/workspace';
 import { AsyncState, Badge, Empty, FORMAT_PIPES, Page, Thumb } from '../../ui';
 import { CatalogoData } from './catalogo.data';
 import {
@@ -44,11 +45,15 @@ const FILTERS: { value: StatusFilter; label: string }[] = [
   ],
   template: `
     <pp-page title="Catálogo y recetas" subtitle="Productos, variantes, cómo se hace cada uno y a qué precio">
-      <button actions type="button" (click)="creating.set(!creating())">
-        {{ creating() ? 'Cerrar' : 'Nuevo producto' }}
-      </button>
+      @if (canOperate()) {
+        <button actions type="button" (click)="creating.set(!creating())">
+          {{ creating() ? 'Cerrar' : 'Nuevo producto' }}
+        </button>
+      } @else if (roleKnown()) {
+        <p class="muted">{{ readOnlyNote }}</p>
+      }
 
-      @if (creating()) {
+      @if (creating() && canOperate()) {
         <div class="stack" style="margin-bottom: 1.5rem">
           <app-producto-nuevo (cancelled)="creating.set(false)" />
         </div>
@@ -79,7 +84,9 @@ const FILTERS: { value: StatusFilter; label: string }[] = [
 
         @if (products().length === 0) {
           <pp-empty message="Todavía no hay productos en el catálogo.">
-            <button type="button" (click)="creating.set(true)">Crear el primero</button>
+            @if (canOperate()) {
+              <button type="button" (click)="creating.set(true)">Crear el primero</button>
+            }
           </pp-empty>
         } @else if (visible().length === 0) {
           <pp-empty message="Ningún producto coincide con la búsqueda o el filtro." />
@@ -92,7 +99,9 @@ const FILTERS: { value: StatusFilter; label: string }[] = [
                   <h2><a [routerLink]="['/catalogo', product.id]">{{ product.name }}</a></h2>
                   <pp-badge [tone]="tones[product.status]">{{ labels[product.status] }}</pp-badge>
                   <a class="button secondary" [routerLink]="['/catalogo', product.id]">Abrir ficha</a>
-                  @if (product.status === 'archived') {
+                  @if (!canOperate()) {
+                    <!-- Archiving is writing: a viewer is not offered it (ADR-025). -->
+                  } @else if (product.status === 'archived') {
                     <button type="button" class="ghost" [disabled]="busyId() === product.id" (click)="restore(product)">
                       Restaurar
                     </button>
@@ -136,6 +145,11 @@ const FILTERS: { value: StatusFilter; label: string }[] = [
 })
 export class CatalogoPage {
   private readonly data = inject(CatalogoData);
+  private readonly workspace = inject(CurrentWorkspace);
+  /** Owner and operator create and archive; a viewer only reads (ADR-025). */
+  protected readonly canOperate = this.workspace.canOperate;
+  protected readonly roleKnown = this.workspace.roleKnown;
+  protected readonly readOnlyNote = READ_ONLY_NOTE;
 
   protected readonly filters = FILTERS;
   protected readonly labels = STATUS_LABELS;
@@ -190,6 +204,7 @@ export class CatalogoPage {
       );
     } catch (error) {
       this.actionError.set(messageOf(error));
+      void this.workspace.afterRefusal(error);
       // The product may be gone or changed in another tab: show what there is now.
       await this.load();
     } finally {

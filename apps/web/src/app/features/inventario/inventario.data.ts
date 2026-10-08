@@ -3,7 +3,7 @@ import { UserFacingError } from '../../core/friendly-error';
 import { SUPABASE } from '../../core/supabase';
 import { fetchAll } from '../../core/fetch-all';
 import { spoolName, type SpoolIdentity } from '../../core/spool-label';
-import { CurrentWorkspace, type MemberRole } from '../../core/workspace';
+import { CurrentWorkspace } from '../../core/workspace';
 import type { PaymentMethod } from '../finanzas/finanzas.models';
 import { dayEnd, dayStart, type ItemKind, type MovementType, type SpoolStatus } from './inventario.format';
 import type { AllocationMethod } from '../../core/pricing';
@@ -400,14 +400,6 @@ export class InventarioData {
     return this.workspace.requireId();
   }
 
-  /**
-   * The signed-in person's role, read the way the configuration screens read
-   * it. Only to not offer what the database would refuse (ADR-025): the
-   * database decides either way.
-   */
-  currentRole(): Promise<MemberRole | null> {
-    return this.workspace.info().then((info) => info.role);
-  }
 
   // ------------------------------------------------------------ catalogues
 

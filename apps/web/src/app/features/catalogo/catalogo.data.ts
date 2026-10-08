@@ -4,7 +4,7 @@ import { todayLocal } from '../../core/dates';
 import { friendlyError } from '../../core/friendly-error';
 import { fetchAll } from '../../core/fetch-all';
 import { SUPABASE } from '../../core/supabase';
-import { CurrentWorkspace } from '../../core/workspace';
+import { CurrentWorkspace, isOwnerRole } from '../../core/workspace';
 import { Media } from '../../core/media';
 import type { CostProfile, PrinterProfile } from '../../core/pricing';
 import type { Json } from '../../core/database.types';
@@ -752,12 +752,14 @@ export class CatalogoData {
 
   /**
    * A delete that took nothing. For anyone but the owner that is the policy
-   * saying no; for the owner, the row was already gone.
+   * saying no; for the owner, the row was already gone. The role is read
+   * again, not taken from this tab: it may have changed in another one, and
+   * the screen stops offering what was refused.
    */
   private async removed(rows: unknown[] | null, ownerOnly: string): Promise<void> {
     if (rows && rows.length > 0) return;
-    const { role } = await this.workspace.info();
-    throw new CatalogoError(role === 'owner' ? GONE : ownerOnly);
+    const { role } = await this.workspace.refresh();
+    throw new CatalogoError(isOwnerRole(role) ? GONE : ownerOnly);
   }
 
   // -------------------------------------------------------- costing sources

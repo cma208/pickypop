@@ -30,6 +30,7 @@ import {
   type PaymentMethod,
 } from './finanzas.models';
 import { FINANCE_STYLES } from './finanzas.styles';
+import { CurrentWorkspace } from '../../core/workspace';
 
 /** How many of the movements that change side are listed before «y N más». */
 const SHIFT_LIST_LIMIT = 8;
@@ -129,6 +130,7 @@ const SHIFT_LIST_LIMIT = 8;
 })
 export class AccountForm {
   private readonly data = inject(FinanzasData);
+  private readonly workspace = inject(CurrentWorkspace);
   private readonly fb = inject(NonNullableFormBuilder);
 
   readonly account = input<AccountSummary | null>(null);
@@ -252,6 +254,7 @@ export class AccountForm {
         return;
       }
       this.failure.set(friendlyError(error, 'No pudimos guardar la cuenta. Inténtalo de nuevo.'));
+      void this.workspace.afterRefusal(error);
       if (isRefusal(error)) this.refused.emit();
     } finally {
       this.saving.set(false);

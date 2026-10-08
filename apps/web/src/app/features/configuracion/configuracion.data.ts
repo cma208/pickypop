@@ -37,20 +37,6 @@ export class ConfiguracionData {
   private readonly supabase = inject(SUPABASE);
   private readonly workspace = inject(CurrentWorkspace);
 
-  currentRole() {
-    return this.workspace.info().then((info) => info.role);
-  }
-
-  /**
-   * After the database refuses what a screen offered, the role this tab
-   * remembers may be stale (changed in another tab): it is read again, and
-   * the answer says whether the section should reload in the mode that now
-   * matches. A refusal of what was written keeps the form as it is.
-   */
-  afterRefusal(error: unknown): Promise<boolean> {
-    return this.workspace.afterRefusal(error);
-  }
-
   async workshop(): Promise<WorkshopRecord> {
     const id = await this.workspace.requireId();
     const { data, error } = await this.supabase

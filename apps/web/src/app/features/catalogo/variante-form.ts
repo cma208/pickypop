@@ -3,7 +3,7 @@ import { FormControl, FormGroup, ReactiveFormsModule, Validators, type AbstractC
 import { Card, Field, ImageField } from '../../ui';
 import { CatalogoData } from './catalogo.data';
 import type { Variant, VariantUsage } from './catalogo.models';
-import { CatalogoPermissions, OWNER_ONLY } from './catalogo.permissions';
+import { OWNER_ONLY } from './catalogo.permissions';
 import { SHARED_STYLES } from './catalogo.styles';
 import {
   blankToNull,
@@ -17,6 +17,8 @@ import {
 import { maxDecimals, requiredText, wholeNumber } from '../../core/form-errors';
 import { DECIMALS, decimalsText, fieldError, LIMITS, limitText } from './catalogo.validators';
 import { PairsEditor } from './pairs-editor';
+import { CurrentWorkspace } from '../../core/workspace';
+import { lockWhileReadOnly } from '../../core/read-only';
 
 /** The smallest price that is not zero. */
 const ONE_CENT = 0.01;
@@ -49,6 +51,7 @@ const MINIMUM_MESSAGES: Record<string, string> = {
             folder="variantes"
             [path]="imagePath()"
             [name]="form.controls.name.value"
+            [readOnly]="!canOperate()"
             (changed)="setImage($event)"
           />
         </pp-field>
@@ -62,7 +65,9 @@ const MINIMUM_MESSAGES: Record<string, string> = {
           >
             <div class="row">
               <input formControlName="skuCode" autocomplete="off" placeholder="Ej. BOT-POC-ROJ" />
-              <button type="button" class="secondary" (click)="suggestSku()">Sugerir</button>
+              @if (canOperate()) {
+                <button type="button" class="secondary" (click)="suggestSku()">Sugerir</button>
+              }
             </div>
           </pp-field>
         </div>
@@ -99,11 +104,13 @@ const MINIMUM_MESSAGES: Record<string, string> = {
           valuePlaceholder="Ej. dulces surtidos"
           addLabel="Agregar opción"
           emptyText="Sin opciones."
+          [readOnly]="!canOperate()"
         />
 
         @if (error(); as message) {
           <p class="error" role="alert">{{ message }}</p>
         }
+        @if (canOperate()) {
         <div class="bar">
           <button type="submit" [disabled]="busy() || (variant() !== null && form.pristine)">
             {{ busy() ? 'Guardando…' : variant() ? 'Guardar variante' : 'Crear variante' }}
@@ -119,7 +126,7 @@ const MINIMUM_MESSAGES: Record<string, string> = {
           }
           <span class="grow"></span>
           @if (variant(); as current) {
-            @if (!permissions.isOwner()) {
+            @if (!isOwner()) {
               <span class="muted hint">{{ ownerOnly }}</span>
             } @else if (usageText()) {
               @if (current.active) {
@@ -130,7 +137,8 @@ const MINIMUM_MESSAGES: Record<string, string> = {
             }
           }
         </div>
-        @if (variant() && permissions.isOwner() && usageText(); as where) {
+        }
+        @if (variant() && isOwner() && usageText(); as where) {
           <p class="muted hint">
             No se puede eliminar: {{ lowerFirst(where) }}
             {{ variant()!.active ? 'Desactívala para que no se ofrezca más:' : 'Ya está desactivada:' }}
@@ -146,7 +154,11 @@ const MINIMUM_MESSAGES: Record<string, string> = {
 })
 export class VarianteForm {
   private readonly data = inject(CatalogoData);
-  protected readonly permissions = inject(CatalogoPermissions);
+  private readonly workspace = inject(CurrentWorkspace);
+  /** The day to day: owner and operator. A viewer is shown what there is, with nothing to change (ADR-025). */
+  protected readonly canOperate = this.workspace.canOperate;
+  /** Removing is the owner's: the database refuses everyone else (T2-10). */
+  protected readonly isOwner = this.workspace.isOwner;
   protected readonly ownerOnly = OWNER_ONLY.variant;
 
   readonly productId = input.required<string>();
@@ -166,6 +178,8 @@ export class VarianteForm {
   protected readonly justSaved = signal(false);
   protected readonly error = signal<string | null>(null);
   protected readonly imagePath = signal<string | null>(null);
+  /** A row pushed into a disabled list arrives enabled: locked again after each fill. */
+  private readonly relock: () => void;
   /** False until the inputs are there: the name is validated once while the form is built. */
   private siblingsReady = false;
   /** Where the variant is used; null while it is not known, and then «Eliminar» waits. */
@@ -197,6 +211,7 @@ export class VarianteForm {
   });
 
   constructor() {
+    this.relock = lockWhileReadOnly(this.form, this.canOperate);
     effect(() => {
       const variant = this.variant();
       untracked(() => {
@@ -228,6 +243,7 @@ export class VarianteForm {
       this.saved.emit(current.id);
     } catch (error) {
       this.error.set(messageOf(error, 'No pudimos guardar la foto.'));
+      void this.workspace.afterRefusal(error);
     }
   }
 
@@ -295,6 +311,7 @@ export class VarianteForm {
       this.saved.emit(id);
     } catch (error) {
       this.error.set(messageOf(error, 'No pudimos guardar la variante.'));
+      void this.workspace.afterRefusal(error);
     } finally {
       this.busy.set(false);
     }
@@ -323,6 +340,7 @@ export class VarianteForm {
       this.duplicated.emit(await this.data.duplicateVariant(current.id, name.trim()));
     } catch (error) {
       this.error.set(messageOf(error, 'No pudimos duplicar la variante.'));
+      void this.workspace.afterRefusal(error);
     } finally {
       this.busy.set(false);
     }
@@ -348,6 +366,7 @@ export class VarianteForm {
       this.removed.emit();
     } catch (error) {
       this.error.set(messageOf(error, 'No pudimos eliminar la variante.'));
+      void this.workspace.afterRefusal(error);
       await this.loadUsage(current.id);
     } finally {
       this.busy.set(false);
@@ -368,6 +387,7 @@ export class VarianteForm {
       this.saved.emit(current.id);
     } catch (error) {
       this.error.set(messageOf(error, 'No pudimos desactivar la variante.'));
+      void this.workspace.afterRefusal(error);
     } finally {
       this.busy.set(false);
     }
@@ -408,6 +428,7 @@ export class VarianteForm {
     this.form.markAsUntouched();
     // A list price of zero saved before it was refused: said at once, so it gets fixed.
     if (variant && this.form.controls.listPrice.invalid) this.form.controls.listPrice.markAsTouched();
+    this.relock();
   }
 }
 

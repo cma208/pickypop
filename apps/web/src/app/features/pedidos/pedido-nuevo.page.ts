@@ -21,6 +21,7 @@ import { PlanService } from '../../core/plan';
 import type { PlanCandidateLine } from '@pickypop/domain';
 import { candidateQuantity, sameCandidates } from '../cotizador/plan-candidate';
 import { watchSalePromise } from '../cotizador/sale-promise.watch';
+import { CurrentWorkspace, READ_ONLY_NOTE } from '../../core/workspace';
 
 @Component({
   selector: 'app-pedido-nuevo',
@@ -29,6 +30,10 @@ import { watchSalePromise } from '../cotizador/sale-promise.watch';
     <pp-page title="Nuevo pedido" subtitle="El número se asigna al guardar">
       <a actions class="button secondary" routerLink="/pedidos">Volver</a>
 
+      @if (roleKnown() && !canOperate()) {
+        <!-- Reached by a link: a viewer is shown why, not a form the database would refuse (ADR-025). -->
+        <p class="muted">{{ readOnlyNote }}</p>
+      } @else {
       <pp-async [loading]="loading()" [error]="loadError()">
         <form [formGroup]="form" (ngSubmit)="save()" novalidate>
           <pp-card heading="Propósito">
@@ -137,6 +142,7 @@ import { watchSalePromise } from '../cotizador/sale-promise.watch';
           </pp-card>
         </form>
       </pp-async>
+      }
     </pp-page>
   `,
   styles: `
@@ -158,6 +164,11 @@ import { watchSalePromise } from '../cotizador/sale-promise.watch';
 })
 export class PedidoNuevoPage {
   private readonly data = inject(PedidosData);
+  private readonly workspace = inject(CurrentWorkspace);
+  /** Owner and operator sell, deliver and collect; a viewer only reads (ADR-025). */
+  protected readonly canOperate = this.workspace.canOperate;
+  protected readonly roleKnown = this.workspace.roleKnown;
+  protected readonly readOnlyNote = READ_ONLY_NOTE;
   private readonly planner = inject(PlanService);
   private readonly router = inject(Router);
 
@@ -288,6 +299,7 @@ export class PedidoNuevoPage {
       this.planner.invalidate();
     } catch (error) {
       this.saveError.set(explainError(error, 'No pudimos guardar el pedido. Inténtalo de nuevo.'));
+      void this.workspace.afterRefusal(error);
       this.saving.set(false);
       return;
     }

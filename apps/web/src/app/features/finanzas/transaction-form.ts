@@ -384,6 +384,7 @@ export class TransactionForm {
       this.saved.emit('Movimiento registrado.');
     } catch (error) {
       this.failure.set(friendlyError(error, 'No pudimos registrar el movimiento. Inténtalo de nuevo.'));
+      void this.workspace.afterRefusal(error);
       if (isRefusal(error)) this.refused.emit();
     } finally {
       this.saving.set(false);

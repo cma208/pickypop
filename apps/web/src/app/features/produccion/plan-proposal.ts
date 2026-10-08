@@ -14,8 +14,8 @@ import {
   type FilamentRow,
   type HoldRef,
 } from './por-lanzar';
-import { ProductionAccess } from './production-access';
 import { ProposalQueueForm, type QueuedRuns } from './proposal-queue-form';
+import { CurrentWorkspace } from '../../core/workspace';
 
 /**
  * One row of «Por lanzar»: the plate, how many runs and how long, the
@@ -112,7 +112,9 @@ export class PlanProposalRow {
   readonly queued = output<QueuedRuns>();
 
   protected readonly queueing = signal(false);
-  protected readonly canOperate = inject(ProductionAccess).canOperate;
+  private readonly workspace = inject(CurrentWorkspace);
+  /** Owner and operator run production; a viewer only reads (ADR-025). */
+  protected readonly canOperate = this.workspace.canOperate;
 
   private readonly timeZone = computed(() => this.view().input.settings.timeZone);
   protected readonly runs = computed(() => runsText(this.proposal(), this.view().result.runs));

@@ -11,8 +11,8 @@ import { assembledMessage, assembledText, claimsTitle } from './stock-position';
 import { buildableFrom, MAX_UNITS, parseUnits, unitsProblem } from './armar-units';
 import { ArmarData } from './armar.data';
 import { productionProblem } from '../produccion/production-errors';
-import { ProductionAccess } from '../produccion/production-access';
 import { requestKey, type SentRequest } from '../produccion/request-key';
+import { CurrentWorkspace } from '../../core/workspace';
 
 /** What the card of a product says it has on the shelf, and whose it is. */
 interface Built {
@@ -245,7 +245,9 @@ export class ArmarPage {
   private readonly assembly = inject(ArmarData);
   private readonly planner = inject(InventoryPlan);
   /** Assembling is the day to day of an owner or an operator, never of a viewer. */
-  protected readonly canOperate = inject(ProductionAccess).canOperate;
+  private readonly workspace = inject(CurrentWorkspace);
+  /** Owner and operator run production; a viewer only reads (ADR-025). */
+  protected readonly canOperate = this.workspace.canOperate;
   /**
    * The last assembly sent and its key. Sent again as it was (the answer got
    * lost and the person presses again), it keeps the key, and the database
@@ -381,6 +383,7 @@ export class ArmarPage {
     } catch (error) {
       // La base escribe aquí qué falta y cuánto: es mejor mensaje que cualquiera de aquí.
       const message = productionProblem(error) ?? friendlyError(error, 'No pudimos armar el producto.');
+      void this.workspace.afterRefusal(error);
       // Turned down, the screen is stale: another tab assembled or counted
       // meanwhile. The cards and the table are read again, so «Alcanza para»
       // and the button stop promising what is not there (T3-16).

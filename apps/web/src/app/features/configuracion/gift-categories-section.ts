@@ -12,7 +12,7 @@ import {
 import { errorOf, requiredText } from '../../core/form-errors';
 import { friendlyError } from '../../core/friendly-error';
 import { SECTION_STYLES } from '../../core/styles';
-import { isOwnerRole } from '../../core/workspace';
+import { CurrentWorkspace } from '../../core/workspace';
 
 /**
  * Gift categories and how the money of each one is treated. The treatment
@@ -101,7 +101,9 @@ export class GiftCategoriesSection {
   protected readonly categories = signal<GiftCategoryRecord[]>([]);
   protected readonly loading = signal(true);
   protected readonly loadError = signal<string | null>(null);
-  protected readonly canEdit = signal(false);
+  private readonly workspace = inject(CurrentWorkspace);
+  /** Configuration is the owner's (ADR-025); anyone else reads it. Read from `CurrentWorkspace`, the one place that reads the role. */
+  protected readonly canEdit = this.workspace.isOwner;
   protected readonly formOpen = signal(false);
   protected readonly editing = signal<GiftCategoryRecord | null>(null);
   protected readonly saving = signal(false);
@@ -146,7 +148,7 @@ export class GiftCategoriesSection {
       await this.reload();
     } catch (error) {
       this.error.set(friendlyError(error, 'No pudimos guardar la categoría.'));
-      if (await this.data.afterRefusal(error)) {
+      if (await this.workspace.afterRefusal(error)) {
         this.formOpen.set(false);
         this.listError.set(this.error());
         await this.reload();
@@ -158,9 +160,8 @@ export class GiftCategoriesSection {
 
   private async reload(): Promise<void> {
     try {
-      const [categories, role] = await Promise.all([this.data.giftCategories(), this.data.currentRole()]);
+      const [categories] = await Promise.all([this.data.giftCategories(), this.workspace.info()]);
       this.categories.set(categories);
-      this.canEdit.set(isOwnerRole(role));
       this.loadError.set(null);
     } catch (error) {
       this.loadError.set(friendlyError(error, 'No pudimos cargar las categorías de regalo.'));

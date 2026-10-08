@@ -13,6 +13,7 @@ import { describeError, noAnswerReason, outcomeUnknown } from './inventario.erro
 import { INVENTORY_STYLES } from './inventario.styles';
 import { noAccountsText } from './accounts-hint';
 import { notBefore, purchaseDateFloor } from './purchase-dates';
+import { CurrentWorkspace } from '../../core/workspace';
 
 const NO_ACCOUNT = '';
 const NO_METHOD = '';
@@ -93,11 +94,13 @@ const MONEY = new Intl.NumberFormat('es-PE', { minimumFractionDigits: 2, maximum
 })
 export class CompraPago {
   private readonly data = inject(InventarioData);
+  private readonly workspace = inject(CurrentWorkspace);
 
   readonly purchase = input.required<PurchaseSummary>();
   readonly accounts = input.required<PaymentAccount[]>();
   /** Only the owner creates accounts: the operator is told whom to ask. */
-  readonly isOwner = input(false);
+  /** Only to word what the operator cannot do (create an account); the database decides. */
+  protected readonly isOwner = this.workspace.isOwner;
   /** The money is recorded; the list that owns the purchase reloads it. */
   readonly paid = output<void>();
   /**
@@ -270,6 +273,7 @@ export class CompraPago {
       this.form.controls.amount.markAsPristine();
       this.paid.emit();
     } catch (error) {
+      void this.workspace.afterRefusal(error);
       if (outcomeUnknown(error)) {
         this.uncertain.set(noAnswerReason(error));
       } else {

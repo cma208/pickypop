@@ -14,8 +14,9 @@ const NO_PRIVILEGE = '42501';
 export const OUT_OF_SYNC_MESSAGE =
   'La aplicación y la base de datos no están en la misma versión: recarga la página. Si sigue igual, avísale al dueño, que falta publicar una parte de la actualización. No se movió nada.';
 
+/** The screen reads the role again on its own (`afterRefusal`) and stops offering what was refused. */
 export const NO_PRIVILEGE_MESSAGE =
-  'No tienes permiso para hacer esto. Si tu rol en el taller cambió, recarga la página para ver lo que puedes hacer.';
+  'No tienes permiso para hacer esto: tu rol en el taller cambió. La pantalla ya muestra lo que puedes hacer.';
 
 /**
  * What production, assembly and the shelf count say before the general

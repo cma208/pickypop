@@ -1,4 +1,3 @@
-import type { MemberRole } from '../../core/workspace';
 import type { BadgeTone } from '../../ui';
 
 /** Days are cut at midnight in Lima, wherever the browser happens to be. */
@@ -97,22 +96,6 @@ export interface CategoryOption {
  * the other changes with it.
  */
 export const MAX_LEDGER_AMOUNT = 1_000_000;
-
-/**
- * What a person may do in the finance screens (the owner's decision of
- * 2026-10-08). The database decides it; the screens use this only not to
- * offer what it would refuse.
- */
-export interface FinanceAccess {
-  /** Sets up the accounts and voids movements. */
-  isOwner: boolean;
-  /** Registers movements and collects: the owner and the operators, never a viewer. */
-  canOperate: boolean;
-}
-
-export function financeAccess(role: MemberRole | null | undefined): FinanceAccess {
-  return { isOwner: role === 'owner', canOperate: role === 'owner' || role === 'operator' };
-}
 
 /** The two types that are capital, not profit: the owner's money going in or out. */
 export function isOwnerType(type: TransactionType): boolean {

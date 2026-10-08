@@ -5,6 +5,7 @@ import { friendlyError } from '../../core/friendly-error';
 import { SECTION_STYLES } from '../../core/styles';
 import { Field } from '../../ui';
 import { OportunidadesData, type CustomerOption, type MemberOption, type OpportunityCard } from './oportunidades.data';
+import { CurrentWorkspace } from '../../core/workspace';
 
 /** Alta y edición de un trato. La etapa no se toca aquí: se mueve en el tablero. */
 @Component({
@@ -69,6 +70,7 @@ import { OportunidadesData, type CustomerOption, type MemberOption, type Opportu
 })
 export class OportunidadForm {
   private readonly data = inject(OportunidadesData);
+  private readonly workspace = inject(CurrentWorkspace);
 
   readonly opportunity = input<OpportunityCard | null>(null);
   readonly saved = output<void>();
@@ -127,6 +129,7 @@ export class OportunidadForm {
       });
       this.saved.emit();
     } catch (error) {
+      void this.workspace.afterRefusal(error);
       this.error.set(friendlyError(error, 'No pudimos guardar el trato. Inténtalo de nuevo.'));
     } finally {
       this.saving.set(false);
@@ -139,6 +142,7 @@ export class OportunidadForm {
       this.customers.set(customers);
       this.members.set(members);
     } catch (error) {
+      void this.workspace.afterRefusal(error);
       this.error.set(friendlyError(error, 'No pudimos cargar los clientes ni los miembros del taller.'));
     }
   }

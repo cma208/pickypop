@@ -10,9 +10,9 @@ import type { QueuedRuns } from './proposal-queue-form';
 import { PrintJobCard, refusalAfterReload, type JobRefusal } from './print-job-card';
 import { PrintJobForm } from './print-job-form';
 import { ProduccionData, type CloseOutcome, type JobItem } from './produccion.data';
-import { ProductionAccess } from './production-access';
 import { queueLanes } from './produccion.queue';
 import { rollName } from './produccion.spools';
+import { CurrentWorkspace } from '../../core/workspace';
 
 const EFFECTS_ID = 'stock-effects';
 /** Wording of the plan's warning for a printing job past its estimate (`plan-queue.ts`). */
@@ -163,7 +163,9 @@ export class ProduccionPage {
   private readonly data = inject(ProduccionData);
   private readonly plan = inject(PlanService);
   private readonly query = toSignal(inject(ActivatedRoute).queryParamMap);
-  protected readonly canOperate = inject(ProductionAccess).canOperate;
+  private readonly workspace = inject(CurrentWorkspace);
+  /** Owner and operator run production; a viewer only reads (ADR-025). */
+  protected readonly canOperate = this.workspace.canOperate;
 
   /** «Ver qué falta imprimir» on an order page links here with `?pedido=<id>`. */
   protected readonly orderId = computed(() => this.query()?.get('pedido') ?? null);

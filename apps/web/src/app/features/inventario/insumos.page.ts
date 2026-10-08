@@ -9,6 +9,7 @@ import { ItemForm } from './item-form';
 import { ItemMovementForm } from './item-movement-form';
 import { Modal } from './modal';
 import { amount, itemCells, type PositionCells } from './stock-position';
+import { CurrentWorkspace, READ_ONLY_NOTE } from '../../core/workspace';
 
 type Dialog = { kind: 'edit'; item: InventoryItemSummary | null } | { kind: 'move'; item: InventoryItemSummary };
 
@@ -25,7 +26,12 @@ interface ItemRow {
   imports: [Page, AsyncState, Empty, Badge, Item, Modal, ItemForm, ItemMovementForm],
   template: `
     <pp-page [title]="heading()" [subtitle]="subtitle()">
-      <button actions type="button" (click)="dialog.set({ kind: 'edit', item: null })">+ Nuevo artículo</button>
+      @if (canOperate()) {
+        <button actions type="button" (click)="dialog.set({ kind: 'edit', item: null })">+ Nuevo artículo</button>
+      }
+      @if (roleKnown() && !canOperate()) {
+        <p class="muted">{{ readOnlyNote }}</p>
+      }
 
       @if (notice(); as text) {
         <p class="notice" role="status">{{ text }}</p>
@@ -37,7 +43,9 @@ interface ItemRow {
       <pp-async [loading]="loading()" [error]="error()">
         @if (mine().length === 0) {
           <pp-empty [message]="emptyMessage()">
-            <button type="button" (click)="dialog.set({ kind: 'edit', item: null })">Registrar el primero</button>
+            @if (canOperate()) {
+              <button type="button" (click)="dialog.set({ kind: 'edit', item: null })">Registrar el primero</button>
+            }
           </pp-empty>
         } @else {
           <div class="toolbar">
@@ -87,7 +95,7 @@ interface ItemRow {
                             {{ row.sub }}
                             @if (!item.imagePath) {
                               {{ row.sub ? '· ' : '' }}Sin foto ·
-                              <button type="button" class="inline-link" (click)="dialog.set({ kind: 'edit', item })">Agregar</button>
+                              @if (canOperate()) { <button type="button" class="inline-link" (click)="dialog.set({ kind: 'edit', item })">Agregar</button> }
                             }
                           </span>
                           @if (!item.active) { <pp-badge>Inactivo</pp-badge> }
@@ -116,10 +124,12 @@ interface ItemRow {
                         }
                       </td>
                       <td class="actions-cell">
-                        <button type="button" class="secondary" (click)="dialog.set({ kind: 'move', item })">
-                          Movimiento
-                        </button>
-                        <button type="button" class="ghost" (click)="dialog.set({ kind: 'edit', item })">Editar</button>
+                        @if (canOperate()) {
+                          <button type="button" class="secondary" (click)="dialog.set({ kind: 'move', item })">
+                            Movimiento
+                          </button>
+                          <button type="button" class="ghost" (click)="dialog.set({ kind: 'edit', item })">Editar</button>
+                        }
                       </td>
                     </tr>
                   }
@@ -130,7 +140,7 @@ interface ItemRow {
         }
       </pp-async>
 
-      @if (dialog(); as current) {
+      @if (canOperate() && dialog(); as current) {
         @if (current.kind === 'edit') {
           <app-modal [heading]="current.item ? 'Editar artículo' : 'Nuevo artículo'" (closed)="dialog.set(null)">
             <app-item-form
@@ -164,6 +174,11 @@ interface ItemRow {
 })
 export class InsumosPage {
   private readonly data = inject(InventarioData);
+  private readonly workspace = inject(CurrentWorkspace);
+  /** Owner and operator keep the inventory; a viewer only reads it (ADR-025). */
+  protected readonly canOperate = this.workspace.canOperate;
+  protected readonly roleKnown = this.workspace.roleKnown;
+  protected readonly readOnlyNote = READ_ONLY_NOTE;
   private readonly planner = inject(InventoryPlan);
 
   /**

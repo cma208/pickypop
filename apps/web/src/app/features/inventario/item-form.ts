@@ -11,6 +11,7 @@ import { InventarioData, type InventoryItemSummary } from './inventario.data';
 import { describeError } from './inventario.errors';
 import { countedWhole, ITEM_KINDS, ITEM_KIND_LABELS, type ItemKind } from './inventario.format';
 import { INVENTORY_STYLES } from './inventario.styles';
+import { CurrentWorkspace } from '../../core/workspace';
 
 const DEFAULT_UNIT = 'unidad';
 const UNIT_SUGGESTIONS = ['unidad', 'g', 'ml', 'm', 'par', 'caja'];
@@ -132,6 +133,7 @@ const ACTIVE_LABELS: Record<ItemKind, string> = {
 })
 export class ItemForm implements OnDestroy {
   private readonly data = inject(InventarioData);
+  private readonly workspace = inject(CurrentWorkspace);
   private readonly media = inject(Media);
   private readonly photos = inject(ArticlePhotos);
   private readonly fb = inject(NonNullableFormBuilder);
@@ -250,6 +252,7 @@ export class ItemForm implements OnDestroy {
       await this.forgetReplacedPhotos();
       this.saved.emit();
     } catch (error) {
+      void this.workspace.afterRefusal(error);
       this.error.set(
         describeError(
           error,
