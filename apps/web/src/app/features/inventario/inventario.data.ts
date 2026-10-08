@@ -110,6 +110,8 @@ export interface WeighingInput {
   spoolId: string;
   grossG: number;
   tareG: number;
+  /** A discarded roll with filament on the scale goes back into use. Without it, the database refuses it. */
+  reopen?: boolean;
 }
 
 /** What a weighing did: `differenceG` zero means it wrote nothing. */
@@ -654,6 +656,7 @@ export class InventarioData {
       p_spool_id: input.spoolId,
       p_gross_g: input.grossG,
       p_tare_g: input.tareG,
+      p_reopen: input.reopen ?? false,
     });
     if (error) throw error;
 

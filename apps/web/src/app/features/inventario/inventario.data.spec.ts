@@ -137,8 +137,22 @@ describe('InventarioData spools', () => {
 
     const result = await data.recordWeighing({ spoolId: 'spool-1', grossG: 200, tareG: 200 });
 
-    expect(recorded.rpc[0]).toEqual(['weigh_spool', { p_spool_id: 'spool-1', p_gross_g: 200, p_tare_g: 200 }]);
+    expect(recorded.rpc[0]).toEqual([
+      'weigh_spool',
+      { p_spool_id: 'spool-1', p_gross_g: 200, p_tare_g: 200, p_reopen: false },
+    ]);
     expect(result.differenceG).toBe(0);
+  });
+
+  it('says a discarded roll comes back only when the person said so', async () => {
+    const { data, recorded } = dataWith(async () => ({
+      data: { net_g: 650, before_g: 0, difference_g: 650, after_g: 650, status: 'open' },
+      error: null,
+    }));
+
+    await data.recordWeighing({ spoolId: 'spool-1', grossG: 850, tareG: 200, reopen: true });
+
+    expect(recorded.rpc[0]?.[1]).toEqual({ p_spool_id: 'spool-1', p_gross_g: 850, p_tare_g: 200, p_reopen: true });
   });
 
   it('does not say «guardado» when the update touched no row', async () => {

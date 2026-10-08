@@ -20,6 +20,12 @@ const MAX_WEIGHT_G = 100_000;
  * database takes the difference against what the roll has at that moment, so
  * a dialog left open while a print closed, or a second tab, leaves the roll at
  * what the scale said instead of applying the difference twice (T3-02).
+ *
+ * A roll marked out of use says what the weighing does to it before it is
+ * saved. An emptied one with filament on the scale reopens by itself: it was a
+ * mistake about how much was left. A discarded one was a decision about the
+ * filament, so it comes back only if the person ticks «Vuelve a usarse», and
+ * the database refuses it otherwise.
  */
 @Component({
   selector: 'app-weigh-form',
@@ -69,6 +75,27 @@ const MAX_WEIGHT_G = 100_000;
             y el rollo pasará a tener {{ realNet() | qty: 'g' }}.
           </p>
         }
+
+        @if (needsReopen()) {
+          <div class="alert alert-warn">
+            <p>
+              Este rollo está <strong>descartado</strong>: su filamento ya salió del stock como merma. Pesarlo con
+              filamento lo vuelve a usar, y sus {{ realNet() | qty: 'g' }} vuelven a contar en Filamentos y en el plan.
+            </p>
+            <label class="check">
+              <input type="checkbox" formControlName="reopen" />
+              Vuelve a usarse: el filamento sirve.
+            </label>
+            @if (!form.controls.reopen.value) {
+              <p class="muted">Si solo querías anotar lo que se botó, no hace falta pesarlo.</p>
+            }
+          </div>
+        } @else if (reopensByItself()) {
+          <p class="notice">
+            Este rollo está agotado. Como la balanza encuentra filamento, vuelve a quedar abierto y sus gramos vuelven a
+            contar en Filamentos y en el plan.
+          </p>
+        }
       </section>
 
       @if (error(); as message) {
@@ -91,6 +118,9 @@ const MAX_WEIGHT_G = 100_000;
       dl div { display: flex; justify-content: space-between; gap: 1rem; }
       dt { color: var(--muted); }
       dd { margin: 0; font-variant-numeric: tabular-nums; font-weight: 600; }
+      .alert p { margin: 0 0 0.5rem; }
+      .alert .check { margin: 0; }
+      .alert .muted { margin: 0.5rem 0 0; }
     `,
   ],
 })
@@ -109,6 +139,7 @@ export class WeighForm {
   protected readonly form = this.fb.group({
     grossG: new FormControl<number | null>(null, [Validators.required, Validators.min(0), Validators.max(MAX_WEIGHT_G)]),
     tareG: new FormControl<number | null>(null, [Validators.required, Validators.min(0), Validators.max(MAX_WEIGHT_G)]),
+    reopen: new FormControl(false, { nonNullable: true }),
   });
 
   private readonly values = toSignal(this.form.valueChanges, { initialValue: this.form.value });
@@ -132,11 +163,19 @@ export class WeighForm {
 
   protected readonly differenceText = computed(() => signedQuantity(this.difference() ?? 0, 'g'));
 
+  /** Filament on the scale of a discarded roll: it comes back only if the person says so. */
+  protected readonly needsReopen = computed(() => this.spool().status === 'discarded' && (this.realNet() ?? 0) > 0);
+
+  /** Filament on the scale of an emptied roll: the database reopens it, and the dialog says so first. */
+  protected readonly reopensByItself = computed(() => this.spool().status === 'empty' && (this.realNet() ?? 0) > 0);
+
   /**
    * Any valid weighing can be saved, a matching one too: what matters is what
    * the roll has when it is saved, not when the dialog opened.
    */
-  protected readonly canSave = computed(() => this.difference() !== null);
+  protected readonly canSave = computed(
+    () => this.difference() !== null && (!this.needsReopen() || this.values().reopen === true),
+  );
 
   ngOnInit(): void {
     this.form.controls.tareG.setValue(this.spool().tareG);
@@ -151,7 +190,12 @@ export class WeighForm {
     this.busy.set(true);
     this.error.set(null);
     try {
-      const result = await this.data.recordWeighing({ spoolId: this.spool().id, grossG, tareG });
+      const result = await this.data.recordWeighing({
+        spoolId: this.spool().id,
+        grossG,
+        tareG,
+        reopen: this.needsReopen() && this.form.controls.reopen.value,
+      });
       this.saved.emit(result);
     } catch (error) {
       this.error.set(describeError(error, 'No pudimos registrar el pesaje. Inténtalo de nuevo.'));

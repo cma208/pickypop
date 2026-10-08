@@ -2840,7 +2840,7 @@ isOneToOne: false
         isSetofReturn: false
       } },
 "weigh_spool":
-{ Args: { "p_gross_g": number,"p_spool_id": string,"p_tare_g": number }; Returns: Json
+{ Args: { "p_gross_g": number,"p_reopen"?: boolean,"p_spool_id": string,"p_tare_g": number }; Returns: Json
                            }
           }
           Enums: {
