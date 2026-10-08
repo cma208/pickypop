@@ -48,7 +48,8 @@ const NO_FILTER: LedgerFilter = { accountId: null, type: null, from: null, to: n
 
       <!-- The forms sit above the book: opened from a row far below, the page is brought up to them (T5-14). -->
       <div class="forms" #forms>
-        @if (formOpen()) {
+        <!-- Opened by an operator whose role then went down, the form goes: the database would refuse it anyway. -->
+        @if (formOpen() && canOperate()) {
           <app-transaction-form
             [allAccounts]="accounts()"
             [allCategories]="categories()"
@@ -128,7 +129,10 @@ const NO_FILTER: LedgerFilter = { accountId: null, type: null, from: null, to: n
                 : 'Todavía no hay movimientos de dinero registrados.'
             "
           >
-            <button type="button" (click)="openForm()">Registrar el primero</button>
+            <!-- Registering is writing (ADR-025); and under filters there is a book, just not this part of it. -->
+            @if (canOperate() && !hasFilter()) {
+              <button type="button" (click)="openForm()">Registrar el primero</button>
+            }
           </pp-empty>
         } @else {
           <div class="totals">
