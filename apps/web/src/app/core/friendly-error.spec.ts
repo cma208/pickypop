@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { friendlyError, permissionError, UserFacingError } from './friendly-error';
+import { friendlyError, isPermissionError, permissionError, UserFacingError } from './friendly-error';
 
 const FALLBACK = 'No pudimos guardar el cambio.';
 
@@ -33,6 +33,71 @@ describe('friendlyError', () => {
       'Faltan los gramos de la placa 2.',
     );
     expect(friendlyError(permissionError(), FALLBACK)).toContain('permiso');
+  });
+
+  it('says how large a number may be, and does not invite a retry that cannot work', () => {
+    const money = friendlyError(
+      {
+        code: '22003',
+        message: 'numeric field overflow',
+        details: 'A field with precision 12, scale 2 must round to an absolute value less than 10^10.',
+      },
+      FALLBACK,
+    );
+    expect(money).toContain('9,999,999,999.99');
+    expect(money).not.toContain('Inténtalo');
+
+    const count = friendlyError({ code: '22003', message: 'value "5999999999940" is out of range for type integer' }, FALLBACK);
+    expect(count).toContain('2,147,483,647');
+
+    expect(friendlyError({ code: '22003', message: 'something else' }, FALLBACK)).toContain('demasiado grande');
+  });
+
+  it('tells a whole quantity with decimals apart from something that is not a number', () => {
+    expect(friendlyError({ code: '22P02', message: 'invalid input syntax for type integer: "1.5"' }, FALLBACK)).toContain(
+      'sin decimales',
+    );
+    expect(friendlyError({ code: '22P02', message: 'invalid input syntax for type numeric: "abc"' }, FALLBACK)).toContain(
+      'no es un número',
+    );
+  });
+
+  it('names the field of a check it knows, reading the constraint name exactly', () => {
+    const check = (constraint: string) =>
+      friendlyError({ code: '23514', message: `new row violates check constraint "${constraint}"` }, FALLBACK);
+
+    expect(check('accounts_name_check')).toContain('nombre de la cuenta');
+    expect(check('workshop_settings_check1')).toContain('todo tiene que haber terminado');
+    expect(check('workshop_settings_check')).toContain('después de la primera');
+    expect(check('workshop_settings_changeover_fits_a_day')).toContain('1440');
+    // A name check nobody mapped still says what to do.
+    expect(check('suppliers_name_check')).toContain('Escribe el nombre');
+  });
+
+  it('explains the duplicates that only differ in capitals', () => {
+    const duplicate = (index: string) =>
+      friendlyError({ code: '23505', message: `duplicate key value violates unique constraint "${index}"` }, FALLBACK);
+
+    expect(duplicate('sales_channels_name_ci_key')).toContain('canal');
+    expect(duplicate('accounts_name_ci_key')).toContain('cuenta');
+    expect(duplicate('filament_skus_identity_ci_key')).toContain('filamento');
+    expect(duplicate('printers_name_ci_key')).toContain('impresora');
+  });
+
+  it('says a ledger is voided or corrected, never edited, when even the owner is refused', () => {
+    const money = friendlyError({ code: '42501', message: 'permission denied for table transactions' }, FALLBACK);
+    const stock = friendlyError({ code: '42501', message: 'permission denied for table stock_movements' }, FALLBACK);
+
+    expect(money).toContain('se anula');
+    expect(stock).toContain('conteo');
+    expect(friendlyError({ code: '42501', message: 'permission denied for table printers' }, FALLBACK)).toContain('permiso');
+  });
+
+  it('knows a refusal of who is asking from a refusal of what was written', () => {
+    expect(isPermissionError({ code: '42501', message: 'new row violates row-level security policy' })).toBe(true);
+    expect(isPermissionError(permissionError())).toBe(true);
+    expect(isPermissionError({ code: '23505', message: 'duplicate key' })).toBe(false);
+    expect(isPermissionError(new UserFacingError('Faltan los gramos.'))).toBe(false);
   });
 
   it('falls back when it has nothing better, including on nothing at all', () => {
