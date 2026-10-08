@@ -239,3 +239,57 @@ comment on view public.monthly_income_statement is
 
 comment on column public.monthly_income_statement.cost_of_sales is
   'Catalogue lines: delivered units at what they cost when they left the shelf (order_delivery_lines.unit_cost, labour included since 20261020100000), plus pending units at their estimate, rounded to cents per line. Made-to-order lines: their estimate, or else the real cost of their prints.';
+
+-- ------------------------------------------- what the order says it cost
+
+-- The order's «Lo entregado» rounded once for the whole order, and Resultados
+-- rounds each line: two lines of 1.334999 were S/ 2.67 on the order and
+-- S/ 2.66 in Resultados. Now both round each line to cents before adding, so
+-- the order says what Resultados says. The view is the one from
+-- 20261013130000_line_cost_keeps_the_batch, with the same columns.
+create or replace view public.order_production_summary with (security_invoker = true) as
+select
+  o.id as order_id,
+  o.workspace_id,
+  o.number,
+  o.purpose,
+  o.status,
+  coalesce(jobs.jobs, 0::bigint) as jobs,
+  coalesce(jobs.successful_jobs, 0::bigint) as successful_jobs,
+  coalesce(jobs.failed_jobs, 0::bigint) as failed_jobs,
+  coalesce(jobs.printed_hours, 0::numeric) as printed_hours,
+  coalesce(jobs.real_production_cost, 0::numeric) as real_production_cost,
+  coalesce(lines.estimated_cost, 0::numeric) as estimated_cost,
+  o.total as sold_for,
+  coalesce(shipped.units, 0::bigint) as delivered_units,
+  coalesce(shipped.cost, 0::numeric) as delivered_cost
+from public.orders o
+left join lateral (
+  select coalesce(sum(round(l.estimated_unit_cost * l.quantity::numeric, 2)), 0::numeric) as estimated_cost
+  from public.order_lines l
+  where l.order_id = o.id
+) lines on true
+left join lateral (
+  select
+    count(j.id) as jobs,
+    count(j.id) filter (where j.status = 'success') as successful_jobs,
+    count(j.id) filter (where j.status = 'failed') as failed_jobs,
+    round(coalesce(sum(j.actual_time_s) filter (where j.status = 'success'), 0::bigint)::numeric / 3600.0, 2) as printed_hours,
+    coalesce(sum(coalesce(j.material_cost, 0::numeric) + coalesce(j.energy_cost, 0::numeric) + coalesce(j.machine_cost, 0::numeric)), 0::numeric) as real_production_cost
+  from public.print_jobs j
+  join public.order_lines l on l.id = j.order_line_id
+  where l.order_id = o.id
+) jobs on true
+left join lateral (
+  select sum(per_line.units)::bigint as units, sum(round(per_line.cost, 2)) as cost
+  from (
+    select sum(dl.quantity) as units, sum(dl.quantity * dl.unit_cost) as cost
+    from public.order_deliveries d
+    join public.order_delivery_lines dl on dl.delivery_id = d.id
+    where d.order_id = o.id and dl.unit_cost is not null
+    group by dl.order_line_id
+  ) per_line
+) shipped on true;
+
+comment on view public.order_production_summary is
+  'Estimated against real, per order: the loop that recalibrates the calculator. delivered_cost is what left the shelf, rounded to cents per line like the cost of sales in monthly_income_statement.';

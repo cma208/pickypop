@@ -15,18 +15,24 @@
 --
 -- Only the failures no estimate pays for:
 --
--- * a failed job tied to a made-to-order line of a live sale that carries an
---   estimate is still paid by that estimate's allowance: it stays apart, as
---   before.
+-- * a failed job tied to a line of a live sale whose cost of sales is still
+--   its estimate is paid by that estimate's allowance: it stays apart, as
+--   before. That is a made-to-order line with an estimate, and also a
+--   catalogue line with nothing delivered at a known cost (still pending, or
+--   delivered before deliveries existed). The line and its jobs ask
+--   `line_costs` the same question, so a failure is never subtracted while
+--   the estimate that pays for it is the line's cost.
 -- * a failed job of a line that costs its prints is already in its cost of
 --   sales (`in_cost_of_sales`), and a tool's or a test's in `tools_and_tests`.
 -- * every other failed print of production subtracts: the common pool of the
---   shelf, a catalogue line, a gift, an order cancelled afterwards.
+--   shelf, a catalogue line delivered at what left the shelf, a gift, an
+--   order cancelled afterwards.
 --
--- A catalogue line still waiting to be delivered carries its estimate, and
--- with it an allowance, until it leaves the shelf. A failure printed for it
--- in the meantime counts twice for those days: it is the price of using the
--- estimate for what has not left yet, and it ends with the delivery.
+-- The shelf's common pool is printed for no line (ADR-021). While a catalogue
+-- line waits to be delivered it carries its estimate, and with it an
+-- allowance, and the pool's failures of those days subtract as well: it is
+-- the price of using the estimate for what has not left yet, and it ends with
+-- the delivery.
 --
 -- `failed_prints` and `print_cost` do not change: they still hold the month's
 -- failures of production against the allowance the prices carry, which says
@@ -65,7 +71,10 @@ line_costs as (
     end as cost,
     -- The line costs its prints: its jobs are already in the cost of sales.
     not (l.variant_id is not null and d.units is not null)
-      and coalesce(l.estimated_unit_cost, 0) <= 0 as from_prints
+      and coalesce(l.estimated_unit_cost, 0) <= 0 as from_prints,
+    -- The line costs its estimate: its allowance pays for its jobs' failures.
+    not (l.variant_id is not null and d.units is not null)
+      and l.estimated_unit_cost > 0 as from_estimate
   from public.order_lines l
   left join delivered d on d.order_line_id = l.id
 ),
@@ -148,15 +157,14 @@ jobs as (
         and o.purpose = 'sale'
         and o.status <> 'cancelled'
     ) as in_cost_of_sales,
-    -- A made-to-order line of a live sale costs its estimate, and the
+    -- A line of a live sale that costs its estimate (line_costs above): the
     -- estimate's allowance pays for this job's failures.
     exists (
       select 1
-      from public.order_lines l
-      join public.orders o on o.id = l.order_id
-      where l.id = j.order_line_id
-        and l.variant_id is null
-        and l.estimated_unit_cost > 0
+      from line_costs c
+      join public.orders o on o.id = c.order_id
+      where c.id = j.order_line_id
+        and c.from_estimate
         and o.purpose = 'sale'
         and o.status <> 'cancelled'
     ) as covered_by_estimate
@@ -272,4 +280,4 @@ comment on column public.monthly_income_statement.failed_prints is
   'Failed prints of production, held against print_cost and the failure allowance to say whether the prices cover what fails. Those no estimate pays for also subtract, as uncovered_failed_prints. Leaves out the failed tries of tools and tests (they are in tools_and_tests) and those of a line that costs its prints (they are its cost of sales).';
 
 comment on column public.monthly_income_statement.uncovered_failed_prints is
-  'Failed prints of production that no estimate pays for: the shelf''s pool, a catalogue line (it costs what left the shelf), a gift, a cancelled order. Part of unsold_production. A failed print of a made-to-order line with an estimate is not here: that estimate''s allowance pays for it.';
+  'Failed prints of production that no estimate pays for: the shelf''s pool, a catalogue line delivered at what left the shelf, a gift, a cancelled order. Part of unsold_production. A failed print of a line of a live sale whose cost of sales is still its estimate is not here: that estimate''s allowance pays for it.';

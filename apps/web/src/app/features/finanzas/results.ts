@@ -35,14 +35,14 @@ export interface MonthResult {
   /**
    * Failed prints of production, held against `printCost` and the failure
    * allowance the prices carry. The ones no estimate pays for also subtract,
-   * as `uncoveredFailedPrints`; the rest are paid by the allowance of a
-   * made-to-order line's estimate.
+   * as `uncoveredFailedPrints`; the rest are paid by the allowance of the
+   * estimate a sale's line is still costed at.
    */
   failedPrints: number;
   /**
-   * Failed prints no estimate pays for: what is sold off the shelf costs what
-   * left it, and a failed try never reaches the shelf. Part of
-   * `unsoldProduction`, so subtracted.
+   * Failed prints no estimate pays for: the shelf's (what is sold off it costs
+   * what left it, and a failed try never reaches it), a gift's, a cancelled
+   * order's. Part of `unsoldProduction`, so subtracted.
    */
   uncoveredFailedPrints: number;
   /**

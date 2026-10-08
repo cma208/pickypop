@@ -55,10 +55,11 @@ const ALL_YEARS = '';
         <p>
           <strong>Lo que se imprime y no se vende sí resta.</strong> Un molde, una prueba o una pieza que
           faltó al contar el estante costaron filamento, luz y máquina, y ningún pedido los va a pagar. Si el
-          molde o la prueba fallan, ese intento también resta: es parte de lo que costaron. Una impresión
-          fallida de lo que va al estante también resta: lo vendido cuesta lo que salió del estante, y un
-          intento fallido nunca llegó ahí. Solo la de un trabajo a medida con costo estimado no resta, porque la
-          paga la reserva por fallos de ese estimado.
+          molde o la prueba fallan, ese intento también resta: es parte de lo que costaron. También resta una
+          impresión fallida que ningún precio paga: la de lo que va al estante (lo vendido cuesta lo que salió
+          del estante, y un intento fallido nunca llegó ahí), la de un regalo y la de un pedido cancelado. Solo
+          no resta la de un pedido que todavía se cuenta a su costo estimado (un trabajo a medida, o un pedido
+          del catálogo que aún no sale del estante), porque la paga la reserva por fallos de ese estimado.
         </p>
         <p>
           <strong>Las fallas se miden en costo, no en cantidad de impresiones.</strong> Se comparan con lo que
@@ -162,7 +163,7 @@ const ALL_YEARS = '';
                           moldes, herramientas, pruebas e impresiones de pedidos cancelados: {{ row.toolsAndTests | money }} · conteo del estante:
                           {{ row.shelfCountLosses | money }}{{ row.shelfCountLosses < 0 ? ' (sobró más de lo que faltó)' : '' }}
                           @if (row.uncoveredFailedPrints !== 0) {
-                            · impresiones fallidas de lo que va al estante: {{ row.uncoveredFailedPrints | money }}
+                            · impresiones fallidas que ningún precio paga (estante, regalos, pedidos cancelados): {{ row.uncoveredFailedPrints | money }}
                           }
                         </small>
                       </span>
@@ -193,7 +194,7 @@ const ALL_YEARS = '';
                           <small class="sub">
                             {{ share(row) | percent1 }} de lo impreso para producir en el mes ({{ row.printCost | money }}),
                             medido en costo y no en cantidad de impresiones. Moldes y pruebas no cuentan, tampoco
-                            cuando fallan: van en «Producción no vendida». Las de lo que va al estante ya restan ahí;
+                            cuando fallan: van en «Producción no vendida». Las que ningún precio paga ya restan ahí;
                             aquí se comparan todas con lo que tus precios reservan para fallos.
                             @if (row.failureReserveRate !== null) {
                               La reserva por fallos de tus precios es {{ row.failureReserveRate | percent1 }}{{ covers(row) ? ': alcanza.' : ': no alcanzó, súbela o revisa qué está fallando.' }}
