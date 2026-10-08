@@ -113,6 +113,8 @@ Si creas datos de prueba, **bórralos al terminar** y di cuáles fueron.
 - **`sum()` de un `bigint` devuelve `numeric`.** Recrear una vista cuya columna cambia de tipo así falla; hay que castear (`sum(x)::bigint`).
 - **La prueba de sintaxis de las migraciones parte el archivo por cada `;`.** Un punto y coma dentro de un comentario `/* … */` la rompe aunque el SQL esté bien.
 - **Nada de tablas temporales dentro de una función que llama la API.** Dependen de permisos que el proyecto alojado no da. Usa una variable `jsonb`.
+- **`select … for update` pasa por la política de update.** Si esa política no deja ver la fila, el bloqueo no devuelve nada y no da error: iniciar un trabajo bloquea la impresora, que es configuración. Por eso las tablas del dueño ven la fila con ser miembro y exigen el dueño solo en la fila escrita (`with check`).
+- **Sin política, la base calla; sin privilegio, grita.** Un `update` que RLS no deja ver termina bien con cero filas. Un `update` sin privilegio es «permission denied». Los libros no tienen ninguno de los dos, para que nadie crea que cambió algo.
 - **En una prueba de SQL, una consulta de afuera no ve lo que una función hizo dentro de la misma instrucción.** Lee el resultado en otra instrucción, o vas a perseguir un error que no existe.
 - **Con worktrees de agentes en `.claude/worktrees/`, `pnpm test` también corre sus copias.** Usa `pnpm exec vitest run --exclude "**/.claude/**" --exclude "**/node_modules/**" --exclude "**/dist/**" --exclude "apps/**"`.
 - Vender **una** unidad suelta es antieconómico: para una tapa se imprime una placa de nueve. Por eso existe la escalera de precios y por eso el hito M4 importa.
