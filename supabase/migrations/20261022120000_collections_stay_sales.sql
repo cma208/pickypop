@@ -14,8 +14,8 @@
 -- * The last active category of sales can be neither deactivated nor
 --   unmarked: collections and the quick sale would be left without one.
 -- * The category chosen for collections, or for purchase payments, cannot be
---   deactivated while it is chosen, nor marked as capital: choose another one
---   first. It is the rule `guard_sales_category` already applies to unmarking
+--   deactivated while it is chosen, nor become one of capital, by a mark or
+--   by a new name: choose another one first. It is the rule `guard_sales_category` already applies to unmarking
 --   the one of collections. The screen shows the database's sentence as it is.
 
 -- The same signature and the same contract as 20261015120000: only the
@@ -77,7 +77,13 @@ begin
     raise exception '«%» es la categoría de %. Para desactivarla, elige antes otra en Configuración › Categorías de dinero › Categorías por defecto.',
       new.name, v_chosen_for;
   end if;
+  -- A rename can mark it too (`transaction_categories_capital_by_name`, which
+  -- runs first): then the name is what has to change, or the choice.
   if v_chosen_for is not null and new.capital and not old.capital then
+    if new.name is distinct from old.name then
+      raise exception '«%» es la categoría de %, y con ese nombre pasaría a ser de capital, de los aportes y retiros del dueño. Ponle otro nombre, o elige antes otra categoría para %.',
+        new.name, v_chosen_for, v_chosen_for;
+    end if;
     raise exception '«%» es la categoría de %, así que no puede ser de capital. Elige antes otra para %.',
       new.name, v_chosen_for, v_chosen_for;
   end if;
@@ -98,6 +104,7 @@ begin
 end;
 $$;
 
+-- The name too: renaming can make a category one of capital.
 create trigger transaction_categories_keep_payment_categories
-  before update of active, sales, capital on public.transaction_categories
+  before update of active, sales, capital, name on public.transaction_categories
   for each row execute function app.keep_payment_categories();
