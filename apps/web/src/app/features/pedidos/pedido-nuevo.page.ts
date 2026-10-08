@@ -118,9 +118,6 @@ import { watchSalePromise } from '../cotizador/sale-promise.watch';
           <pp-card heading="Resumen">
             @if (purpose() === 'sale') {
               <p class="sum"><span>Total de la venta</span><strong>{{ saleTotal() | money }}</strong></p>
-              @if (submitted() && saleTotal() <= 0) {
-                <p class="error" role="alert">{{ zeroSale }}</p>
-              }
               <p class="sum muted"><span>Costo estimado</span><span>{{ estimatedTotal() | money }}</span></p>
               @if (saleTotal() > 0 && estimatedTotal() > 0) {
                 <p class="sum muted"><span>Ganancia estimada</span><span>{{ saleTotal() - estimatedTotal() | money }}</span></p>
@@ -179,7 +176,7 @@ export class PedidoNuevoPage {
   });
 
   /** The same words the quick sale and the database use for a sale of S/ 0 (T4-16). */
-  protected readonly zeroSale =
+  private readonly zeroSale =
     'La venta suma S/ 0.00. Escribe el precio, o si lo regalas, regístralo como un pedido de regalo.';
 
   /** The last order sent and its key: sent again unchanged, it keeps the key (T4-04). */
