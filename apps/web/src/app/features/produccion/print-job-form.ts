@@ -12,8 +12,7 @@ import type { PrinterSummary } from '../../core/workshop';
 import { describeCounts } from './produccion.outputs';
 import { rowsForPlate, suggestSpool } from './produccion.spools';
 import { labelForPlate } from './job-label';
-
-const SECONDS_PER_MINUTE = 60;
+import { proposeTime, secondsToSave, type ProposedTime } from './job-time';
 
 export interface FixedOrderLine {
   id: string;
@@ -52,10 +51,10 @@ function createFilamentRow(spoolId = '', estimatedG = 0, slot: number | null = n
           } @else {
             <pp-field
               label="Línea a medida de un pedido"
-              hint="Déjalo vacío para una prueba o para stock. Lo del catálogo se lanza desde «Por lanzar»."
+              hint="Déjalo vacío para piezas del estante (con su placa), un molde o una prueba. Lo que piden los pedidos de catálogo se lanza desde «Por lanzar»."
             >
               <select formControlName="orderLineId">
-                <option value="">Sin pedido (prueba o stock)</option>
+                <option value="">Sin pedido (estante, molde o prueba)</option>
                 @for (line of lines(); track line.id) {
                   <option [value]="line.id">{{ line.label }}</option>
                 }
@@ -65,7 +64,7 @@ function createFilamentRow(spoolId = '', estimatedG = 0, slot: number | null = n
 
           @if (!hasLine()) {
             <pp-field label="Qué se imprime" [required]="true" [error]="labelError()">
-              <input type="text" formControlName="label" placeholder="Ej.: prueba de soporte, stock de tapas" autocomplete="off" />
+              <input type="text" formControlName="label" placeholder="Ej.: molde, prueba de soporte" autocomplete="off" />
             </pp-field>
           }
 
@@ -99,7 +98,7 @@ function createFilamentRow(spoolId = '', estimatedG = 0, slot: number | null = n
                   <span class="muted">Una corrida completa deja en el estante:</span>
                   <ul>
                     @for (part of plate.outputs; track part.inventoryItemId) {
-                      <li><pp-thumb size="option" kind="part" [path]="part.imagePath" [photo]="borrowedPhoto(part.inventoryItemId, 'part')" /> {{ part.units }} {{ part.name }}</li>
+                      <li><pp-thumb size="option" kind="part" [path]="part.imagePath" [photo]="borrowedPhoto(part.inventoryItemId, 'part')" /> {{ part.name }} × {{ part.units }}</li>
                     }
                   </ul>
                 } @else {
@@ -107,6 +106,12 @@ function createFilamentRow(spoolId = '', estimatedG = 0, slot: number | null = n
                 }
               </div>
             </div>
+          } @else if (!hasLine()) {
+            <!-- «Por lanzar» only proposes what orders need, so shelf stock is printed from here, and only a plate says what goes in. -->
+            <p class="alert-warn" role="status">
+              Sin placa no entra nada al estante: su costo va al gasto del mes, en «Producción no vendida» (moldes,
+              herramientas y pruebas). Para imprimir piezas para el estante, elige su placa.
+            </p>
           }
 
           <pp-field label="Tiempo estimado (minutos)" hint="Se llena con el de la placa; puedes ajustarlo." [error]="fieldError('estimatedMinutes', 'Escribe minutos enteros mayores que cero.')">
@@ -204,6 +209,8 @@ export class PrintJobForm implements OnInit {
   protected readonly selectedPlate = signal('');
   /** What a plate wrote in «Qué se imprime», while the person leaves it as it is. */
   private labelFromPlate: string | null = null;
+  /** The plate's time, to the second, behind the whole minutes the field shows. */
+  private timeFromPlate: ProposedTime | null = null;
 
   protected readonly hasLine = computed(() => this.fixedLine() !== null || this.selectedLine() !== '');
 
@@ -319,7 +326,7 @@ export class PrintJobForm implements OnInit {
         // says what is printed, and a plate's name left in a hidden field
         // must not replace it.
         label: lineId === null ? value.label.trim() || null : null,
-        estimatedTimeS: value.estimatedMinutes ? value.estimatedMinutes * SECONDS_PER_MINUTE : null,
+        estimatedTimeS: secondsToSave(value.estimatedMinutes, this.timeFromPlate),
         note: value.note.trim() || null,
         filaments: value.filaments.map((row) => ({
           spoolId: row.spoolId,
@@ -349,9 +356,11 @@ export class PrintJobForm implements OnInit {
     const label = labelForPlate({ label: this.form.controls.label.value, fromPlate: this.labelFromPlate }, plate?.label ?? null);
     this.form.controls.label.setValue(label.label);
     this.labelFromPlate = label.fromPlate;
+    // Without a plate the minutes left in the field are a figure typed by hand.
+    this.timeFromPlate = proposeTime(plate?.printTimeS);
     if (!plate) return;
 
-    this.form.controls.estimatedMinutes.setValue(Math.max(1, Math.round(plate.printTimeS / SECONDS_PER_MINUTE)));
+    if (this.timeFromPlate) this.form.controls.estimatedMinutes.setValue(this.timeFromPlate.minutes);
     this.filaments.clear();
     // The same proposal as «Iniciar»: the roll on the printer before a sealed kilo.
     const taken = new Set<string>();

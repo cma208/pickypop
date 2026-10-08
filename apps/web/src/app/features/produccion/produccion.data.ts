@@ -8,6 +8,7 @@ import type { FailureCause, JobStatus } from './produccion.labels';
 import { outputsOf, type PartCount, type PlatePart } from './produccion.outputs';
 import type { RunToQueue } from './por-lanzar';
 import type { PlateUse, SpoolStatus } from './produccion.spools';
+import { chargedSeconds, realCostOf } from './job-time';
 
 const SECONDS_PER_HOUR = 3600;
 const WATTS_PER_KW = 1000;
@@ -111,13 +112,6 @@ export interface JobItem {
   /** When it was queued: planned jobs of one printer run in this order (the plan's `queuedAt`). */
   createdAt: string;
   filaments: JobFilament[];
-}
-
-export interface FailureSummary {
-  closedJobs: number;
-  failedJobs: number;
-  failureRate: number | null;
-  mostCommonCause: FailureCause | null;
 }
 
 export interface PlateFilament {
@@ -271,26 +265,6 @@ export class ProduccionData {
       produced.sort((a, b) => (order.get(a.inventoryItemId) ?? 99) - (order.get(b.inventoryItemId) ?? 99));
       return { ...job, produced };
     });
-  }
-
-  /** Success rate and the most common cause, from the `failure_stats` view. */
-  async failureSummary(): Promise<FailureSummary> {
-    const [stats, failed] = await Promise.all([
-      this.supabase.from('failure_stats').select('closed_jobs, failed_jobs'),
-      this.supabase.from('print_jobs').select('failure_cause').eq('status', 'failed'),
-    ]);
-    if (stats.error) throw stats.error;
-    if (failed.error) throw failed.error;
-
-    const closedJobs = stats.data.reduce((sum, row) => sum + Number(row.closed_jobs), 0);
-    const failedJobs = stats.data.reduce((sum, row) => sum + Number(row.failed_jobs), 0);
-
-    return {
-      closedJobs,
-      failedJobs,
-      failureRate: closedJobs > 0 ? failedJobs / closedJobs : null,
-      mostCommonCause: mostCommon(failed.data.map((row) => row.failure_cause)),
-    };
   }
 
   printers(): Promise<PrinterSummary[]> {
@@ -555,7 +529,10 @@ export class ProduccionData {
   async closeJob(job: JobItem, input: CloseJob): Promise<CloseOutcome> {
     const spoolIds = input.usage.map((usage) => usage.spoolId);
     const before = await this.stockOf(spoolIds);
-    const costs = await this.realCosts(job, input);
+    // A cancelled job without a time leaves its costs empty: there is no
+    // «Costo real» to show for a print that did not happen.
+    const seconds = chargedSeconds(job, input.result, input.actualTimeS);
+    const costs = seconds === null ? null : await this.realCosts(job, input, seconds);
 
     const { error } = await this.supabase.rpc('complete_print_job', {
       p_job_id: job.id,
@@ -566,9 +543,9 @@ export class ProduccionData {
         actual_g: usage.actualG,
       })),
       p_failure_cause: input.result === 'failed' ? (input.failureCause ?? undefined) : undefined,
-      p_material_cost: costs.material,
-      p_energy_cost: costs.energy,
-      p_machine_cost: costs.machine,
+      p_material_cost: costs?.material,
+      p_energy_cost: costs?.energy,
+      p_machine_cost: costs?.machine,
       // Everything the close knows goes in this one call. The units used to be
       // saved afterwards, and the function, which reads them to fill the shelf,
       // found zero and put the whole plate in: 7 caps out, 9 caps in.
@@ -577,7 +554,8 @@ export class ProduccionData {
         input.result,
         new Map(input.outputs.map((output) => [output.inventoryItemId, output.units])),
       ),
-      p_percent_complete: input.result === 'failed' ? (input.percentComplete ?? undefined) : undefined,
+      // A print cancelled halfway got somewhere too; the form asks it for that.
+      p_percent_complete: input.result !== 'success' ? (input.percentComplete ?? undefined) : undefined,
       p_note: input.note ?? undefined,
     });
     if (error) throw error;
@@ -628,7 +606,7 @@ export class ProduccionData {
     }));
   }
 
-  private async realCosts(job: JobItem, input: CloseJob) {
+  private async realCosts(job: JobItem, input: CloseJob, seconds: number) {
     const spoolIds = input.usage.map((usage) => usage.spoolId);
     const [spools, printers, rates, profile] = await Promise.all([
       spoolIds.length === 0
@@ -652,7 +630,7 @@ export class ProduccionData {
       0,
     );
 
-    const hours = (input.actualTimeS ?? job.estimatedTimeS ?? 0) / SECONDS_PER_HOUR;
+    const hours = seconds / SECONDS_PER_HOUR;
     const watts = printers.find((printer) => printer.id === job.printerId)?.profile.avgPowerWatts ?? 0;
 
     return {
@@ -664,9 +642,6 @@ export class ProduccionData {
 }
 
 function toJobItem(row: JobRow): JobItem {
-  const costs = [row.material_cost, row.energy_cost, row.machine_cost];
-  const hasCost = costs.some((cost) => cost != null);
-
   return {
     id: row.id,
     status: row.status,
@@ -695,7 +670,13 @@ function toJobItem(row: JobRow): JobItem {
     failureCause: row.failure_cause,
     percentComplete: row.percent_complete == null ? null : Number(row.percent_complete),
     unitsProduced: Number(row.units_produced),
-    realCost: hasCost ? costs.reduce<number>((sum, cost) => sum + Number(cost ?? 0), 0) : null,
+    realCost: realCostOf({
+      status: row.status,
+      actualTimeS: row.actual_time_s,
+      materialCost: row.material_cost,
+      energyCost: row.energy_cost,
+      machineCost: row.machine_cost,
+    }),
     note: row.note,
     createdAt: row.created_at,
     filaments: row.print_job_filaments
@@ -726,16 +707,4 @@ function firstThumbnail(plates: unknown): string | null {
     if (typeof path === 'string' && path) return path;
   }
   return null;
-}
-
-function mostCommon(causes: (FailureCause | null)[]): FailureCause | null {
-  const counts = new Map<FailureCause, number>();
-  for (const cause of causes) {
-    if (cause) counts.set(cause, (counts.get(cause) ?? 0) + 1);
-  }
-  let best: FailureCause | null = null;
-  for (const [cause, count] of counts) {
-    if (best === null || count > (counts.get(best) ?? 0)) best = cause;
-  }
-  return best;
 }

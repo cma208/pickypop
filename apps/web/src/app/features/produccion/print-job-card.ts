@@ -74,7 +74,7 @@ import { plannedCounts, type PartCount } from './produccion.outputs';
         <div class="shelf">
           <span class="muted">{{ line.lead }}</span>
           @for (part of line.parts; track part.inventoryItemId) {
-            <span class="part"><pp-thumb size="inline" kind="part" [path]="part.imagePath" [photo]="borrowedPhoto(part.inventoryItemId, 'part')" /> {{ part.units | number: '1.0-3' }} {{ part.name }}</span>
+            <span class="part"><pp-thumb size="inline" kind="part" [path]="part.imagePath" [photo]="borrowedPhoto(part.inventoryItemId, 'part')" /> {{ part.name }} × {{ part.units | number: '1.0-3' }}</span>
           }
         </div>
       }

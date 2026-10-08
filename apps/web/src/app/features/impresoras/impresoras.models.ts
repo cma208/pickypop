@@ -2,6 +2,7 @@ import type { Database } from '../../core/database.types';
 
 export type PrinterState = Database['public']['Enums']['printer_status'];
 export type ComponentKind = Database['public']['Enums']['component_kind'];
+type JobStatus = Database['public']['Enums']['print_job_status'];
 
 export interface PrinterRecord {
   id: string;
@@ -9,7 +10,7 @@ export interface PrinterRecord {
   model: string | null;
   status: PrinterState;
   initialHours: number;
-  /** Real time of the successful print jobs, in hours. */
+  /** Real time of the jobs that ran on it, failed ones included (`printedSeconds`), in hours. */
   workedHours: number;
   /** Every job recorded on this printer, whatever its outcome. Any job makes it undeletable. */
   jobCount: number;
@@ -149,4 +150,23 @@ export const COMPONENT_KINDS = Object.keys(COMPONENT_LABELS) as ComponentKind[];
 
 export function totalHours(printer: PrinterRecord): number {
   return printer.initialHours + printer.workedHours;
+}
+
+/** What a print job tells the printer's hour meter. */
+export interface JobRun {
+  status: JobStatus;
+  actualTimeS: number | null;
+}
+
+/**
+ * The seconds a job adds to the printer's hours, which the hour-based
+ * maintenance plans count. A failed print wore the machine as much as a good
+ * one, and its cost already charges the machine hour: counting only the
+ * successful ones charged that wear and never brought the next maintenance
+ * closer. A cancelled job adds the time it ran, which is also the time its
+ * cost charges; without one, it never ran.
+ */
+export function printedSeconds(job: JobRun): number {
+  const closed = job.status === 'success' || job.status === 'failed' || job.status === 'cancelled';
+  return closed ? (job.actualTimeS ?? 0) : 0;
 }

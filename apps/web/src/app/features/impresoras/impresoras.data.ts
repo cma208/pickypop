@@ -18,13 +18,14 @@ import type {
   PrinterState,
   PrinterWorkshop,
 } from './impresoras.models';
+import { printedSeconds } from './impresoras.models';
 
 const SECONDS_PER_HOUR = 3600;
 const PRINTER_NAME_KEY = 'printers_workspace_id_name_key';
 const FOREIGN_KEY_VIOLATION = '23503';
 
 interface JobStats {
-  /** Real time of the successful jobs. */
+  /** Real time of the jobs that ran, failed ones included. */
   seconds: number;
   /** Jobs of any outcome. */
   count: number;
@@ -349,7 +350,7 @@ export class ImpresorasData {
     if (error) throw error;
   }
 
-  /** Hours come from successful jobs only, but any job at all blocks deleting the printer. */
+  /** Hours come from every job that ran (`printedSeconds`), and any job at all blocks deleting the printer. */
   private async jobStatsByPrinter(): Promise<Map<string, JobStats>> {
     const jobs = await fetchAll((from, to) =>
       this.supabase
@@ -363,7 +364,7 @@ export class ImpresorasData {
     for (const job of jobs) {
       const current = stats.get(job.printer_id) ?? { seconds: 0, count: 0 };
       current.count += 1;
-      if (job.status === 'success') current.seconds += job.actual_time_s ?? 0;
+      current.seconds += printedSeconds({ status: job.status, actualTimeS: job.actual_time_s });
       stats.set(job.printer_id, current);
     }
     return stats;

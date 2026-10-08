@@ -20,6 +20,8 @@ import { totalHours } from '../impresoras/impresoras.models';
 import { dueStatuses, needsAttention, type DueState } from '../impresoras/maintenance-due';
 import { belowMinimum, type LowStock } from './panel.stock';
 import type { SetupCounts } from './panel.setup';
+import { commonCauses } from './panel.prints';
+import { unwatchedPrinters, type MaintenanceCoverage } from './panel.maintenance';
 
 type OrderStatus = Database['public']['Enums']['order_status'];
 type FailureCause = Database['public']['Enums']['print_failure_cause'];
@@ -51,6 +53,7 @@ export interface StatusCount {
   count: number;
 }
 
+/** Counted by number of prints, not by what they cost: Resultados measures the latter. */
 export interface WeekPrints {
   successful: number;
   failed: number;
@@ -58,8 +61,10 @@ export interface WeekPrints {
   successRate: number | null;
   /** All-time figures from the failure_stats view. */
   historicClosed: number;
+  historicFailed: number;
   historicFailureRate: number | null;
-  mostCommonCause: FailureCause | null;
+  /** The causes behind the most failures, of every printer: more than one on a tie. */
+  commonCauses: FailureCause[];
 }
 
 export interface MaintenanceAlert {
@@ -68,6 +73,12 @@ export interface MaintenanceAlert {
   task: string;
   state: DueState;
   summary: string;
+}
+
+export interface MaintenanceOverview {
+  alerts: MaintenanceAlert[];
+  /** Which printers the plans watch: no alert from an unwatched one says nothing. */
+  coverage: MaintenanceCoverage;
 }
 
 /** Orders that still need work, in the order they move through the shop. */
@@ -181,7 +192,7 @@ export class PanelData {
   async weekPrints(): Promise<WeekPrints> {
     const since = new Date(Date.now() - WEEK_DAYS * MS_PER_DAY).toISOString();
 
-    const [jobs, stats] = await Promise.all([
+    const [jobs, stats, failures] = await Promise.all([
       fetchAll((from, to) =>
         this.supabase
           .from('print_jobs')
@@ -191,7 +202,17 @@ export class PanelData {
           .order('id')
           .range(from, to),
       ),
-      this.supabase.from('failure_stats').select('closed_jobs, failed_jobs, most_common_cause'),
+      this.supabase.from('failure_stats').select('closed_jobs, failed_jobs'),
+      // The view gives one cause per printer; the panel speaks for the workshop.
+      fetchAll((from, to) =>
+        this.supabase
+          .from('print_jobs')
+          .select('id, failure_cause')
+          .eq('status', 'failed')
+          .order('finished_at', { ascending: false })
+          .order('id')
+          .range(from, to),
+      ),
     ]);
     if (stats.error) throw stats.error;
 
@@ -201,24 +222,24 @@ export class PanelData {
     const rows = stats.data ?? [];
     const historicClosed = rows.reduce((sum, row) => sum + Number(row.closed_jobs ?? 0), 0);
     const historicFailed = rows.reduce((sum, row) => sum + Number(row.failed_jobs ?? 0), 0);
-    const worst = [...rows].sort((a, b) => Number(b.failed_jobs ?? 0) - Number(a.failed_jobs ?? 0))[0];
 
     return {
       successful,
       failed,
       successRate: jobs.length === 0 ? null : successful / jobs.length,
       historicClosed,
+      historicFailed,
       historicFailureRate: historicClosed === 0 ? null : historicFailed / historicClosed,
-      mostCommonCause: worst && Number(worst.failed_jobs ?? 0) > 0 ? worst.most_common_cause : null,
+      commonCauses: commonCauses(failures.map((job) => job.failure_cause)),
     };
   }
 
-  async maintenanceAlerts(): Promise<MaintenanceAlert[]> {
+  async maintenance(): Promise<MaintenanceOverview> {
     const workshop = await this.printers.load();
     const today = todayLocal();
+    const inUse = workshop.printers.filter((printer) => printer.status !== 'retired');
 
-    return workshop.printers
-      .filter((printer) => printer.status !== 'retired')
+    const alerts = inUse
       .flatMap((printer) => {
         const plans = workshop.plans.filter((plan) => plan.printerId === printer.id);
         const logs = workshop.logs.filter((log) => log.printerId === printer.id);
@@ -234,6 +255,15 @@ export class PanelData {
       .sort((a, b) => a.urgency - b.urgency)
       .slice(0, ALERT_LIMIT)
       .map(({ urgency: _urgency, ...alert }) => alert);
+
+    return {
+      alerts,
+      coverage: {
+        registered: workshop.printers.length,
+        inUse: inUse.length,
+        unwatched: unwatchedPrinters(inUse, workshop.plans),
+      },
+    };
   }
 
   /**
@@ -257,12 +287,12 @@ export class PanelData {
       this.dueOrders(today),
       this.openPrints(),
       this.unpaidDeliveries(),
-      this.maintenanceAlerts(),
+      this.maintenance(),
       this.countPrinters(),
     ]);
     const pastEstimate = view ? pastEstimateJobs(view.input) : new Set<string>();
 
-    const overdueMaintenance = maintenance
+    const overdueMaintenance = maintenance.alerts
       .filter((alert) => alert.state === 'overdue')
       .map((alert): TodayTask => ({
         key: `maintenance:${alert.key}`,

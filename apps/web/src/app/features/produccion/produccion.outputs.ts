@@ -61,14 +61,16 @@ export function plannedCounts(parts: readonly PlatePart[]): PartCount[] {
 }
 
 /**
- * "7 Tapa calavera y 6 Cuerpo calavera". Las piezas en cero se callan, salvo
- * que todas lo estén: entonces lo que hay que decir es justamente que no salió
- * nada.
+ * "Tapa calavera × 7 y Cuerpo calavera × 6". El nombre va primero y la
+ * cantidad después, porque el nombre es el de la ficha, en singular, y no hay
+ * regla que lo ponga en plural sin equivocarse: "7 Tapa calavera" se leía
+ * como un error. Las piezas en cero se callan, salvo que todas lo estén:
+ * entonces lo que hay que decir es justamente que no salió nada.
  */
 export function describeCounts(counts: readonly Pick<PartCount, 'name' | 'units'>[]): string {
   const some = counts.filter((count) => count.units > 0);
   if (some.length === 0) return 'ninguna pieza';
-  const items = some.map((count) => `${formatUnits(count.units)} ${count.name}`);
+  const items = some.map((count) => `${count.name} × ${formatUnits(count.units)}`);
   return items.length === 1 ? items[0]! : `${items.slice(0, -1).join(', ')} y ${items[items.length - 1]}`;
 }
 

@@ -29,6 +29,15 @@ export function proposalsFor(proposals: readonly PlanProposal[], orderId: string
   return proposals.filter((proposal) => proposal.covers.some((order) => order.id === orderId));
 }
 
+/**
+ * Whether any confirmed order is still waiting, which is all «Por lanzar»
+ * proposes for: a hold never launches runs. Without one, "what the orders
+ * ask for is already on the shelf" talks about orders that do not exist.
+ */
+export function hasConfirmedOrders(result: PlanResult): boolean {
+  return result.demands.some((demand) => demand.kind === 'order' && demand.holdUntil === null);
+}
+
 /** How the filtered order is named: its number when the plan knows it. */
 export function orderNumberIn(result: PlanResult, orderId: string): string | null {
   const demand = result.demands.find((candidate) => candidate.kind === 'order' && candidate.id === orderId);
@@ -76,7 +85,7 @@ export function runsText(proposal: PlanProposal, runs: readonly PlanRun[]): stri
   return each === null ? `${count} · ${total} en total` : `${count} × ${duration(each)} · ${total} en total`;
 }
 
-/** "Cada corrida deja 9 Tapa". Null for made-to-order work, whose pieces are the line itself. */
+/** "Cada corrida deja Tapa × 9". Null for made-to-order work, whose pieces are the line itself. */
 export function yieldText(proposal: PlanProposal, input: PlanInput): string | null {
   const plate = input.plates.find((candidate) => candidate.id === proposal.plateId);
   if (!plate || plate.outputs.length === 0) return null;

@@ -76,7 +76,7 @@ const HOURS = new Intl.NumberFormat('es-PE', { maximumFractionDigits: 1 });
           <dt>Horas acumuladas</dt>
           <dd>
             {{ hours(total()) }} h
-            <small>{{ hours(printer().initialHours) }} h iniciales + {{ hours(printer().workedHours) }} h de impresiones exitosas</small>
+            <small>{{ hours(printer().initialHours) }} h iniciales + {{ hours(printer().workedHours) }} h de impresión, fallidas incluidas</small>
           </dd>
         </div>
         <div>

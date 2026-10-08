@@ -3,6 +3,7 @@ import {
   clampRuns,
   dayName,
   filamentRows,
+  hasConfirmedOrders,
   holdEndText,
   holdLead,
   holdsBehind,
@@ -126,7 +127,7 @@ describe('«Por lanzar»', () => {
     expect(bottles.runs).toBe(5);
     expect(runsText(bottles, result.runs)).toBe('5 corridas × 43 min · 3 h 35 min en total');
     expect(runsText(caps, result.runs)).toBe('1 corrida de 20 min');
-    expect(yieldText(caps, input)).toBe('Cada corrida deja 9 Tapa');
+    expect(yieldText(caps, input)).toBe('Cada corrida deja Tapa × 9');
     expect(proposalKey(bottles)).toBe('plate:plate-bottle');
   });
 
@@ -164,6 +165,14 @@ describe('«Por lanzar»', () => {
       { plateId: 'plate-bottle', orderLineId: null, label: null, estimatedTimeS: 2580 },
       { plateId: 'plate-bottle', orderLineId: null, label: null, estimatedTimeS: 2580 },
     ]);
+  });
+
+  it('knows when there is no confirmed order to print for, holds aside', () => {
+    expect(hasConfirmedOrders(result)).toBe(true);
+
+    const onlyHolds = plan(workshop({ demands: workshop().demands.filter((demand) => demand.kind === 'quote') }));
+    expect(hasConfirmedOrders(onlyHolds)).toBe(false);
+    expect(hasConfirmedOrders(plan(workshop({ demands: [] })))).toBe(false);
   });
 
   it('never queues zero runs nor more than proposed', () => {
