@@ -317,6 +317,13 @@ insert into public.sales_channels (workspace_id, name, commission_rate) values
   ('00000000-0000-4000-8000-000000000001', 'Directo', 0),
   ('00000000-0000-4000-8000-000000000001', 'Instagram', 0);
 
+-- «Directo» es el canal de las ventas directas: la Venta rápida lo trae elegido.
+insert into public.workshop_settings (workspace_id, default_channel_id)
+select c.workspace_id, c.id
+from public.sales_channels c
+where c.workspace_id = '00000000-0000-4000-8000-000000000001' and c.name = 'Directo'
+on conflict (workspace_id) do update set default_channel_id = excluded.default_channel_id;
+
 insert into public.gift_categories (workspace_id, name, treatment) values
   ('00000000-0000-4000-8000-000000000001', 'Empresa', 'marketing'),
   ('00000000-0000-4000-8000-000000000001', 'Personal', 'owner_draw'),
@@ -340,17 +347,19 @@ insert into public.accounts (
   ('00000000-0000-4000-8000-000000000001', 'Cuenta bancaria', 'bank', 0, date '2026-09-01', 'transfer',
    'TODO: banco y saldo inicial');
 
-insert into public.transaction_categories (workspace_id, name, direction) values
-  ('00000000-0000-4000-8000-000000000001', 'Venta de productos', 'income'),
-  ('00000000-0000-4000-8000-000000000001', 'Trabajos por encargo', 'income'),
-  ('00000000-0000-4000-8000-000000000001', 'Filamento', 'expense'),
-  ('00000000-0000-4000-8000-000000000001', 'Dulces y empaque', 'expense'),
-  ('00000000-0000-4000-8000-000000000001', 'Repuestos y herramientas', 'expense'),
-  ('00000000-0000-4000-8000-000000000001', 'Mantenimiento', 'expense'),
-  ('00000000-0000-4000-8000-000000000001', 'Envíos', 'expense'),
-  ('00000000-0000-4000-8000-000000000001', 'Comisiones de venta', 'expense'),
-  ('00000000-0000-4000-8000-000000000001', 'Publicidad', 'expense'),
-  ('00000000-0000-4000-8000-000000000001', 'Luz', 'expense');
+-- Las dos de ingreso son de ventas: las usan los cobros de pedidos y la Venta
+-- rápida, y un ingreso suelto de Caja no puede usarlas.
+insert into public.transaction_categories (workspace_id, name, direction, sales) values
+  ('00000000-0000-4000-8000-000000000001', 'Venta de productos', 'income', true),
+  ('00000000-0000-4000-8000-000000000001', 'Trabajos por encargo', 'income', true),
+  ('00000000-0000-4000-8000-000000000001', 'Filamento', 'expense', false),
+  ('00000000-0000-4000-8000-000000000001', 'Dulces y empaque', 'expense', false),
+  ('00000000-0000-4000-8000-000000000001', 'Repuestos y herramientas', 'expense', false),
+  ('00000000-0000-4000-8000-000000000001', 'Mantenimiento', 'expense', false),
+  ('00000000-0000-4000-8000-000000000001', 'Envíos', 'expense', false),
+  ('00000000-0000-4000-8000-000000000001', 'Comisiones de venta', 'expense', false),
+  ('00000000-0000-4000-8000-000000000001', 'Publicidad', 'expense', false),
+  ('00000000-0000-4000-8000-000000000001', 'Luz', 'expense', false);
 
 -- =====================================================================
 -- DATOS DE DEMOSTRACIÓN
