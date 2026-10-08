@@ -290,22 +290,72 @@ select pg_temp.expect('Iniciar un trabajo con su rollo en uso', 'operator', pg_t
   select public.start_print_job(#1)
   $q$, 611), 'ok:1');
 
-select pg_temp.expect('Cerrar con gramos en un rollo que se descartó', 'operator', pg_temp.q($q$do $x$
+-- The roll in the printer ran out halfway (the AMS case): it is not marked
+-- until the print is closed with what it used.
+select pg_temp.expect('Marcar agotado un rollo que se está imprimiendo', 'operator', pg_temp.q($q$
+  select public.set_spool_status(#1, 'empty')
+  $q$, 419), 'error:P0001:El rollo FLUJOS-I se está imprimiendo en «A1 mini de prueba»: cierra primero esa impresión');
+
+select pg_temp.expect('Descartar un rollo que se está imprimiendo', 'operator', pg_temp.q($q$
+  select public.set_spool_status(#1, 'discarded')
+  $q$, 419), 'error:P0001:El rollo FLUJOS-I se está imprimiendo');
+
+select pg_temp.expect('Cerrar la impresión y después marcar el rollo agotado', 'operator', pg_temp.q($q$do $x$
+  declare v_print numeric; v_written numeric;
   begin
-    perform public.set_spool_status(#2, 'discarded');
+    perform public.complete_print_job(p_job_id => #1, p_result => 'success', p_expected_status => 'printing',
+      p_actual_time_s => 3600, p_filament_usage => ('[{"spool_id": "' || #2 || '", "actual_g": 300}]')::jsonb);
+    perform public.set_spool_status(#2, 'empty');
+    select sum(quantity) filter (where source_type = 'print_job'), sum(quantity) filter (where source_type = 'spool_status')
+      into v_print, v_written
+    from public.stock_movements where spool_id = #2;
+    if v_print is distinct from -300 or v_written is distinct from -700 then
+      raise exception 'la impresión sacó % g y la marca %', v_print, v_written;
+    end if;
+  end $x$$q$, 613, 419), 'ok:');
+
+-- The close itself may leave the roll empty: its consumption does, and that
+-- is the print being closed, not a roll marked while printing.
+select pg_temp.expect('Cerrar una impresión que acaba el rollo', 'operator', pg_temp.q($q$do $x$
+  begin
+    perform public.complete_print_job(p_job_id => #1, p_result => 'success', p_expected_status => 'printing',
+      p_actual_time_s => 3600, p_filament_usage => ('[{"spool_id": "' || #2 || '", "actual_g": 1000}]')::jsonb);
+    if (select status from public.spools where id = #2) <> 'empty' then
+      raise exception 'el rollo quedó «%»', (select status from public.spools where id = #2);
+    end if;
+  end $x$$q$, 613, 419), 'ok:');
+
+-- Weighing it empty while it prints would mark it too.
+select pg_temp.expect('Pesar vacío un rollo que se está imprimiendo', 'operator', pg_temp.q($q$
+  select public.weigh_spool(#1, 200, 200)
+  $q$, 419), 'error:P0001:El rollo FLUJOS-I se está imprimiendo');
+
+-- A roll marked before this rule, with its print still going: what the
+-- print used left with the mark, so it closes with 0 g.
+select pg_temp.expect('Cerrar con gramos en un rollo que se descartó antes de la regla', 'operator', pg_temp.q($q$do $x$
+  begin
+    perform set_config('request.jwt.claims', '', true);
+    reset role;
+    update public.spools set status = 'discarded' where id = #2;
+    set local role authenticated;
+    perform set_config('request.jwt.claims', json_build_object('sub', #3, 'role', 'authenticated')::text, true);
     perform public.complete_print_job(p_job_id => #1, p_result => 'success', p_expected_status => 'printing',
       p_actual_time_s => 3600, p_filament_usage => ('[{"spool_id": "' || #2 || '", "actual_g": 15}]')::jsonb);
-  end $x$$q$, 613, 419), 'error:P0001:El rollo FLUJOS-I está «Descartado»');
+  end $x$$q$, 613, 419, 902), 'error:P0001:El rollo FLUJOS-I está «Descartado»: lo que tenía salió del stock cuando se marcó así, también lo que gastó esta impresión');
 
-select pg_temp.expect('Cerrar con cero gramos en un rollo que se descartó', 'operator', pg_temp.q($q$do $x$
+select pg_temp.expect('Cerrar con cero gramos en un rollo que se descartó antes de la regla', 'operator', pg_temp.q($q$do $x$
   declare n integer;
   begin
-    perform public.set_spool_status(#2, 'discarded');
+    perform set_config('request.jwt.claims', '', true);
+    reset role;
+    update public.spools set status = 'discarded' where id = #2;
+    set local role authenticated;
+    perform set_config('request.jwt.claims', json_build_object('sub', #3, 'role', 'authenticated')::text, true);
     perform public.complete_print_job(p_job_id => #1, p_result => 'success', p_expected_status => 'printing',
       p_actual_time_s => 3600, p_filament_usage => ('[{"spool_id": "' || #2 || '", "actual_g": 0}]')::jsonb);
     select count(*) into n from public.stock_movements where source_type = 'print_job' and source_id = #1;
     if n <> 0 then raise exception 'el cierre movió % filas del rollo', n; end if;
-  end $x$$q$, 613, 419), 'ok:');
+  end $x$$q$, 613, 419, 902), 'ok:');
 
 select pg_temp.expect('Cerrar con gramos en un rollo en uso', 'operator', pg_temp.q($q$
   select public.complete_print_job(p_job_id => #1, p_result => 'success', p_expected_status => 'printing',

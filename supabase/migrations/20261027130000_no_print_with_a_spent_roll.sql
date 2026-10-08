@@ -18,8 +18,17 @@
 -- 2. **Iniciar** un trabajo que ya tenía el rollo atado de antes, y que se
 --    agotó o se descartó mientras esperaba en la cola.
 -- 3. **Cerrar** con gramos en un rollo así: lo que tenía ya salió del stock.
---    Cero gramos sí pasa (el rollo no da nada), y si todavía tiene filamento,
---    pesarlo lo vuelve a abrir.
+--    Cero gramos sí pasa (el rollo no da nada). Con la regla 4 solo queda un
+--    rollo que se marcó así antes de esta migración, con su impresión en
+--    curso: lo que gastó salió del stock al marcarlo, así que se cierra con
+--    0 g, y si todavía le queda filamento se pesa después de cerrar.
+-- 4. **Marcarlo** «Agotado» o «Descartado» mientras una impresión lo usa. Es
+--    lo que pasa con el AMS: el rollo se acaba a mitad de la impresión y se
+--    marca antes de cerrarla. Así lo que gastó la impresión salía del stock
+--    como pérdida (Resultados) y no en su costo, y el cierre quedaba obligado
+--    a decir 0 g. Ahora se cierra primero la impresión con lo que gastó y
+--    después se marca el rollo, que saca solo lo que quedaba. El cierre mismo
+--    sí puede dejarlo agotado (su consumo lo vacía): eso es cerrar.
 --
 -- Va en disparadores y no en cada función: así vale también para la cola,
 -- que escribe los rollos de un trabajo planificado sin pasar por ellas, y no
@@ -97,7 +106,7 @@ begin
   end if;
 
   if coalesce(new.actual_g, 0) > 0 and new.actual_g is distinct from old.actual_g then
-    raise exception 'El rollo % está «%»: lo que tenía ya salió del stock cuando se marcó así, y no se descuenta otra vez. Escribe 0 g en ese rollo, o si todavía tiene filamento, pésalo en Filamentos y vuelve a cerrar.',
+    raise exception 'El rollo % está «%»: lo que tenía salió del stock cuando se marcó así, también lo que gastó esta impresión, y no se descuenta otra vez. Escribe 0 g en ese rollo para cerrar. Si todavía le queda filamento, pésalo en Filamentos después de cerrar.',
       v_code, app.spool_status_label(v_spool.status);
   end if;
 
@@ -150,3 +159,54 @@ create trigger print_jobs_start_with_rolls_in_use
   for each row
   when (old.status = 'planned' and new.status = 'printing')
   execute function app.print_job_starts_with_rolls_in_use();
+
+-- ------------------------------------------- marcarlo mientras se imprime
+--
+-- La de 20261023120000_spool_status_moves_stock, que además no deja gastar un
+-- rollo que está en la impresora.
+create or replace function app.guard_spool_status()
+returns trigger
+language plpgsql
+as $$
+declare
+  v_printer text;
+begin
+  if old.status in ('empty', 'discarded')
+     and new.status in ('sealed', 'open', 'in_use')
+     and app.spool_on_hand(new.id) <= 0 then
+    raise exception
+      'El rollo % no tiene filamento según sus movimientos, así que no puede volver a «%». Pésalo: si la balanza encuentra filamento, vuelve a quedar abierto.',
+      coalesce(new.code, 'sin código'), app.spool_status_label(new.status);
+  end if;
+
+  -- A roll in the printer is spent by closing the print, not by marking it:
+  -- marked first, what the print used leaves the stock as a loss and the
+  -- close has to say 0 g. Inside a close (complete_print_job says so) its
+  -- own consumption may empty the roll: that is the print being closed.
+  -- Without a session it is not judged, as everywhere in this migration.
+  if new.status in ('empty', 'discarded')
+     and old.status not in ('empty', 'discarded')
+     and auth.uid() is not null
+     and coalesce(current_setting('app.print_job_flow', true), '') = '' then
+    select coalesce(p.name, 'la impresora') into v_printer
+    from public.print_job_filaments f
+    join public.print_jobs j on j.id = f.print_job_id
+    left join public.printers p on p.id = j.printer_id
+    where f.spool_id = new.id
+      and j.status = 'printing'
+    order by j.started_at
+    limit 1;
+
+    if found then
+      raise exception 'El rollo % se está imprimiendo en «%»: cierra primero esa impresión en la cola, con lo que gastó, y después márcalo «%». Así lo que gastó queda en la impresión y no como pérdida.',
+        coalesce(new.code, 'sin código'), v_printer, app.spool_status_label(new.status);
+    end if;
+  end if;
+
+  if new.status in ('open', 'in_use') and new.opened_at is null then
+    new.opened_at := now();
+  end if;
+
+  return new;
+end;
+$$;
