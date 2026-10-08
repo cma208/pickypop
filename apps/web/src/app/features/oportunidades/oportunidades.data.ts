@@ -282,11 +282,13 @@ export class OportunidadesData {
     if (error) throw error;
   }
 
+  /** Not «Clientes varios»: an opportunity ends in an order, and that customer buys only in the quick sale. */
   async customers(): Promise<CustomerOption[]> {
     const { data, error } = await this.supabase
       .from('customers')
       .select('id, name')
       .eq('active', true)
+      .eq('walk_in', false)
       .order('name');
     if (error) throw error;
     return data;

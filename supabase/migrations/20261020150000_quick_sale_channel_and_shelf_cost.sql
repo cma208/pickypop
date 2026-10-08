@@ -149,7 +149,9 @@ drop function app.quick_sale(
  * then on.
  *
  * The customer is `p_customer_id`, or else a new one with `p_customer_name` and
- * `p_customer_phone`, or else the walk-in customer («Clientes varios»).
+ * `p_customer_phone`, or else the walk-in customer («Clientes varios»). A
+ * name that is the walk-in customer's, typed in any case or with any accent,
+ * is the walk-in customer: it would otherwise make a second one that can owe.
  *
  * `p_channel_id` is where the sale came from: a channel of the workshop, and
  * active. Null is the workshop's default channel (`app.default_channel`).
@@ -243,6 +245,15 @@ begin
   -- A few minutes of slack: the phone's clock is not the server's.
   if v_when > now() + interval '5 minutes' then
     raise exception 'La venta no puede tener fecha futura.';
+  end if;
+
+  -- «Clientes varios» typed by hand is the walk-in customer, not a new one.
+  if v_name is not null and app.is_walk_in_name(p_workspace_id, v_name) then
+    if v_phone is not null then
+      raise exception '«%» es el cliente de las ventas sin nombre: para guardar un teléfono, escribe el nombre de la persona.',
+        v_name;
+    end if;
+    v_name := null;
   end if;
 
   if v_name is null and v_phone is not null then
@@ -368,6 +379,8 @@ begin
 
   -- Read by the status history trigger, on creation and on delivery alike.
   perform set_config('app.change_reason', 'Venta rápida.', true);
+  -- The walk-in customer buys here only: this sale collects or has a name.
+  perform set_config('app.quick_sale', 'on', true);
 
   insert into public.orders (
     workspace_id, number, purpose, customer_id, channel_id, status, ordered_on, note, total, quick_sale_key
@@ -427,6 +440,7 @@ begin
   end if;
 
   perform set_config('app.change_reason', '', true);
+  perform set_config('app.quick_sale', '', true);
 
   -- As it ended: delivered, and paid, partly paid or unpaid.
   select * into v_order from public.orders where id = v_order.id;

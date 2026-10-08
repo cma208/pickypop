@@ -663,12 +663,17 @@ export class CotizadorData {
       .sort((a, b) => a.label.localeCompare(b.label, 'es'));
   }
 
-  /** Active customers, by name. Also asked for when a quote without one is accepted. */
+  /**
+   * Active customers, by name. Also asked for when a quote without one is
+   * accepted. Not «Clientes varios»: accepted, its quote would be an order the
+   * database refuses, because that customer buys only in the quick sale.
+   */
   async customers(): Promise<CustomerOption[]> {
     const { data, error } = await this.supabase
       .from('customers')
       .select('id, name')
       .eq('active', true)
+      .eq('walk_in', false)
       .order('name');
 
     fail(error, 'No pudimos leer los clientes.');

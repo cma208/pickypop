@@ -13,6 +13,13 @@ import type { PaymentMethod } from './pedidos.labels';
  * read as it is; this only turns it into whole units a person can sell.
  */
 
+/**
+ * The name the walk-in customer has until the workshop creates or renames
+ * it: the people who buy on the way past (the owner's decision). The
+ * database names it the same in `app.walk_in_customer`.
+ */
+export const WALK_IN_NAME = 'Clientes varios';
+
 /** Dust of the plan's numeric columns: 2.9999999 assembled baskets are 3. */
 const UNIT_EPSILON = 1e-6;
 /** A phone is recognised by its last nine digits, the length of a mobile in Peru: «+51 987…» is «987…». */
@@ -265,9 +272,11 @@ export function saleProblem(check: {
   payment: SalePayment;
   /** The accounts the screen offers, to know whether the chosen one brings its own method. */
   accounts?: readonly AccountChoice[];
+  /** What the walk-in customer is called in the workshop: typed as a name, it is nobody new. */
+  walkInName?: string;
   now?: Date;
 }): string | null {
-  const { lines, offers, customer, payment } = check;
+  const { lines, offers, customer, payment, walkInName } = check;
   if (lines.length === 0) return 'Toca un producto del estante para agregarlo a la venta.';
 
   for (const line of lines) {
@@ -294,10 +303,13 @@ export function saleProblem(check: {
     return `Falta el medio de pago: la cuenta ${account.name} no tiene uno por defecto.`;
   }
 
+  if (!customer.customerId && customer.phone.trim() && isWalkInName(customer.name, walkInName)) {
+    return `«${customer.name.trim()}» es el cliente de las ventas sin nombre: para guardar un teléfono, escribe el nombre de la persona.`;
+  }
   if (!customer.customerId && !customer.name.trim() && customer.phone.trim()) {
     return 'Escribe el nombre del cliente para guardar su teléfono.';
   }
-  if (owesWithoutName(totals, customer)) {
+  if (owesWithoutName(totals, customer, walkInName)) {
     return `Quedan ${money(totals.owed)} por cobrar. Escribe el nombre de quien te debe, o elige al cliente: una deuda sin nombre no hay a quién cobrársela.`;
   }
 
@@ -310,10 +322,28 @@ export function saleProblem(check: {
 /**
  * Something stays owed and nobody is named to owe it. The walk-in customer
  * is everybody: «Por cobrar» would list the debt and nobody could say whom to
- * ask. The database refuses it too.
+ * ask. Its name typed by hand names nobody either. The database refuses both.
  */
-export function owesWithoutName(totals: Pick<SaleTotals, 'owed'>, customer: SaleCustomer): boolean {
-  return totals.owed > 0 && !customer.customerId && !customer.name.trim();
+export function owesWithoutName(
+  totals: Pick<SaleTotals, 'owed'>,
+  customer: SaleCustomer,
+  walkInName?: string,
+): boolean {
+  return (
+    totals.owed > 0 && !customer.customerId && (!customer.name.trim() || isWalkInName(customer.name, walkInName))
+  );
+}
+
+/**
+ * Whether a typed name is the walk-in customer's: what it is called in the
+ * workshop, or the name it is created with, written in any case or with any
+ * accent. The database takes such a name as the walk-in customer
+ * (`app.is_walk_in_name`) and lets nobody else be called that: a second
+ * «Clientes varios» could owe, and nobody would know whom to ask.
+ */
+export function isWalkInName(name: string, walkInName: string = WALK_IN_NAME): boolean {
+  const typed = nameKey(name);
+  return typed !== null && (typed === nameKey(walkInName) || typed === nameKey(WALK_IN_NAME));
 }
 
 function lineProblem(line: SaleLineValue, offer: ShelfOffer | undefined): string | null {
@@ -333,9 +363,10 @@ function lineProblem(line: SaleLineValue, offer: ShelfOffer | undefined): string
 
 /**
  * What `quick_sale` receives. A customer from the list goes alone; a name
- * and phone go to be created; neither is the walk-in customer. Nothing
- * collected sends no account: there is no money to put anywhere. No cost
- * travels: the database writes on each line what left the shelf.
+ * and phone go to be created; neither, or the walk-in customer's own name,
+ * is the walk-in customer. Nothing collected sends no account: there is no
+ * money to put anywhere. No cost travels: the database writes on each line
+ * what left the shelf.
  */
 export function toQuickSale(sale: {
   lines: readonly SaleLineValue[];
@@ -344,11 +375,13 @@ export function toQuickSale(sale: {
   note: string;
   /** Empty is no channel chosen: the database takes the workshop's default. */
   channelId?: string;
+  walkInName?: string;
 }): QuickSalePayload {
   const { lines, customer, payment } = sale;
   const amount = roundMoney(Math.max(0, payment.amount ?? 0));
   const collects = amount > 0;
   const chosen = customer.customerId || null;
+  const nobodyNew = chosen !== null || isWalkInName(customer.name, sale.walkInName);
 
   return {
     lines: lines.map((line) => ({
@@ -358,8 +391,8 @@ export function toQuickSale(sale: {
     })),
     channelId: sale.channelId || null,
     customerId: chosen,
-    customerName: chosen ? null : textOrNull(customer.name),
-    customerPhone: chosen ? null : textOrNull(customer.phone),
+    customerName: nobodyNew ? null : textOrNull(customer.name),
+    customerPhone: nobodyNew ? null : textOrNull(customer.phone),
     accountId: collects ? payment.accountId || null : null,
     amount,
     method: collects && payment.method ? payment.method : null,

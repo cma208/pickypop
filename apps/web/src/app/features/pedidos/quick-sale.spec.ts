@@ -1,5 +1,6 @@
 import type { PlanItemPosition, PlanRecipe } from '@pickypop/domain';
 import {
+  isWalkInName,
   lineTotal,
   oneMore,
   owesWithoutName,
@@ -230,6 +231,25 @@ describe('saleProblem', () => {
     expect(check({ customer: nobody })).toBeNull();
   });
 
+  it('takes the walk-in customer\'s name typed by hand for nobody: it cannot owe', () => {
+    const owed = 'Quedan S/\u00a030.00 por cobrar. Escribe el nombre de quien te debe, o elige al cliente: una deuda sin nombre no hay a quién cobrársela.';
+    const typed = { customerId: '', name: ' clientes  VARIOS ', phone: '' };
+
+    expect(check({ customer: typed, payment: { ...cash, amount: 0, accountId: '' } })).toBe(owed);
+    // Renamed in the workshop, its own name and the default one both name nobody.
+    const renamed = { customerId: '', name: 'Público General', phone: '' };
+    expect(check({ customer: renamed, walkInName: 'Público general', payment: { ...cash, amount: 0 } })).toBe(owed);
+    expect(check({ customer: typed, walkInName: 'Público general', payment: { ...cash, amount: 0 } })).toBe(owed);
+    // Paid in full, the sale goes to the walk-in customer as if no name was typed.
+    expect(check({ customer: typed })).toBeNull();
+  });
+
+  it('keeps no phone for the walk-in customer', () => {
+    expect(check({ customer: { customerId: '', name: 'Clientes varios', phone: '987654321' } })).toBe(
+      '«Clientes varios» es el cliente de las ventas sin nombre: para guardar un teléfono, escribe el nombre de la persona.',
+    );
+  });
+
   it('wants a name to keep a phone, and no sale in the future', () => {
     expect(check({ customer: { ...nobody, phone: '987654321' } })).toBe('Escribe el nombre del cliente para guardar su teléfono.');
     expect(check({ customer: { customerId: 'maria', name: '', phone: '987' } })).toBeNull();
@@ -265,6 +285,20 @@ describe('toQuickSale', () => {
 
     const chosen = toQuickSale({ lines: [line()], customer: { customerId: 'maria', name: 'Rosa', phone: '912' }, payment: cash, note: '' });
     expect([chosen.customerId, chosen.customerName, chosen.customerPhone]).toEqual(['maria', null, null]);
+  });
+
+  it('sends nobody when the name typed is the walk-in customer\'s', () => {
+    const typed = toQuickSale({ lines: [line()], customer: { customerId: '', name: 'CLIENTES VARIOS', phone: '' }, payment: cash, note: '' });
+    expect([typed.customerId, typed.customerName]).toEqual([null, null]);
+
+    const renamed = toQuickSale({
+      lines: [line()],
+      customer: { customerId: '', name: 'público general', phone: '' },
+      payment: cash,
+      note: '',
+      walkInName: 'Público general',
+    });
+    expect(renamed.customerName).toBeNull();
   });
 
   it('sends no account, method nor reference when nothing is collected', () => {
@@ -327,6 +361,27 @@ describe('owesWithoutName', () => {
     expect(owesWithoutName({ owed: 5 }, rosa)).toBe(false);
     expect(owesWithoutName({ owed: 5 }, { customerId: 'maria', name: '', phone: '' })).toBe(false);
     expect(owesWithoutName({ owed: 0 }, nobody)).toBe(false);
+  });
+
+  it('is a balance in the walk-in customer\'s name, too', () => {
+    expect(owesWithoutName({ owed: 5 }, { customerId: '', name: 'Clientes Varios', phone: '' })).toBe(true);
+    expect(owesWithoutName({ owed: 5 }, { customerId: '', name: 'Feria', phone: '' }, 'Feria')).toBe(true);
+    expect(owesWithoutName({ owed: 0 }, { customerId: '', name: 'Clientes varios', phone: '' })).toBe(false);
+  });
+});
+
+describe('isWalkInName', () => {
+  it('is the default name, or the workshop\'s, in any case, spacing or accent', () => {
+    expect(isWalkInName('  clientes   VARIOS ')).toBe(true);
+    expect(isWalkInName('Clientes vários')).toBe(true);
+    expect(isWalkInName('público general', 'Público General')).toBe(true);
+    expect(isWalkInName('Clientes varios', 'Público General')).toBe(true);
+  });
+
+  it('is not a person, nor an empty field', () => {
+    expect(isWalkInName('Rosa Díaz')).toBe(false);
+    expect(isWalkInName('Clientes')).toBe(false);
+    expect(isWalkInName('   ')).toBe(false);
   });
 });
 

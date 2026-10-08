@@ -345,6 +345,23 @@ describe('VentaRapidaPage', () => {
     expect(sent[0]!.payload).toMatchObject({ customerName: 'Rosa Díaz', amount: 0, accountId: null });
   });
 
+  it('does not take «Clientes varios» typed by hand as somebody who can owe', async () => {
+    const { fixture, sent } = await oneBasket();
+
+    await press(fixture, 'Me paga después');
+    await type(fixture, 'name', 'clientes varios');
+    expect(text(fixture)).toContain('«Clientes varios» es el cliente de las ventas sin nombre, no uno nuevo.');
+    expect(text(fixture)).not.toContain('Se crea como cliente nuevo al vender');
+    expect(text(fixture)).toContain('Escribe el nombre de quien te debe');
+    expect(sellButton(fixture).disabled).toBe(true);
+
+    // Paid in full it is the walk-in customer, sent as nobody.
+    await press(fixture, 'Todo');
+    expect(sellButton(fixture).disabled).toBe(false);
+    await press(fixture, /^Vender/);
+    expect(sent[0]!.payload).toMatchObject({ customerId: null, customerName: null });
+  });
+
   it('puts the method back to the account’s when the account changes, and after each sale', async () => {
     // With two accounts nothing is chosen for the person.
     const { fixture, sent } = await open({ accounts: [CASH, BANK] });

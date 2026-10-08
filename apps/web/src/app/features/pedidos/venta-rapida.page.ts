@@ -16,6 +16,7 @@ import {
   sameTotals,
   toQuickSale,
   validQuantity,
+  WALK_IN_NAME,
   type ChannelOptions,
   type CustomerChoice,
   type QuickSalePayload,
@@ -26,7 +27,7 @@ import {
   type VariantInfo,
 } from './quick-sale';
 import { VentaRapidaCanal } from './venta-rapida-canal';
-import { createQuickCustomer, VentaRapidaCliente, WALK_IN_NAME } from './venta-rapida-cliente';
+import { createQuickCustomer, VentaRapidaCliente } from './venta-rapida-cliente';
 import { createQuickPayment, VentaRapidaCobro, type QuickPaymentForm } from './venta-rapida-cobro';
 import { QuickSaleData, type SoldOrder } from './venta-rapida.data';
 import { VentaRapidaEstante } from './venta-rapida-estante';
@@ -268,7 +269,7 @@ export class VentaRapidaPage {
     // The last sale's summary would read as this one's, even if this one fails.
     this.done.set(null);
     const value = this.value();
-    const payload = toQuickSale({ ...value, payment: this.payment(value.payment) });
+    const payload = toQuickSale({ ...value, payment: this.payment(value.payment), walkInName: this.walkInName() });
     const { key, reused } = saleKey(this.lastSent, payload, () => crypto.randomUUID());
     this.lastSent = { key, payload };
     try {
@@ -353,7 +354,12 @@ export class VentaRapidaPage {
 
   private customerName(payload: QuickSalePayload): string {
     if (payload.customerId) return this.customers().find((row) => row.id === payload.customerId)?.name ?? 'Cliente';
-    return payload.customerName ?? this.customers().find((row) => row.walkIn)?.name ?? WALK_IN_NAME;
+    return payload.customerName ?? this.walkInName();
+  }
+
+  /** What the walk-in customer is called here: its name once it exists, the default before. */
+  private walkInName(): string {
+    return this.customers().find((row) => row.walkIn)?.name ?? WALK_IN_NAME;
   }
 
   private check(offers: ReadonlyMap<string, ShelfOffer>): Parameters<typeof saleProblem>[0] {
@@ -364,6 +370,7 @@ export class VentaRapidaPage {
       customer: value.customer,
       payment: this.payment(value.payment),
       accounts: this.accounts(),
+      walkInName: this.walkInName(),
     };
   }
 
