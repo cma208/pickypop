@@ -29,6 +29,12 @@ export function countOf(count: number, singular: string, plural: string): string
   return `${count} ${count === 1 ? singular : plural}`;
 }
 
+/** "Tapa ×7 y Cuerpo ×7", como se dice. */
+export function joinWithAnd(items: readonly string[]): string {
+  if (items.length <= 1) return items.join('');
+  return `${items.slice(0, -1).join(', ')} y ${items[items.length - 1]}`;
+}
+
 /**
  * What the picker of a recipe row says when it has nothing left to offer.
  * With every part already in the recipe, «Todavía no hay nada para elegir»

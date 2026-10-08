@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { ArticlePhotos } from '../../core/article-photos';
 import { Media } from '../../core/media';
 import { CatalogoData } from './catalogo.data';
+import { CatalogoError } from './catalogo.util';
 import type { ImportedPlate } from './catalogo.models';
 import type { ImportDraft, ImportOutcome } from './importacion';
 import { ImportarPlacas } from './importar-placas';
@@ -55,9 +56,9 @@ function open(data: ReturnType<typeof fakeData>) {
   fixture.componentRef.setInput('parts', []);
   fixture.componentRef.setInput('perProduct', new Map());
   const saved: ImportOutcome[] = [];
-  const cancelled: true[] = [];
+  const cancelled: string[][] = [];
   fixture.componentInstance.saved.subscribe((outcome) => saved.push(outcome));
-  fixture.componentInstance.cancelled.subscribe(() => cancelled.push(true));
+  fixture.componentInstance.cancelled.subscribe((kept) => cancelled.push(kept));
   fixture.detectChanges();
   return { fixture, saved, cancelled };
 }
@@ -91,7 +92,7 @@ describe('ImportarPlacas, a part named during the review', () => {
 
     button(fixture, 'Descartar').click();
 
-    expect(cancelled).toHaveLength(1);
+    expect(cancelled).toEqual([[]]);
     expect(data.createPart).not.toHaveBeenCalled();
     expect(data.importPlates).not.toHaveBeenCalled();
   });
@@ -142,6 +143,62 @@ describe('ImportarPlacas, a part named during the review', () => {
     button(fixture, 'Guardar 1 placa').click();
     await vi.waitFor(() => expect(saved).toHaveLength(1));
     expect(data.createPart).toHaveBeenCalledTimes(2);
+  });
+
+  it('names the part a member could not take back, and a retry uses that same part', async () => {
+    // Only the owner may delete an article: for anyone else the delete
+    // touches no row, and the part stays.
+    const data = fakeData();
+    data.importPlates.mockRejectedValueOnce(new CatalogoError('Ya existe una placa con ese número.'));
+    data.deleteUnusedPart.mockResolvedValue(false);
+    const { fixture, saved } = open(data);
+    namePart(fixture, 'Cap', 'Tapa de calavera');
+
+    button(fixture, 'Guardar 1 placa').click();
+    await vi.waitFor(() => expect(data.deleteUnusedPart).toHaveBeenCalledWith('real-1'));
+    await vi.waitFor(() => expect(button(fixture, 'Guardar 1 placa').disabled).toBe(false));
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('[role="alert"]')?.textContent).toBe(
+      'Ya existe una placa con ese número. La pieza «Tapa de calavera» ya quedó creada en Inventario › Piezas impresas: ' +
+        'si vuelves a guardar, se usa esa misma.',
+    );
+
+    button(fixture, 'Guardar 1 placa').click();
+    await vi.waitFor(() => expect(saved).toHaveLength(1));
+    expect(data.createPart).toHaveBeenCalledTimes(1);
+    expect(data.importPlates.mock.calls[1]![2][0]!.outputs).toEqual([{ inventoryItemId: 'real-1', unitsPerRun: 7 }]);
+  });
+
+  it('tries once more to take the part back on discarding, and says which ones stayed', async () => {
+    const data = fakeData();
+    data.importPlates.mockRejectedValueOnce(new Error('network'));
+    data.deleteUnusedPart.mockResolvedValue(false);
+    const { fixture, cancelled } = open(data);
+    namePart(fixture, 'Cap', 'Tapa de calavera');
+    button(fixture, 'Guardar 1 placa').click();
+    await vi.waitFor(() => expect(button(fixture, 'Guardar 1 placa').disabled).toBe(false));
+
+    button(fixture, 'Descartar').click();
+    await vi.waitFor(() => expect(cancelled).toHaveLength(1));
+
+    expect(data.deleteUnusedPart).toHaveBeenCalledTimes(2);
+    expect(cancelled[0]).toEqual(['Tapa de calavera']);
+  });
+
+  it('leaves nothing to say on discarding when the second try takes the part back', async () => {
+    const data = fakeData();
+    data.importPlates.mockRejectedValueOnce(new Error('network'));
+    // The connection dropped for the delete too, and came back for the discard.
+    data.deleteUnusedPart.mockResolvedValueOnce(false);
+    const { fixture, cancelled } = open(data);
+    namePart(fixture, 'Cap', 'Tapa de calavera');
+    button(fixture, 'Guardar 1 placa').click();
+    await vi.waitFor(() => expect(button(fixture, 'Guardar 1 placa').disabled).toBe(false));
+
+    button(fixture, 'Descartar').click();
+    await vi.waitFor(() => expect(cancelled).toHaveLength(1));
+
+    expect(cancelled[0]).toEqual([]);
   });
 
   it('refuses the name of a part that already exists in the review', () => {

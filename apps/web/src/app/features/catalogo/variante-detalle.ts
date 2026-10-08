@@ -36,6 +36,7 @@ import { VariantCostModel } from './variant-cost.model';
           [recipe]="model.recipe()"
           [lookups]="lookups()"
           [lookupsError]="lookupsError()"
+          [lookupsRefreshError]="lookupsRefreshError()"
           [laborRate]="model.profile()?.laborRatePerHour ?? null"
           (changed)="reloadRecipe()"
           (itemsChanged)="itemsChanged.emit()"
@@ -57,6 +58,8 @@ export class VarianteDetalle implements OnInit {
   readonly productSlug = input<string>('');
   readonly lookups = input<Lookups | null>(null);
   readonly lookupsError = input<string | null>(null);
+  /** A refresh of the options that failed; it warns without taking the recipe away. */
+  readonly lookupsRefreshError = input<string | null>(null);
   readonly context = input<CostContext | null>(null);
   /** The variant data changed (saved); the parent should reload its list. */
   readonly variantSaved = output<void>();

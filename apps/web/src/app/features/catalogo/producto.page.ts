@@ -85,6 +85,7 @@ import { VarianteForm } from './variante-form';
                 [productSlug]="current.slug"
                 [lookups]="lookups()"
                 [lookupsError]="lookupsError()"
+                [lookupsRefreshError]="lookupsRefreshError()"
                 [context]="context()"
                 (variantSaved)="reloadVariants()"
                 (variantRemoved)="variantRemoved()"
@@ -117,6 +118,13 @@ export class ProductoPage {
   protected readonly lookups = signal<Lookups | null>(null);
   protected readonly context = signal<CostContext | null>(null);
   protected readonly lookupsError = signal<string | null>(null);
+  /**
+   * A refresh that failed after the page loaded. It is kept apart from
+   * lookupsError, which replaces the whole recipe card: the options read
+   * before still serve for everything but the parts just created, so the
+   * recipe stays usable and only says what is missing.
+   */
+  protected readonly lookupsRefreshError = signal<string | null>(null);
   protected readonly loading = signal(true);
   protected readonly loadError = signal<string | null>(null);
 
@@ -169,8 +177,12 @@ export class ProductoPage {
   protected async reloadLookups(): Promise<void> {
     try {
       this.lookups.set(await this.data.lookups());
+      this.lookupsRefreshError.set(null);
     } catch (error) {
-      this.lookupsError.set(messageOf(error, 'No pudimos actualizar las piezas e insumos del taller. Recarga la página.'));
+      this.lookupsRefreshError.set(
+        `${messageOf(error, 'No pudimos actualizar la lista de piezas e insumos.')} ` +
+          'Las piezas recién creadas todavía no aparecen para elegir en las placas.',
+      );
     }
   }
 

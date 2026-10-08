@@ -7,7 +7,7 @@ import type { Lookups, Recipe } from './catalogo.models';
 import { SHARED_STYLES } from './catalogo.styles';
 import { messageOf } from './catalogo.util';
 import { partsMadeByPlates, splitRecipeRows } from './costing';
-import { buildDraft, importSummary, type ImportDraft, type ImportOutcome } from './importacion';
+import { buildDraft, discardedPartsNote, importSummary, type ImportDraft, type ImportOutcome } from './importacion';
 import { ImportarPlacas } from './importar-placas';
 import { PlacaEditor } from './placa-editor';
 import type { PartOption } from './salida-fila';
@@ -37,6 +37,8 @@ const MINUTES_PER_HOUR = 60;
       .import .pick:hover .as-button { background: var(--accent-soft); }
       .import .ok { color: var(--good); font-size: 0.85rem; margin: 0; }
       .import code { font-size: 0.85em; }
+      .import .notice { margin: 0; }
+      .refresh { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.5rem; margin-bottom: 0.9rem; }
     `,
   ],
   template: `
@@ -109,7 +111,7 @@ const MINUTES_PER_HOUR = 60;
               [skus]="lookupData.skus"
               [materials]="lookupData.materials"
               (saved)="onImported($event, draft.fileName)"
-              (cancelled)="importDraft.set(null)"
+              (cancelled)="onDiscarded($event)"
             />
           } @else {
             <div class="import">
@@ -123,7 +125,14 @@ const MINUTES_PER_HOUR = 60;
                 ves cada placa y lo confirmas. Se lee en tu computadora: el archivo no se sube a ningún sitio.
               </span>
               @if (importNote(); as message) { <p class="ok" role="status">{{ message }}</p> }
+              @if (importWarning(); as message) { <p class="notice" role="status">{{ message }}</p> }
               @if (importError(); as message) { <p class="error" role="alert">{{ message }}</p> }
+            </div>
+          }
+          @if (lookupsRefreshError(); as message) {
+            <div class="notice refresh" role="alert">
+              <p>{{ message }}</p>
+              <button type="button" class="secondary" (click)="itemsChanged.emit()">Reintentar</button>
             </div>
           }
           <div class="stack">
@@ -164,6 +173,11 @@ export class RecetaEditor {
   readonly recipe = input<Recipe | null>(null);
   readonly lookups = input<Lookups | null>(null);
   readonly lookupsError = input<string | null>(null);
+  /**
+   * The options could not be read again after parts were created. The ones
+   * read before still serve, so the card stays and only says what is missing.
+   */
+  readonly lookupsRefreshError = input<string | null>(null);
   /** Labor rate per hour, to say what a minute per unit costs. */
   readonly laborRate = input<number | null>(null);
   readonly changed = output<void>();
@@ -178,6 +192,8 @@ export class RecetaEditor {
   protected readonly error = signal<string | null>(null);
   protected readonly importing = signal(false);
   protected readonly importNote = signal<string | null>(null);
+  /** Parts a discarded import could not take back, said once the review is gone. */
+  protected readonly importWarning = signal<string | null>(null);
   protected readonly importError = signal<string | null>(null);
 
   protected readonly nextPlateIndex = computed(
@@ -220,6 +236,7 @@ export class RecetaEditor {
     this.importing.set(true);
     this.importError.set(null);
     this.importNote.set(null);
+    this.importWarning.set(null);
 
     try {
       const { fileName, info } = await readSlicedFile(file);
@@ -257,6 +274,16 @@ export class RecetaEditor {
     this.changed.emit();
     // The parts of the plates now exist and the database put them in the
     // recipe; without fresh options their rows had no name to show.
+    this.itemsChanged.emit();
+  }
+
+  protected onDiscarded(keptParts: string[]): void {
+    this.importDraft.set(null);
+    this.importWarning.set(discardedPartsNote(keptParts));
+    if (keptParts.length === 0) return;
+    // What stayed exists now: the plates may hold it if some were saved
+    // before the failure, and the options should offer it.
+    this.changed.emit();
     this.itemsChanged.emit();
   }
 

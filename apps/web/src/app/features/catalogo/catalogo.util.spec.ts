@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { countOf, emptyPickerText } from './catalogo.util';
+import { countOf, emptyPickerText, joinWithAnd } from './catalogo.util';
 
 describe('countOf', () => {
   it('puts the noun in agreement with the number', () => {
@@ -7,6 +7,15 @@ describe('countOf', () => {
     expect(countOf(3, 'placa', 'placas')).toBe('3 placas');
     expect(countOf(0, 'placa', 'placas')).toBe('0 placas');
     expect(countOf(3.5, 'producto', 'productos')).toBe('3.5 productos');
+  });
+});
+
+describe('joinWithAnd', () => {
+  it('reads a list the way a person says it', () => {
+    expect(joinWithAnd([])).toBe('');
+    expect(joinWithAnd(['Tapa ×7'])).toBe('Tapa ×7');
+    expect(joinWithAnd(['Tapa ×7', 'Cuerpo ×7'])).toBe('Tapa ×7 y Cuerpo ×7');
+    expect(joinWithAnd(['Tapa', 'Gancho', 'Frente'])).toBe('Tapa, Gancho y Frente');
   });
 });
 

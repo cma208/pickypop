@@ -4,7 +4,7 @@ import { FormArray, FormControl, FormGroup, ReactiveFormsModule, Validators } fr
 import { borrowedPhoto } from '../../core/article-photos';
 import { FORMAT_PIPES, ItemPicker, type PickerOption } from '../../ui';
 import type { DraftFilament, ImportedFilament, MaterialOption, PlateOutputInput, SkuOption } from './catalogo.models';
-import { countOf } from './catalogo.util';
+import { countOf, joinWithAnd } from './catalogo.util';
 import { SHARED_STYLES } from './catalogo.styles';
 import {
   describeObjects,
@@ -165,7 +165,7 @@ export type PlateDraftGroup = ReturnType<typeof plateDraftGroup>;
                     </label>
                     <button type="button" (click)="addPart(row)">Usar</button>
                     <button type="button" class="ghost" (click)="creatingFor.set(null)">Cancelar</button>
-                    <p class="muted hint">Se crea al guardar las placas. Si descartas la importación, no queda nada.</p>
+                    <p class="muted hint">Se crea recién al guardar las placas: mientras revisas, no existe.</p>
                     @if (createError(); as message) { <p class="error hint">{{ message }}</p> }
                   </div>
                 }
@@ -296,7 +296,8 @@ export class ImportarPlaca implements OnInit {
 
   /**
    * Names a part for the object without creating it: it is created when the
-   * import is saved, so discarding the import leaves nothing behind (E2-03).
+   * import is saved, so discarding the review before that leaves nothing
+   * behind (E2-03).
    */
   protected addPart(row: ObjectRow): void {
     const name = this.newPartName.value.trim().replace(/\s+/g, ' ');
@@ -332,10 +333,4 @@ export class ImportarPlaca implements OnInit {
     const active = this.skus().filter((sku) => sku.active);
     return [...active.filter((sku) => sku.materialId === materialId), ...active.filter((sku) => sku.materialId !== materialId)];
   }
-}
-
-/** "Tapa ×7 y Cuerpo ×7", como se dice. */
-function joinWithAnd(items: readonly string[]): string {
-  if (items.length <= 1) return items.join('');
-  return `${items.slice(0, -1).join(', ')} y ${items[items.length - 1]}`;
 }

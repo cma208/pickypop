@@ -4,6 +4,8 @@ import type { ImportedPlate, MaterialOption, SkuOption } from './catalogo.models
 import {
   buildDraft,
   describeObjects,
+  discardedPartsNote,
+  failedSaveMessage,
   importSummary,
   isNewPart,
   learnedParts,
@@ -324,5 +326,37 @@ describe('importSummary', () => {
       'Se cargaron 2 placas de «b.3mf» y se creó 1 pieza nueva. ' +
         'Falta: elige el rollo de 1 filamento que no reconocimos; 2 vistas no se pudieron guardar.',
     );
+  });
+});
+
+describe('what a failed import says about the parts it left', () => {
+  it('says only the cause when every part was taken back', () => {
+    expect(failedSaveMessage('No pudimos guardar las placas.', [])).toBe('No pudimos guardar las placas.');
+  });
+
+  it('names the part that stayed, where it is, and that a retry uses it', () => {
+    expect(failedSaveMessage('No pudimos crear la placa 2.', ['Tapa de calavera'])).toBe(
+      'No pudimos crear la placa 2. La pieza «Tapa de calavera» ya quedó creada en Inventario › Piezas impresas: ' +
+        'si vuelves a guardar, se usa esa misma.',
+    );
+  });
+
+  it('speaks in plural of several', () => {
+    expect(failedSaveMessage('No pudimos guardar las placas.', ['Tapa', 'Gancho', 'Frente'])).toBe(
+      'No pudimos guardar las placas. Las piezas «Tapa», «Gancho» y «Frente» ya quedaron creadas en ' +
+        'Inventario › Piezas impresas: si vuelves a guardar, se usan esas mismas.',
+    );
+  });
+
+  it('says nothing after a discard that left nothing', () => {
+    expect(discardedPartsNote([])).toBeNull();
+  });
+
+  it('says where a discarded import left its parts and what to do with them', () => {
+    expect(discardedPartsNote(['Tapa de calavera'])).toBe(
+      'Descartaste la importación, pero la pieza «Tapa de calavera» ya se había creado y quedó en ' +
+        'Inventario › Piezas impresas. Si la vuelves a necesitar, elígela en la lista; si no la vas a usar, desactívala ahí.',
+    );
+    expect(discardedPartsNote(['Tapa', 'Gancho'])).toContain('las piezas «Tapa» y «Gancho» ya se habían creado y quedaron');
   });
 });
