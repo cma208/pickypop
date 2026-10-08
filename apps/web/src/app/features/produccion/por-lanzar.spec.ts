@@ -3,6 +3,7 @@ import {
   clampRuns,
   dayName,
   filamentRows,
+  hasConfirmedOrders,
   holdEndText,
   holdLead,
   holdsBehind,
@@ -164,6 +165,14 @@ describe('«Por lanzar»', () => {
       { plateId: 'plate-bottle', orderLineId: null, label: null, estimatedTimeS: 2580 },
       { plateId: 'plate-bottle', orderLineId: null, label: null, estimatedTimeS: 2580 },
     ]);
+  });
+
+  it('knows when there is no confirmed order to print for, holds aside', () => {
+    expect(hasConfirmedOrders(result)).toBe(true);
+
+    const onlyHolds = plan(workshop({ demands: workshop().demands.filter((demand) => demand.kind === 'quote') }));
+    expect(hasConfirmedOrders(onlyHolds)).toBe(false);
+    expect(hasConfirmedOrders(plan(workshop({ demands: [] })))).toBe(false);
   });
 
   it('never queues zero runs nor more than proposed', () => {

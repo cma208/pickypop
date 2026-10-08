@@ -40,7 +40,7 @@ function normalize(text: string): string {
 
       <pp-async [loading]="loading()" [error]="error()">
         @if (rows().length === 0) {
-          <pp-empty message="No hay nada por cobrar: todos los pedidos entregados están pagados." />
+          <pp-empty message="No hay nada por cobrar: ningún pedido entregado tiene saldo pendiente." />
         } @else {
           <div class="totals">
             <div>

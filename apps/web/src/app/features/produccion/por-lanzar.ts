@@ -29,6 +29,15 @@ export function proposalsFor(proposals: readonly PlanProposal[], orderId: string
   return proposals.filter((proposal) => proposal.covers.some((order) => order.id === orderId));
 }
 
+/**
+ * Whether any confirmed order is still waiting, which is all «Por lanzar»
+ * proposes for: a hold never launches runs. Without one, "what the orders
+ * ask for is already on the shelf" talks about orders that do not exist.
+ */
+export function hasConfirmedOrders(result: PlanResult): boolean {
+  return result.demands.some((demand) => demand.kind === 'order' && demand.holdUntil === null);
+}
+
 /** How the filtered order is named: its number when the plan knows it. */
 export function orderNumberIn(result: PlanResult, orderId: string): string | null {
   const demand = result.demands.find((candidate) => candidate.kind === 'order' && candidate.id === orderId);

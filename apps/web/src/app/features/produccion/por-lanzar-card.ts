@@ -1,8 +1,8 @@
-import { Component, computed, input, output, signal } from '@angular/core';
+import { Component, computed, input, output } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import type { PlanView } from '../../core/plan';
 import { Card } from '../../ui';
-import { lateNotices, orderNumberIn, proposalKey, proposalsFor } from './por-lanzar';
+import { hasConfirmedOrders, lateNotices, orderNumberIn, proposalKey, proposalsFor } from './por-lanzar';
 import { PlanProposalRow } from './plan-proposal';
 import type { QueuedRuns } from './proposal-queue-form';
 
@@ -46,11 +46,11 @@ import type { QueuedRuns } from './proposal-queue-form';
         </p>
       }
 
-      @if (done(); as queued) {
+      @if (notice(); as queued) {
         <p class="done" role="status">
           {{ queued.runs === 1 ? 'Pusiste 1 corrida' : 'Pusiste ' + queued.runs + ' corridas' }} de {{ queued.label }}
           en la cola de {{ queued.printerName }}. Están abajo, en Planificado.
-          <button type="button" class="ghost" (click)="done.set(null)">Entendido</button>
+          <button type="button" class="ghost" (click)="dismissed.emit()">Entendido</button>
         </p>
       }
 
@@ -65,6 +65,8 @@ import type { QueuedRuns } from './proposal-queue-form';
       } @empty {
         @if (orderId()) {
           <p class="muted">Nada por lanzar para {{ orderName() }}: lo que pide ya está en el estante o en la cola, o lo cubre otro pedido antes.</p>
+        } @else if (!waiting()) {
+          <p class="muted">Nada por lanzar: no hay pedidos confirmados esperando piezas.</p>
         } @else {
           <p class="muted">Nada por lanzar: lo que piden los pedidos confirmados ya está en el estante o en la cola.</p>
         }
@@ -91,11 +93,18 @@ export class PorLanzarCard {
   readonly colors = input<ReadonlyMap<string, string>>(new Map());
   /** Set when the order page asked «Ver qué falta imprimir»: only what that order is waiting for. */
   readonly orderId = input<string | null>(null);
+  /**
+   * What was just put in the queue. The page keeps it, because only the page
+   * sees the queue move afterwards: once a job starts or closes, "están
+   * abajo, en Planificado" is no longer true and the page takes it away.
+   */
+  readonly notice = input<QueuedRuns | null>(null);
   /** Jobs were created: the page has to read the queue and the plan again. */
-  readonly queued = output<void>();
+  readonly queued = output<QueuedRuns>();
+  readonly dismissed = output<void>();
 
-  protected readonly done = signal<QueuedRuns | null>(null);
   protected readonly key = proposalKey;
+  protected readonly waiting = computed(() => hasConfirmedOrders(this.view().result));
 
   protected readonly proposals = computed(() => proposalsFor(this.view().result.proposals, this.orderId()));
   protected readonly orderName = computed(() => {
@@ -105,7 +114,6 @@ export class PorLanzarCard {
   protected readonly late = computed(() => lateNotices(this.view().result, this.view().input.settings.timeZone));
 
   protected onQueued(queued: QueuedRuns): void {
-    this.done.set(queued);
-    this.queued.emit();
+    this.queued.emit(queued);
   }
 }

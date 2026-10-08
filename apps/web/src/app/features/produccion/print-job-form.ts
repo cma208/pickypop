@@ -51,10 +51,10 @@ function createFilamentRow(spoolId = '', estimatedG = 0, slot: number | null = n
           } @else {
             <pp-field
               label="Línea a medida de un pedido"
-              hint="Déjalo vacío para una prueba o para stock. Lo del catálogo se lanza desde «Por lanzar»."
+              hint="Déjalo vacío para piezas del estante (con su placa), un molde o una prueba. Lo que piden los pedidos de catálogo se lanza desde «Por lanzar»."
             >
               <select formControlName="orderLineId">
-                <option value="">Sin pedido (prueba o stock)</option>
+                <option value="">Sin pedido (estante, molde o prueba)</option>
                 @for (line of lines(); track line.id) {
                   <option [value]="line.id">{{ line.label }}</option>
                 }
@@ -64,7 +64,7 @@ function createFilamentRow(spoolId = '', estimatedG = 0, slot: number | null = n
 
           @if (!hasLine()) {
             <pp-field label="Qué se imprime" [required]="true" [error]="labelError()">
-              <input type="text" formControlName="label" placeholder="Ej.: prueba de soporte, stock de tapas" autocomplete="off" />
+              <input type="text" formControlName="label" placeholder="Ej.: molde, prueba de soporte" autocomplete="off" />
             </pp-field>
           }
 
@@ -106,6 +106,12 @@ function createFilamentRow(spoolId = '', estimatedG = 0, slot: number | null = n
                 }
               </div>
             </div>
+          } @else if (!hasLine()) {
+            <!-- «Por lanzar» only proposes what orders need, so shelf stock is printed from here, and only a plate says what goes in. -->
+            <p class="alert-warn" role="status">
+              Sin placa no entra nada al estante: su costo va al gasto del mes, en «Producción no vendida» (moldes,
+              herramientas y pruebas). Para imprimir piezas para el estante, elige su placa.
+            </p>
           }
 
           <pp-field label="Tiempo estimado (minutos)" hint="Se llena con el de la placa; puedes ajustarlo." [error]="fieldError('estimatedMinutes', 'Escribe minutos enteros mayores que cero.')">

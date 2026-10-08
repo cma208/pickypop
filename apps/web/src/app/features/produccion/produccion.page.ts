@@ -6,6 +6,7 @@ import { planWarningText, readyText } from '../../core/plan-format';
 import { AsyncState, Card, Empty, FORMAT_PIPES, Page } from '../../ui';
 import { explainError } from '../pedidos/pedidos.errors';
 import { PorLanzarCard } from './por-lanzar-card';
+import type { QueuedRuns } from './proposal-queue-form';
 import { PrintJobCard } from './print-job-card';
 import { PrintJobForm } from './print-job-form';
 import { ProduccionData, type CloseOutcome, type JobItem } from './produccion.data';
@@ -64,7 +65,15 @@ const PAST_ESTIMATE = /pasó su tiempo estimado/;
         }
 
         @if (view(); as plan) {
-          <app-por-lanzar [view]="plan" [pictures]="pictures()" [colors]="colors()" [orderId]="orderId()" (queued)="reload()" />
+          <app-por-lanzar
+            [view]="plan"
+            [pictures]="pictures()"
+            [colors]="colors()"
+            [orderId]="orderId()"
+            [notice]="queuedNotice()"
+            (queued)="onQueued($event)"
+            (dismissed)="queuedNotice.set(null)"
+          />
         }
 
         @if (printing().length > 0) {
@@ -148,6 +157,8 @@ export class ProduccionPage {
   protected readonly error = signal<string | null>(null);
   protected readonly creating = signal(false);
   protected readonly effects = signal<CloseOutcome | null>(null);
+  /** «Pusiste N corridas…», until the queue moves for another reason. */
+  protected readonly queuedNotice = signal<QueuedRuns | null>(null);
 
   protected readonly printing = computed(() => this.jobs().filter((job) => job.status === 'printing'));
 
@@ -174,11 +185,12 @@ export class ProduccionPage {
       .map((warning) => planWarningText(warning, this.printersRegistered())),
   );
 
-  protected readonly emptyMessage = computed(() =>
-    (this.view()?.result.proposals.length ?? 0) > 0
-      ? 'No hay nada en la cola. Pon en cola algo de «Por lanzar».'
-      : 'No hay nada en la cola. Todo lo cerrado está en el historial.',
-  );
+  protected readonly emptyMessage = computed(() => {
+    if ((this.view()?.result.proposals.length ?? 0) > 0) return 'No hay nada en la cola. Pon en cola algo de «Por lanzar».';
+    // The page reads every recent job, closed ones included: none at all means nothing was ever printed.
+    if (this.jobs().length === 0) return 'Todavía no hay impresiones registradas.';
+    return 'No hay nada en la cola. Todo lo cerrado está en el historial.';
+  });
 
   constructor() {
     void this.load();
@@ -186,10 +198,18 @@ export class ProduccionPage {
 
   protected onCreated(): void {
     this.creating.set(false);
+    this.queuedNotice.set(null);
     this.reload();
   }
 
+  protected onQueued(queued: QueuedRuns): void {
+    this.queuedNotice.set(queued);
+    this.reload();
+  }
+
+  /** A job started or closed: what the notice said about the queue may be stale now. */
   protected onChanged(outcome: CloseOutcome | null): void {
+    this.queuedNotice.set(null);
     if (outcome) {
       this.effects.set(outcome);
       setTimeout(() => document.getElementById(EFFECTS_ID)?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
