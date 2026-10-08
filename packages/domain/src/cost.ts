@@ -98,6 +98,33 @@ export function calculateCost(
   };
 }
 
+/** The labour of a recipe for some units: once for the setup, and per unit for the rest. */
+export interface LaborCost {
+  setup: number;
+  perUnits: number;
+  total: number;
+}
+
+/**
+ * What the labour of a recipe costs for `units` finished products. The setup
+ * is paid once, whatever the units; assembling, filling and packing are paid
+ * for every unit. Each half is rounded to cents on its own, so a breakdown
+ * that shows them adds up to the total.
+ *
+ * The database applies this very rule when a product is assembled
+ * (`app.recipe_labor_cost`, ADR-022): the product enters the shelf at what it
+ * consumed plus this, at the rate of the profile in force that day. If one
+ * changes, the other has to.
+ */
+export function laborCost(
+  work: { setupMinutes: number; minutesPerUnit: number; units: number },
+  laborRatePerHour: number,
+): LaborCost {
+  const setup = roundMoney((work.setupMinutes / MINUTES_PER_HOUR) * laborRatePerHour);
+  const perUnits = roundMoney(((work.minutesPerUnit * work.units) / MINUTES_PER_HOUR) * laborRatePerHour);
+  return { setup, perUnits, total: sumMoney([setup, perUnits]) };
+}
+
 /**
  * Costs a batch of finished products, following docs/02-dominio.md section 2.5.
  *
@@ -160,9 +187,13 @@ export function calculateBatchCost(
   const productionBeforeFailure = sumMoney([material, energy, machine]);
   const production = roundMoney(productionBeforeFailure / (1 - profile.failureRate));
 
-  const laborSetup = roundMoney((batch.setupMinutes / MINUTES_PER_HOUR) * profile.laborRatePerHour);
-  const laborPerUnits = roundMoney(
-    ((batch.minutesPerUnit * batch.units) / MINUTES_PER_HOUR) * profile.laborRatePerHour,
+  const {
+    setup: laborSetup,
+    perUnits: laborPerUnits,
+    total: labor,
+  } = laborCost(
+    { setupMinutes: batch.setupMinutes, minutesPerUnit: batch.minutesPerUnit, units: batch.units },
+    profile.laborRatePerHour,
   );
 
   const supplies = sumMoney([
@@ -170,7 +201,6 @@ export function calculateBatchCost(
     ...(batch.suppliesPerUnit ?? []).map((supply) => roundMoney(supply.cost * batch.units)),
   ]);
 
-  const labor = sumMoney([laborSetup, laborPerUnits]);
   const total = sumMoney([production, labor, supplies]);
 
   return {
