@@ -9,17 +9,19 @@
 -- refuse anyway; the check up front says it in words.
 
 create or replace function app.save_printer(
-  p_printer_id uuid,
-  p_workspace_id uuid,
   p_name text,
-  p_model text,
-  p_status public.printer_status,
   p_initial_hours numeric,
   p_avg_power_w numeric,
   p_maintenance_budget_per_year numeric,
   p_expected_hours_per_year numeric,
   p_asset_cost numeric,
-  p_useful_life_hours numeric
+  p_useful_life_hours numeric,
+  -- Null registers a new printer in p_workspace_id; otherwise it is edited.
+  p_printer_id uuid default null,
+  p_workspace_id uuid default null,
+  p_model text default null,
+  -- Null keeps the current status, or 'active' for a new one.
+  p_status public.printer_status default null
 )
 returns uuid
 language plpgsql
@@ -87,31 +89,33 @@ end;
 $$;
 
 create or replace function public.save_printer(
-  p_printer_id uuid,
-  p_workspace_id uuid,
   p_name text,
-  p_model text,
-  p_status public.printer_status,
   p_initial_hours numeric,
   p_avg_power_w numeric,
   p_maintenance_budget_per_year numeric,
   p_expected_hours_per_year numeric,
   p_asset_cost numeric,
-  p_useful_life_hours numeric
+  p_useful_life_hours numeric,
+  -- Null registers a new printer in p_workspace_id; otherwise it is edited.
+  p_printer_id uuid default null,
+  p_workspace_id uuid default null,
+  p_model text default null,
+  -- Null keeps the current status, or 'active' for a new one.
+  p_status public.printer_status default null
 )
 returns uuid
 language sql
 volatile
 as $$
   select app.save_printer(
-    p_printer_id, p_workspace_id, p_name, p_model, p_status, p_initial_hours, p_avg_power_w,
-    p_maintenance_budget_per_year, p_expected_hours_per_year, p_asset_cost, p_useful_life_hours
+    p_name, p_initial_hours, p_avg_power_w, p_maintenance_budget_per_year, p_expected_hours_per_year,
+    p_asset_cost, p_useful_life_hours, p_printer_id, p_workspace_id, p_model, p_status
   );
 $$;
 
 grant execute on function app.save_printer(
-  uuid, uuid, text, text, public.printer_status, numeric, numeric, numeric, numeric, numeric, numeric
+  text, numeric, numeric, numeric, numeric, numeric, numeric, uuid, uuid, text, public.printer_status
 ) to authenticated;
 grant execute on function public.save_printer(
-  uuid, uuid, text, text, public.printer_status, numeric, numeric, numeric, numeric, numeric, numeric
+  text, numeric, numeric, numeric, numeric, numeric, numeric, uuid, uuid, text, public.printer_status
 ) to authenticated;

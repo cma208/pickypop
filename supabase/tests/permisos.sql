@@ -427,16 +427,24 @@ begin
 
   -- La impresora se guarda entera o no se guarda (T1-07).
   perform pg_temp.expect('Guardar la impresora', 'operator',
-    'select public.save_printer(' || c_printer || ', null, ''A1 mini'', null, ''active'', 0, 57, 240, 2000, 2000, 5000)',
+    'select public.save_printer(p_printer_id => ' || c_printer || ', p_name => ''A1 mini'', p_initial_hours => 0, '
+    || 'p_avg_power_w => 57, p_maintenance_budget_per_year => 240, p_expected_hours_per_year => 2000, '
+    || 'p_asset_cost => 2000, p_useful_life_hours => 5000)',
     'error:P0001');
   perform pg_temp.expect('Guardar la impresora con una potencia imposible', 'owner',
-    'select public.save_printer(' || c_printer || ', null, ''A1 mini'', null, ''active'', 0, 10000000, 240, 2000, 2000, 5000)',
+    'select public.save_printer(p_printer_id => ' || c_printer || ', p_name => ''A1 mini'', p_initial_hours => 0, '
+    || 'p_avg_power_w => 10000000, p_maintenance_budget_per_year => 240, p_expected_hours_per_year => 2000, '
+    || 'p_asset_cost => 2000, p_useful_life_hours => 5000)',
     'error:22003');
   perform pg_temp.expect('Guardar la impresora', 'owner',
-    'select public.save_printer(' || c_printer || ', null, ''A1 mini'', null, ''active'', 0, 60, 240, 2000, 1800, 5000)',
+    'select public.save_printer(p_printer_id => ' || c_printer || ', p_name => ''A1 mini'', p_initial_hours => 0, '
+    || 'p_avg_power_w => 60, p_maintenance_budget_per_year => 240, p_expected_hours_per_year => 2000, '
+    || 'p_asset_cost => 1800, p_useful_life_hours => 5000)',
     'ok:1');
   perform pg_temp.expect('Registrar otra impresora', 'owner',
-    'select public.save_printer(null, ' || c_ws || ', ''P1S'', ''Bambu Lab P1S'', null, 0, 120, 300, 2000, 3500, 6000)',
+    'select public.save_printer(p_workspace_id => ' || c_ws || ', p_name => ''P1S'', p_model => ''Bambu Lab P1S'', '
+    || 'p_initial_hours => 0, p_avg_power_w => 120, p_maintenance_budget_per_year => 300, '
+    || 'p_expected_hours_per_year => 2000, p_asset_cost => 3500, p_useful_life_hours => 6000)',
     'ok:1');
 
   -- Los nombres no se repiten por cambiar mayúsculas o espacios (T1-11).
