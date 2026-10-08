@@ -4,8 +4,12 @@ import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { Field } from '../../ui';
 import { sameCustomer, type CustomerChoice, type SaleCustomer } from './quick-sale';
 
-/** The name the walk-in customer has until the workshop creates or renames it. */
-export const WALK_IN_NAME = 'Cliente al paso';
+/**
+ * The name the walk-in customer has until the workshop creates or renames
+ * it: the people who buy on the way past (the owner's decision). The
+ * database names it the same in `app.walk_in_customer`.
+ */
+export const WALK_IN_NAME = 'Clientes varios';
 
 export type QuickCustomerForm = FormGroup<{
   customerId: FormControl<string>;
