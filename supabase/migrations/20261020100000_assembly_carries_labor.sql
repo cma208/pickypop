@@ -15,15 +15,18 @@
 --   the cost profile in force that day says. Everything that reads the value
 --   of an assembled product then carries it without a change of its own: a
 --   delivery (`produced_unit_cost`), a shelf count, its listing.
--- * `deliver_order` adds the same labour to a product that is not assembled
---   (a keychain delivered as its parts and its bag). ADR-020 promised that a
---   unit delivered that way is worth what it would be worth assembled. Its
---   handling happens on delivery, so its labour is counted there: once per
---   delivery of the line, like one assembly.
+-- * `deliver_order` adds the minutes per unit to a product that is not
+--   assembled (a keychain delivered as its parts and its bag): its handling
+--   happens on delivery, and without them it would leave the shelf without
+--   the hands the estimate charges. Not the setup: a delivery is not a batch,
+--   and nine keychains sold to nine people would pay nine setups, the
+--   «batch of one» this decision removes. And only on what took something off
+--   the shelf: a line that moved nothing has no real cost, and its labour
+--   alone would read as one, leaving out the material.
 -- * `assembly_unit_cost`, what a counted product nobody ever assembled enters
---   the shelf at, adds the minutes per unit. Not the setup: the count does not
---   know in how many assemblies those units were made, and a whole setup on
---   every unit would multiply it.
+--   the shelf at, adds the minutes per unit. Not the setup, for the same
+--   reason: the count does not know in how many assemblies those units were
+--   made, and a whole setup on every unit would multiply it.
 --
 -- What was assembled before this keeps its value: the shelf is not revalued.
 -- The labour rule is `laborCost` in packages/domain, which the estimate uses.
@@ -31,12 +34,33 @@
 -- --------------------------------------------------------------- labour
 
 /*
- * What the labour of a recipe costs for `p_units` finished products: the
- * setup once and the minutes per unit for each, each half rounded to cents on
- * its own (`laborCost` in packages/domain/src/cost.ts, the rule the estimate
- * charges). The hour is the profile's in force on `p_on`. With no profile the
- * labour is zero: nothing says what an hour costs, and assembling must not
- * stop for it.
+ * The half of a recipe's labour that grows with the units: its minutes per
+ * unit for `p_units`, rounded to cents (`perUnits` of `laborCost` in
+ * packages/domain/src/cost.ts, the rule the estimate charges). The hour is the
+ * profile's in force on `p_on`. With no profile it is zero: nothing says what
+ * an hour costs, and assembling must not stop for it.
+ */
+create or replace function app.recipe_unit_labor(p_recipe_id uuid, p_units numeric, p_on date)
+returns numeric
+language sql
+stable
+as $$
+  select round(r.minutes_per_unit * p_units / 60 * coalesce(p.labor_rate_per_hour, 0), 2)
+  from public.recipes r
+  left join lateral app.current_cost_profile(r.workspace_id, p_on) p on true
+  where r.id = p_recipe_id;
+$$;
+
+grant execute on function app.recipe_unit_labor(uuid, numeric, date) to authenticated;
+
+comment on function app.recipe_unit_labor(uuid, numeric, date) is
+  'Los minutos por unidad de una receta para tantas unidades, a la tarifa del perfil vigente ese día, sin la preparación. Es perUnits de laborCost en packages/domain.';
+
+/*
+ * What the labour of a recipe costs for `p_units` finished products in one
+ * assembly: the setup once and the minutes per unit for each, each half
+ * rounded to cents on its own (`laborCost` in packages/domain). The hour is
+ * the profile's in force on `p_on`; with none, zero.
  */
 create or replace function app.recipe_labor_cost(p_recipe_id uuid, p_units numeric, p_on date)
 returns numeric
@@ -44,7 +68,7 @@ language sql
 stable
 as $$
   select round(r.setup_minutes / 60 * coalesce(p.labor_rate_per_hour, 0), 2)
-       + round(r.minutes_per_unit * p_units / 60 * coalesce(p.labor_rate_per_hour, 0), 2)
+       + app.recipe_unit_labor(r.id, p_units, p_on)
   from public.recipes r
   left join lateral app.current_cost_profile(r.workspace_id, p_on) p on true
   where r.id = p_recipe_id;
@@ -53,7 +77,7 @@ $$;
 grant execute on function app.recipe_labor_cost(uuid, numeric, date) to authenticated;
 
 comment on function app.recipe_labor_cost(uuid, numeric, date) is
-  'La mano de obra de una receta para tantas unidades: la preparación una vez y los minutos por unidad por cada una, a la tarifa del perfil vigente ese día. Es la regla de laborCost en packages/domain.';
+  'La mano de obra de un armado de tantas unidades: la preparación una vez y los minutos por unidad por cada una, a la tarifa del perfil vigente ese día. Es la regla de laborCost en packages/domain.';
 
 -- The workshop's day: after 19:00 in Lima it is already tomorrow in UTC, and
 -- the profile of tomorrow may not be the one in force.
@@ -210,11 +234,8 @@ as $$
     left join public.inventory_item_costs c on c.inventory_item_id = ri.inventory_item_id
   ),
   labor as (
-    select round(recipe.minutes_per_unit / 60 * coalesce(p.labor_rate_per_hour, 0), 2) as cost
+    select app.recipe_unit_labor(recipe.id, 1, app.workspace_day(recipe.workspace_id, now())) as cost
     from recipe
-    left join lateral app.current_cost_profile(
-      recipe.workspace_id, app.workspace_day(recipe.workspace_id, now())
-    ) p on true
   )
   select case
            when count(*) = 0 or bool_or(unit_cost is null) then null
@@ -240,7 +261,8 @@ comment on function app.assembly_unit_cost(uuid) is
  *   worth (assembling already put the labour in them).
  * - a catalog product that is not assembled (`recipes.assembled = false`): the
  *   parts and supplies of its recipe, directly. Its handling happens now, so
- *   the recipe's labour is added here, as if this delivery were one assembly.
+ *   the recipe's minutes per unit are added here. Not its setup: a delivery
+ *   is not a batch, and one setup per delivery would charge a batch of one.
  * - a custom piece, or a product without a recipe: nothing, because there is
  *   nothing on the shelf that stands for it.
  *
@@ -364,8 +386,8 @@ begin
       from public.recipe_items ri
       where ri.recipe_id = v_recipe;
 
-      -- Its handling happens now: the labour assembling would have added.
-      v_line_labor := coalesce(app.recipe_labor_cost(v_recipe, (v_request ->> 'quantity')::numeric, v_day), 0);
+      -- Its handling happens now: the minutes per unit assembling would have added.
+      v_line_labor := coalesce(app.recipe_unit_labor(v_recipe, (v_request ->> 'quantity')::numeric, v_day), 0);
       if v_line_labor > 0 then
         v_labor := v_labor || jsonb_build_object(v_request ->> 'line', v_line_labor);
       end if;
@@ -427,8 +449,9 @@ begin
     from valued
   )
   -- `moved` runs even though nothing reads it: a data-modifying WITH always does.
-  -- A line that took nothing off the shelf and carries no labour keeps a null
-  -- cost: nothing on the shelf stands for it.
+  -- A line that took nothing off the shelf keeps a null cost, labour or not:
+  -- nothing on the shelf stands for it, and its labour alone would read as
+  -- its whole real cost. Resultados keeps it at its estimate.
   insert into public.order_delivery_lines (workspace_id, delivery_id, order_line_id, quantity, unit_cost)
   select
     v_order.workspace_id,
@@ -437,7 +460,7 @@ begin
     (r ->> 'quantity')::integer,
     (
       select case
-               when count(v.item) = 0 and not v_labor ? (r ->> 'line') then null
+               when count(v.item) = 0 then null
                else round(
                  (coalesce(sum(v.quantity * coalesce(v.unit_cost, 0)), 0) + coalesce((v_labor ->> (r ->> 'line'))::numeric, 0))
                  / (r ->> 'quantity')::numeric,

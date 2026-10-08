@@ -111,10 +111,11 @@ export interface LaborCost {
  * for every unit. Each half is rounded to cents on its own, so a breakdown
  * that shows them adds up to the total.
  *
- * The database applies this very rule when a product is assembled
- * (`app.recipe_labor_cost`, ADR-022): the product enters the shelf at what it
- * consumed plus this, at the rate of the profile in force that day. If one
- * changes, the other has to.
+ * The database applies this very rule (ADR-022), at the rate of the profile
+ * in force that day: an assembly adds all of it to what it consumed
+ * (`app.recipe_labor_cost`), and a counted unit nobody assembled, or a product
+ * delivered as its parts, adds only `perUnits` (`app.recipe_unit_labor`). If
+ * one changes, the other has to.
  */
 export function laborCost(
   work: { setupMinutes: number; minutesPerUnit: number; units: number },
