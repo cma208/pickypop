@@ -1,8 +1,9 @@
 import { Component, computed, inject, input, OnDestroy, output, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { ArticlePhotos } from '../../core/article-photos';
 import { Media } from '../../core/media';
-import { Field, ImageField } from '../../ui';
+import { Field, ImageField, Thumb } from '../../ui';
 import { blankToNull, invalidMessage, photosToDelete } from './form-helpers';
 import { InventarioData, type InventoryItemSummary } from './inventario.data';
 import { describeError } from './inventario.errors';
@@ -11,6 +12,20 @@ import { INVENTORY_STYLES } from './inventario.styles';
 
 const DEFAULT_UNIT = 'unidad';
 const UNIT_SUGGESTIONS = ['unidad', 'g', 'ml', 'm', 'par', 'caja'];
+
+/**
+ * A piece is printed, never bought, so «deja de ofrecerse al comprar» said
+ * nothing true about it: switching it off takes it out of the recipes, the
+ * shelf count and the pieces table (the `part_stock` view keeps only active
+ * ones). It waits under «Desactivadas», where it can be switched back on.
+ */
+const ACTIVE_LABELS: Record<ItemKind, string> = {
+  supply: 'Activo (si lo desactivas, deja de ofrecerse al comprar y en las recetas)',
+  packaging: 'Activo (si lo desactivas, deja de ofrecerse al comprar y en las recetas)',
+  spare_part: 'Activo (si lo desactivas, deja de ofrecerse al comprar y en las recetas)',
+  part: 'Activa (si la desactivas, deja de ofrecerse en las recetas y sale del conteo del estante; queda al final de Piezas impresas, en «Desactivadas», para volver a activarla)',
+  finished_good: 'Activo (si lo desactivas, deja de ofrecerse para elegir)',
+};
 
 /**
  * Create or edit a supply, packaging, spare part, printed part or finished good.
@@ -22,7 +37,7 @@ const UNIT_SUGGESTIONS = ['unidad', 'g', 'ml', 'm', 'par', 'caja'];
  */
 @Component({
   selector: 'app-item-form',
-  imports: [ReactiveFormsModule, Field, ImageField],
+  imports: [ReactiveFormsModule, Field, ImageField, Thumb],
   template: `
     <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
       <pp-field label="Foto" hint="Para reconocerlo en la lista sin leer el nombre.">
@@ -35,6 +50,14 @@ const UNIT_SUGGESTIONS = ['unidad', 'g', 'ml', 'm', 'par', 'caja'];
           (changed)="onPhoto($event)"
         />
       </pp-field>
+      @if (platePhoto(); as path) {
+        @if (!imagePath()) {
+          <p class="borrowed muted">
+            <pp-thumb size="option" kind="plate" [path]="path" [name]="form.controls.name.value" />
+            Mientras no tenga la suya, en las listas se ve la foto de la placa que la imprime.
+          </p>
+        }
+      }
 
       <div class="form-grid">
         @if (kinds().length > 1) {
@@ -76,7 +99,7 @@ const UNIT_SUGGESTIONS = ['unidad', 'g', 'ml', 'm', 'par', 'caja'];
       @if (item()) {
         <label class="check">
           <input type="checkbox" formControlName="active" />
-          Activo (si lo desactivas, deja de ofrecerse al comprar)
+          {{ activeLabel() }}
         </label>
       }
 
@@ -90,11 +113,18 @@ const UNIT_SUGGESTIONS = ['unidad', 'g', 'ml', 'm', 'par', 'caja'];
       </div>
     </form>
   `,
-  styles: [INVENTORY_STYLES, `textarea { resize: vertical; }`],
+  styles: [
+    INVENTORY_STYLES,
+    `
+      textarea { resize: vertical; }
+      .borrowed { display: flex; align-items: center; gap: 0.6rem; margin: -0.4rem 0 0.9rem; font-size: 0.85rem; }
+    `,
+  ],
 })
 export class ItemForm implements OnDestroy {
   private readonly data = inject(InventarioData);
   private readonly media = inject(Media);
+  private readonly photos = inject(ArticlePhotos);
   private readonly fb = inject(NonNullableFormBuilder);
 
   readonly item = input<InventoryItemSummary | null>(null);
@@ -133,12 +163,23 @@ export class ItemForm implements OnDestroy {
   private readonly kindValue = toSignal(this.form.controls.kind.valueChanges);
   protected readonly kind = computed(() => this.kindValue() ?? this.form.controls.kind.value);
 
+  /** What switching it off really does, which depends on the kind (E5-08). */
+  protected readonly activeLabel = computed(() => ACTIVE_LABELS[this.kind()]);
+
+  /**
+   * The plate thumbnail the lists show for a piece with no photo of its own.
+   * The field above edits the piece's own photo, so without this the form
+   * drew a generic icon while every list showed the plate.
+   */
+  protected readonly platePhoto = signal<string | null>(null);
+
   ngOnInit(): void {
     const item = this.item();
     if (!item) {
       this.form.controls.kind.setValue(this.kinds()[0] ?? 'supply');
       return;
     }
+    if (item.kind === 'part' && !item.imagePath) void this.findPlatePhoto(item.id);
     this.imagePath.set(item.imagePath);
     this.form.setValue({
       kind: item.kind,
@@ -190,6 +231,15 @@ export class ItemForm implements OnDestroy {
       );
     } finally {
       this.busy.set(false);
+    }
+  }
+
+  private async findPlatePhoto(itemId: string): Promise<void> {
+    try {
+      const photo = await this.photos.resolve({ kind: 'item', id: itemId });
+      this.platePhoto.set(photo.fromPlate ? photo.path : null);
+    } catch {
+      // Only a reference picture: the form works the same without it.
     }
   }
 

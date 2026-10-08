@@ -1877,7 +1877,7 @@ isOneToOne: false
           Views: {
             "account_balances": {
                   Row: {
-                    "account_id": string | null,"active": boolean | null,"balance": number | null,"kind": Database["public"]['Enums']["account_kind"] | null,"last_movement_at": string | null,"movements": number | null,"name": string | null,"opening_balance": number | null,"total_in": number | null,"total_out": number | null,"workspace_id": string | null
+                    "account_id": string | null,"active": boolean | null,"balance": number | null,"kind": Database["public"]['Enums']["account_kind"] | null,"last_movement_at": string | null,"movements": number | null,"movements_before_opening": number | null,"name": string | null,"net_before_opening": number | null,"opening_balance": number | null,"total_in": number | null,"total_out": number | null,"workspace_id": string | null
                   }
                   Relationships: [
                     {
@@ -2344,7 +2344,7 @@ isOneToOne: false
                   ]
                 },"transaction_entries": {
                   Row: {
-                    "account_id": string | null,"category_id": string | null,"counterparty": string | null,"is_counter_leg": boolean | null,"maintenance_log_id": string | null,"note": string | null,"occurred_at": string | null,"order_id": string | null,"payment_method": Database["public"]['Enums']["payment_method"] | null,"purchase_id": string | null,"signed_amount": number | null,"transaction_id": string | null,"type": Database["public"]['Enums']["transaction_type"] | null,"workspace_id": string | null
+                    "account_id": string | null,"before_opening": boolean | null,"category_id": string | null,"counterparty": string | null,"is_counter_leg": boolean | null,"maintenance_log_id": string | null,"note": string | null,"occurred_at": string | null,"order_id": string | null,"payment_method": Database["public"]['Enums']["payment_method"] | null,"purchase_id": string | null,"signed_amount": number | null,"transaction_id": string | null,"type": Database["public"]['Enums']["transaction_type"] | null,"workspace_id": string | null
                   }
                   Relationships: [
                     

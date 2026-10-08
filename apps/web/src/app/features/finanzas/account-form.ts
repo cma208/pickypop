@@ -49,7 +49,12 @@ const MESSAGES: Record<string, string> = {
         >
           <input type="number" step="0.01" inputmode="decimal" formControlName="openingBalance" />
         </pp-field>
-        <pp-field label="Fecha del saldo de apertura" [required]="true" [error]="error('openingBalanceOn')">
+        <pp-field
+          label="Fecha del saldo de apertura"
+          [required]="true"
+          hint="Un movimiento con fecha anterior ya está dentro de este saldo: no lo cambia, aunque sí cuenta en Resultados"
+          [error]="error('openingBalanceOn')"
+        >
           <input type="date" formControlName="openingBalanceOn" />
         </pp-field>
         <pp-field

@@ -44,6 +44,8 @@ import { PurchasePreview, type PreviewRow } from './purchase-preview';
 import { QuickAdd } from './quick-add';
 import { PAYMENT_METHOD_LABELS, PAYMENT_METHODS, type PaymentMethod } from '../finanzas/finanzas.models';
 import { PaymentCategoryNote } from '../finanzas/payment-category-note';
+import { beforeOpeningNotice, dayBeforeOpening } from '../finanzas/opening-balance';
+import { purchaseEntries } from './purchase-entries';
 
 interface Target {
   kind: 'sku' | 'item';
@@ -220,6 +222,9 @@ function notInTheFuture(control: AbstractControl): ValidationErrors | null {
           <p class="muted">Queda «por pagar» en Compras, y desde ahí registras el pago cuando lo hagas.</p>
         } @else if (chosenAccount()) {
           <app-payment-category-note kind="purchase" />
+          @if (openingNotice(); as text) {
+            <p class="alert-warn">{{ text }}</p>
+          }
         }
       </pp-card>
 
@@ -257,8 +262,7 @@ function notInTheFuture(control: AbstractControl): ValidationErrors | null {
         <div #confirmBox class="confirm" role="alertdialog" aria-label="Confirmar compra">
           <p>
             Vas a registrar una compra de <strong>{{ plan().total | money }}</strong>.
-            Se crearán <strong>{{ rollCount() }}</strong> {{ rollCount() === 1 ? 'rollo' : 'rollos' }}
-            con sus movimientos de entrada{{ itemsText() }}. {{ paymentText() }}
+            {{ entriesText() }} {{ paymentText() }}
             Después no se puede editar.
           </p>
           <div class="form-actions">
@@ -407,18 +411,26 @@ export class CompraForm {
   protected readonly rollCount = computed(() =>
     this.plan().lines.reduce((sum, line) => sum + line.unitCosts.length, 0),
   );
-  protected readonly itemLineCount = computed(
-    () => this.resolved().filter(({ target }) => target?.kind === 'item').length,
+  /** Rolls and articles that come in, each article under its own kind. */
+  protected readonly entriesText = computed(() =>
+    purchaseEntries(
+      this.rollCount(),
+      this.resolved().flatMap(({ item }) => (item ? [item.kind] : [])),
+    ),
   );
-
-  protected readonly itemsText = computed(() => {
-    const count = this.itemLineCount();
-    return count > 0 ? `, más la entrada de ${count} ${count === 1 ? 'insumo' : 'insumos'}` : '';
-  });
 
   protected readonly chosenAccount = computed(() =>
     this.accountOptions().find((account) => account.id === this.raw().paidFrom),
   );
+
+  /** Paid on the purchase's own day: before the account opened, that money is already inside its opening balance (E5-02). */
+  protected readonly openingNotice = computed(() => {
+    const account = this.chosenAccount();
+    const day = this.raw().purchasedAt;
+    return account && day && dayBeforeOpening(day, account.openingBalanceOn)
+      ? beforeOpeningNotice(account, 'el pago cuenta para la compra')
+      : null;
+  });
 
   protected readonly paymentText = computed(() => {
     const account = this.chosenAccount();

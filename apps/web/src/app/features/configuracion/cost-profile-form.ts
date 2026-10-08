@@ -53,7 +53,7 @@ const MONEY_VALIDATORS = [Validators.required, Validators.min(0)];
         <pp-field label="Merma de material (%)" [required]="true" [error]="err('materialWastePct')" hint="Cebado y restos del rollo.">
           <input type="number" step="0.01" min="0" formControlName="materialWastePct" inputmode="decimal" />
         </pp-field>
-        <pp-field label="Tasa de fallo (%)" [required]="true" [error]="err('failurePct')" hint="Impresiones que se pierden.">
+        <pp-field label="Tasa de fallo (%)" [required]="true" [error]="err('failurePct')" hint="Parte de lo impreso que se pierde en fallas, medida en costo y no en cantidad de impresiones. Resultados te dice cada mes si alcanzó.">
           <input type="number" step="0.01" min="0" formControlName="failurePct" inputmode="decimal" />
         </pp-field>
         <pp-field label="Hora de trabajo (S/)" [required]="true" [error]="err('laborRate')">

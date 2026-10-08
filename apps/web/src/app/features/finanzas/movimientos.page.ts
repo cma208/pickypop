@@ -14,7 +14,7 @@ import {
   type TransactionType,
 } from './finanzas.models';
 import { FINANCE_STYLES } from './finanzas.styles';
-import { ledgerTotals, markVoidable } from './ledger-totals';
+import { ledgerTotals, markVoidable, transfersCaption } from './ledger-totals';
 import { TransactionForm } from './transaction-form';
 import { VoidForm } from './void-form';
 
@@ -29,6 +29,8 @@ const NO_FILTER: LedgerFilter = { accountId: null, type: null, from: null, to: n
     `
       .time { color: var(--muted); font-variant-numeric: tabular-nums; }
       .reason { color: var(--danger); }
+      .early { color: var(--warn); }
+      .totals .early { max-width: 24rem; }
     `,
   ],
   template: `
@@ -121,8 +123,11 @@ const NO_FILTER: LedgerFilter = { accountId: null, type: null, from: null, to: n
             </div>
             @if (totals().transfers > 0) {
               <div>
-                <span class="cap">Transferencias (no cambian el total)</span>
+                <span class="cap">{{ transfers().label }}</span>
                 <span class="amount">{{ totals().transferAmount | money }}</span>
+                @if (transfers().note; as note) {
+                  <small class="sub early">{{ note }}</small>
+                }
               </div>
             }
             @if (totals().voided > 0) {
@@ -167,6 +172,11 @@ const NO_FILTER: LedgerFilter = { accountId: null, type: null, from: null, to: n
                       @if (row.note) { <small class="sub">{{ row.note }}</small> }
                       @if (row.reference) { <small class="sub">Ref. {{ row.reference }}</small> }
                       @if (row.voidReason) { <small class="sub reason">Motivo: {{ row.voidReason }}</small> }
+                      @if (row.beforeOpening) {
+                        <small class="sub early">
+                          Anterior a la apertura de {{ row.accountName }}: no cambia su saldo, ya está dentro del saldo de apertura
+                        </small>
+                      }
                       <small class="sub only-small">{{ row.accountName }}</small>
                     </td>
                     <td class="hide-small">
@@ -235,6 +245,7 @@ export class MovimientosFinancierosPage {
   );
 
   protected readonly totals = computed(() => ledgerTotals(this.visible()));
+  protected readonly transfers = computed(() => transfersCaption(this.totals()));
 
   constructor() {
     void this.loadOptions();

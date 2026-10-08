@@ -5,7 +5,7 @@ import { AsyncState, Card, Empty, FORMAT_PIPES, Page } from '../../ui';
 import { FinanzasData } from './finanzas.data';
 import { monthLabel, yearOf } from './finanzas.models';
 import { FINANCE_STYLES } from './finanzas.styles';
-import { addUpMonths, failedShare, netMargin, type MonthResult } from './results';
+import { addUpMonths, failedShare, netMargin, reserveCovers, subtractedSign, type MonthResult } from './results';
 
 const ALL_YEARS = '';
 
@@ -31,9 +31,10 @@ const ALL_YEARS = '';
     <pp-page title="Resultados" subtitle="Ventas menos costo de ventas menos gastos, mes a mes">
       <div class="explainer">
         <p>
-          <strong>Las compras de inventario no restan de la utilidad.</strong> Su costo ya llega por el
-          costo de ventas, que es lo que cuesta hacer cada cosa vendida según su receta; restarlas otra vez
-          lo contaría dos veces. Por eso se informan aparte.
+          <strong>Las compras de inventario no restan de la utilidad.</strong> Lo comprado llega al costo de
+          ventas cuando se vende lo que se hizo con ello: el costo de ventas es lo que cuesta hacer cada cosa
+          vendida según su receta, y restar además las compras lo contaría dos veces. Mientras tanto sigue en el
+          estante, así que se informa aparte.
         </p>
         <p>
           <strong>Los aportes y los retiros del dueño son capital, no utilidad.</strong> Meter o sacar
@@ -42,9 +43,16 @@ const ALL_YEARS = '';
         </p>
         <p>
           <strong>Lo que se imprime y no se vende sí resta.</strong> Un molde, una prueba o una pieza que
-          faltó al contar el estante costaron filamento, luz y máquina, y ningún pedido los va a pagar. Las
-          impresiones fallidas no se restan: las paga la reserva por fallos que ya va en el costo de ventas.
-          Se muestran aparte para que veas si esa reserva alcanza.
+          faltó al contar el estante costaron filamento, luz y máquina, y ningún pedido los va a pagar. Si el
+          molde o la prueba fallan, ese intento también resta: es parte de lo que costaron. Las impresiones
+          fallidas de lo que se produce no se restan: las paga la reserva por fallos que ya va en el costo de
+          ventas. Se muestran aparte para que veas si esa reserva alcanza.
+        </p>
+        <p>
+          <strong>Las fallas se miden en costo, no en cantidad de impresiones.</strong> Se comparan con lo que
+          se imprimió para producir, que es lo que lleva la reserva: un molde o una prueba no la llevan y no
+          cuentan, ni cuando salen ni cuando fallan. Por eso no es la misma cifra que «fallos» en Hoy, que cuenta impresiones: fallar una placa
+          chica pesa poco en costo.
         </p>
       </div>
 
@@ -124,19 +132,19 @@ const ALL_YEARS = '';
                   <li><span>Ventas</span><span class="value">{{ row.sales | money }}</span></li>
                   <li>
                     <span>Costo de ventas <small class="sub">lo que cuesta hacer lo vendido, según su receta: material, insumos, empaque, luz, máquina y mano de obra</small></span>
-                    <span class="value neg">−{{ row.costOfSales | money }}</span>
+                    <span class="value" [class.neg]="row.costOfSales > 0">{{ minus(row.costOfSales) }}{{ row.costOfSales | money }}</span>
                   </li>
                   <li class="sum"><span>Utilidad bruta</span><span class="value">{{ row.grossProfit | money }}</span></li>
                   <li>
                     <span>Gastos de operación <small class="sub">luz, envíos, publicidad, comisiones</small></span>
-                    <span class="value neg">−{{ row.operatingExpenses | money }}</span>
+                    <span class="value" [class.neg]="row.operatingExpenses > 0">{{ minus(row.operatingExpenses) }}{{ row.operatingExpenses | money }}</span>
                   </li>
                   @if (row.unsoldProduction !== 0) {
                     <li>
                       <span>
                         Producción no vendida
                         <small class="sub">
-                          moldes, herramientas y pruebas: {{ row.toolsAndTests | money }} · conteo del estante:
+                          moldes, herramientas y pruebas, con sus intentos fallidos: {{ row.toolsAndTests | money }} · conteo del estante:
                           {{ row.shelfCountLosses | money }}{{ row.shelfCountLosses < 0 ? ' (sobró más de lo que faltó)' : '' }}
                         </small>
                       </span>
@@ -159,9 +167,11 @@ const ALL_YEARS = '';
                         <span>
                           Impresiones fallidas
                           <small class="sub">
-                            {{ share(row) | percent1 }} de lo impreso en el mes ({{ row.printCost | money }}).
+                            {{ share(row) | percent1 }} de lo impreso para producir en el mes ({{ row.printCost | money }}),
+                            medido en costo y no en cantidad de impresiones. Moldes y pruebas no cuentan, tampoco
+                            cuando fallan: van en «Producción no vendida».
                             @if (row.failureReserveRate !== null) {
-                              La reserva por fallos de tus precios es {{ row.failureReserveRate | percent1 }}{{ (share(row) ?? 0) > row.failureReserveRate ? ': no alcanzó, súbela o revisa qué está fallando.' : ': alcanza.' }}
+                              La reserva por fallos de tus precios es {{ row.failureReserveRate | percent1 }}{{ covers(row) ? ': alcanza.' : ': no alcanzó, súbela o revisa qué está fallando.' }}
                             }
                           </small>
                         </span>
@@ -173,7 +183,7 @@ const ALL_YEARS = '';
                       <span class="value">{{ row.otherIncome | money }}</span>
                     </li>
                     <li>
-                      <span>Compras de inventario <small class="sub">ya contadas en el costo de ventas</small></span>
+                      <span>Compras de inventario <small class="sub">no restan aquí: llegan al costo de ventas cuando se vende lo hecho con ellas</small></span>
                       <span class="value">{{ row.inventoryPurchases | money }}</span>
                     </li>
                     <li>
@@ -236,8 +246,16 @@ export class ResultadosPage {
     return failedShare(row);
   }
 
+  protected covers(row: MonthResult): boolean {
+    return reserveCovers(row) !== false;
+  }
+
   protected abs(value: number): number {
     return Math.abs(value);
+  }
+
+  protected minus(value: number): string {
+    return subtractedSign(value);
   }
 
   /** Clicking the month that is open closes it again. */

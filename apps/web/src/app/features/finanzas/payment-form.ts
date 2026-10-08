@@ -16,6 +16,7 @@ import {
   type PaymentMethod,
 } from './finanzas.models';
 import { FINANCE_STYLES } from './finanzas.styles';
+import { beforeOpening, beforeOpeningNotice } from './opening-balance';
 
 /**
  * Collects money against an order. The amount, the overpayment check and the
@@ -94,6 +95,9 @@ import { FINANCE_STYLES } from './finanzas.styles';
             Después de este cobro quedará pendiente <strong>{{ remaining() | money }}</strong>.
           </p>
         }
+        @if (openingNotice(); as text) {
+          <p class="alert alert-warn">{{ text }}</p>
+        }
       </section>
 
       @if (failure(); as message) {
@@ -168,6 +172,16 @@ export class PaymentForm {
     if (roundMoney(amount) <= 0) return 'El monto tiene que ser mayor que cero.';
     if (!occurredAt || Number.isNaN(Date.parse(occurredAt))) return 'Indica la fecha y la hora del cobro.';
     return null;
+  });
+
+  /** A collection dated before the account opened pays the order but leaves the balance alone (E5-02). */
+  protected readonly openingNotice = computed(() => {
+    const account = this.chosenAccount();
+    const { occurredAt } = this.values();
+    if (!account || this.problem()) return null;
+    return beforeOpening(inputToIso(occurredAt), account.openingBalanceOn)
+      ? beforeOpeningNotice(account, 'el cobro cuenta para el pedido')
+      : null;
   });
 
   /**

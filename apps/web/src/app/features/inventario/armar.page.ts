@@ -5,6 +5,7 @@ import { friendlyError } from '../../core/friendly-error';
 import { InventarioData, type AssemblyComponent, type AssemblyOption } from './inventario.data';
 import { INVENTORY_PIPES, ITEM_KIND_LABELS } from './inventario.format';
 import { INVENTORY_STYLES, POSITION_STYLES } from './inventario.styles';
+import { assemblyOutcome, type AssemblyOutcome } from './assembly';
 import { InventoryPlan, type InventoryPositions } from './inventory-plan';
 import { assembledMessage, assembledText, claimsTitle } from './stock-position';
 
@@ -80,13 +81,54 @@ interface Built {
                     (input)="onUnits($event)"
                   />
                 </label>
-                <button type="button" [disabled]="!canAssemble()" (click)="assemble()">
-                  {{ busy() ? 'Armando…' : 'Armar ' + units() }}
-                </button>
-                @if (!enough() && !busy()) {
+                @if (!confirming()) {
+                  <button type="button" [disabled]="!canAssemble()" (click)="review()">Armar {{ units() }}</button>
+                }
+                <!-- Right after assembling, the stock left may not reach another one: that is not a failure, the message below says what happened. -->
+                @if (!enough() && !busy() && !result()) {
                   <span class="muted">Falta stock para {{ units() }}. Alcanza para {{ option.buildableUnits }}.</span>
                 }
               </div>
+
+              @if (confirming()) {
+                @let outcome = preview(option);
+                <div class="confirm" role="alert">
+                  <p><strong>Esto no se puede deshacer.</strong> Salen del estante:</p>
+                  <ul class="moves">
+                    @for (row of outcome.leaving; track row.component.inventoryItemId) {
+                      <li>
+                        <pp-thumb
+                          size="option"
+                          [kind]="row.component.kind"
+                          [path]="row.component.imagePath"
+                          [photo]="borrowedPhoto(row.component.inventoryItemId, row.component.kind)"
+                          [name]="row.component.name"
+                        />
+                        <span><span class="strong">{{ row.amount }}</span> de {{ row.component.name }}</span>
+                      </li>
+                    }
+                  </ul>
+                  <p>Entra al estante:</p>
+                  <ul class="moves">
+                    <li>
+                      <pp-thumb size="option" kind="product" [path]="option.imagePath" [name]="option.productName" />
+                      <span class="strong">{{ outcome.entering }}</span>
+                    </li>
+                  </ul>
+                  <div class="actions">
+                    <button type="button" [disabled]="busy()" (click)="assemble()">{{ busy() ? 'Armando…' : 'Sí, armar' }}</button>
+                    <button type="button" class="secondary" [disabled]="busy()" (click)="confirming.set(false)">Volver</button>
+                  </div>
+                </div>
+              }
+
+              <!-- Right under the button: below the table it was out of sight, and the page looked as if it had failed. -->
+              @if (result(); as message) {
+                <p class="notice" role="status">{{ message }}</p>
+              }
+              @if (assembleError(); as message) {
+                <p class="alert" role="alert">{{ message }}</p>
+              }
 
               @if (componentsError(); as message) {
                 <p class="alert" role="alert">{{ message }}</p>
@@ -138,13 +180,6 @@ interface Built {
                   </table>
                 </div>
               }
-
-              @if (result(); as message) {
-                <p class="notice" role="status">{{ message }}</p>
-              }
-              @if (assembleError(); as message) {
-                <p class="alert" role="alert">{{ message }}</p>
-              }
             </pp-card>
           }
         }
@@ -170,6 +205,11 @@ interface Built {
     .qty label { display: grid; gap: 0.25rem; font-size: 0.85rem; }
     .qty input { width: 7rem; }
     tr.short td { background: var(--danger-soft); }
+    .confirm { margin-bottom: 0.9rem; padding: 0.8rem; border: 1px solid var(--warn); border-radius: var(--radius); background: var(--warn-soft); }
+    .confirm p { margin: 0 0 0.4rem; }
+    .moves { list-style: none; margin: 0 0 0.6rem; padding: 0; display: grid; gap: 0.35rem; }
+    .moves li { display: flex; align-items: center; gap: 0.6rem; }
+    .confirm .actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
   `,
   ],
 })
@@ -191,6 +231,8 @@ export class ArmarPage {
   protected readonly componentsError = signal<string | null>(null);
   protected readonly assembleError = signal<string | null>(null);
   protected readonly result = signal<string | null>(null);
+  /** «Armar» first shows what will move; only «Sí, armar» moves it (E3-04). */
+  protected readonly confirming = signal(false);
   /** Who the assembled units are for. Without the plan the card still says how many there are. */
   private readonly positions = signal<InventoryPositions | null>(null);
   protected readonly planError = signal<string | null>(null);
@@ -239,6 +281,19 @@ export class ArmarPage {
     this.units.set(Number.isFinite(value) && value > 0 ? value : 1);
     this.result.set(null);
     this.assembleError.set(null);
+    // A confirmation is for the quantity it showed, never for a new one.
+    this.confirming.set(false);
+  }
+
+  protected preview(option: AssemblyOption): AssemblyOutcome {
+    return assemblyOutcome(this.units(), option, this.components());
+  }
+
+  protected review(): void {
+    if (!this.canAssemble()) return;
+    this.result.set(null);
+    this.assembleError.set(null);
+    this.confirming.set(true);
   }
 
   protected async choose(option: AssemblyOption): Promise<void> {
@@ -247,6 +302,7 @@ export class ArmarPage {
     this.result.set(null);
     this.assembleError.set(null);
     this.componentsError.set(null);
+    this.confirming.set(false);
 
     try {
       this.components.set(await this.data.assemblyComponents(option.variantId));
@@ -280,6 +336,7 @@ export class ArmarPage {
       this.assembleError.set(friendlyError(error, 'No pudimos armar el producto.'));
     } finally {
       this.busy.set(false);
+      this.confirming.set(false);
     }
   }
 

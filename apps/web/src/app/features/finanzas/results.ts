@@ -16,13 +16,24 @@ export interface MonthResult {
   ownerDraws: number;
   /** Printed and never sold: `toolsAndTests` plus `shelfCountLosses`. Subtracted (ADR-023). */
   unsoldProduction: number;
-  /** Moulds, jigs and test prints: finished jobs that left nothing on the shelf. */
+  /**
+   * Moulds, jigs and test prints: jobs of no order that put nothing on the
+   * shelf, their failed tries included. No allowance pays for those tries, so
+   * they are what the tool cost, not a failure of production.
+   */
   toolsAndTests: number;
   /** What the shelf count found missing, less what it found over. */
   shelfCountLosses: number;
-  /** Reported apart, never subtracted: the failure allowance in the cost of sales pays for them. */
+  /**
+   * Failed prints of production. Reported apart, never subtracted: the
+   * failure allowance in the cost of sales pays for them.
+   */
   failedPrints: number;
-  /** Everything printed that month, failures included: what the failures are measured against. */
+  /**
+   * What was printed to produce that month, failures included: what the
+   * failures are measured against. Moulds and tests do not carry the
+   * allowance, so they are left out, failed or not (E3-02, ADR-023).
+   */
   printCost: number;
   /** The failure allowance the prices carried that month, as a fraction. */
   failureReserveRate: number | null;
@@ -81,9 +92,27 @@ export function netMargin(row: Pick<MonthResult, 'sales' | 'netProfit'>): number
 }
 
 /**
- * What failed over what was printed, as a fraction: the figure to hold
- * against the failure allowance. Null when nothing was printed.
+ * What failed over what was printed to produce, both in cost, as a fraction:
+ * the figure to hold against the failure allowance. The price carries
+ * production / (1 − rate), so the allowance covers the month while
+ * failed / (succeeded + failed) stays at or under the rate. Null when nothing
+ * was printed to produce.
  */
 export function failedShare(row: Pick<MonthResult, 'failedPrints' | 'printCost'>): number | null {
   return row.printCost === 0 ? null : row.failedPrints / row.printCost;
+}
+
+/** True when the allowance covered the failures, false when it fell short, null when there is nothing to compare. */
+export function reserveCovers(row: Pick<MonthResult, 'failedPrints' | 'printCost' | 'failureReserveRate'>): boolean | null {
+  const share = failedShare(row);
+  if (share === null || row.failureReserveRate === null) return null;
+  return share <= row.failureReserveRate;
+}
+
+/**
+ * The «−» in front of what a line takes away. Only when it takes something:
+ * a month without expenses read «−S/ 0.00» (E5-07).
+ */
+export function subtractedSign(value: number): string {
+  return value > 0 ? '−' : '';
 }

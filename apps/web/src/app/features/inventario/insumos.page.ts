@@ -173,7 +173,7 @@ export class InsumosPage {
    */
   readonly scope = input<ItemKind[] | null>(null);
   readonly heading = input('Insumos y empaque');
-  readonly subtitle = input('Todo lo que se cuenta por unidad');
+  readonly subtitle = input('Lo que se compra y se gasta, por unidad, gramo o ml');
 
   protected readonly labels = ITEM_KIND_LABELS;
   /** Grams the way the plan's columns say them: "520 g", "1 kg". */

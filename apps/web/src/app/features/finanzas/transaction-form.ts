@@ -3,7 +3,6 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { FormControl, NonNullableFormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { nowForInput } from '../../core/dates';
 import { friendlyError } from '../../core/friendly-error';
-import { roundMoney } from '../../core/pricing';
 import { SECTION_STYLES } from '../../core/styles';
 import { Field, FORMAT_PIPES } from '../../ui';
 import { FinanzasData, type AccountSummary } from './finanzas.data';
@@ -20,7 +19,15 @@ import {
   type TransactionType,
 } from './finanzas.models';
 import { FINANCE_STYLES } from './finanzas.styles';
-import { buildTransactionDraft, draftProblem, effectsOf } from './transaction-draft';
+import { beforeOpeningNotice } from './opening-balance';
+import {
+  buildTransactionDraft,
+  draftProblem,
+  previewBalances,
+  STILL_COUNTS,
+  workshopChange,
+  type BalancePreview,
+} from './transaction-draft';
 
 /** What each type is for, so nobody has to guess between the five. */
 const TYPE_HINTS: Record<TransactionType, string> = {
@@ -30,12 +37,6 @@ const TYPE_HINTS: Record<TransactionType, string> = {
   owner_contribution: 'Plata tuya que metes al taller. Es capital, no utilidad.',
   owner_draw: 'Plata del taller que sacas para ti. Es capital, no gasto.',
 };
-
-interface Preview {
-  name: string;
-  before: number;
-  after: number;
-}
 
 /**
  * Registers one movement of money. The five types share a form because they
@@ -126,13 +127,21 @@ interface Preview {
         @if (problem(); as text) {
           <p class="alert alert-warn">{{ text }}</p>
         } @else if (preview().length > 0) {
+          @for (text of openingNotices(); track text) {
+            <p class="alert alert-warn">{{ text }}</p>
+          }
           <p class="notice">
-            @for (line of preview(); track line.name) {
+            @for (line of preview(); track line.accountId) {
               <span class="block">
-                <strong>{{ line.name }}</strong>: {{ line.before | money }} → {{ line.after | money }}
+                <strong>{{ line.name }}</strong>:
+                @if (line.beforeOpening) {
+                  sigue en {{ line.before | money }}
+                } @else {
+                  {{ line.before | money }} → {{ line.after | money }}
+                }
               </span>
             }
-            @if (isTransfer()) {
+            @if (isTransfer() && totalUnchanged()) {
               <span class="block">El total del taller no cambia: el dinero solo cambia de bolsillo.</span>
             }
           </p>
@@ -209,17 +218,18 @@ export class TransactionForm {
   protected readonly problem = computed(() => draftProblem(this.values()));
 
   /** What each account will be worth once this is saved. */
-  protected readonly preview = computed<Preview[]>(() => {
-    if (this.problem()) return [];
+  protected readonly preview = computed<BalancePreview[]>(() =>
+    this.problem() ? [] : previewBalances(buildTransactionDraft(this.values()), this.accounts()),
+  );
 
-    const byId = new Map(this.accounts().map((account) => [account.id, account]));
+  /** Said before saving, not discovered afterwards in Cuentas. */
+  protected readonly openingNotices = computed(() =>
+    this.preview()
+      .filter((line) => line.beforeOpening)
+      .map((line) => beforeOpeningNotice(line, STILL_COUNTS[this.values().type])),
+  );
 
-    return effectsOf(buildTransactionDraft(this.values())).flatMap((effect) => {
-      const account = byId.get(effect.accountId);
-      if (!account) return [];
-      return [{ name: account.name, before: account.balance, after: roundMoney(account.balance + effect.delta) }];
-    });
-  });
+  protected readonly totalUnchanged = computed(() => workshopChange(this.preview()) === 0);
 
   constructor() {
     // A category belongs to one direction only, so one that no longer fits

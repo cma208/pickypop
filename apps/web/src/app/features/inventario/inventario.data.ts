@@ -183,6 +183,8 @@ export interface PaymentAccount {
   id: string;
   name: string;
   defaultMethod: PaymentMethod | null;
+  /** A payment dated before this day is already inside the opening balance and does not move it. */
+  openingBalanceOn: string;
 }
 
 export interface PurchasePaymentInput extends PurchasePayment {
@@ -690,11 +692,16 @@ export class InventarioData {
   async paymentAccounts(): Promise<PaymentAccount[]> {
     const { data, error } = await this.supabase
       .from('accounts')
-      .select('id, name, default_payment_method')
+      .select('id, name, default_payment_method, opening_balance_on')
       .eq('active', true)
       .order('name');
     if (error) throw error;
-    return data.map((row) => ({ id: row.id, name: row.name, defaultMethod: row.default_payment_method }));
+    return data.map((row) => ({
+      id: row.id,
+      name: row.name,
+      defaultMethod: row.default_payment_method,
+      openingBalanceOn: row.opening_balance_on,
+    }));
   }
 
   /**
@@ -972,6 +979,12 @@ export class InventarioData {
         };
       })
       .sort((a, b) => a.name.localeCompare(b.name, 'es'));
+  }
+
+  /** Switches an article on or off and leaves the rest of it as it is. */
+  async setItemActive(id: string, active: boolean): Promise<void> {
+    const { error } = await this.supabase.from('inventory_items').update({ active }).eq('id', id);
+    if (error) throw error;
   }
 
   async saveItem(id: string | null, input: InventoryItemInput): Promise<void> {

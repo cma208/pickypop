@@ -6,6 +6,7 @@ import { errorOf } from '../../core/form-errors';
 import { roundMoney } from '../../core/pricing';
 import { Field, FORMAT_PIPES } from '../../ui';
 import { PAYMENT_METHOD_LABELS, PAYMENT_METHODS, type PaymentMethod } from '../finanzas/finanzas.models';
+import { beforeOpening, beforeOpeningNotice } from '../finanzas/opening-balance';
 import { PaymentCategoryNote } from '../finanzas/payment-category-note';
 import { InventarioData, type PaymentAccount, type PurchaseSummary } from './inventario.data';
 import { describeError } from './inventario.errors';
@@ -61,6 +62,9 @@ const NO_METHOD = '';
           </pp-field>
         </div>
         <app-payment-category-note kind="purchase" />
+        @if (openingNotice(); as text) {
+          <p class="alert-warn">{{ text }}</p>
+        }
         @if (error(); as message) {
           <p class="alert" role="alert">{{ message }}</p>
         }
@@ -95,6 +99,20 @@ export class CompraPago {
 
   private readonly chosenAccountId = toSignal(this.form.controls.accountId.valueChanges, {
     initialValue: NO_ACCOUNT,
+  });
+
+  private readonly chosenMoment = toSignal(this.form.controls.occurredAt.valueChanges, {
+    initialValue: this.form.controls.occurredAt.value,
+  });
+
+  /** A payment dated before the account opened settles the purchase but leaves the balance alone (E5-02). */
+  protected readonly openingNotice = computed(() => {
+    const account = this.accounts().find((candidate) => candidate.id === this.chosenAccountId());
+    const moment = this.chosenMoment();
+    if (!account || !moment || Number.isNaN(Date.parse(moment))) return null;
+    return beforeOpening(inputToIso(moment), account.openingBalanceOn)
+      ? beforeOpeningNotice(account, 'el pago cuenta para la compra')
+      : null;
   });
 
   protected readonly defaultMethodOption = computed(() => {

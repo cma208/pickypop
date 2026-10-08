@@ -13,6 +13,7 @@ import {
   type PaymentMethod,
   type TransactionType,
 } from './finanzas.models';
+import { ledgerOrder, legKey, otherLegBeforeOpening } from './ledger-totals';
 import type { MonthResult } from './results';
 import type { TransactionDraft } from './transaction-draft';
 
@@ -27,11 +28,15 @@ export interface AccountSummary {
   openingBalanceOn: string;
   defaultPaymentMethod: PaymentMethod | null;
   note: string | null;
+  /** In and out since the opening balance: opening + in − out is the balance. */
   totalIn: number;
   totalOut: number;
   balance: number;
   movements: number;
   lastMovementAt: string | null;
+  /** Movements dated before the opening balance: already inside it, they move nothing (E5-02). */
+  movementsBeforeOpening: number;
+  netBeforeOpening: number;
 }
 
 export interface AccountInput {
@@ -74,6 +79,10 @@ export interface LedgerRow {
   origin: string | null;
   voided: boolean;
   voidReason: string | null;
+  /** Dated before this leg's account opened: already inside its opening balance, so it does not move it. */
+  beforeOpening: boolean;
+  /** The same for the other leg of a transfer, judged by its own account. False for anything else. */
+  otherBeforeOpening: boolean;
 }
 
 export interface ReceivableRow {
@@ -140,7 +149,7 @@ export class FinanzasData {
         .select('id, name, kind, opening_balance, opening_balance_on, default_payment_method, note, active'),
       this.supabase
         .from('account_balances')
-        .select('account_id, total_in, total_out, balance, movements, last_movement_at'),
+        .select('account_id, total_in, total_out, balance, movements, last_movement_at, movements_before_opening, net_before_opening'),
     ]);
     if (accounts.error) throw accounts.error;
     if (balances.error) throw balances.error;
@@ -165,6 +174,8 @@ export class FinanzasData {
           balance: balance ? num(balance.balance) : num(account.opening_balance),
           movements: num(balance?.movements),
           lastMovementAt: balance?.last_movement_at ?? null,
+          movementsBeforeOpening: num(balance?.movements_before_opening),
+          netBeforeOpening: num(balance?.net_before_opening),
         };
       })
       .sort((a, b) => Number(b.active) - Number(a.active) || a.name.localeCompare(b.name, 'es'));
@@ -245,25 +256,38 @@ export class FinanzasData {
    */
   async ledger(filter: LedgerFilter): Promise<LedgerRow[]> {
     const [accounts, categories, entries, details] = await Promise.all([
-      this.accountNames(),
+      this.accountRefs(),
       this.categoryNames(),
       this.liveEntries(filter),
       this.transactionDetails(filter),
     ]);
 
+    const legs = new Map(
+      entries.map((entry) => [
+        legKey(entry.transaction_id ?? '', entry.is_counter_leg ?? false),
+        entry.before_opening ?? false,
+      ]),
+    );
+
     const rows = entries.map((entry): LedgerRow => {
       const detail = details.get(entry.transaction_id ?? '');
       const otherId = entry.is_counter_leg ? detail?.accountId : detail?.counterAccountId;
+      const other = otherId ? accounts.get(otherId) : undefined;
+      const leg = {
+        transactionId: entry.transaction_id ?? '',
+        isCounterLeg: entry.is_counter_leg ?? false,
+        occurredAt: entry.occurred_at ?? '',
+      };
 
       return {
         key: `${entry.transaction_id}-${entry.is_counter_leg ? 'in' : 'out'}`,
-        transactionId: entry.transaction_id ?? '',
-        occurredAt: entry.occurred_at ?? '',
+        transactionId: leg.transactionId,
+        occurredAt: leg.occurredAt,
         type: entry.type ?? 'income',
         accountId: entry.account_id,
-        accountName: accounts.get(entry.account_id ?? '') ?? 'Cuenta desconocida',
-        otherAccountName: otherId ? (accounts.get(otherId) ?? null) : null,
-        isCounterLeg: entry.is_counter_leg ?? false,
+        accountName: accounts.get(entry.account_id ?? '')?.name ?? 'Cuenta desconocida',
+        otherAccountName: other?.name ?? null,
+        isCounterLeg: leg.isCounterLeg,
         categoryName: entry.category_id ? (categories.get(entry.category_id) ?? null) : null,
         paymentMethod: entry.payment_method,
         signedAmount: num(entry.signed_amount),
@@ -274,6 +298,9 @@ export class FinanzasData {
         origin: originOf(entry.order_id, entry.purchase_id, entry.maintenance_log_id, detail?.orderNumber),
         voided: false,
         voidReason: null,
+        beforeOpening: entry.before_opening ?? false,
+        otherBeforeOpening:
+          entry.type === 'transfer' && otherLegBeforeOpening(leg, legs, other?.openingBalanceOn ?? null),
       };
     });
 
@@ -285,9 +312,9 @@ export class FinanzasData {
         occurredAt: detail.occurredAt,
         type: detail.type,
         accountId: detail.accountId,
-        accountName: accounts.get(detail.accountId) ?? 'Cuenta desconocida',
+        accountName: accounts.get(detail.accountId)?.name ?? 'Cuenta desconocida',
         otherAccountName: detail.counterAccountId
-          ? (accounts.get(detail.counterAccountId) ?? null)
+          ? (accounts.get(detail.counterAccountId)?.name ?? null)
           : null,
         isCounterLeg: false,
         categoryName: detail.categoryId ? (categories.get(detail.categoryId) ?? null) : null,
@@ -301,9 +328,12 @@ export class FinanzasData {
         origin: originOf(detail.orderId, detail.purchaseId, detail.maintenanceLogId, detail.orderNumber),
         voided: true,
         voidReason: detail.voidReason,
+        // An annulled movement moves no balance at all, before or after the opening.
+        beforeOpening: false,
+        otherBeforeOpening: false,
       }));
 
-    return [...rows, ...voided].sort((a, b) => b.occurredAt.localeCompare(a.occurredAt));
+    return [...rows, ...voided].sort(ledgerOrder);
   }
 
   async createTransaction(draft: TransactionDraft): Promise<void> {
@@ -430,10 +460,11 @@ export class FinanzasData {
 
   // ---------------------------------------------------------------- helpers
 
-  private async accountNames(): Promise<Map<string, string>> {
-    const { data, error } = await this.supabase.from('accounts').select('id, name');
+  /** Names for the book, and the opening day to judge a transfer leg the book did not bring. */
+  private async accountRefs(): Promise<Map<string, { name: string; openingBalanceOn: string }>> {
+    const { data, error } = await this.supabase.from('accounts').select('id, name, opening_balance_on');
     if (error) throw error;
-    return new Map(data.map((row) => [row.id, row.name]));
+    return new Map(data.map((row) => [row.id, { name: row.name, openingBalanceOn: row.opening_balance_on }]));
   }
 
   private async categoryNames(): Promise<Map<string, string>> {
@@ -447,9 +478,14 @@ export class FinanzasData {
       let query = this.supabase
         .from('transaction_entries')
         .select(
-          'transaction_id, account_id, is_counter_leg, occurred_at, type, category_id, payment_method, signed_amount, order_id, purchase_id, maintenance_log_id, counterparty, note',
+          'transaction_id, account_id, is_counter_leg, occurred_at, type, category_id, payment_method, signed_amount, order_id, purchase_id, maintenance_log_id, counterparty, note, before_opening',
         )
+        // The form saves to the minute, so ties are common. Without a tie-break
+        // the two legs of a transfer could land apart, and pages could repeat
+        // or skip a row past the first thousand.
         .order('occurred_at', { ascending: false })
+        .order('transaction_id')
+        .order('is_counter_leg')
         .range(from, to);
 
       if (filter.accountId) query = query.eq('account_id', filter.accountId);
@@ -473,6 +509,7 @@ export class FinanzasData {
           'id, account_id, counter_account_id, type, category_id, amount, occurred_at, payment_method, counterparty, reference, note, voided_at, void_reason, order_id, purchase_id, maintenance_log_id, orders(number)',
         )
         .order('occurred_at', { ascending: false })
+        .order('id')
         .range(from, to);
 
       // A transfer is only visible from the account it left or the one it
