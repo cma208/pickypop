@@ -53,13 +53,23 @@ export function needsCost(row: CountRow): boolean {
   return difference(row) > 0 && row.knownCost === null;
 }
 
+/**
+ * Bounds no shelf reaches, the same `count_shelf` checks: an extra zero is
+ * caught next to the field instead of ending in the database's refusal.
+ */
+export const MAX_COUNT = 100000;
+export const MAX_UNIT_COST = 100000;
+
 /** Why a row cannot be sent yet, in words for the person; null when it can. */
 export function rowProblem(row: CountRow): string | null {
   if (row.counted === null) return null;
-  if (!Number.isInteger(row.counted) || row.counted < 0) return 'Escribe un número entero, cero o más.';
-  if (needsCost(row) && (row.typedCost === null || row.typedCost < 0)) {
-    return 'No sabemos cuánto costó: escribe un costo aproximado por unidad.';
+  if (!Number.isInteger(row.counted) || row.counted < 0 || row.counted > MAX_COUNT) {
+    return `Escribe un número entero, de 0 a ${MAX_COUNT}.`;
   }
+  if (!needsCost(row)) return null;
+  const cost = row.typedCost;
+  if (cost === null) return 'No sabemos cuánto costó: escribe un costo aproximado por unidad.';
+  if (cost < 0 || cost > MAX_UNIT_COST) return `Escribe un costo por unidad de S/ 0 a S/ ${MAX_UNIT_COST}.`;
   return null;
 }
 
@@ -71,6 +81,40 @@ export function countPayload(rows: readonly CountRow[]): CountEntry[] {
     if (row.kind === 'product' && row.variantId) return { variant_id: row.variantId, counted, ...cost };
     return { inventory_item_id: row.inventoryItemId ?? '', counted, ...cost };
   });
+}
+
+/**
+ * What the count field starts with: what the app believes, so only what does
+ * not match is changed. Half a cap is not something anyone can count, and
+ * proposing it showed «Escribe un número entero» on a row nobody had touched,
+ * blocking the whole count (T3-04): such a row starts empty, to be counted.
+ */
+export function initialCount(onHand: number): number | null {
+  return Number.isInteger(onHand) ? onHand : null;
+}
+
+/** Why a row starts empty, when it does. */
+export function countHint(row: CountRow): string | null {
+  return Number.isInteger(row.onHand) ? null : 'Cuéntala: la app cree un número con decimales, y en el estante solo hay enteras.';
+}
+
+/**
+ * The rows read again after the database turned a count down, with what the
+ * person had counted kept. A row they changed keeps its count and its cost; a
+ * row they left alone takes what the app believes now, or it would turn into
+ * a correction back to the old figure.
+ */
+export function keepCounts(fresh: readonly CountRow[], previous: readonly CountRow[]): CountRow[] {
+  const typed = new Map(previous.filter(isChanged).map((row) => [rowKey(row), row]));
+  return fresh.map((row) => {
+    const before = typed.get(rowKey(row));
+    return before ? { ...row, counted: before.counted, typedCost: before.typedCost } : row;
+  });
+}
+
+/** One row per product variant or per article, as the screen tracks them. */
+export function rowKey(row: Pick<CountRow, 'kind' | 'variantId' | 'inventoryItemId'>): string {
+  return `${row.kind}:${row.variantId ?? row.inventoryItemId}`;
 }
 
 /** The button says exactly what is about to happen. */

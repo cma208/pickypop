@@ -134,7 +134,7 @@ export interface PickerOption {
                       <span class="label">{{ option.label }}</span>
                       @if (option.hint) { <small class="muted">{{ option.hint }}</small> }
                     </span>
-                    @if (option.group) { <small class="muted group">{{ option.group }}</small> }
+                    @if (option.group) { <small class="muted group" [attr.title]="option.group">{{ option.group }}</small> }
                   </button>
                 </li>
               }
@@ -174,7 +174,16 @@ export interface PickerOption {
     }
     .row.active, .row:focus-visible { background: var(--accent-soft); }
     .row[aria-selected='true'] .label { font-weight: 600; }
-    .group { flex: none; }
+    /*
+     * The option's own name comes first. A long group («Herramientas del
+     * taller — Molde de calavera») used to keep its full width and leave «M…»
+     * for the name, so «Molde» and «Molde V4 · parte 2» read the same (T3-17).
+     * Now the name keeps room and wraps if it must; the group gives way, with
+     * its full text on hover.
+     */
+    .row .text { flex: 1 1 8rem; min-width: 7rem; }
+    .row .label { white-space: normal; overflow-wrap: anywhere; }
+    .group { flex: 0 1 auto; min-width: 0; max-width: 45%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .empty { margin: 0.4rem; font-size: var(--fs-sm); }
   `,
   ],

@@ -1,6 +1,6 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { AsyncState, Empty, FORMAT_PIPES, Page } from '../../ui';
-import { explainError } from '../pedidos/pedidos.errors';
+import { explainProductionError } from './production-errors';
 import { PrintJobCard } from './print-job-card';
 import { ProduccionData, type JobItem } from './produccion.data';
 import { JOB_STATUS_LABEL, type JobStatus } from './produccion.labels';
@@ -89,7 +89,7 @@ export class HistorialPage {
       this.jobs.set(await this.data.jobs());
       this.error.set(null);
     } catch (error) {
-      this.error.set(explainError(error, 'No pudimos leer el historial. Inténtalo de nuevo.'));
+      this.error.set(explainProductionError(error, 'No pudimos leer el historial. Inténtalo de nuevo.'));
     } finally {
       this.loading.set(false);
     }

@@ -4,9 +4,10 @@ import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angula
 import type { PlanProposal } from '@pickypop/domain';
 import type { PlanView } from '../../core/plan';
 import { Field } from '../../ui';
-import { explainError } from '../pedidos/pedidos.errors';
-import { clampRuns, runsToQueue } from './por-lanzar';
+import { explainProductionError } from './production-errors';
+import { clampRuns, runsToQueue, type RunToQueue } from './por-lanzar';
 import { ProduccionData } from './produccion.data';
+import { requestKey, type SentRequest } from './request-key';
 
 /** What was queued, so the list can say it back. */
 export interface QueuedRuns {
@@ -72,6 +73,8 @@ export class ProposalQueueForm implements OnInit {
   protected readonly error = signal<string | null>(null);
   private readonly submitted = signal(false);
   private readonly count = toSignal(this.form.controls.count.valueChanges, { initialValue: null });
+  /** The last runs sent and their key: the very same runs sent again are not queued twice. */
+  private lastSent: SentRequest<{ printerId: string; runs: RunToQueue[] }> | null = null;
 
   /** Active printers in the plan's order: the first one comes chosen. */
   protected readonly printers = computed(() => this.view().input.printers);
@@ -101,20 +104,25 @@ export class ProposalQueueForm implements OnInit {
   }
 
   protected async queue(): Promise<void> {
+    // Before any await: a double click would queue every run twice.
+    if (this.saving()) return;
     this.submitted.set(true);
     this.error.set(null);
     const count = this.validCount();
     const { printerId } = this.form.getRawValue();
     if (this.form.invalid || count === null) return;
 
+    const proposal = this.proposal();
+    const runs = runsToQueue(proposal, this.view(), count);
+    const sent = requestKey(this.lastSent, { printerId, runs }, () => crypto.randomUUID());
+    this.lastSent = sent;
     this.saving.set(true);
     try {
-      const proposal = this.proposal();
-      await this.data.queueRuns(printerId, runsToQueue(proposal, this.view(), count));
+      await this.data.queueRuns(printerId, runs, runKeys(sent.key, runs.length));
       const printerName = this.printers().find((printer) => printer.id === printerId)?.name ?? 'la impresora';
       this.queued.emit({ label: proposal.label, runs: count, printerName });
     } catch (error) {
-      this.error.set(explainError(error, 'No pudimos poner las corridas en cola. Inténtalo de nuevo.'));
+      this.error.set(explainProductionError(error, 'No pudimos poner las corridas en cola. Inténtalo de nuevo.'));
     } finally {
       this.saving.set(false);
     }
@@ -126,4 +134,21 @@ export class ProposalQueueForm implements OnInit {
     if (count === null || !Number.isInteger(count) || count < 1) return null;
     return clampRuns(count, this.proposal()) === count ? count : null;
   }
+}
+
+/**
+ * One key per run, from the key of the submission: `print_jobs.request_key`
+ * is unique per job. The first run keeps the submission's key and the others
+ * derive from it, so a retry of the same runs carries the same keys.
+ */
+export function runKeys(key: string, count: number): string[] {
+  return Array.from({ length: count }, (_, index) => (index === 0 ? key : derivedKey(key, index)));
+}
+
+/** The submission's key with its last twelve hex digits shifted by the run's position: still a uuid. */
+function derivedKey(key: string, index: number): string {
+  const head = key.slice(0, 24);
+  const tail = Number.parseInt(key.slice(24), 16);
+  const shifted = ((tail + index) % 0x1000000000000).toString(16).padStart(12, '0');
+  return head + shifted;
 }

@@ -3,10 +3,11 @@ import { FormArray, FormControl, ReactiveFormsModule, Validators } from '@angula
 import { borrowedPhoto } from '../../core/article-photos';
 import { Thumb } from '../../ui';
 import type { PlatePart } from './produccion.outputs';
+import { wholeNumber } from './job-grams';
 
-/** How many of one part came out: none to all the plate makes, already full. */
+/** How many of one part came out: none to all the plate makes, whole, already full. */
 export function createOutputControl(planned: number) {
-  return new FormControl<number | null>(planned, [Validators.required, Validators.min(0), Validators.max(planned)]);
+  return new FormControl<number | null>(planned, [Validators.required, Validators.min(0), Validators.max(planned), wholeNumber]);
 }
 
 export type OutputControls = FormArray<ReturnType<typeof createOutputControl>>;
@@ -34,7 +35,7 @@ export type OutputControls = FormArray<ReturnType<typeof createOutputControl>>;
           </span>
         </div>
         @if (control.invalid && (control.touched || submitted())) {
-          <p class="error">Escribe cuántas salieron, de 0 a {{ parts()[i]!.unitsPerRun }}.</p>
+          <p class="error">Escribe cuántas salieron, en número entero de 0 a {{ parts()[i]!.unitsPerRun }}.</p>
         }
       }
     </fieldset>

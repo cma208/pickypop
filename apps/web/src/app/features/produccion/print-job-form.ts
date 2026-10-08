@@ -6,13 +6,21 @@ import { borrowedPhoto } from '../../core/article-photos';
 import { duration } from '../../core/format';
 import { PlanService } from '../../core/plan';
 import { spoolLabel } from '../../core/spool-label';
-import { explainError } from '../pedidos/pedidos.errors';
-import { ProduccionData, type OrderLineOption, type PlateOption, type SpoolOption } from './produccion.data';
+import { explainProductionError } from './production-errors';
+import { ProduccionData, type NewJob, type OrderLineOption, type PlateOption, type SpoolOption } from './produccion.data';
 import type { PrinterSummary } from '../../core/workshop';
 import { describeCounts } from './produccion.outputs';
 import { rowsForPlate, suggestSpool } from './produccion.spools';
 import { labelForPlate } from './job-label';
 import { proposeTime, secondsToSave, type ProposedTime } from './job-time';
+import { GRAMS_MESSAGE, hundredths, MAX_GRAMS, MAX_MINUTES } from './job-grams';
+import { requestKey, type SentRequest } from './request-key';
+import { NOTE_MAX_LENGTH } from './print-job-close';
+
+/** What a person can type as the name of a job; `create_print_job` refuses more. */
+export const LABEL_MAX_LENGTH = 200;
+
+type JobToCreate = Omit<NewJob, 'requestKey'>;
 
 export interface FixedOrderLine {
   id: string;
@@ -25,7 +33,7 @@ function createFilamentRow(spoolId = '', estimatedG = 0, slot: number | null = n
     spoolId: new FormControl(spoolId, { nonNullable: true, validators: [Validators.required] }),
     estimatedG: new FormControl(estimatedG, {
       nonNullable: true,
-      validators: [Validators.required, Validators.min(0)],
+      validators: [Validators.required, Validators.min(0), Validators.max(MAX_GRAMS), hundredths],
     }),
     slot: new FormControl<number | null>(slot),
   });
@@ -64,7 +72,7 @@ function createFilamentRow(spoolId = '', estimatedG = 0, slot: number | null = n
 
           @if (!hasLine()) {
             <pp-field label="Qué se imprime" [required]="true" [error]="labelError()">
-              <input type="text" formControlName="label" placeholder="Ej.: molde, prueba de soporte" autocomplete="off" />
+              <input type="text" formControlName="label" placeholder="Ej.: molde, prueba de soporte" autocomplete="off" [attr.maxlength]="labelMaxLength" />
             </pp-field>
           }
 
@@ -114,7 +122,7 @@ function createFilamentRow(spoolId = '', estimatedG = 0, slot: number | null = n
             </p>
           }
 
-          <pp-field label="Tiempo estimado (minutos)" hint="Se llena con el de la placa; puedes ajustarlo." [error]="fieldError('estimatedMinutes', 'Escribe minutos enteros mayores que cero.')">
+          <pp-field label="Tiempo estimado (minutos)" hint="Se llena con el de la placa; puedes ajustarlo." [error]="fieldError('estimatedMinutes', minutesMessage)">
             <input type="number" inputmode="numeric" min="1" step="1" formControlName="estimatedMinutes" />
           </pp-field>
 
@@ -130,7 +138,7 @@ function createFilamentRow(spoolId = '', estimatedG = 0, slot: number | null = n
                     }
                   </select>
                 </pp-field>
-                <pp-field label="Gramos estimados" [error]="fieldErrorOn(row, 'estimatedG', 'Los gramos no pueden ser negativos.')">
+                <pp-field label="Gramos estimados" [error]="fieldErrorOn(row, 'estimatedG', gramsMessage)">
                   <input type="number" inputmode="decimal" min="0" step="0.01" formControlName="estimatedG" />
                 </pp-field>
                 <button type="button" class="ghost" (click)="removeFilament(i)" [attr.aria-label]="'Quitar el rollo ' + (i + 1)">Quitar</button>
@@ -144,14 +152,14 @@ function createFilamentRow(spoolId = '', estimatedG = 0, slot: number | null = n
             @if (duplicateSpool()) { <p class="error">Repetiste un rollo. Usa una sola fila por rollo.</p> }
           </fieldset>
 
-          <pp-field label="Nota" hint="Opcional">
-            <input type="text" formControlName="note" autocomplete="off" />
+          <pp-field label="Nota" hint="Opcional" [error]="noteError()">
+            <input type="text" formControlName="note" autocomplete="off" [attr.maxlength]="noteMaxLength" />
           </pp-field>
 
           @if (saveError(); as message) { <p class="error" role="alert">{{ message }}</p> }
           <div class="row">
             <button type="submit" [disabled]="saving()">{{ saving() ? 'Guardando…' : 'Crear trabajo' }}</button>
-            <button type="button" class="secondary" (click)="cancelled.emit()">Cancelar</button>
+            <button type="button" class="secondary" (click)="cancelled.emit()" [disabled]="saving()">Cancelar</button>
           </div>
         </form>
       }
@@ -166,7 +174,7 @@ function createFilamentRow(spoolId = '', estimatedG = 0, slot: number | null = n
     .plate-pick { display: flex; gap: 0.35rem; align-items: center; }
     .plate-pick pp-item-picker { flex: 1; min-width: 0; }
     .plate-preview { display: flex; gap: 0.9rem; align-items: flex-start; margin: -0.25rem 0 1rem; padding: 0.75rem; border: 1px solid var(--line); border-radius: var(--radius); }
-    .plate-text { display: grid; gap: 0.25rem; font-size: 0.85rem; min-width: 0; }
+    .plate-text { display: grid; gap: 0.25rem; font-size: 0.85rem; min-width: 0; overflow-wrap: anywhere; }
     .plate-text ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.25rem; }
     .plate-text li { display: flex; align-items: center; gap: 0.4rem; }
     .warn-text { margin: -0.5rem 0 0.75rem; font-size: 0.8rem; color: var(--warn); }
@@ -186,11 +194,11 @@ export class PrintJobForm implements OnInit {
 
   protected readonly form = new FormGroup({
     orderLineId: new FormControl('', { nonNullable: true }),
-    label: new FormControl('', { nonNullable: true }),
+    label: new FormControl('', { nonNullable: true, validators: [Validators.maxLength(LABEL_MAX_LENGTH)] }),
     printerId: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
     plateId: new FormControl('', { nonNullable: true }),
-    estimatedMinutes: new FormControl<number | null>(null, [Validators.min(1), Validators.pattern(/^\d+$/)]),
-    note: new FormControl('', { nonNullable: true }),
+    estimatedMinutes: new FormControl<number | null>(null, [Validators.min(1), Validators.max(MAX_MINUTES), Validators.pattern(/^\d+$/)]),
+    note: new FormControl('', { nonNullable: true, validators: [Validators.maxLength(NOTE_MAX_LENGTH)] }),
     filaments: new FormArray([createFilamentRow()]),
   });
 
@@ -204,6 +212,12 @@ export class PrintJobForm implements OnInit {
   protected readonly saving = signal(false);
   protected readonly saveError = signal<string | null>(null);
   protected readonly submitted = signal(false);
+  protected readonly labelMaxLength = LABEL_MAX_LENGTH;
+  protected readonly noteMaxLength = NOTE_MAX_LENGTH;
+  protected readonly minutesMessage = `Escribe minutos enteros, de 1 a ${MAX_MINUTES}.`;
+  protected readonly gramsMessage = GRAMS_MESSAGE;
+  /** The last submission and its key, kept for a retry of the very same job. */
+  private lastSent: SentRequest<JobToCreate> | null = null;
 
   private readonly selectedLine = signal('');
   protected readonly selectedPlate = signal('');
@@ -272,8 +286,14 @@ export class PrintJobForm implements OnInit {
   }
 
   protected labelError(): string | null {
-    const empty = this.form.controls.label.value.trim() === '';
+    const control = this.form.controls.label;
+    if (control.hasError('maxlength')) return `Usa ${LABEL_MAX_LENGTH} caracteres o menos.`;
+    const empty = control.value.trim() === '';
     return empty && this.submitted() ? 'Describe qué se imprime: no hay pedido que lo explique.' : null;
+  }
+
+  protected noteError(): string | null {
+    return this.form.controls.note.invalid ? `La nota tiene que caber en ${NOTE_MAX_LENGTH} caracteres.` : null;
   }
 
   protected fieldError(name: 'printerId' | 'estimatedMinutes', message: string): string | null {
@@ -305,6 +325,9 @@ export class PrintJobForm implements OnInit {
   }
 
   protected async save(): Promise<void> {
+    // Before any await: a double click lands twice before the button turns
+    // disabled, and created two jobs a tenth of a millisecond apart (T3-11).
+    if (this.saving()) return;
     this.submitted.set(true);
     this.saveError.set(null);
     this.form.markAllAsTouched();
@@ -316,28 +339,32 @@ export class PrintJobForm implements OnInit {
 
     const value = this.form.getRawValue();
     const lineId = this.fixedLine()?.id ?? (value.orderLineId || null);
+    const job: JobToCreate = {
+      printerId: value.printerId,
+      orderLineId: lineId,
+      plateId: value.plateId || null,
+      // The field is only shown without an order line: the line already
+      // says what is printed, and a plate's name left in a hidden field
+      // must not replace it.
+      label: lineId === null ? value.label.trim() || null : null,
+      estimatedTimeS: secondsToSave(value.estimatedMinutes, this.timeFromPlate),
+      note: value.note.trim() || null,
+      filaments: value.filaments.map((row) => ({
+        spoolId: row.spoolId,
+        slot: row.slot,
+        estimatedG: row.estimatedG,
+      })),
+    };
+    // The database refuses a second job with the same key too (`create_print_job`).
+    const sent = requestKey(this.lastSent, job, () => crypto.randomUUID());
+    this.lastSent = sent;
     this.saving.set(true);
     try {
-      await this.data.createJob({
-        printerId: value.printerId,
-        orderLineId: lineId,
-        plateId: value.plateId || null,
-        // The field is only shown without an order line: the line already
-        // says what is printed, and a plate's name left in a hidden field
-        // must not replace it.
-        label: lineId === null ? value.label.trim() || null : null,
-        estimatedTimeS: secondsToSave(value.estimatedMinutes, this.timeFromPlate),
-        note: value.note.trim() || null,
-        filaments: value.filaments.map((row) => ({
-          spoolId: row.spoolId,
-          slot: row.slot,
-          estimatedG: row.estimatedG,
-        })),
-      });
+      await this.data.createJob({ ...job, requestKey: sent.key });
       this.plan.invalidate();
       this.saved.emit();
     } catch (error) {
-      this.saveError.set(explainError(error, 'No pudimos crear el trabajo. Inténtalo de nuevo.'));
+      this.saveError.set(explainProductionError(error, 'No pudimos crear el trabajo. Inténtalo de nuevo.'));
     } finally {
       this.saving.set(false);
     }
@@ -386,7 +413,7 @@ export class PrintJobForm implements OnInit {
       this.lines.set(lines);
       if (printers.length === 1) this.form.controls.printerId.setValue(printers[0]!.id);
     } catch (error) {
-      this.loadError.set(explainError(error, 'No pudimos cargar los datos del taller. Inténtalo de nuevo.'));
+      this.loadError.set(explainProductionError(error, 'No pudimos cargar los datos del taller. Inténtalo de nuevo.'));
     } finally {
       this.loading.set(false);
     }

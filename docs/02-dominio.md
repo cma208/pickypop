@@ -334,11 +334,16 @@ Una **orden** siempre tiene un **propósito**:
 
 Cada impresión, exitosa o fallida, registra: orden y línea (o ninguna, si es una prueba), impresora, placa, **tiempo estimado** (del 3MF) y **tiempo real**, **rollos usados con gramos estimados y reales**, resultado (`exitosa`, `fallida`, `cancelada`), causa del fallo (adhesión, atasco, spaghetti, capa desplazada, corte de luz…), porcentaje completado y notas.
 
+Un trabajo pasa por **cola → imprimiendo → cerrado**, y la base no deja saltarse pasos ni volver atrás: iniciar exige que siga en la cola (desde una pestaña vieja dice qué le pasó), cerrar exige que siga como lo vio quien cierra y que diga los gramos de cada rollo, y uno cerrado no se reabre ni se edita (ADR-020, puntos 11, 12 y 15).
+
 Al cerrar una impresión:
-1. Se generan los movimientos de stock: consumo si fue exitosa, merma si falló.
-2. Se suman las horas a la impresora, lo que puede disparar un mantenimiento.
-3. Se guarda su **costo real** (material, energía y máquina) con los parámetros vigentes.
-4. Se actualizan las métricas de precisión (real ÷ estimado) y la tasa de fallo.
+1. Se generan los movimientos de stock: consumo si fue exitosa, merma si falló o si se canceló después de correr (lo que gastó hasta pararla). Una cancelada sin tiempo nunca corrió y no mueve nada. Los gramos van con hasta dos decimales, los mismos en el trabajo y en el kardex.
+2. Si salió bien, entran al estante las piezas que salieron, **enteras**.
+3. Se suman las horas a la impresora, lo que puede disparar un mantenimiento.
+4. Se guarda su **costo real** (material, energía y máquina) con los parámetros vigentes.
+5. Se actualizan las métricas de precisión (real ÷ estimado) y la tasa de fallo.
+
+Para una fallida o una cancelada, el cierre propone el tiempo y los gramos **en proporción al porcentaje completado**, y nada mientras no se diga: el estimado es lo que habría tardado terminarla, no lo que corrió.
 
 ---
 

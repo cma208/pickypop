@@ -157,7 +157,16 @@ export interface NewJob {
   label: string | null;
   estimatedTimeS: number | null;
   note: string | null;
-  filaments: { spoolId: string; slot: number | null; estimatedG: number }[];
+  filaments: JobRoll[];
+  /** The form's key for this submission: sent twice, the database returns the job it already made. */
+  requestKey: string;
+}
+
+/** A roll a job will use, and how much of it. */
+export interface JobRoll {
+  spoolId: string;
+  slot: number | null;
+  estimatedG: number;
 }
 
 export interface CloseJob {
@@ -370,62 +379,50 @@ export class ProduccionData {
       .sort((a, b) => a.code.localeCompare(b.code, 'es'));
   }
 
-  /** Creates the job and the rolls it will use. Undone if the rolls fail. */
+  /**
+   * Creates the job and the rolls it will use in one call (`create_print_job`):
+   * both or neither. It used to insert the job, then the rolls, and delete the
+   * job if they failed, which an operator is not allowed to do.
+   */
   async createJob(input: NewJob): Promise<string> {
-    const workspaceId = await this.workspace.requireId();
-
-    const { data: job, error } = await this.supabase
-      .from('print_jobs')
-      .insert({
-        workspace_id: workspaceId,
-        printer_id: input.printerId,
-        order_line_id: input.orderLineId,
-        recipe_plate_id: input.plateId,
-        label: input.label,
-        estimated_time_s: input.estimatedTimeS,
-        note: input.note,
-      })
-      .select('id')
-      .single();
+    const { data, error } = await this.supabase.rpc('create_print_job', {
+      p_printer_id: input.printerId,
+      p_label: input.label ?? undefined,
+      p_order_line_id: input.orderLineId ?? undefined,
+      p_recipe_plate_id: input.plateId ?? undefined,
+      p_estimated_time_s: input.estimatedTimeS ?? undefined,
+      p_note: input.note ?? undefined,
+      p_filaments: rollsArgument(input.filaments),
+      p_request_key: input.requestKey,
+    });
     if (error) throw error;
-
-    if (input.filaments.length > 0) {
-      const { error: filamentsError } = await this.supabase.from('print_job_filaments').insert(
-        input.filaments.map((filament) => ({
-          workspace_id: workspaceId,
-          print_job_id: job.id,
-          spool_id: filament.spoolId,
-          slot: filament.slot,
-          estimated_g: filament.estimatedG,
-        })),
-      );
-      if (filamentsError) {
-        await this.supabase.from('print_jobs').delete().eq('id', job.id);
-        throw filamentsError;
-      }
-    }
-    return job.id;
+    return data.id;
   }
 
   /**
    * «Poner en cola»: one planned job per run, in a single request, so a
    * failure leaves none of them instead of half the runs. They carry no
    * rolls: those are confirmed when each one starts (decision of the owner).
+   *
+   * Each run carries its key from the form. If the same runs arrive twice (a
+   * retry after the first one did go through), the database refuses them by
+   * their keys, and that means they are already in the queue.
    */
-  async queueRuns(printerId: string, runs: readonly RunToQueue[]): Promise<void> {
+  async queueRuns(printerId: string, runs: readonly RunToQueue[], keys: readonly string[]): Promise<void> {
     if (runs.length === 0) return;
     const workspaceId = await this.workspace.requireId();
     const { error } = await this.supabase.from('print_jobs').insert(
-      runs.map((run) => ({
+      runs.map((run, index) => ({
         workspace_id: workspaceId,
         printer_id: printerId,
         order_line_id: run.orderLineId,
         recipe_plate_id: run.plateId,
         label: run.label,
         estimated_time_s: run.estimatedTimeS,
+        request_key: keys[index] ?? null,
       })),
     );
-    if (error) throw error;
+    if (error && !isRequestKeyRepeated(error)) throw error;
   }
 
   /**
@@ -483,45 +480,31 @@ export class ProduccionData {
     return data.map((row) => ({ slot: row.slot, skuId: row.filament_sku_id, grams: Number(row.grams) }));
   }
 
-  async startJob(jobId: string): Promise<void> {
-    const { error } = await this.supabase
-      .from('print_jobs')
-      .update({ status: 'printing', started_at: new Date().toISOString() })
-      .eq('id', jobId)
-      .eq('status', 'planned');
-    if (error) throw error;
-  }
-
   /**
-   * Starts a queued job and records the rolls it takes. The start goes first
-   * because it is what usually fails (another job still on the printer), and
-   * then nothing was written. If the rolls fail after it, the job goes back
-   * to waiting: printing without rolls would close without discounting any
-   * filament.
+   * Starts a queued job through `start_print_job`, which checks it is still
+   * waiting and records its rolls in the same transaction. A job created with
+   * its rolls starts without them; one queued from «Por lanzar» brings them now.
+   *
+   * It used to update the status and then insert the rolls, undoing the start
+   * if they failed. From an old tab the update changed nothing, the rolls
+   * collided, and the undo sent back to the queue a job another tab had
+   * started, or even closed (T3-01).
    */
-  async startWithRolls(jobId: string, rolls: readonly NewJob['filaments'][number][]): Promise<void> {
-    const workspaceId = await this.workspace.requireId();
-    await this.startJob(jobId);
-    if (rolls.length === 0) return;
-
-    const { error } = await this.supabase.from('print_job_filaments').insert(
-      rolls.map((roll) => ({
-        workspace_id: workspaceId,
-        print_job_id: jobId,
-        spool_id: roll.spoolId,
-        slot: roll.slot,
-        estimated_g: roll.estimatedG,
-      })),
-    );
-    if (error) {
-      await this.supabase.from('print_jobs').update({ status: 'planned', started_at: null }).eq('id', jobId);
-      throw error;
-    }
+  async startJob(jobId: string, rolls: readonly JobRoll[] = []): Promise<void> {
+    const { error } = await this.supabase.rpc('start_print_job', {
+      p_job_id: jobId,
+      p_rolls: rollsArgument(rolls),
+    });
+    if (error) throw error;
   }
 
   /**
    * Closes the job through `complete_print_job`, which moves the stock in one
    * transaction, and reports what happened to each roll.
+   *
+   * It sends the status this tab saw the job in. Closed from an old tab, a job
+   * another tab has started since would close without the rolls it spent, or
+   * be cancelled while still printing: the database refuses that instead.
    *
    * The frozen costs are calculated here from the real grams and time, because
    * the "estimated against real" block of the order reads them from the job.
@@ -537,6 +520,7 @@ export class ProduccionData {
     const { error } = await this.supabase.rpc('complete_print_job', {
       p_job_id: job.id,
       p_result: input.result,
+      p_expected_status: job.status,
       p_actual_time_s: input.actualTimeS ?? undefined,
       p_filament_usage: input.usage.map((usage) => ({
         spool_id: usage.spoolId,
@@ -624,8 +608,8 @@ export class ProduccionData {
     if (rates.error) throw rates.error;
 
     const perGram = new Map(spools.data.map((spool) => [spool.id, Number(spool.cost_per_gram ?? 0)]));
-    const grams = input.result === 'cancelled' ? [] : input.usage;
-    const material = grams.reduce(
+    // A print cancelled halfway spent filament too, and it costs like any other.
+    const material = input.usage.reduce(
       (sum, usage) => sum + usage.actualG * (perGram.get(usage.spoolId) ?? 0),
       0,
     );
@@ -693,6 +677,18 @@ function toJobItem(row: JobRow): JobItem {
       }))
       .sort((a, b) => (a.slot ?? 0) - (b.slot ?? 0)),
   };
+}
+
+/** The rolls as `create_print_job` and `start_print_job` read them. */
+function rollsArgument(rolls: readonly JobRoll[]): { spool_id: string; slot: number | null; estimated_g: number }[] {
+  return rolls.map((roll) => ({ spool_id: roll.spoolId, slot: roll.slot, estimated_g: roll.estimatedG }));
+}
+
+/** The constraint a repeated «Poner en cola» runs into: the runs are already queued. */
+const REQUEST_KEY_CONSTRAINT = 'print_jobs_workspace_id_request_key_key';
+
+function isRequestKeyRepeated(error: { code?: string; message?: string }): boolean {
+  return error.code === '23505' && (error.message ?? '').includes(REQUEST_KEY_CONSTRAINT);
 }
 
 /**

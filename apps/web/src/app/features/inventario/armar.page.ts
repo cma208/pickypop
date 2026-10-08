@@ -8,6 +8,11 @@ import { INVENTORY_STYLES, POSITION_STYLES } from './inventario.styles';
 import { assemblyOutcome, type AssemblyOutcome } from './assembly';
 import { InventoryPlan, type InventoryPositions } from './inventory-plan';
 import { assembledMessage, assembledText, claimsTitle } from './stock-position';
+import { buildableFrom, MAX_UNITS, parseUnits, unitsProblem } from './armar-units';
+import { ArmarData } from './armar.data';
+import { productionProblem } from '../produccion/production-errors';
+import { ProductionAccess } from '../produccion/production-access';
+import { requestKey, type SentRequest } from '../produccion/request-key';
 
 /** What the card of a product says it has on the shelf, and whose it is. */
 interface Built {
@@ -69,26 +74,35 @@ interface Built {
 
           @if (chosen(); as option) {
             <pp-card [heading]="'Armar ' + option.productName + ' · ' + option.variantName">
-              <div class="qty">
-                <label>
-                  ¿Cuántas?
-                  <input
-                    type="number"
-                    min="1"
-                    step="1"
-                    inputmode="numeric"
-                    [value]="units()"
-                    (input)="onUnits($event)"
-                  />
-                </label>
-                @if (!confirming()) {
-                  <button type="button" [disabled]="!canAssemble()" (click)="review()">Armar {{ units() }}</button>
-                }
-                <!-- Right after assembling, the stock left may not reach another one: that is not a failure, the message below says what happened. -->
-                @if (!enough() && !busy() && !result()) {
-                  <span class="muted">Falta stock para {{ units() }}. Alcanza para {{ option.buildableUnits }}.</span>
-                }
-              </div>
+              @if (!canOperate()) {
+                <!-- What it takes and what is there still reads; only the action is not offered (decision of the owner, 2026-10-08). -->
+                <p class="muted read-only" role="status">Tienes acceso de solo lectura: solo el dueño y los operadores pueden armar.</p>
+              } @else {
+                <div class="qty">
+                  <label>
+                    ¿Cuántas?
+                    <input
+                      type="number"
+                      min="1"
+                      [max]="maxUnits"
+                      step="1"
+                      inputmode="numeric"
+                      [value]="unitsText()"
+                      (input)="onUnits($event)"
+                      [attr.aria-invalid]="unitsError() !== null"
+                    />
+                  </label>
+                  @if (!confirming()) {
+                    <!-- The button says exactly the number in the field, or no number at all (T3-15). -->
+                    <button type="button" [disabled]="!canAssemble()" (click)="review()">{{ units() === null ? 'Armar' : 'Armar ' + units() }}</button>
+                  }
+                  <!-- Right after assembling, the stock left may not reach another one: that is not a failure, the message below says what happened. -->
+                  @if (units() !== null && components().length > 0 && !enough() && !busy() && !result()) {
+                    <span class="muted">Falta stock para {{ units() }}. Alcanza para {{ buildable() }}.</span>
+                  }
+                </div>
+                @if (unitsError(); as problem) { <p class="error units-error">{{ problem }}</p> }
+              }
 
               @if (confirming()) {
                 @let outcome = preview(option);
@@ -215,6 +229,8 @@ interface Built {
     .qty { display: flex; align-items: flex-end; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 0.9rem; }
     .qty label { display: grid; gap: 0.25rem; font-size: 0.85rem; }
     .qty input { width: 7rem; }
+    .units-error { margin: -0.5rem 0 0.9rem; font-size: 0.85rem; }
+    .read-only { margin: 0 0 0.9rem; font-size: 0.9rem; }
     tr.short td { background: var(--danger-soft); }
     .confirm { margin-bottom: 0.9rem; padding: 0.8rem; border: 1px solid var(--warn); border-radius: var(--radius); background: var(--warn-soft); }
     .confirm p { margin: 0 0 0.4rem; }
@@ -226,7 +242,17 @@ interface Built {
 })
 export class ArmarPage {
   private readonly data = inject(InventarioData);
+  private readonly assembly = inject(ArmarData);
   private readonly planner = inject(InventoryPlan);
+  /** Assembling is the day to day of an owner or an operator, never of a viewer. */
+  protected readonly canOperate = inject(ProductionAccess).canOperate;
+  /**
+   * The last assembly sent and its key. Sent again as it was (the answer got
+   * lost and the person presses again), it keeps the key, and the database
+   * gives back what it already did instead of assembling twice. Once it is
+   * known to have gone through, the next one is a new assembly.
+   */
+  private lastSent: SentRequest<{ variantId: string; units: number }> | null = null;
 
   protected readonly kindLabel = ITEM_KIND_LABELS;
   /** A piece without a photo shows the plate that prints it. */
@@ -235,7 +261,14 @@ export class ArmarPage {
   protected readonly options = signal<AssemblyOption[]>([]);
   protected readonly components = signal<AssemblyComponent[]>([]);
   protected readonly chosen = signal<AssemblyOption | null>(null);
-  protected readonly units = signal(1);
+  protected readonly maxUnits = MAX_UNITS;
+  /** What the field holds, as typed: never replaced behind the person's back. */
+  protected readonly unitsText = signal('1');
+  /** The units typed, if they can be assembled; null otherwise, and the button offers none. */
+  protected readonly units = computed(() => parseUnits(this.unitsText()));
+  protected readonly unitsError = computed(() => unitsProblem(this.unitsText()));
+  /** What the components on the table reach, read with the table and not with the card. */
+  protected readonly buildable = computed(() => buildableFrom(this.components()));
   protected readonly loading = signal(true);
   protected readonly busy = signal(false);
   protected readonly error = signal<string | null>(null);
@@ -251,7 +284,7 @@ export class ArmarPage {
   /** Lo que haría falta para la cantidad pedida, y cuánto falta de cada cosa. */
   protected readonly needs = computed(() =>
     this.components().map((component) => {
-      const needed = component.quantityPerUnit * this.units();
+      const needed = component.quantityPerUnit * (this.units() ?? 0);
       return { component, needed, missing: Math.max(0, needed - component.onHand) };
     }),
   );
@@ -260,7 +293,9 @@ export class ArmarPage {
     () => this.components().length > 0 && this.needs().every((row) => row.missing === 0),
   );
 
-  protected readonly canAssemble = computed(() => this.enough() && this.units() > 0 && !this.busy());
+  protected readonly canAssemble = computed(
+    () => this.canOperate() && this.units() !== null && this.enough() && !this.busy(),
+  );
 
   constructor() {
     void this.load();
@@ -288,8 +323,7 @@ export class ArmarPage {
   }
 
   protected onUnits(event: Event): void {
-    const value = Number.parseInt((event.target as HTMLInputElement).value, 10);
-    this.units.set(Number.isFinite(value) && value > 0 ? value : 1);
+    this.unitsText.set((event.target as HTMLInputElement).value);
     this.result.set(null);
     this.assembleError.set(null);
     // A confirmation is for the quantity it showed, never for a new one.
@@ -297,7 +331,7 @@ export class ArmarPage {
   }
 
   protected preview(option: AssemblyOption): AssemblyOutcome {
-    return assemblyOutcome(this.units(), option, this.components());
+    return assemblyOutcome(this.units() ?? 0, option, this.components());
   }
 
   protected review(): void {
@@ -307,6 +341,11 @@ export class ArmarPage {
     this.confirming.set(true);
   }
 
+  /**
+   * The table is read now, and the cards with it: a card read when the page
+   * opened said «Alcanza para 2» next to a table, just read, that said the
+   * discs were gone (T3-16).
+   */
   protected async choose(option: AssemblyOption): Promise<void> {
     this.chosen.set(option);
     this.components.set([]);
@@ -314,40 +353,58 @@ export class ArmarPage {
     this.assembleError.set(null);
     this.componentsError.set(null);
     this.confirming.set(false);
-
-    try {
-      this.components.set(await this.data.assemblyComponents(option.variantId));
-    } catch (error) {
-      this.componentsError.set(friendlyError(error, 'No pudimos leer la receta de este producto.'));
-    }
+    await Promise.all([this.loadComponents(option), this.load()]);
+    const refreshed = this.options().find((row) => row.variantId === option.variantId);
+    if (refreshed && this.chosen()?.variantId === option.variantId) this.chosen.set(refreshed);
   }
 
   protected async assemble(): Promise<void> {
     const option = this.chosen();
-    if (!option || !this.canAssemble()) return;
+    const units = this.units();
+    // Before any await: canAssemble is false while busy, so a second click does nothing.
+    if (!option || units === null || !this.canAssemble()) return;
 
+    const sent = requestKey(this.lastSent, { variantId: option.variantId, units }, () => crypto.randomUUID());
+    this.lastSent = sent;
     this.busy.set(true);
     this.assembleError.set(null);
     this.result.set(null);
 
     try {
-      const units = this.units();
-      await this.data.assemble(option.variantId, units);
+      await this.assembly.assemble(option.variantId, units, sent.key);
+      this.lastSent = null;
       // Parts went out and products came in: who gets what has changed.
       this.planner.changed();
-      void this.loadPlan();
-      await this.load();
-      // La tarjeta elegida trae ahora otros números, y la receta otros saldos.
-      const refreshed = this.options().find((row) => row.variantId === option.variantId);
-      if (refreshed) await this.choose(refreshed);
-      // Choosing clears the last message, so this one goes after it: it was the only sign that anything happened.
+      await this.refresh(option);
+      // Refreshing clears the last message, so this one goes after it: it was the only sign that anything happened.
       this.result.set(assembledMessage(units, option));
     } catch (error) {
       // La base escribe aquí qué falta y cuánto: es mejor mensaje que cualquiera de aquí.
-      this.assembleError.set(friendlyError(error, 'No pudimos armar el producto.'));
+      const message = productionProblem(error) ?? friendlyError(error, 'No pudimos armar el producto.');
+      // Turned down, the screen is stale: another tab assembled or counted
+      // meanwhile. The cards and the table are read again, so «Alcanza para»
+      // and the button stop promising what is not there (T3-16).
+      this.planner.changed();
+      await this.refresh(option);
+      this.assembleError.set(message);
     } finally {
       this.busy.set(false);
       this.confirming.set(false);
+    }
+  }
+
+  /** The cards, the plan and the table of the chosen product, read again. */
+  private async refresh(option: AssemblyOption): Promise<void> {
+    void this.loadPlan();
+    // La tarjeta elegida trae ahora otros números, y la receta otros saldos.
+    await this.choose(option);
+  }
+
+  private async loadComponents(option: AssemblyOption): Promise<void> {
+    try {
+      this.components.set(await this.data.assemblyComponents(option.variantId));
+    } catch (error) {
+      this.componentsError.set(friendlyError(error, 'No pudimos leer la receta de este producto.'));
     }
   }
 

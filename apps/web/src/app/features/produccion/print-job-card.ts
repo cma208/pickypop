@@ -5,14 +5,23 @@ import { borrowedPhoto } from '../../core/article-photos';
 import { duration } from '../../core/format';
 import { PlanService } from '../../core/plan';
 import { Badge, FORMAT_PIPES, Thumb } from '../../ui';
-import { explainError } from '../pedidos/pedidos.errors';
+import { explainProductionError } from './production-errors';
 import { PrintJobClose } from './print-job-close';
 import { PrintJobStart } from './print-job-start';
 import { ProduccionData, type CloseOutcome, type JobItem } from './produccion.data';
+import { ProductionAccess } from './production-access';
 import { FAILURE_CAUSE_LABEL, isClosed, JOB_STATUS_LABEL, JOB_STATUS_TONE } from './produccion.labels';
 import { jobProgress } from './produccion.progress';
 import { rollName } from './produccion.spools';
 import { plannedCounts, type PartCount } from './produccion.outputs';
+
+/** The database turned down a start or a close: the job is not what this tab believed. */
+export interface JobRefusal {
+  jobId: string;
+  /** The status this tab showed when it asked. */
+  status: JobItem['status'];
+  message: string;
+}
 
 /** One print job with its actions: start it, close it. */
 @Component({
@@ -109,10 +118,13 @@ import { plannedCounts, type PartCount } from './produccion.outputs';
       @if (error(); as message) { <p class="error" role="alert">{{ message }}</p> }
 
       @if (!isClosed()) {
-        @if (closing()) {
-          <app-print-job-close [job]="job()" (closed)="onClosed($event)" (cancelled)="closing.set(false)" />
-        } @else if (choosingRolls()) {
-          <app-print-job-start [job]="job()" (started)="onStarted()" (cancelled)="choosingRolls.set(false)" />
+        @if (!canOperate()) {
+          <!-- Hidden, not refused: a viewer is not offered what the database would deny (decision of the owner, 2026-10-08). -->
+          <p class="muted note">{{ readOnlyText }}</p>
+        } @else if (closing()) {
+          <app-print-job-close [job]="job()" (closed)="onClosed($event)" (cancelled)="closing.set(false)" (refused)="onRefused($event)" />
+        } @else if (choosingRolls() && job().status === 'planned') {
+          <app-print-job-start [job]="job()" (started)="onStarted()" (cancelled)="choosingRolls.set(false)" (refused)="onRefused($event)" />
         } @else {
           <div class="row">
             @if (job().status === 'planned') {
@@ -136,10 +148,11 @@ import { plannedCounts, type PartCount } from './produccion.outputs';
     .bar span.late { background: var(--warn); }
     .small { font-size: 0.8rem; margin: 0.25rem 0 0; }
     header { display: flex; align-items: center; flex-wrap: wrap; gap: 0.5rem; }
-    header strong { flex: 1; min-width: 8rem; }
+    /* A name typed without spaces must wrap inside the card, not stretch the page (T3-13). */
+    header strong { flex: 1; min-width: 8rem; overflow-wrap: anywhere; }
     p { margin: 0.25rem 0; }
-    .meta { font-size: 0.82rem; }
-    .note { font-size: 0.82rem; }
+    .meta { font-size: 0.82rem; overflow-wrap: anywhere; }
+    .note { font-size: 0.82rem; overflow-wrap: anywhere; white-space: pre-line; }
     .fail { color: var(--danger); font-size: 0.85rem; }
     .late-text { color: var(--warn); }
     .spools { list-style: none; margin: 0.4rem 0 0.6rem; padding: 0; font-size: 0.85rem; display: grid; gap: 0.15rem; }
@@ -151,6 +164,9 @@ import { plannedCounts, type PartCount } from './produccion.outputs';
 export class PrintJobCard {
   private readonly data = inject(ProduccionData);
   private readonly plan = inject(PlanService);
+  /** Iniciar and Cerrar are the day to day of an owner or an operator, never of a viewer. */
+  protected readonly canOperate = inject(ProductionAccess).canOperate;
+  protected readonly readOnlyText = 'Solo el dueño y los operadores pueden iniciar y cerrar impresiones.';
   /** A part with no photo of its own shows the plate that prints it. */
   protected readonly borrowedPhoto = borrowedPhoto;
 
@@ -158,6 +174,11 @@ export class PrintJobCard {
   readonly showOrder = input(true);
   /** The job changed in the database; the parent should reload. */
   readonly changed = output<CloseOutcome | null>();
+  /**
+   * The database refused a start or a close. `changed` follows it, so every
+   * page reloads; the queue also says what happened if the job left its place.
+   */
+  readonly refused = output<JobRefusal>();
 
   protected readonly tone = JOB_STATUS_TONE;
   protected readonly statusLabel = JOB_STATUS_LABEL;
@@ -214,6 +235,8 @@ export class PrintJobCard {
   }
 
   protected async start(): Promise<void> {
+    // Before any await: a second click in the same gesture must not start twice.
+    if (this.busy() || !this.canOperate()) return;
     if (this.job().filaments.length === 0) {
       this.choosingRolls.set(true);
       return;
@@ -225,10 +248,22 @@ export class PrintJobCard {
       this.plan.invalidate();
       this.changed.emit(null);
     } catch (error) {
-      this.error.set(explainError(error, 'No pudimos iniciar la impresión. Inténtalo de nuevo.'));
+      const message = explainProductionError(error, 'No pudimos iniciar la impresión. Inténtalo de nuevo.');
+      this.error.set(message);
+      this.onRefused(message);
     } finally {
       this.busy.set(false);
     }
+  }
+
+  /**
+   * After a refusal this tab is stale: the job may have started or closed
+   * elsewhere. The parent reloads, so the card shows what is true now.
+   */
+  protected onRefused(message: string): void {
+    this.refused.emit({ jobId: this.job().id, status: this.job().status, message });
+    this.plan.invalidate();
+    this.changed.emit(null);
   }
 
   protected onStarted(): void {

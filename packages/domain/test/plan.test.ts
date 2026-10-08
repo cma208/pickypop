@@ -905,6 +905,80 @@ describe('plan: a plate that never fits the window', () => {
   });
 });
 
+describe('plan: a queued job is named as its card names it (T3-12)', () => {
+  it('a loose job that never fits is called by its name, not by its printer', () => {
+    const result = plan(
+      workshop({
+        jobs: [job('j1', { label: 'Prueba T3 💀', estimatedSeconds: 19 * 3600 })],
+      }),
+    );
+    expect(result.warnings).toEqual([
+      'El trabajo "Prueba T3 💀" dura 19 h y no cabe en el horario (06:00 a 24:00): se programa igual a las 06:00.',
+    ]);
+  });
+
+  it('a job with no name at all is not named after the printer either', () => {
+    const result = plan(workshop({ jobs: [job('j1', { estimatedSeconds: 19 * 3600 })] }));
+    expect(result.warnings).toEqual([
+      'El trabajo "Impresión sin nombre" dura 19 h y no cabe en el horario (06:00 a 24:00): se programa igual a las 06:00.',
+    ]);
+    expect(result.warnings.join(' ')).not.toContain('A1 mini');
+  });
+
+  it('the name wins over the parts it makes, like on its card', () => {
+    const result = plan(
+      workshop({
+        jobs: [
+          job('j1', {
+            status: 'printing',
+            label: 'Botellas 3/3',
+            startedAt: lima('2026-10-06 16:00'),
+            outputs: [{ itemId: BOTTLE, units: 1 }],
+          }),
+        ],
+      }),
+    );
+    expect(result.warnings).toEqual([
+      '"Botellas 3/3" pasó su tiempo estimado: ¿terminó? Ciérrala para que el plan lo sepa.',
+    ]);
+  });
+
+  it('a blank name falls back to the parts', () => {
+    const result = plan(
+      workshop({
+        items: potionShelf(0, 0, 9),
+        jobs: [
+          job('j1', {
+            status: 'printing',
+            label: '   ',
+            startedAt: lima('2026-10-06 16:00'),
+            outputs: [{ itemId: BOTTLE, units: 1 }],
+          }),
+        ],
+      }),
+    );
+    expect(result.warnings[0]).toMatch(/^"Botella impresa" pasó su tiempo estimado/);
+  });
+});
+
+describe('plan: a loose job holds the grams of its rolls (T3-10)', () => {
+  it('its filament is queued, not free, though it has no plate', () => {
+    const result = plan(
+      workshop({
+        filaments: [{ skuId: SKU_PINK, label: 'PLA rosado', onHandGrams: 1000 }],
+        jobs: [
+          job('j1', {
+            label: 'Prueba suelta',
+            outputs: [],
+            filaments: [{ skuId: SKU_PINK, label: 'PLA rosado', grams: 2000 }],
+          }),
+        ],
+      }),
+    );
+    expect(result.filaments[0]).toMatchObject({ queuedGrams: 2000 });
+  });
+});
+
 describe('plan: if a plate fails', () => {
   const fourBottles = (failureRate: number) =>
     workshop({
