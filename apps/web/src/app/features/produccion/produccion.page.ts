@@ -7,7 +7,7 @@ import { AsyncState, Card, Empty, FORMAT_PIPES, Page } from '../../ui';
 import { explainError } from '../pedidos/pedidos.errors';
 import { PorLanzarCard } from './por-lanzar-card';
 import type { QueuedRuns } from './proposal-queue-form';
-import { PrintJobCard } from './print-job-card';
+import { PrintJobCard, type JobRefusal } from './print-job-card';
 import { PrintJobForm } from './print-job-form';
 import { ProduccionData, type CloseOutcome, type JobItem } from './produccion.data';
 import { queueLanes } from './produccion.queue';
@@ -34,6 +34,14 @@ const PAST_ESTIMATE = /pasó su tiempo estimado/;
               @for (warning of warnings(); track warning) { <li>{{ warning }}</li> }
             </ul>
           </section>
+        }
+
+        @if (refusal(); as message) {
+          <!-- The job a stale tab tried to start or close is no longer where it was: the queue says so, now reloaded. -->
+          <p class="alert refusal" role="alert">
+            <span>{{ message }}</span>
+            <button type="button" class="ghost" (click)="refusal.set(null)">Entendido</button>
+          </p>
         }
 
         @if (effects(); as result) {
@@ -81,7 +89,7 @@ const PAST_ESTIMATE = /pasó su tiempo estimado/;
             <h2>Imprimiendo <span class="muted">({{ printing().length }})</span></h2>
             <div class="jobs">
               @for (job of printing(); track job.id) {
-                <app-print-job-card [job]="job" (changed)="onChanged($event)" />
+                <app-print-job-card [job]="job" (changed)="onChanged($event)" (refused)="onRefused($event)" />
               }
             </div>
           </section>
@@ -101,7 +109,7 @@ const PAST_ESTIMATE = /pasó su tiempo estimado/;
                     @if (startOf(job.id); as start) {
                       <p class="when muted">Empezaría {{ start }}</p>
                     }
-                    <app-print-job-card [job]="job" (changed)="onChanged($event)" />
+                    <app-print-job-card [job]="job" (changed)="onChanged($event)" (refused)="onRefused($event)" />
                   </div>
                 </li>
               }
@@ -119,7 +127,8 @@ const PAST_ESTIMATE = /pasó su tiempo estimado/;
   `,
   styles: `
     :host ::ng-deep pp-card { margin-bottom: 1rem; }
-    .warnings ul { margin: 0.35rem 0 0; padding-left: 1.2rem; }
+    .warnings ul { margin: 0.35rem 0 0; padding-left: 1.2rem; overflow-wrap: anywhere; }
+    .refusal { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; overflow-wrap: anywhere; }
     .group { margin-top: 1.5rem; }
     h2 { font-size: 1rem; margin: 0 0 0.6rem; }
     h2 .muted { font-weight: 400; }
@@ -159,6 +168,10 @@ export class ProduccionPage {
   protected readonly effects = signal<CloseOutcome | null>(null);
   /** «Pusiste N corridas…», until the queue moves for another reason. */
   protected readonly queuedNotice = signal<QueuedRuns | null>(null);
+  /** What the database said when it refused a stale start or close whose job then left its place. */
+  protected readonly refusal = signal<string | null>(null);
+  /** A refusal waiting for the reload that follows it. */
+  private pendingRefusal: JobRefusal | null = null;
 
   protected readonly printing = computed(() => this.jobs().filter((job) => job.status === 'printing'));
 
@@ -217,6 +230,15 @@ export class ProduccionPage {
     this.reload();
   }
 
+  /**
+   * The card already shows the refusal while the job is still where it was.
+   * If the reload moves it (started elsewhere, closed elsewhere), the card it
+   * was on is gone, so the page says it.
+   */
+  protected onRefused(refusal: JobRefusal): void {
+    this.pendingRefusal = refusal;
+  }
+
   /** Something moved the queue: the plan is computed again from a new snapshot. */
   protected reload(): void {
     this.plan.invalidate();
@@ -229,6 +251,7 @@ export class ProduccionPage {
       const [jobs, view, printers] = await Promise.all([this.data.jobs(), this.plan.current(), this.data.printers()]);
       this.jobs.set(jobs);
       this.view.set(view);
+      this.explainRefusal(jobs);
       this.printersRegistered.set(printers.length > 0);
       this.error.set(null);
       void this.loadPictures(view);
@@ -237,6 +260,14 @@ export class ProduccionPage {
     } finally {
       this.loading.set(false);
     }
+  }
+
+  private explainRefusal(jobs: readonly JobItem[]): void {
+    const pending = this.pendingRefusal;
+    if (!pending) return;
+    this.pendingRefusal = null;
+    const now = jobs.find((job) => job.id === pending.jobId);
+    if (!now || now.status !== pending.status) this.refusal.set(pending.message);
   }
 
   /** Pictures and colours only dress the proposals: if they fail, the rows still read. */

@@ -5,13 +5,14 @@ import { spoolLabel } from '../../core/spool-label';
 import { explainError } from '../pedidos/pedidos.errors';
 import { ProduccionData, type JobItem, type SpoolOption } from './produccion.data';
 import { rowsForPlate, suggestSpool, type SpoolStatus } from './produccion.spools';
+import { hundredths } from './job-grams';
 
 const STATUS_LABEL: Record<SpoolStatus, string> = { in_use: 'en uso', open: 'abierto', sealed: 'sellado' };
 
 function createRollRow(spoolId = '', estimatedG = 0, slot: number | null = null) {
   return new FormGroup({
     spoolId: new FormControl(spoolId, { nonNullable: true, validators: [Validators.required] }),
-    estimatedG: new FormControl(estimatedG, { nonNullable: true, validators: [Validators.required, Validators.min(0)] }),
+    estimatedG: new FormControl(estimatedG, { nonNullable: true, validators: [Validators.required, Validators.min(0), hundredths] }),
     slot: new FormControl<number | null>(slot),
   });
 }
@@ -40,7 +41,7 @@ function createRollRow(spoolId = '', estimatedG = 0, slot: number | null = null)
                 }
               </select>
             </pp-field>
-            <pp-field label="Gramos estimados">
+            <pp-field label="Gramos estimados" [error]="gramsError(i)">
               <input type="number" inputmode="decimal" min="0" step="0.01" formControlName="estimatedG" />
             </pp-field>
             <button type="button" class="ghost" (click)="rows.removeAt(i)" [attr.aria-label]="'Quitar el rollo ' + (i + 1)">Quitar</button>
@@ -72,6 +73,8 @@ export class PrintJobStart implements OnInit {
   readonly job = input.required<JobItem>();
   readonly started = output<void>();
   readonly cancelled = output<void>();
+  /** The database refused the start, with what it said: the job is not what this tab believed. */
+  readonly refused = output<string>();
 
   protected readonly statusLabel = STATUS_LABEL;
   protected readonly spoolLabel = spoolLabel;
@@ -96,6 +99,11 @@ export class PrintJobStart implements OnInit {
     return control.invalid && (control.touched || this.submitted()) ? 'Elige el rollo.' : null;
   }
 
+  protected gramsError(index: number): string | null {
+    const control = this.rows.at(index).controls.estimatedG;
+    return control.invalid && (control.touched || this.submitted()) ? 'Escribe los gramos, cero o más, con hasta dos decimales.' : null;
+  }
+
   /** A warning, never a block: the scale knows better than the estimate. */
   protected shortage(index: number): string | null {
     const { spoolId, estimatedG } = this.rows.at(index).getRawValue();
@@ -105,6 +113,8 @@ export class PrintJobStart implements OnInit {
   }
 
   protected async start(): Promise<void> {
+    // Before any await: a second click in the same gesture must not start twice.
+    if (this.busy()) return;
     this.submitted.set(true);
     this.error.set(null);
     this.form.markAllAsTouched();
@@ -121,10 +131,12 @@ export class PrintJobStart implements OnInit {
 
     this.busy.set(true);
     try {
-      await this.data.startWithRolls(this.job().id, rolls);
+      await this.data.startJob(this.job().id, rolls);
       this.started.emit();
     } catch (error) {
-      this.error.set(explainError(error, 'No pudimos iniciar la impresión. Inténtalo de nuevo.'));
+      const message = explainError(error, 'No pudimos iniciar la impresión. Inténtalo de nuevo.');
+      this.error.set(message);
+      this.refused.emit(message);
     } finally {
       this.busy.set(false);
     }

@@ -563,7 +563,8 @@ begin
     raise exception 'No encontramos este trabajo: puede que ya no esté en la cola. Recarga la página.';
   end if;
   if v_job.status in ('success', 'failed', 'cancelled') then
-    raise exception 'Esta impresión ya estaba cerrada.';
+    raise exception 'Este trabajo ya se cerró como «%», en otra pestaña o desde otro equipo. Recarga la cola para ver cómo quedó.',
+      app.print_job_status_label(v_job.status);
   end if;
   if p_result = 'failed' and p_failure_cause is null then
     raise exception 'Una impresión fallida necesita su causa.';

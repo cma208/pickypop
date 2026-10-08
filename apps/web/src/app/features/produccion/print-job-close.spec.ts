@@ -114,3 +114,135 @@ describe('PrintJobClose, cancelling a job nobody started', () => {
     expect(closeJob.mock.calls[0]![1]).toMatchObject({ result: 'cancelled', actualTimeS: 600, percentComplete: 40 });
   });
 });
+
+/** The mould of the third pass: started, PETG, 95.91 g estimated, a plate of 7 caps. */
+const PRINTING: JobItem = {
+  ...PLANNED,
+  id: 'job-2',
+  status: 'printing',
+  label: 'Molde',
+  startedAt: '2026-10-07T15:00:00Z',
+  plateId: 'plate-1',
+  plateLabel: 'Tapas',
+  plateOutputs: [{ inventoryItemId: 'cap', name: 'Tapa de calavera', imagePath: null, unitsPerRun: 7 }],
+  filaments: [
+    {
+      id: 'f-1',
+      spoolId: 'petg-negro',
+      spoolCode: 'NEGRO-01',
+      materialCode: 'PETG',
+      colorName: 'Negro',
+      colorHex: '#000000',
+      slot: 1,
+      estimatedG: 95.91,
+      actualG: null,
+    },
+  ],
+};
+
+const gramsField = (fixture: ComponentFixture<PrintJobClose>) =>
+  el(fixture).querySelector<HTMLInputElement>('input[formcontrolname=actualG]');
+
+describe('PrintJobClose, a print that stopped halfway (T3-05, T3-08)', () => {
+  it('proposes no time nor grams for a failed print until it says how far it got', () => {
+    const { fixture } = open(PRINTING);
+    expect(gramsField(fixture)!.value).toBe('95.91');
+
+    choose(fixture, 'Fallida');
+    expect(minutesField(fixture)!.value).toBe('');
+    expect(gramsField(fixture)!.value).toBe('');
+
+    write(fixture, 'percentComplete', '20');
+    expect(minutesField(fixture)!.value).toBe('4');
+    expect(gramsField(fixture)!.value).toBe('19.18');
+  });
+
+  it('leaves alone what the person typed when the percentage changes', () => {
+    const { fixture } = open(PRINTING);
+    choose(fixture, 'Fallida');
+    write(fixture, 'actualMinutes', '7');
+    write(fixture, 'percentComplete', '50');
+    expect(minutesField(fixture)!.value).toBe('7');
+  });
+
+  it('a cancelled print that ran discounts the filament it spent', async () => {
+    const { fixture, closeJob } = open(PRINTING);
+    choose(fixture, 'Cancelada');
+    write(fixture, 'actualMinutes', '30');
+    write(fixture, 'percentComplete', '15');
+
+    const summary = await reviewAndConfirm(fixture);
+
+    expect(summary).toContain('con 30 min de máquina y luz');
+    expect(summary).toContain('Se registrarán como merma 14.39 g de 1 rollo');
+    expect(closeJob.mock.calls[0]![1]).toMatchObject({
+      result: 'cancelled',
+      actualTimeS: 1800,
+      usage: [{ spoolId: 'petg-negro', actualG: 14.39 }],
+    });
+  });
+
+  it('a cancelled print without a time spent no filament', () => {
+    const { fixture, closeJob } = open(PRINTING);
+    choose(fixture, 'Cancelada');
+    write(fixture, 'actualG', '15');
+
+    button(fixture, 'Revisar y cerrar').click();
+    fixture.detectChanges();
+
+    expect(text(fixture)).toContain('Sin tiempo no gastó filamento');
+    expect(el(fixture).querySelector('.confirm')).toBeNull();
+    expect(closeJob).not.toHaveBeenCalled();
+  });
+});
+
+describe('PrintJobClose, what the database keeps (T3-04, T3-18)', () => {
+  it('refuses 6.5 caps', () => {
+    const { fixture, closeJob } = open(PRINTING);
+    const caps = el(fixture).querySelector<HTMLInputElement>('app-print-job-outputs input')!;
+    caps.value = '6.5';
+    caps.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+
+    button(fixture, 'Revisar y cerrar').click();
+    fixture.detectChanges();
+
+    expect(text(fixture)).toContain('en número entero de 0 a 7');
+    expect(closeJob).not.toHaveBeenCalled();
+  });
+
+  it('refuses grams with more than two decimals', () => {
+    const { fixture } = open(PRINTING);
+    write(fixture, 'actualG', '50.126');
+    button(fixture, 'Revisar y cerrar').click();
+    fixture.detectChanges();
+    expect(text(fixture)).toContain('con hasta dos decimales');
+  });
+});
+
+describe('PrintJobClose, double clicks and stale tabs (T3-11, T3-16)', () => {
+  it('closes once however fast «Sí, cerrar impresión» is pressed twice', async () => {
+    const { fixture, closeJob } = open(PRINTING);
+    button(fixture, 'Revisar y cerrar').click();
+    fixture.detectChanges();
+    const confirm = button(fixture, 'Sí, cerrar impresión');
+    confirm.click();
+    confirm.click();
+    await fixture.whenStable();
+    expect(closeJob).toHaveBeenCalledOnce();
+  });
+
+  it('says what the database said and asks the page to reload', async () => {
+    const message = 'Este trabajo ya se cerró como «Exitoso», en otra pestaña o desde otro equipo. Recarga la cola para ver cómo quedó.';
+    const { fixture, closeJob } = open(PRINTING);
+    closeJob.mockRejectedValueOnce({ code: 'P0001', message });
+    const refused = vi.fn();
+    fixture.componentInstance.refused.subscribe(refused);
+
+    await reviewAndConfirm(fixture);
+    fixture.detectChanges();
+
+    expect(refused).toHaveBeenCalledWith(message);
+    expect(text(fixture)).toContain('ya se cerró como «Exitoso»');
+  });
+});
