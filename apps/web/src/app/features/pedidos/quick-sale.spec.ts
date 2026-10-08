@@ -175,7 +175,8 @@ describe('saleProblem', () => {
       'La cantidad de «Canastita — Rosada» tiene que ser un número entero mayor que cero.',
     );
     expect(check({ lines: [line({ unitPrice: null })] })).toBe('Escribe el precio de «Canastita — Rosada».');
-    expect(check({ lines: [line({ unitPrice: -1 })] })).toBe('Escribe el precio de «Canastita — Rosada».');
+    // A price that is there and negative is not told to write one (T4-21).
+    expect(check({ lines: [line({ unitPrice: -1 })] })).toBe('El precio de «Canastita — Rosada» no puede ser negativo.');
   });
 
   it('waits for the ladder’s price for that quantity, not for a cost', () => {

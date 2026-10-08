@@ -1,4 +1,5 @@
 import { inject, Injectable } from '@angular/core';
+import { UserFacingError } from '../../core/friendly-error';
 import { SUPABASE } from '../../core/supabase';
 import { fetchAll } from '../../core/fetch-all';
 import { CurrentWorkspace } from '../../core/workspace';
@@ -71,7 +72,7 @@ export class ClientesData {
       fetchAll((from, to) =>
         this.supabase
           .from('customers')
-          .select('id, kind, name, doc_type, doc_number, phone, email, note, active')
+          .select('id, kind, name, doc_type, doc_number, phone, email, note, active, walk_in')
           .order('name')
           .range(from, to),
       ),
@@ -96,6 +97,7 @@ export class ClientesData {
       email: row.email,
       note: row.note,
       active: row.active,
+      walkIn: row.walk_in,
       orderCount: counts.get(row.id) ?? 0,
     }));
   }
@@ -177,12 +179,35 @@ export class ClientesData {
       active: draft.active,
     };
 
-    const { error } = customerId
-      ? await this.supabase.from('customers').update(values).eq('id', customerId)
+    const { data, error } = customerId
+      ? await this.supabase.from('customers').update(values).eq('id', customerId).select('id')
       : await this.supabase
           .from('customers')
-          .insert({ ...values, workspace_id: await this.workspace.requireId() });
+          .insert({ ...values, workspace_id: await this.workspace.requireId() })
+          .select('id');
 
     if (error) throw error;
+    // An update the access rules leave without rows comes back without an
+    // error: saying «guardado» then would be saying what did not happen.
+    if (data.length === 0) {
+      throw new UserFacingError('No se guardó: ese cliente ya no existe o no tienes permiso para cambiarlo. Recarga la lista.');
+    }
+  }
+
+  /**
+   * A customer with just a name and a phone, created without leaving a sale
+   * or a quote. The kind and the document keep the database's defaults; the
+   * rest is filled in Clientes when an invoice needs it. A name the database
+   * refuses (the walk-in customer's) comes with its own sentence.
+   */
+  async createQuick(name: string, phone: string | null): Promise<{ id: string; name: string }> {
+    const { data, error } = await this.supabase
+      .from('customers')
+      .insert({ workspace_id: await this.workspace.requireId(), name: name.trim(), phone })
+      .select('id, name')
+      .single();
+    if (error?.code === 'P0001') throw new UserFacingError(error.message);
+    if (error) throw error;
+    return data;
   }
 }

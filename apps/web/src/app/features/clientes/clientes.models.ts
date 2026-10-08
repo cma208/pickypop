@@ -14,6 +14,8 @@ export interface CustomerRecord {
   email: string | null;
   note: string | null;
   active: boolean;
+  /** «Clientes varios»: the walk-in customer, whose name nobody else can take. */
+  walkIn: boolean;
   orderCount: number;
 }
 
