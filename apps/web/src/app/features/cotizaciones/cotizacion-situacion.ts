@@ -7,6 +7,12 @@ import { Promesa } from '../cotizador/promesa';
 import { readyLine, readyPhrase, saleBuyText } from '../cotizador/promise-text';
 import { quoteSituation, type QuoteSituation } from './quote-situation';
 
+/** A moment after the hold ends, so the database already sees it ended. */
+const EXPIRY_MARGIN_MS = 2_000;
+/** What setTimeout can wait (about 24 days). A hold that far away is read again on the next visit. */
+const MAX_TIMEOUT_MS = 2_147_483_647;
+const STALE_AFTER_MS = 60_000;
+
 /**
  * "¿Para cuándo?" on the quote itself. Sent with its hold running, it is a
  * demand of the plan and says its situation from its place in the line,
@@ -81,6 +87,18 @@ export class CotizacionSituacion {
       const open = this.open();
       this.planner.version();
       untracked(() => (open ? void this.load(quote) : this.situation.set(null)));
+    });
+
+    // When the hold ends, the plan is read again: the card «Separo» already
+    // said «venció» while this one still said «Separa…» until a reload (T4-18).
+    effect((onCleanup) => {
+      const until = this.quote().holdUntil;
+      if (!until || !this.situation()?.held) return;
+      const wait = Date.parse(until) - Date.now();
+      // Long past and still held means the plan says otherwise: asking again would only loop.
+      if (wait > MAX_TIMEOUT_MS - EXPIRY_MARGIN_MS || wait < -STALE_AFTER_MS) return;
+      const timer = setTimeout(() => this.planner.invalidate(), Math.max(0, wait) + EXPIRY_MARGIN_MS);
+      onCleanup(() => clearTimeout(timer));
     });
   }
 

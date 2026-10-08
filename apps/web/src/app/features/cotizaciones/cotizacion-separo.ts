@@ -112,6 +112,8 @@ export class CotizacionSeparo {
 
   /** The new end, once the database accepted it. */
   readonly changed = output<{ heldAt: string | null; holdUntil: string | null }>();
+  /** The database refused: the quote may have changed elsewhere; the page shows why and reads it again. */
+  readonly stale = output<string>();
 
   protected readonly editing = signal<Editing>(null);
   /** The value of the date and hour field, as "YYYY-MM-DDTHH:mm" in Lima. */
@@ -164,6 +166,7 @@ export class CotizacionSeparo {
   }
 
   private async write(until: string | null): Promise<void> {
+    if (this.busy()) return;
     this.busy.set(true);
     this.error.set(null);
     try {
@@ -172,7 +175,9 @@ export class CotizacionSeparo {
       this.now.set(new Date());
       this.editing.set(null);
     } catch (cause) {
-      this.error.set(cause instanceof DataError ? cause.message : 'No pudimos cambiar el separo.');
+      // Said by the page, over the quote it reads again: this card may be gone by then.
+      this.editing.set(null);
+      this.stale.emit(cause instanceof DataError ? cause.message : 'No pudimos cambiar el separo.');
     } finally {
       this.busy.set(false);
     }
