@@ -285,6 +285,34 @@ insert into public.workspace_members (workspace_id, user_id, role, display_name,
 values ('00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-0000000000aa',
         'owner', 'Carlos (local)', 15.00);
 
+-- A second local account that is a member but not the owner, to check that
+-- what only the owner may do is refused by the database, not just hidden.
+insert into auth.users (
+  instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
+  raw_app_meta_data, raw_user_meta_data, created_at, updated_at,
+  confirmation_token, recovery_token, email_change, email_change_token_new,
+  email_change_token_current, phone_change, phone_change_token, reauthentication_token
+) values (
+  '00000000-0000-0000-0000-000000000000',
+  '00000000-0000-4000-8000-0000000000ab',
+  'authenticated', 'authenticated', 'operador@pickypop.test',
+  extensions.crypt('pickypop123', extensions.gen_salt('bf')), now(),
+  '{"provider":"email","providers":["email"]}'::jsonb, '{}'::jsonb, now(), now(),
+  '', '', '', '', '', '', '', ''
+);
+
+insert into auth.identities (
+  id, user_id, provider_id, identity_data, provider, last_sign_in_at, created_at, updated_at
+) values (
+  gen_random_uuid(), '00000000-0000-4000-8000-0000000000ab', '00000000-0000-4000-8000-0000000000ab',
+  '{"sub":"00000000-0000-4000-8000-0000000000ab","email":"operador@pickypop.test"}'::jsonb,
+  'email', now(), now(), now()
+);
+
+insert into public.workspace_members (workspace_id, user_id, role, display_name)
+values ('00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-0000000000ab',
+        'operator', 'Operador (local)');
+
 insert into public.sales_channels (workspace_id, name, commission_rate) values
   ('00000000-0000-4000-8000-000000000001', 'Directo', 0),
   ('00000000-0000-4000-8000-000000000001', 'Instagram', 0);
