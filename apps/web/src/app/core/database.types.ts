@@ -462,13 +462,13 @@ isOneToOne: false
                   ]
                 },"order_deliveries": {
                   Row: {
-                    "created_at": string,"created_by": string | null,"delivered_at": string,"id": string,"note": string | null,"order_id": string,"workspace_id": string
+                    "created_at": string,"created_by": string | null,"delivered_at": string,"delivery_key": string | null,"id": string,"note": string | null,"order_id": string,"workspace_id": string
                   }
                   Insert: {
-                    "created_at"?: string,"created_by"?: string | null,"delivered_at"?: string,"id"?: string,"note"?: string | null,"order_id": string,"workspace_id": string
+                    "created_at"?: string,"created_by"?: string | null,"delivered_at"?: string,"delivery_key"?: string | null,"id"?: string,"note"?: string | null,"order_id": string,"workspace_id": string
                   }
                   Update: {
-                    "created_at"?: string,"created_by"?: string | null,"delivered_at"?: string,"id"?: string,"note"?: string | null,"order_id"?: string,"workspace_id"?: string
+                    "created_at"?: string,"created_by"?: string | null,"delivered_at"?: string,"delivery_key"?: string | null,"id"?: string,"note"?: string | null,"order_id"?: string,"workspace_id"?: string
                   }
                   Relationships: [
                     {
@@ -2659,10 +2659,11 @@ isOneToOne: false
 { Args: { "p_workspace_id": string }; Returns: string
                            },
 "deliver_order":
-{ Args: { "p_delivered_at"?: string,"p_lines"?: Json,"p_note"?: string,"p_order_id": string }; Returns: {
+{ Args: { "p_delivered_at"?: string,"p_delivery_key"?: string,"p_lines"?: Json,"p_note"?: string,"p_order_id": string }; Returns: {
               "created_at": string,
 "created_by": string | null,
 "delivered_at": string,
+"delivery_key": string | null,
 "id": string,
 "note": string | null,
 "order_id": string,

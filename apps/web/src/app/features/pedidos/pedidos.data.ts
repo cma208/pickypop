@@ -303,16 +303,33 @@ export class PedidosData {
    * Delivers through the database rule, which takes the things off the shelf,
    * records their cost and marks the order delivered once nothing is left. Its
    * refusals say what is missing and how much, so they travel as they are.
+   * `key` names this delivery: sent twice (a double click, an answer the
+   * browser sent again on its own) it is recorded once.
    */
-  async deliver(delivery: NewDelivery): Promise<void> {
+  async deliver(delivery: NewDelivery, key: string): Promise<void> {
     const { error } = await this.supabase.rpc('deliver_order', {
       p_order_id: delivery.orderId,
       p_lines: delivery.lines,
       p_delivered_at: delivery.deliveredAt ?? undefined,
       p_note: delivery.note ?? undefined,
+      p_delivery_key: key,
     });
     if (error?.code === RAISED_BY_DATABASE) throw new UserFacingError(error.message);
     if (error) throw error;
+  }
+
+  /**
+   * Whether the delivery sent with this key was recorded: the answer to
+   * «¿salió?» when the connection dropped before the reply arrived.
+   */
+  async deliveryRecorded(key: string): Promise<boolean> {
+    const { data, error } = await this.supabase
+      .from('order_deliveries')
+      .select('id')
+      .eq('delivery_key', key)
+      .maybeSingle();
+    if (error) throw error;
+    return data !== null;
   }
 
   /** Estimated against real, as computed by the database. */
@@ -394,6 +411,20 @@ export class PedidosData {
     });
     if (error?.code === RAISED_BY_DATABASE) throw new UserFacingError(error.message);
     if (error) throw error;
+  }
+
+  /**
+   * Whether the payment sent with this key was recorded: the answer to
+   * «¿quedó registrado?» when the connection dropped before the reply arrived.
+   */
+  async paymentRecorded(key: string): Promise<boolean> {
+    const { data, error } = await this.supabase
+      .from('order_payment_keys')
+      .select('transaction_id')
+      .eq('payment_key', key)
+      .maybeSingle();
+    if (error) throw error;
+    return data !== null;
   }
 
   /**

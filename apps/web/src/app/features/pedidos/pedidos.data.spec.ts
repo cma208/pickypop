@@ -149,29 +149,36 @@ describe('PedidosData.deliver', () => {
     const data = dataWith(async () => ({ error: { code: 'P0001', message: SHORTAGE } }));
 
     const failure = await data
-      .deliver({ orderId: 'order-1', lines: [{ order_line_id: 'line-1', quantity: 2 }], deliveredAt: null, note: null })
+      .deliver({ orderId: 'order-1', lines: [{ order_line_id: 'line-1', quantity: 2 }], deliveredAt: null, note: null }, 'key-1')
       .catch((error: unknown) => error);
 
     expect(failure).toBeInstanceOf(UserFacingError);
     expect(friendlyError(failure, 'generic')).toBe(SHORTAGE);
   });
 
-  it('sends the lines as given and leaves the date and note to the database when empty', async () => {
+  it('sends the lines as given with the key, and leaves the date and note to the database when empty', async () => {
     const calls: { name: string; args: Record<string, unknown> }[] = [];
     const data = dataWith(async (name, args) => {
       calls.push({ name, args });
       return { error: null };
     });
 
-    await data.deliver({
-      orderId: 'order-1',
-      lines: [{ order_line_id: 'line-1', quantity: 2 }],
-      deliveredAt: null,
-      note: null,
-    });
+    await data.deliver(
+      {
+        orderId: 'order-1',
+        lines: [{ order_line_id: 'line-1', quantity: 2 }],
+        deliveredAt: null,
+        note: null,
+      },
+      'key-1',
+    );
 
     expect(calls[0]!.name).toBe('deliver_order');
-    expect(calls[0]!.args).toMatchObject({ p_order_id: 'order-1', p_lines: [{ order_line_id: 'line-1', quantity: 2 }] });
+    expect(calls[0]!.args).toMatchObject({
+      p_order_id: 'order-1',
+      p_lines: [{ order_line_id: 'line-1', quantity: 2 }],
+      p_delivery_key: 'key-1',
+    });
     expect(calls[0]!.args['p_delivered_at']).toBeUndefined();
     expect(calls[0]!.args['p_note']).toBeUndefined();
   });
@@ -216,5 +223,37 @@ describe('PedidosData.cancelOrder', () => {
 
     expect(failure).toBeInstanceOf(UserFacingError);
     expect(friendlyError(failure, 'generic')).toBe(PRINTING);
+  });
+});
+
+describe('PedidosData asks by key whether a write was recorded', () => {
+  function dataReading(found: unknown): { data: PedidosData; asked: string[] } {
+    const asked: string[] = [];
+    const chain = {
+      select: (columns: string) => (asked.push(`select ${columns}`), chain),
+      eq: (column: string, value: string) => (asked.push(`${column}=${value}`), chain),
+      maybeSingle: async () => ({ data: found, error: null }),
+    };
+    TestBed.configureTestingModule({
+      providers: [
+        { provide: SUPABASE, useValue: { from: (table: string) => (asked.push(table), chain) } },
+        { provide: CurrentWorkspace, useValue: { requireId: async () => 'ws-1' } },
+      ],
+    });
+    return { data: TestBed.inject(PedidosData), asked };
+  }
+
+  it('finds a payment by the key it was sent with', async () => {
+    const { data, asked } = dataReading({ transaction_id: 'tx-1' });
+
+    expect(await data.paymentRecorded('key-1')).toBe(true);
+    expect(asked).toEqual(['order_payment_keys', 'select transaction_id', 'payment_key=key-1']);
+  });
+
+  it('finds a delivery by the key it was sent with, and says when there is none', async () => {
+    const { data, asked } = dataReading(null);
+
+    expect(await data.deliveryRecorded('key-2')).toBe(false);
+    expect(asked).toEqual(['order_deliveries', 'select id', 'delivery_key=key-2']);
   });
 });
