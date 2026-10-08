@@ -8,6 +8,7 @@ import {
   repeatedVariantMessage,
   sameName,
   variantUsageText,
+  deactivationWarning,
 } from './catalogo.util';
 
 describe('comparableName and sameName', () => {
@@ -62,6 +63,34 @@ describe('variantUsageText (T2-01)', () => {
 
   it('says nothing of a variant nothing uses', () => {
     expect(variantUsageText({ quotes: 0, orders: 0, shelf: 0 })).toBeNull();
+  });
+});
+
+describe('deactivationWarning', () => {
+  it('says nothing when nothing is pending', () => {
+    expect(deactivationWarning({ openOrders: 0, onHand: 0 })).toBeNull();
+  });
+
+  it('says that its orders not delivered yet could not be assembled', () => {
+    expect(deactivationWarning({ openOrders: 5, onHand: 0 })).toBe(
+      'Tiene 5 pedidos sin entregar. Desactivada, deja de aparecer en Armar y en el conteo del estante: ' +
+        'esos pedidos no se podrán armar hasta que la vuelvas a activar. Mejor desactívala cuando se entreguen.',
+    );
+  });
+
+  it('says that its units on the shelf could not be counted', () => {
+    expect(deactivationWarning({ openOrders: 0, onHand: 1 })).toBe(
+      'Queda 1 unidad armada en el estante. Desactivada, deja de aparecer en Armar y en el conteo del estante: ' +
+        'esa unidad no se podrá contar hasta que la vuelvas a activar.',
+    );
+  });
+
+  it('says both at once', () => {
+    expect(deactivationWarning({ openOrders: 1, onHand: 3 })).toBe(
+      'Tiene 1 pedido sin entregar y quedan 3 unidades armadas en el estante. Desactivada, deja de aparecer en ' +
+        'Armar y en el conteo del estante: ese pedido no se podrá armar y esas unidades no se podrán contar hasta ' +
+        'que la vuelvas a activar. Mejor desactívala cuando se entregue.',
+    );
   });
 });
 

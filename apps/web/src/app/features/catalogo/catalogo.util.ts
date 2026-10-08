@@ -156,11 +156,42 @@ export function repeatedVariantMessage(name: string, siblings: readonly { id: st
  * make the database refuse to delete it, so the screen says why before the
  * person tries (T2-01).
  */
-export function variantUsageText(usage: VariantUsage): string | null {
+export function variantUsageText(usage: Pick<VariantUsage, 'quotes' | 'orders' | 'shelf'>): string | null {
   const places = [
     usage.quotes > 0 ? `en ${countOf(usage.quotes, 'cotización', 'cotizaciones')}` : null,
     usage.orders > 0 ? `en ${countOf(usage.orders, 'pedido', 'pedidos')}` : null,
     usage.shelf > 0 ? 'en el inventario como producto armado' : null,
   ].filter((place): place is string => place !== null);
   return places.length === 0 ? null : `Está ${joinWithAnd(places)}.`;
+}
+
+/**
+ * What switching a variant off does to what is still pending, or null when
+ * nothing is. A switched-off variant leaves Armar and the shelf count, so its
+ * orders not delivered yet could not be assembled and its units on the shelf
+ * could not be counted, while the screen said it changed nothing for what
+ * was sold.
+ */
+export function deactivationWarning(usage: Pick<VariantUsage, 'openOrders' | 'onHand'>): string | null {
+  const { openOrders, onHand } = usage;
+  if (openOrders <= 0 && onHand <= 0) return null;
+
+  const pending = [
+    openOrders > 0 ? `tiene ${countOf(openOrders, 'pedido', 'pedidos')} sin entregar` : null,
+    onHand > 0 ? `${onHand === 1 ? 'queda' : 'quedan'} ${countOf(onHand, 'unidad armada', 'unidades armadas')} en el estante` : null,
+  ].filter((part): part is string => part !== null);
+  const blocked = [
+    openOrders > 0 ? (openOrders === 1 ? 'ese pedido no se podrá armar' : 'esos pedidos no se podrán armar') : null,
+    onHand > 0 ? (onHand === 1 ? 'esa unidad no se podrá contar' : 'esas unidades no se podrán contar') : null,
+  ].filter((part): part is string => part !== null);
+  const advice = openOrders > 0 ? ` Mejor desactívala cuando ${openOrders === 1 ? 'se entregue' : 'se entreguen'}.` : '';
+
+  return (
+    `${capitalize(joinWithAnd(pending))}. Desactivada, deja de aparecer en Armar y en el conteo del estante: ` +
+    `${joinWithAnd(blocked)} hasta que la vuelvas a activar.${advice}`
+  );
+}
+
+function capitalize(text: string): string {
+  return text.charAt(0).toUpperCase() + text.slice(1);
 }

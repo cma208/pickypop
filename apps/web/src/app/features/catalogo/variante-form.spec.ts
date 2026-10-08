@@ -46,6 +46,16 @@ async function open(options: { usage: VariantUsage; owner?: boolean; data?: obje
   return { fixture, data };
 }
 
+/** Where the variant is used; nothing pending unless said. */
+const usage = (quotes: number, orders: number, shelf: number, pending: Partial<VariantUsage> = {}): VariantUsage => ({
+  quotes,
+  orders,
+  shelf,
+  openOrders: 0,
+  onHand: 0,
+  ...pending,
+});
+
 const text = (element: Element | null) => (element?.textContent ?? '').replace(/\s+/g, ' ').trim();
 
 function button(fixture: ComponentFixture<VarianteForm>, label: string): HTMLButtonElement | null {
@@ -58,7 +68,7 @@ function button(fixture: ComponentFixture<VarianteForm>, label: string): HTMLBut
 
 describe('VarianteForm, a variant that a quote or an order uses (T2-01)', () => {
   it('does not offer to delete it: it says where it is used and offers to switch it off', async () => {
-    const { fixture } = await open({ usage: { quotes: 1, orders: 2, shelf: 0 } });
+    const { fixture } = await open({ usage: usage(1, 2, 0) });
 
     expect(button(fixture, 'Eliminar variante')).toBeNull();
     expect(button(fixture, 'Desactivar variante')).not.toBeNull();
@@ -66,22 +76,74 @@ describe('VarianteForm, a variant that a quote or an order uses (T2-01)', () => 
   });
 
   it('switches it off instead', async () => {
-    const { fixture, data } = await open({ usage: { quotes: 1, orders: 0, shelf: 0 } });
+    const { fixture, data } = await open({ usage: usage(1, 0, 0) });
 
     button(fixture, 'Desactivar variante')!.click();
     await vi.waitFor(() => expect(data.setVariantActive).toHaveBeenCalledWith('variant-1', false));
   });
 });
 
+describe('VarianteForm, switching off a variant with orders still to deliver', () => {
+  const pending = () => usage(0, 6, 1, { openOrders: 5, onHand: 2 });
+
+  it('says before what it leaves stuck in Armar and in the shelf count', async () => {
+    const { fixture } = await open({ usage: pending() });
+
+    expect(text(fixture.nativeElement)).toContain(
+      'Tiene 5 pedidos sin entregar y quedan 2 unidades armadas en el estante. Desactivada, deja de aparecer en Armar',
+    );
+    expect(text(fixture.nativeElement)).not.toContain('Tiene 0');
+  });
+
+  it('asks before switching it off, and does nothing if the answer is no', async () => {
+    const { fixture, data } = await open({ usage: pending() });
+    const ask = vi.spyOn(window, 'confirm').mockReturnValue(false);
+
+    button(fixture, 'Desactivar variante')!.click();
+    await fixture.whenStable();
+
+    expect(ask).toHaveBeenCalledWith(expect.stringContaining('esos pedidos no se podrán armar'));
+    expect(data.setVariantActive).not.toHaveBeenCalled();
+    ask.mockRestore();
+  });
+
+  it('asks too when the box «Variante activa» is unticked and saved', async () => {
+    const { fixture, data } = await open({ usage: pending() });
+    const ask = vi.spyOn(window, 'confirm').mockReturnValue(false);
+
+    const box: HTMLInputElement = fixture.nativeElement.querySelector('input[formcontrolname="active"]');
+    box.click();
+    fixture.detectChanges();
+    expect(text(fixture.nativeElement.querySelector('label.check + p.notice'))).toContain('Tiene 5 pedidos sin entregar');
+
+    fixture.nativeElement.querySelector('button[type="submit"]').click();
+    await fixture.whenStable();
+
+    expect(ask).toHaveBeenCalled();
+    expect(data.updateVariant).not.toHaveBeenCalled();
+    ask.mockRestore();
+  });
+
+  it('switches off without asking a variant with nothing pending', async () => {
+    const { fixture, data } = await open({ usage: usage(1, 1, 0) });
+    const ask = vi.spyOn(window, 'confirm');
+
+    button(fixture, 'Desactivar variante')!.click();
+    await vi.waitFor(() => expect(data.setVariantActive).toHaveBeenCalledWith('variant-1', false));
+    expect(ask).not.toHaveBeenCalled();
+    ask.mockRestore();
+  });
+});
+
 describe('VarianteForm, a variant nothing uses', () => {
   it('offers the owner to delete it', async () => {
-    const { fixture } = await open({ usage: { quotes: 0, orders: 0, shelf: 0 } });
+    const { fixture } = await open({ usage: usage(0, 0, 0) });
 
     expect(button(fixture, 'Eliminar variante')).not.toBeNull();
   });
 
   it('tells the operator that only the owner deletes a variant (T2-10)', async () => {
-    const { fixture } = await open({ usage: { quotes: 0, orders: 0, shelf: 0 }, owner: false });
+    const { fixture } = await open({ usage: usage(0, 0, 0), owner: false });
 
     expect(button(fixture, 'Eliminar variante')).toBeNull();
     expect(text(fixture.nativeElement)).toContain('Solo el dueño puede eliminar una variante.');
@@ -96,7 +158,7 @@ describe('VarianteForm, what cannot be saved', () => {
   }
 
   it('says a name of spaces is no name, and a sibling with the same name is taken (T2-19, T2-15)', async () => {
-    const { fixture, data } = await open({ usage: { quotes: 0, orders: 0, shelf: 0 } });
+    const { fixture, data } = await open({ usage: usage(0, 0, 0) });
 
     setValue(fixture, 'input[formcontrolname="name"]', '   ');
     fixture.nativeElement.querySelector('button[type="submit"]').click();
@@ -110,7 +172,7 @@ describe('VarianteForm, what cannot be saved', () => {
   });
 
   it('refuses a list price of zero or with more than two decimals (T2-08, T2-17)', async () => {
-    const { fixture, data } = await open({ usage: { quotes: 0, orders: 0, shelf: 0 } });
+    const { fixture, data } = await open({ usage: usage(0, 0, 0) });
 
     setValue(fixture, 'input[formcontrolname="listPrice"]', '0');
     fixture.nativeElement.querySelector('button[type="submit"]').click();

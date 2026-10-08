@@ -5,7 +5,15 @@ import { CatalogoData } from './catalogo.data';
 import type { Variant, VariantUsage } from './catalogo.models';
 import { CatalogoPermissions, OWNER_ONLY } from './catalogo.permissions';
 import { SHARED_STYLES } from './catalogo.styles';
-import { blankToNull, messageOf, pairArray, readPairs, repeatedVariantMessage, variantUsageText } from './catalogo.util';
+import {
+  blankToNull,
+  deactivationWarning,
+  messageOf,
+  pairArray,
+  readPairs,
+  repeatedVariantMessage,
+  variantUsageText,
+} from './catalogo.util';
 import { DECIMALS, decimalsText, fieldError, LIMITS, limitText, maxDecimals, requiredText, wholeNumber } from './catalogo.validators';
 import { PairsEditor } from './pairs-editor';
 
@@ -77,6 +85,9 @@ const MINIMUM_MESSAGES: Record<string, string> = {
           <input type="checkbox" formControlName="active" />
           Variante activa (se puede vender)
         </label>
+        @if (variant()?.active && !form.controls.active.value && deactivationNote(); as note) {
+          <p class="notice" role="status">{{ note }}</p>
+        }
 
         <p class="muted hint">Opciones que distinguen a esta variante: color, tamaño, relleno…</p>
         <app-pairs-editor
@@ -124,6 +135,9 @@ const MINIMUM_MESSAGES: Record<string, string> = {
             {{ variant()!.active ? 'Desactívala para que no se ofrezca más:' : 'Ya está desactivada:' }}
             lo que ya se cotizó o se vendió conserva su producto.
           </p>
+          @if (variant()!.active && deactivationNote(); as note) {
+            <p class="notice">{{ note }}</p>
+          }
         }
       </form>
     </pp-card>
@@ -158,6 +172,11 @@ export class VarianteForm {
   protected readonly usageText = computed(() => {
     const usage = this.usage();
     return usage ? variantUsageText(usage) : null;
+  });
+  /** What switching it off leaves stuck: orders still to deliver, units on the shelf. */
+  protected readonly deactivationNote = computed(() => {
+    const usage = this.usage();
+    return usage ? deactivationWarning(usage) : null;
   });
 
   protected readonly form = new FormGroup({
@@ -253,6 +272,7 @@ export class VarianteForm {
     if (this.form.invalid) return;
 
     const value = this.form.getRawValue();
+    if (this.variant()?.active && !value.active && !this.sureToDeactivate()) return;
     const input = {
       name: value.name,
       skuCode: blankToNull(value.skuCode),
@@ -337,6 +357,7 @@ export class VarianteForm {
   protected async deactivate(): Promise<void> {
     const current = this.variant();
     if (!current || this.busy()) return;
+    if (!this.sureToDeactivate()) return;
 
     this.busy.set(true);
     this.error.set(null);
@@ -349,6 +370,15 @@ export class VarianteForm {
     } finally {
       this.busy.set(false);
     }
+  }
+
+  /**
+   * Asks before switching off a variant that still has orders to deliver or
+   * units on the shelf; one with nothing pending goes without a question.
+   */
+  private sureToDeactivate(): boolean {
+    const note = this.deactivationNote();
+    return !note || confirm(`¿Desactivar la variante «${this.variant()?.name ?? ''}»?\n\n${note}`);
   }
 
   private async loadUsage(id: string): Promise<void> {

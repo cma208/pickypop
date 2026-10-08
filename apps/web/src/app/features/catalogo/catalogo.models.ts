@@ -90,6 +90,10 @@ export interface VariantUsage {
   orders: number;
   /** Inventory articles that are its assembled product. */
   shelf: number;
+  /** Of `orders`, the ones not delivered, closed or cancelled yet. */
+  openOrders: number;
+  /** Assembled units of it on the shelf. */
+  onHand: number;
 }
 
 export interface RecipeFilament {
