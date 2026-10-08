@@ -101,8 +101,8 @@ function notInTheFuture(control: AbstractControl): ValidationErrors | null {
   imports: [ReactiveFormsModule, Card, Field, ItemPicker, QuickAdd, PurchasePreview, PaymentCategoryNote, FORMAT_PIPES],
   template: `
     <form [formGroup]="form" (ngSubmit)="askConfirmation()" novalidate class="stack">
-      <!-- Locked while nobody knows whether the purchase went in: see uncertain. -->
-      <fieldset class="contents" [disabled]="!!uncertain()">
+      <!-- Locked while it is on its way and while nobody knows whether it went in: see locked. -->
+      <fieldset class="contents" [disabled]="locked()">
       <pp-card heading="Datos de la compra">
         <div class="form-grid">
           <div>
@@ -474,6 +474,13 @@ export class CompraForm {
   protected readonly uncertain = signal<string | null>(null);
 
   /**
+   * The form says what was sent until the answer settles it. Edited while
+   * «Guardando…», it would get a new key, and the retry a lost answer asks for
+   * would register a second purchase.
+   */
+  protected readonly locked = computed(() => this.busy() || this.uncertain() !== null);
+
+  /**
    * Names this purchase for the database, which makes it once however many
    * times it is asked: a double click, or an answer lost on the way back. A
    * change to the form is another purchase, with a key of its own.
@@ -481,7 +488,10 @@ export class CompraForm {
   private purchaseKey = crypto.randomUUID();
 
   constructor() {
-    this.form.valueChanges.pipe(takeUntilDestroyed()).subscribe(() => (this.purchaseKey = crypto.randomUUID()));
+    this.form.valueChanges.pipe(takeUntilDestroyed()).subscribe(() => {
+      // A change that slips in while it is locked is not the person's: the key stays with what was sent.
+      if (!this.locked()) this.purchaseKey = crypto.randomUUID();
+    });
     // After a refusal the lists reload. An account closed or a filament
     // switched off in another tab is gone from them: the form lets go of it
     // and asks again, instead of showing nothing chosen, saying «Queda por
@@ -499,8 +509,8 @@ export class CompraForm {
     skus: ReadonlyMap<string, SkuSummary>,
     items: ReadonlyMap<string, InventoryItemSummary>,
   ): void {
-    // While nobody knows whether it went in, the purchase stays as it was sent.
-    if (this.uncertain()) return;
+    // On its way, or while nobody knows whether it went in, the purchase stays as it was sent.
+    if (this.locked()) return;
     const paidFrom = this.form.controls.paidFrom;
     if (paidFrom.value !== '' && paidFrom.value !== NOT_PAID && !accounts.some((account) => account.id === paidFrom.value)) {
       paidFrom.setValue('');

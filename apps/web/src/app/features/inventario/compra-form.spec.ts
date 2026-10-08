@@ -55,13 +55,20 @@ interface Control {
 }
 
 interface Internals {
-  form: { controls: Record<'paidFrom', Control> };
+  form: { controls: Record<'paidFrom' | 'note', Control> };
   lines: { at(index: number): { controls: Record<'target' | 'quantity' | 'unitPrice', Control> } };
   askConfirmation(): void;
   save(): Promise<void>;
 }
 
-function open(answers: Array<object | null>) {
+/** An answer that arrives when the test says so: the request is on its way until then. */
+function later(): { answer: Promise<object | null>; arrive(value: object | null): void } {
+  let arrive: (value: object | null) => void = () => undefined;
+  const answer = new Promise<object | null>((resolve) => (arrive = resolve));
+  return { answer, arrive };
+}
+
+function open(answers: Array<object | null | Promise<object | null>>) {
   const calls: Array<[PurchaseDraft, string]> = [];
   TestBed.configureTestingModule({
     providers: [
@@ -74,7 +81,7 @@ function open(answers: Array<object | null>) {
         useValue: {
           registerPurchase: async (draft: PurchaseDraft, key: string) => {
             calls.push([draft, key]);
-            const answer = answers.shift() ?? null;
+            const answer = await (answers.shift() ?? null);
             if (answer) throw answer;
             return REGISTERED;
           },
@@ -162,5 +169,24 @@ describe('CompraForm', () => {
     expect(raw.paidFrom).toBe('');
     expect(raw.lines[0]?.target).toBe('');
     expect(text(fixture)).toContain('Elige desde qué cuenta la pagaste');
+  });
+
+  it('locks the form while the purchase is on its way, and a change that slips in keeps the key (review)', async () => {
+    const lost = later();
+    const { fixture, calls, outcome, internals } = open([lost.answer, null]);
+
+    const saving = internals.save();
+    fixture.detectChanges();
+    expect((fixture.nativeElement as HTMLElement).querySelector('fieldset')?.disabled).toBe(true);
+    // What the locked fieldset stops a person from doing, done anyway.
+    internals.form.controls.note.setValue('Corregida en vuelo');
+    lost.arrive(LOST);
+    await saving;
+    fixture.detectChanges();
+    await confirm(fixture, internals);
+
+    expect(calls.length).toBe(2);
+    expect(calls[1]?.[1]).toBe(calls[0]?.[1]);
+    expect(outcome.saved).toBe(1);
   });
 });

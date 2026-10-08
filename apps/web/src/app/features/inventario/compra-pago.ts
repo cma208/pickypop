@@ -34,6 +34,8 @@ const MONEY = new Intl.NumberFormat('es-PE', { minimumFractionDigits: 2, maximum
       :host { display: block; }
       .box { padding: 0.9rem 1rem; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
       h4 { margin: 0 0 0.6rem; font-size: 0.9rem; }
+      /* Only there to lock what it holds: the grid keeps the form's spacing. */
+      fieldset.contents { display: contents; }
     `,
   ],
   template: `
@@ -42,6 +44,8 @@ const MONEY = new Intl.NumberFormat('es-PE', { minimumFractionDigits: 2, maximum
       @if (accounts().length === 0) {
         <p class="muted">No hay cuentas activas desde donde pagar. Crea una en Finanzas › Cuentas.</p>
       } @else {
+        <!-- Locked while it is on its way and while nobody knows whether it went in: see locked. -->
+        <fieldset class="contents" [disabled]="locked()">
         <div class="form-grid">
           <pp-field label="Desde qué cuenta" [required]="true" [error]="accountError()">
             <select formControlName="accountId">
@@ -66,11 +70,18 @@ const MONEY = new Intl.NumberFormat('es-PE', { minimumFractionDigits: 2, maximum
             </select>
           </pp-field>
         </div>
+        </fieldset>
         <app-payment-category-note kind="purchase" />
         @if (openingNotice(); as text) {
           <p class="alert-warn">{{ text }}</p>
         }
-        @if (error(); as message) {
+        @if (uncertain(); as reason) {
+          <p class="alert" role="alert">
+            <strong>No sabemos si el pago se registró.</strong> {{ reason }} Vuelve a pulsar «Registrar pago»: si ya
+            había entrado, no se registra dos veces. Mientras tanto el pago no se puede cambiar, porque cambiado sería
+            otro. Para empezar otro, pulsa «Ocultar» y vuelve a abrir el detalle.
+          </p>
+        } @else if (error(); as message) {
           <p class="alert" role="alert">{{ message }}</p>
         }
         <div class="form-actions">
@@ -103,6 +114,14 @@ export class CompraPago {
   protected readonly latestMoment = nowForInput();
   protected readonly saving = signal(false);
   protected readonly error = signal<string | null>(null);
+  /** Why there is no answer, when the payment may have gone in anyway. Cleared by the answer to a retry. */
+  protected readonly uncertain = signal<string | null>(null);
+  /**
+   * The form says what was sent until the answer settles it. Edited while
+   * «Registrando…», it would get a new key, and the retry a lost answer asks
+   * for would pay twice.
+   */
+  protected readonly locked = computed(() => this.saving() || this.uncertain() !== null);
 
   protected readonly form = new FormGroup({
     accountId: new FormControl(NO_ACCOUNT, { nonNullable: true, validators: [Validators.required] }),
@@ -180,13 +199,14 @@ export class CompraPago {
     this.form.valueChanges.pipe(takeUntilDestroyed()).subscribe(() => {
       // A retry after a lost answer has to go with the same key, or the
       // database cannot tell it is the same payment and writes it twice.
-      if (!this.suggesting) this.paymentKey = crypto.randomUUID();
+      // Neither is a change that slips in while it is locked.
+      if (!this.suggesting && !this.locked()) this.paymentKey = crypto.randomUUID();
     });
   }
 
   private suggest(pending: number): void {
     const amount = this.form.controls.amount;
-    if (amount.dirty) return;
+    if (amount.dirty || this.locked()) return;
     this.suggesting = true;
     try {
       amount.setValue(pending);
@@ -224,7 +244,9 @@ export class CompraPago {
     if (this.saving()) return;
     this.form.markAllAsTouched();
     this.error.set(null);
-    if (this.form.invalid || this.overPending()) return;
+    // A retry after a lost answer sends what was sent, and the database judges
+    // it: if it went in, the key returns it, even if the reload says less is owed now.
+    if (!this.uncertain() && (this.form.invalid || this.overPending())) return;
 
     const { accountId, amount, occurredAt, method } = this.form.getRawValue();
     this.saving.set(true);
@@ -239,16 +261,19 @@ export class CompraPago {
         },
         this.paymentKey,
       );
+      this.uncertain.set(null);
       this.paymentKey = crypto.randomUUID();
       // The next payment starts from what is still owed, not from this one.
       this.form.controls.amount.markAsPristine();
       this.paid.emit();
     } catch (error) {
-      this.error.set(
-        outcomeUnknown(error)
-          ? `No sabemos si el pago se registró: ${noAnswerReason(error)} Vuelve a pulsar «Registrar pago» sin cambiar nada: si ya había entrado, no se registra dos veces.`
-          : describeError(error, 'No pudimos registrar el pago. Inténtalo de nuevo.'),
-      );
+      if (outcomeUnknown(error)) {
+        this.uncertain.set(noAnswerReason(error));
+      } else {
+        // The database answered no: nothing was written, with this key or before.
+        this.uncertain.set(null);
+        this.error.set(describeError(error, 'No pudimos registrar el pago. Inténtalo de nuevo.'));
+      }
       this.refused.emit();
     } finally {
       this.saving.set(false);

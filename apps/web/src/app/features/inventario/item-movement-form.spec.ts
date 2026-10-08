@@ -16,7 +16,7 @@ const SWEETS: InventoryItemSummary = {
   belowMinimum: false,
 };
 
-function open(answers: Array<object | null>) {
+function open(answers: Array<object | null | Promise<object | null>>) {
   const calls: Array<[ItemMovementInput, string]> = [];
   TestBed.configureTestingModule({
     providers: [
@@ -25,7 +25,7 @@ function open(answers: Array<object | null>) {
         useValue: {
           recordItemMovement: async (input: ItemMovementInput, key: string) => {
             calls.push([input, key]);
-            const answer = answers.shift() ?? null;
+            const answer = await (answers.shift() ?? null);
             if (answer) throw answer;
             return { before: 1000, difference: 500, after: 1500 };
           },
@@ -36,9 +36,11 @@ function open(answers: Array<object | null>) {
   const fixture = TestBed.createComponent(ItemMovementForm);
   fixture.componentRef.setInput('item', SWEETS);
   const saved: string[] = [];
+  const refused = { count: 0 };
   fixture.componentInstance.saved.subscribe((text) => saved.push(text));
+  fixture.componentInstance.refused.subscribe(() => refused.count++);
   fixture.detectChanges();
-  return { fixture, calls, saved };
+  return { fixture, calls, saved, refused };
 }
 
 const el = (fixture: ComponentFixture<ItemMovementForm>) => fixture.nativeElement as HTMLElement;
@@ -82,5 +84,42 @@ describe('ItemMovementForm', () => {
     await submit(fixture);
 
     expect(calls[1]?.[1]).not.toBe(calls[0]?.[1]);
+  });
+
+  it('locks the movement while it is on its way: a quantity changed then does not get a new key (review)', async () => {
+    let lose: (error: object) => void = () => undefined;
+    const lost = new Promise<object | null>((resolve) => (lose = resolve));
+    const { fixture, calls, saved, refused } = open([lost, null]);
+    write(fixture, 500);
+
+    const sending = (fixture.componentInstance as unknown as { submit(): Promise<void> }).submit();
+    fixture.detectChanges();
+    expect(el(fixture).querySelector('fieldset')?.disabled).toBe(true);
+    // What the locked fieldset stops a person from doing, done anyway.
+    (fixture.componentInstance as unknown as { form: { controls: { amount: { setValue(v: number): void } } } }).form.controls.amount.setValue(400);
+    lose({ code: '', message: 'TypeError: Failed to fetch' });
+    await sending;
+    fixture.detectChanges();
+    expect(el(fixture).querySelector('fieldset')?.disabled).toBe(true);
+    expect(refused.count).toBe(1);
+
+    await submit(fixture);
+
+    expect(calls.length).toBe(2);
+    expect(calls[1]?.[1]).toBe(calls[0]?.[1]);
+    expect(saved.length).toBe(1);
+  });
+
+  it('asks the page to reload after a refusal, and takes the fresh stock it hands back', async () => {
+    const { fixture, refused } = open([{ code: 'P0001', message: 'No puedes sacar más de lo que hay (200 g).' }]);
+    write(fixture, 500);
+
+    await submit(fixture);
+    expect(refused.count).toBe(1);
+    expect(el(fixture).querySelector('fieldset')?.disabled).toBe(false);
+
+    fixture.componentRef.setInput('item', { ...SWEETS, onHand: 200 });
+    fixture.detectChanges();
+    expect(el(fixture).textContent).toContain('200 g');
   });
 });

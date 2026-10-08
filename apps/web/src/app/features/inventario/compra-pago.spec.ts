@@ -221,4 +221,51 @@ describe('CompraPago', () => {
 
     expect(amountOf(opened.fixture)).toBe(100);
   });
+
+  it('locks the payment while it is on its way: an amount changed then does not get a new key (review)', async () => {
+    let lose: () => void = () => undefined;
+    let first = true;
+    const opened = open(() => {
+      if (!first) return Promise.resolve();
+      first = false;
+      return new Promise<void>((_, reject) => (lose = () => reject({ code: '', message: 'TypeError: Failed to fetch' })));
+    });
+    form(opened.fixture).controls.accountId.setValue('cash');
+    typeAmount(opened.fixture, 10);
+
+    const sending = submit(opened.fixture);
+    opened.fixture.detectChanges();
+    expect((opened.fixture.nativeElement as HTMLElement).querySelector('fieldset')?.disabled).toBe(true);
+    // What the locked fieldset stops a person from doing, done anyway.
+    form(opened.fixture).controls.amount.setValue(20);
+    lose();
+    await sending;
+    opened.fixture.detectChanges();
+    expect(text(opened.fixture)).toContain('No sabemos si el pago se registró');
+    expect((opened.fixture.nativeElement as HTMLElement).querySelector('fieldset')?.disabled).toBe(true);
+
+    await submit(opened.fixture);
+
+    expect(opened.calls.length).toBe(2);
+    expect(opened.calls[1]?.[1]).toBe(opened.calls[0]?.[1]);
+    expect(opened.paid).toBe(1);
+  });
+
+  it('retries a payment whose answer was lost even if the reload says less is owed, and lets the database judge it', async () => {
+    let lose = true;
+    const opened = open(async () => {
+      if (lose) throw { code: '', message: 'TypeError: Failed to fetch' };
+    });
+    form(opened.fixture).controls.accountId.setValue('cash');
+    typeAmount(opened.fixture, 170);
+
+    await submit(opened.fixture);
+    // Another tab paid 50 meanwhile: 170 is now more than what is owed.
+    reload(opened.fixture, 120);
+    lose = false;
+    await submit(opened.fixture);
+
+    expect(opened.calls.length).toBe(2);
+    expect(opened.calls[1]?.[1]).toBe(opened.calls[0]?.[1]);
+  });
 });

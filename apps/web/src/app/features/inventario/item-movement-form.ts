@@ -38,6 +38,8 @@ const QUANTITY_PRECISION = 1000;
         Existencias actuales de <strong>{{ item().name }}</strong>: {{ onHandText() }}
       </p>
 
+      <!-- Locked while it is on its way and while nobody knows whether it went in: see locked. -->
+      <fieldset class="contents" [disabled]="locked()">
       <pp-field label="Qué quieres registrar" [required]="true">
         <select formControlName="mode">
           @for (entry of modes; track entry.value) {
@@ -67,6 +69,7 @@ const QUANTITY_PRECISION = 1000;
       <pp-field label="Nota" hint="Por qué se hace este movimiento">
         <input formControlName="note" autocomplete="off" />
       </pp-field>
+      </fieldset>
 
       <section aria-live="polite">
         @if (amountProblem(); as text) {
@@ -81,19 +84,31 @@ const QUANTITY_PRECISION = 1000;
         }
       </section>
 
-      @if (error(); as message) {
+      @if (uncertain(); as reason) {
+        <p class="alert" role="alert">
+          <strong>No sabemos si el movimiento se registró.</strong> {{ reason }} Vuelve a pulsar «Registrar
+          movimiento»: si ya había entrado, no se registra dos veces. Mientras tanto no se puede cambiar, porque
+          cambiado sería otro; para empezar otro, cancela y vuelve a abrirlo.
+        </p>
+      } @else if (error(); as message) {
         <p class="alert" role="alert">{{ message }}</p>
       }
 
       <div class="form-actions">
         <button type="button" class="secondary" (click)="cancelled.emit()">Cancelar</button>
-        <button type="submit" [disabled]="busy() || signed() === null || !!problem() || !!amountProblem()">
+        <button type="submit" [disabled]="busy() || (!uncertain() && (signed() === null || !!problem() || !!amountProblem()))">
           {{ busy() ? 'Guardando…' : 'Registrar movimiento' }}
         </button>
       </div>
     </form>
   `,
-  styles: [INVENTORY_STYLES],
+  styles: [
+    INVENTORY_STYLES,
+    `
+      /* Only there to lock what it holds: the fields keep the form's spacing. */
+      fieldset.contents { display: contents; }
+    `,
+  ],
 })
 export class ItemMovementForm {
   private readonly data = inject(InventarioData);
@@ -103,6 +118,12 @@ export class ItemMovementForm {
   /** What the movement did, said for the screen that owns the list. */
   readonly saved = output<string>();
   readonly cancelled = output<void>();
+  /**
+   * Refused, or no answer: what the dialog shows may be old (another tab moved
+   * the stock, or this very movement went in). The screen that owns the list
+   * reloads it and hands the fresh item back.
+   */
+  readonly refused = output<void>();
 
   protected readonly modes = (Object.keys(MODE_LABELS) as Mode[]).map((value) => ({
     value,
@@ -111,6 +132,14 @@ export class ItemMovementForm {
   protected readonly msg = invalidMessage;
   protected readonly busy = signal(false);
   protected readonly error = signal<string | null>(null);
+  /** Why there is no answer, when the movement may have gone in anyway. Cleared by the answer to a retry. */
+  protected readonly uncertain = signal<string | null>(null);
+  /**
+   * The form says what was sent until the answer settles it. Edited while
+   * «Guardando…», it would get a new key, and the retry a lost answer asks
+   * for would move the stock twice.
+   */
+  protected readonly locked = computed(() => this.busy() || this.uncertain() !== null);
 
   protected readonly form = this.fb.group({
     mode: ['in' as Mode],
@@ -130,7 +159,10 @@ export class ItemMovementForm {
   private requestKey = crypto.randomUUID();
 
   constructor() {
-    this.form.valueChanges.pipe(takeUntilDestroyed()).subscribe(() => (this.requestKey = crypto.randomUUID()));
+    this.form.valueChanges.pipe(takeUntilDestroyed()).subscribe(() => {
+      // A change that slips in while it is locked is not the person's: the key stays with what was sent.
+      if (!this.locked()) this.requestKey = crypto.randomUUID();
+    });
   }
 
   /** The movement quantity with its sign, or null while the form is incomplete or changes nothing. */
@@ -191,7 +223,9 @@ export class ItemMovementForm {
     if (this.busy()) return;
     this.form.markAllAsTouched();
     const { mode, reason, amount, note } = this.form.getRawValue();
-    if (this.signed() === null || this.problem() || this.amountProblem() || amount === null) return;
+    if (amount === null) return;
+    // A retry after a lost answer sends what was sent, and the database judges it.
+    if (!this.uncertain() && (this.signed() === null || this.problem() || this.amountProblem())) return;
 
     this.busy.set(true);
     this.error.set(null);
@@ -206,14 +240,18 @@ export class ItemMovementForm {
         },
         this.requestKey,
       );
+      this.uncertain.set(null);
       this.requestKey = crypto.randomUUID();
       this.saved.emit(this.resultText(result));
     } catch (error) {
-      this.error.set(
-        outcomeUnknown(error)
-          ? `No sabemos si el movimiento se registró: ${noAnswerReason(error)} Vuelve a pulsar «Registrar movimiento» sin cambiar nada: si ya había entrado, no se registra dos veces.`
-          : describeError(error, 'No pudimos registrar el movimiento. Inténtalo de nuevo.'),
-      );
+      if (outcomeUnknown(error)) {
+        this.uncertain.set(noAnswerReason(error));
+      } else {
+        // The database answered no: nothing was written, with this key or before.
+        this.uncertain.set(null);
+        this.error.set(describeError(error, 'No pudimos registrar el movimiento. Inténtalo de nuevo.'));
+      }
+      this.refused.emit();
     } finally {
       this.busy.set(false);
     }
