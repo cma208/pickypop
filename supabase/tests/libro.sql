@@ -29,7 +29,8 @@
 -- * Un taller entero que se borra se lleva su libro.
 -- * El atraso se cuenta con el día del taller (T4-11).
 --
--- Los rechazos de la base escritos para una persona son P0001. Editar o borrar
+-- Los rechazos de la base escritos para una persona son P0001, y los que
+-- niegan por el rol, 42501 con su frase (ADR-025). Editar o borrar
 -- un movimiento se espera como «error» a secas: según las políticas del área
 -- base lo frena el permiso de la tabla (42501) o, si no, el disparador (P0001).
 
@@ -211,9 +212,20 @@ select pg_temp.expect('Anular escribiendo en la tabla', 'operator',
 
 -- --------------------------------------------------------------- anular
 
+-- Negar por el rol es 42501 con su frase (ADR-025, punto 6): así la pantalla
+-- sabe que fue el rol, vuelve a leerlo y deja de ofrecer «Anular».
 select pg_temp.expect('Anular un movimiento', 'operator',
   $q$select public.void_transaction('00000000-11b0-4000-8000-000000000604', 'Me equivoqué')$q$,
-  'error:P0001:Solo el dueño del taller puede anular');
+  'error:42501:Solo el dueño del taller puede anular un movimiento de dinero.');
+-- Lo mismo el disparador, si alguna vez se llega a él sin el dueño: aquí,
+-- desde la consola con la sesión del operador, que pasa el permiso de la tabla.
+select pg_temp.expect('Anular escribiendo en la tabla, sin el permiso de por medio', 'operator',
+  $q$do $x$ begin
+    reset role;
+    update public.transactions set voided_at = now(), void_reason = 'x'
+    where id = '00000000-11b0-4000-8000-000000000604';
+  end $x$$q$,
+  'error:42501:Solo el dueño del taller puede anular un movimiento de dinero.');
 select pg_temp.expect('Anular sin motivo', 'owner',
   $q$select public.void_transaction('00000000-11b0-4000-8000-000000000604', '   ')$q$,
   'error:P0001:Escribe el motivo');
@@ -425,6 +437,14 @@ select pg_temp.expect('Desactivar la última categoría de ventas (T5-07)', 'own
 select pg_temp.expect('Desmarcar la última categoría de ventas', 'owner',
   $q$update public.transaction_categories set sales = false where id = '00000000-11b0-4000-8000-000000000211'$q$,
   'error:P0001:');
+-- La política ya no deja al operador cambiar una categoría; si se llega al
+-- disparador sin el dueño, niega por el rol, con 42501.
+select pg_temp.expect('Desmarcar una categoría de ventas sin ser el dueño', 'operator',
+  $q$do $x$ begin
+    reset role;
+    update public.transaction_categories set sales = false where id = '00000000-11b0-4000-8000-000000000211';
+  end $x$$q$,
+  'error:42501:Solo el dueño del taller puede desmarcar una categoría de ventas');
 select pg_temp.expect('Elegir una categoría de capital para los cobros', 'owner',
   $q$update public.workshop_settings set order_payment_category_id = '00000000-11b0-4000-8000-000000000214'
      where workspace_id = '00000000-11b0-4000-8000-000000000001'$q$,
