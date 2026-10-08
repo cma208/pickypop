@@ -1,7 +1,7 @@
 import { FormControl } from '@angular/forms';
 import { describe, expect, it } from 'vitest';
 import { nowForInput, todayLocal } from './dates';
-import { notInFuture, requiredText, wholeNumber } from './form-errors';
+import { maxDecimals, notInFuture, requiredText, wholeNumber } from './form-errors';
 
 describe('requiredText', () => {
   it('treats a name of only spaces as empty, like the database does', () => {
@@ -26,6 +26,20 @@ describe('notInFuture', () => {
     expect(notInFuture(new FormControl(nowForInput()))).toBeNull();
     expect(notInFuture(new FormControl('2026-01-01T08:00'))).toBeNull();
     expect(notInFuture(new FormControl(''))).toBeNull();
+  });
+});
+
+describe('maxDecimals', () => {
+  it('says so instead of letting the database round in silence', () => {
+    expect(maxDecimals(2)(new FormControl(15.00499999))).toEqual({ decimals: 2 });
+    expect(maxDecimals(2)(new FormControl(-50.129))).toEqual({ decimals: 2 });
+  });
+
+  it('accepts what the column keeps, floating point noise included', () => {
+    expect(maxDecimals(2)(new FormControl(0.07))).toBeNull();
+    expect(maxDecimals(2)(new FormControl(15))).toBeNull();
+    expect(maxDecimals(4)(new FormControl(0.7556))).toBeNull();
+    expect(maxDecimals(2)(new FormControl(null))).toBeNull();
   });
 });
 

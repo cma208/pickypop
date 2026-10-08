@@ -3,7 +3,7 @@ import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angula
 import { AsyncState, Badge, Card, Empty, Field, FORMAT_PIPES } from '../../ui';
 import { ConfiguracionData } from './configuracion.data';
 import type { ChannelRecord } from './configuracion.models';
-import { errorOf, requiredText } from '../../core/form-errors';
+import { errorOf, maxDecimals, requiredText } from '../../core/form-errors';
 import { friendlyError } from '../../core/friendly-error';
 import { SECTION_STYLES } from '../../core/styles';
 import { isOwnerRole } from '../../core/workspace';
@@ -142,6 +142,7 @@ export class ChannelsSection {
       Validators.required,
       Validators.min(0),
       Validators.max(MAX_PERCENT),
+      maxDecimals(2),
     ]),
     active: new FormControl(true, { nonNullable: true }),
   });
@@ -171,6 +172,7 @@ export class ChannelsSection {
       required: 'Indica la comisión (0 si no cobra).',
       min: 'La comisión no puede ser negativa.',
       max: 'La comisión debe ser menor que 100 %.',
+      decimals: 'Usa como mucho 2 decimales.',
     });
   }
 

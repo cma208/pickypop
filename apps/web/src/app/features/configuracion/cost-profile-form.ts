@@ -4,7 +4,7 @@ import { Field } from '../../ui';
 import type { CostProfileRecord, Valuation } from './configuracion.models';
 import { VALUATION_HELP, VALUATION_LABELS, VALUATIONS } from './configuracion.models';
 import { ConfiguracionData } from './configuracion.data';
-import { errorOf, textOrNull } from '../../core/form-errors';
+import { errorOf, maxDecimals, textOrNull } from '../../core/form-errors';
 import { friendlyError } from '../../core/friendly-error';
 import { SECTION_STYLES } from '../../core/styles';
 import { todayLocal } from '../../core/dates';
@@ -28,9 +28,9 @@ const MAX_MONEY = 9_999_999_999.99;
 /** numeric(12, 4), the electricity rate. */
 const MAX_RATE = 99_999_999.9999;
 
-const PERCENT_VALIDATORS = [Validators.required, Validators.min(0), Validators.max(MAX_PERCENT)];
-const MONEY_VALIDATORS = [Validators.required, Validators.min(0), Validators.max(MAX_MONEY)];
-const RATE_VALIDATORS = [Validators.required, Validators.min(0), Validators.max(MAX_RATE)];
+const PERCENT_VALIDATORS = [Validators.required, Validators.min(0), Validators.max(MAX_PERCENT), maxDecimals(2)];
+const MONEY_VALIDATORS = [Validators.required, Validators.min(0), Validators.max(MAX_MONEY), maxDecimals(2)];
+const RATE_VALIDATORS = [Validators.required, Validators.min(0), Validators.max(MAX_RATE), maxDecimals(4)];
 const PERCENT_CONTROLS = new Set(['materialWastePct', 'failurePct', 'marginPct', 'igvPct']);
 
 /**
@@ -189,6 +189,7 @@ export class CostProfileForm {
         required: 'Completa este valor.',
         min: name === 'validFrom' ? 'Elige una fecha válida.' : 'No puede ser negativo.',
         max: this.maxMessage(name),
+        decimals: name === 'energyRate' ? 'Usa como mucho 4 decimales.' : 'Usa como mucho 2 decimales.',
       }) ?? base
     );
   }

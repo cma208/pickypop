@@ -40,6 +40,23 @@ export function wholeNumber(control: AbstractControl): ValidationErrors | null {
   return Number.isInteger(Number(value)) ? null : { integer: true };
 }
 
+/** 0.07 × 100 is 7.000000000000001 in floating point, and is still two decimals. */
+const ROUNDING_SLACK = 1e-6;
+
+/**
+ * No more decimals than the column keeps. The database rounds the rest
+ * without a word: 15.00499999 became 15.00 and nobody was told (T1-18).
+ */
+export function maxDecimals(decimals: number) {
+  const scale = 10 ** decimals;
+  return (control: AbstractControl): ValidationErrors | null => {
+    const value: unknown = control.value;
+    if (value === null || value === undefined || value === '') return null;
+    const scaled = Number(value) * scale;
+    return Math.abs(Math.round(scaled) - scaled) > ROUNDING_SLACK ? { decimals } : null;
+  };
+}
+
 /** "2026-10-08" is ten characters; a datetime-local value is longer. */
 const DATE_ONLY_LENGTH = 10;
 

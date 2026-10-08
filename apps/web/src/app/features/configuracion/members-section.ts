@@ -10,7 +10,7 @@ import {
   type MemberRecord,
   type MemberRole,
 } from './configuracion.models';
-import { errorOf, requiredText, textOrNull } from '../../core/form-errors';
+import { errorOf, maxDecimals, requiredText, textOrNull } from '../../core/form-errors';
 import { friendlyError } from '../../core/friendly-error';
 import { SECTION_STYLES } from '../../core/styles';
 import { isOwnerRole } from '../../core/workspace';
@@ -122,7 +122,7 @@ export class MembersSection {
   protected readonly form = new FormGroup({
     displayName: new FormControl('', { nonNullable: true, validators: [requiredText] }),
     role: new FormControl<MemberRole>('operator', { nonNullable: true }),
-    rate: new FormControl<number | null>(null, [Validators.min(0), Validators.max(MAX_RATE)]),
+    rate: new FormControl<number | null>(null, [Validators.min(0), Validators.max(MAX_RATE), maxDecimals(2)]),
   });
 
   constructor() {
@@ -148,6 +148,7 @@ export class MembersSection {
     return errorOf(this.form.controls.rate, {
       min: 'La tarifa no puede ser negativa.',
       max: 'La tarifa no puede pasar de S/ 9,999,999,999.99 por hora.',
+      decimals: 'Usa como mucho 2 decimales.',
     });
   }
 

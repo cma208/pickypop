@@ -3,7 +3,7 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { map, startWith } from 'rxjs';
 import { Field, FORMAT_PIPES } from '../../ui';
-import { errorOf, requiredText, textOrNull } from '../../core/form-errors';
+import { errorOf, maxDecimals, requiredText, textOrNull } from '../../core/form-errors';
 import { friendlyError } from '../../core/friendly-error';
 import { SECTION_STYLES } from '../../core/styles';
 import { ImpresorasData } from './impresoras.data';
@@ -165,23 +165,41 @@ export class PrinterForm implements OnInit {
     name: new FormControl('', { nonNullable: true, validators: [requiredText] }),
     model: new FormControl('', { nonNullable: true }),
     status: new FormControl<PrinterState>('active', { nonNullable: true }),
-    initialHours: new FormControl<number | null>(0, [Validators.required, Validators.min(0), Validators.max(MAX_HOURS)]),
-    avgPowerW: new FormControl<number | null>(null, [Validators.required, Validators.min(0), Validators.max(MAX_POWER_W)]),
+    initialHours: new FormControl<number | null>(0, [
+      Validators.required,
+      Validators.min(0),
+      Validators.max(MAX_HOURS),
+      maxDecimals(2),
+    ]),
+    avgPowerW: new FormControl<number | null>(null, [
+      Validators.required,
+      Validators.min(0),
+      Validators.max(MAX_POWER_W),
+      maxDecimals(2),
+    ]),
     expectedHoursPerYear: new FormControl<number | null>(null, [
       Validators.required,
       Validators.min(0.01),
       Validators.max(MAX_HOURS_PER_YEAR),
+      maxDecimals(2),
     ]),
     maintenanceBudgetPerYear: new FormControl<number | null>(null, [
       Validators.required,
       Validators.min(0),
       Validators.max(MAX_MONEY),
+      maxDecimals(2),
     ]),
-    assetCost: new FormControl<number | null>(null, [Validators.required, Validators.min(0.01), Validators.max(MAX_MONEY)]),
+    assetCost: new FormControl<number | null>(null, [
+      Validators.required,
+      Validators.min(0.01),
+      Validators.max(MAX_MONEY),
+      maxDecimals(2),
+    ]),
     usefulLifeHours: new FormControl<number | null>(null, [
       Validators.required,
       Validators.min(0.01),
       Validators.max(MAX_HOURS),
+      maxDecimals(2),
     ]),
   });
 
@@ -231,6 +249,7 @@ export class PrinterForm implements OnInit {
       required: 'Indica las horas iniciales (0 si es nueva).',
       min: 'Las horas no pueden ser negativas.',
       max: 'No puede pasar de 99,999,999.99 horas.',
+      decimals: 'Usa como mucho 2 decimales.',
     });
   }
 
@@ -239,6 +258,7 @@ export class PrinterForm implements OnInit {
       required: 'Indica un valor (0 si no aplica).',
       min: 'No puede ser negativo.',
       max: control === 'avgPowerW' ? 'No puede pasar de 999,999.99 W.' : 'No puede pasar de S/ 9,999,999,999.99.',
+      decimals: 'Usa como mucho 2 decimales.',
     });
   }
 
@@ -250,6 +270,7 @@ export class PrinterForm implements OnInit {
       required: requiredMessage,
       min: 'Debe ser mayor que 0.',
       max: POSITIVE_MAX_MESSAGES[control],
+      decimals: 'Usa como mucho 2 decimales.',
     });
   }
 
