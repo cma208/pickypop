@@ -7,7 +7,9 @@ import { friendlyError } from '../../core/friendly-error';
 import { roundMoney } from '../../core/pricing';
 import { SECTION_STYLES } from '../../core/styles';
 import { Field, FORMAT_PIPES } from '../../ui';
-import { FinanzasData, isRefusal, type AccountSummary, type ReceivableRow } from './finanzas.data';
+import { refusedByDatabase } from '../pedidos/pedidos.errors';
+import { requestKey, type SentRequest } from '../pedidos/request-key';
+import { FinanzasData, isRefusal, type AccountSummary, type PaymentInput, type ReceivableRow } from './finanzas.data';
 import {
   collectionCategoriesFor,
   MAX_LEDGER_AMOUNT,
@@ -138,8 +140,12 @@ export class PaymentForm {
   /** What the database files the collection under when none is chosen. */
   protected readonly defaultCategoryName = signal<string | null>(null);
 
-  /** The same collection sent twice is recorded once (`record_payment`'s key). New when the form changes. */
-  private entryKey = crypto.randomUUID();
+  /**
+   * The last collection sent and its key (`record_payment`'s `p_key`). Sent
+   * again unchanged, after a double click or a lost answer, it keeps the key
+   * and the database records it once; anything changed is another collection.
+   */
+  private lastSent: SentRequest<PaymentInput> | null = null;
   /** The amount is being moved to the debt read again, not by the person: the refusal stays on screen. */
   private following = false;
 
@@ -224,53 +230,81 @@ export class PaymentForm {
 
     // The suggestion follows the debt, so the form already proposes what is
     // left to collect without anyone typing it. Read again after a refusal
-    // (another tab collected part of it), it proposes what is left now.
+    // (another tab collected part of it), it proposes what is left now. Only
+    // while the person has not typed an amount: putting the whole debt over
+    // the 5 they received would change the collection, and its key, without
+    // them noticing.
     effect(() => {
       const balance = this.balance();
       untracked(() => {
+        const amount = this.form.controls.amount;
+        if (amount.dirty) return;
         this.following = true;
-        this.form.controls.amount.setValue(balance);
+        amount.setValue(balance);
         this.following = false;
       });
     });
 
-    // Another collection once something changes, and the last error goes
-    // away when the person corrects what it was about.
+    // The last error goes away when the person corrects what it was about.
     this.form.valueChanges.pipe(takeUntilDestroyed()).subscribe(() => {
-      this.entryKey = crypto.randomUUID();
       if (!this.following) this.failure.set(null);
     });
   }
 
   protected async submit(): Promise<void> {
+    // First, before any await: a second click arrives before the button is
+    // drawn disabled, and it must not send the collection again.
     if (this.saving() || this.problem()) return;
 
     const value = this.values();
+    const payment: PaymentInput = {
+      orderId: this.receivable().orderId,
+      accountId: value.accountId,
+      amount: roundMoney(value.amount ?? 0),
+      paymentMethod: value.paymentMethod === '' ? null : value.paymentMethod,
+      occurredAt: inputToIso(value.occurredAt),
+      categoryId: textOrNull(value.categoryId),
+      reference: textOrNull(value.reference),
+      note: textOrNull(value.note),
+    };
+    // Taken before sending and kept for the whole send: a change typed
+    // meanwhile is the next collection, not this one.
+    this.lastSent = requestKey(this.lastSent, payment);
+    const { key } = this.lastSent;
     this.saving.set(true);
     this.failure.set(null);
     try {
-      await this.data.recordPayment(
-        {
-          orderId: this.receivable().orderId,
-          accountId: value.accountId,
-          amount: roundMoney(value.amount ?? 0),
-          paymentMethod: value.paymentMethod === '' ? null : value.paymentMethod,
-          occurredAt: inputToIso(value.occurredAt),
-          categoryId: textOrNull(value.categoryId),
-          reference: textOrNull(value.reference),
-          note: textOrNull(value.note),
-        },
-        this.entryKey,
-      );
-      this.saved.emit(`Cobro registrado en el pedido ${this.receivable().number}.`);
+      await this.data.recordPayment(payment, key);
     } catch (error) {
-      // `record_payment` writes its refusals in Spanish and with the amounts
-      // in them; friendlyError passes those through untouched.
-      const message = friendlyError(error, 'No pudimos registrar el cobro. Inténtalo de nuevo.');
-      this.failure.set(message);
-      if (isRefusal(error)) this.refused.emit(message);
+      // Saving stays on while it asks: a click meanwhile must not send it again.
+      if (!(await this.recordedAnyway(error, key))) {
+        this.failed(error);
+        return;
+      }
     } finally {
       this.saving.set(false);
     }
+
+    this.lastSent = null;
+    this.saved.emit(`Cobro registrado en el pedido ${this.receivable().number}.`);
+  }
+
+  /**
+   * A refusal says nothing was saved. A lost answer does not: the collection
+   * may be in the book already, and its key says so.
+   */
+  private async recordedAnyway(error: unknown, key: string): Promise<boolean> {
+    if (refusedByDatabase(error)) return false;
+    return this.data.entryRecorded(key).catch(() => false);
+  }
+
+  private failed(error: unknown): void {
+    // `record_payment` writes its refusals in Spanish and with the amounts
+    // in them; friendlyError passes those through untouched.
+    const message = refusedByDatabase(error)
+      ? friendlyError(error, 'No pudimos registrar el cobro. Inténtalo de nuevo.')
+      : `${friendlyError(error, 'No pudimos registrar el cobro.')} Vuelve a tocar «Registrar cobro» sin cambiar nada: si llegó a guardarse, no se cobra dos veces.`;
+    this.failure.set(message);
+    if (isRefusal(error)) this.refused.emit(message);
   }
 }

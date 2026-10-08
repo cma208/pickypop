@@ -538,6 +538,18 @@ export class FinanzasData {
     if (error) throw withRaisedMessage(error);
   }
 
+  /**
+   * Whether a movement sent with this key is in the book: the answer to
+   * «¿quedó registrado?» when the connection dropped before the reply came.
+   * The key travels into `transactions.entry_key`, from Caja and from
+   * `record_payment` alike.
+   */
+  async entryRecorded(key: string): Promise<boolean> {
+    const { data, error } = await this.supabase.from('transactions').select('id').eq('entry_key', key).maybeSingle();
+    if (error) throw error;
+    return data !== null;
+  }
+
   // ---------------------------------------------------------------- results
 
   async incomeStatement(): Promise<MonthResult[]> {
