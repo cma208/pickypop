@@ -14,7 +14,8 @@ import {
   repeatedVariantMessage,
   variantUsageText,
 } from './catalogo.util';
-import { DECIMALS, decimalsText, fieldError, LIMITS, limitText, maxDecimals, requiredText, wholeNumber } from './catalogo.validators';
+import { maxDecimals, requiredText, wholeNumber } from '../../core/form-errors';
+import { DECIMALS, decimalsText, fieldError, LIMITS, limitText } from './catalogo.validators';
 import { PairsEditor } from './pairs-editor';
 
 /** The smallest price that is not zero. */
@@ -28,7 +29,7 @@ const PRICE_MESSAGES: Record<string, string> = {
 
 const MINIMUM_MESSAGES: Record<string, string> = {
   min: 'Debe ser un entero desde 1.',
-  whole: 'Debe ser un entero desde 1.',
+  integer: 'Debe ser un entero desde 1.',
   max: `Hasta ${limitText(LIMITS.units)} unidades.`,
 };
 

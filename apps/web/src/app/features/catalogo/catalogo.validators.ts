@@ -1,4 +1,4 @@
-import type { AbstractControl, ValidationErrors, ValidatorFn } from '@angular/forms';
+import type { AbstractControl } from '@angular/forms';
 
 /**
  * How far each number of the catalogue may go. The columns hold much more,
@@ -26,7 +26,9 @@ export const LIMITS = {
 
 /**
  * Decimals each kind of number keeps in the database. More than that used to
- * be rounded without a word: 19.999 was saved as 20.00 (T2-17).
+ * be rounded without a word: 19.999 was saved as 20.00 (T2-17). The
+ * validators themselves are the shared ones (core/form-errors.ts):
+ * `requiredText`, `wholeNumber` (`integer`) and `maxDecimals` (`decimals`).
  */
 export const DECIMALS = {
   money: 2,
@@ -34,30 +36,6 @@ export const DECIMALS = {
   grams: 2,
   minutes: 2,
 } as const;
-
-function isEmpty(value: unknown): boolean {
-  return value === null || value === undefined || value === '';
-}
-
-/** Required text where only spaces count as nothing, as the database counts them (T2-19). */
-export const requiredText: ValidatorFn = (control: AbstractControl): ValidationErrors | null =>
-  typeof control.value === 'string' && control.value.trim() !== '' ? null : { required: true };
-
-/** Pieces and units are counted, never split. */
-export const wholeNumber: ValidatorFn = (control: AbstractControl): ValidationErrors | null =>
-  isEmpty(control.value) || Number.isInteger(Number(control.value)) ? null : { whole: true };
-
-/** No more decimals than the column keeps. */
-export function maxDecimals(decimals: number): ValidatorFn {
-  return (control: AbstractControl): ValidationErrors | null => {
-    if (isEmpty(control.value)) return null;
-    const scaled = Number(control.value) * 10 ** decimals;
-    // Floating point: 19.99 × 100 is 1998.9999999999998, which is still two decimals.
-    return Number.isFinite(scaled) && Math.abs(scaled - Math.round(scaled)) < 1e-6
-      ? null
-      : { decimals: { max: decimals } };
-  };
-}
 
 /** «hasta 2 decimales», with the number agreeing. */
 export function decimalsText(decimals: number): string {

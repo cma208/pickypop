@@ -5,7 +5,8 @@ import { CatalogoData } from './catalogo.data';
 import { CatalogoPermissions, OWNER_ONLY } from './catalogo.permissions';
 import { SHARED_STYLES } from './catalogo.styles';
 import { countOf, messageOf } from './catalogo.util';
-import { DECIMALS, decimalsText, fieldError, LIMITS, limitText, maxDecimals, wholeNumber } from './catalogo.validators';
+import { maxDecimals, wholeNumber } from '../../core/form-errors';
+import { DECIMALS, decimalsText, fieldError, LIMITS, limitText } from './catalogo.validators';
 import { VariantCostModel } from './variant-cost.model';
 
 /** The smallest price that is not zero. */
@@ -14,7 +15,7 @@ const ONE_CENT = 0.01;
 const QUANTITY_MESSAGES: Record<string, string> = {
   required: 'Desde: escribe desde cuántas unidades rige.',
   min: 'Desde: al menos 1 unidad.',
-  whole: 'Desde: un número entero de unidades.',
+  integer: 'Desde: un número entero de unidades.',
   max: `Desde: hasta ${limitText(LIMITS.units)} unidades.`,
 };
 

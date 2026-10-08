@@ -19,12 +19,11 @@ import {
   NonNullableFormBuilder,
   ReactiveFormsModule,
   Validators,
-  type AbstractControl,
-  type ValidationErrors,
 } from '@angular/forms';
 import { map } from 'rxjs';
 import { Card, Field, FORMAT_PIPES, ItemPicker, type PickerOption } from '../../ui';
-import { blankToNull, invalidMessage, maxDecimals } from './form-helpers';
+import { maxDecimals, notInFuture } from '../../core/form-errors';
+import { blankToNull, invalidMessage } from './form-helpers';
 import {
   InventarioData,
   type InventoryItemSummary,
@@ -86,10 +85,6 @@ function parseTarget(value: string): Target | null {
 
 function numberOrNull(value: number | null | undefined): number | null {
   return typeof value === 'number' && Number.isFinite(value) ? value : null;
-}
-
-function notInTheFuture(control: AbstractControl): ValidationErrors | null {
-  return typeof control.value === 'string' && control.value > todayIso() ? { future: true } : null;
 }
 
 /**
@@ -354,7 +349,7 @@ export class CompraForm {
 
   protected readonly form = this.fb.group({
     supplierId: [''],
-    purchasedAt: [todayIso(), [Validators.required, notInTheFuture, notBefore(purchaseDateFloor(todayIso()))]],
+    purchasedAt: [todayIso(), [Validators.required, notInFuture, notBefore(purchaseDateFloor(todayIso()))]],
     documentRef: [''],
     shippingCost: new FormControl<number | null>(0, [Validators.required, ...EXTRA_COST_RULES]),
     otherCosts: new FormControl<number | null>(0, EXTRA_COST_RULES),

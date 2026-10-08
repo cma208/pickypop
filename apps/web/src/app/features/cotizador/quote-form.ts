@@ -6,9 +6,6 @@ import type { PriceBreakdown } from '../../core/pricing';
  * a line cannot be added yet.
  */
 
-/** Whole units: a quote of 2.5 units was saved as 3 without a word (T4-13). */
-export const WHOLE_NUMBER = /^\d+$/;
-
 export const MAX_QUOTE_UNITS = 100_000;
 /** Ten thousand minutes of setup or of work per unit is already a typo. */
 export const MAX_MINUTES = 10_000;
@@ -33,15 +30,15 @@ const MINUTES_TEXT = new Intl.NumberFormat('es-PE').format(MAX_MINUTES);
 /** What each field says for each problem, in the words shown under it. */
 export const QUOTE_FIELD_ERRORS: Record<string, Record<string, string>> = {
   description: {
-    required: 'Escribe qué se cotiza.',
-    pattern: 'Escribe qué se cotiza: solo espacios no cuenta.',
+    required: 'Escribe qué se cotiza: solo espacios no cuenta.',
     maxlength: 'La descripción es demasiado larga: hasta 180 letras.',
   },
   quantity: {
     required: 'Escribe cuántas unidades.',
     min: 'La cantidad tiene que ser de 1 unidad o más.',
     max: `La cantidad no puede pasar de ${UNITS_TEXT} unidades.`,
-    pattern: 'Escribe un número entero de unidades: no se cotizan fracciones.',
+    // Whole units: a quote of 2.5 units was saved as 3 without a word (T4-13).
+    integer: 'Escribe un número entero de unidades: no se cotizan fracciones.',
   },
   setupMinutes: {
     required: 'Escribe los minutos, o 0.',
@@ -70,7 +67,7 @@ export const QUOTE_FIELD_ERRORS: Record<string, Record<string, string>> = {
     required: 'Escribe cuántos días vale, o 0 para que no venza.',
     min: `La vigencia va de 0 a ${MAX_VALIDITY_DAYS} días (0: no vence).`,
     max: `La vigencia va de 0 a ${MAX_VALIDITY_DAYS} días (0: no vence).`,
-    pattern: 'Escribe un número entero de días.',
+    integer: 'Escribe un número entero de días.',
   },
 };
 

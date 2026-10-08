@@ -6,11 +6,12 @@ import { CatalogoData } from './catalogo.data';
 import type { ProductStatus } from './catalogo.models';
 import { SHARED_STYLES } from './catalogo.styles';
 import { messageOf, parseTags, repeatedProductMessage, SLUG_PATTERN, slugify } from './catalogo.util';
-import { fieldError, LIMITS, requiredText, wholeNumber } from './catalogo.validators';
+import { requiredText, wholeNumber } from '../../core/form-errors';
+import { fieldError, LIMITS } from './catalogo.validators';
 
 const LEAD_MESSAGES: Record<string, string> = {
   min: 'No puede ser negativo.',
-  whole: 'Escribe días enteros.',
+  integer: 'Escribe días enteros.',
   max: `Hasta ${LIMITS.leadTimeDays} días.`,
 };
 

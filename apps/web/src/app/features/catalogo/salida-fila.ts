@@ -7,7 +7,8 @@ import type { PlateOutput } from './catalogo.models';
 import { CatalogoPermissions } from './catalogo.permissions';
 import { SHARED_STYLES } from './catalogo.styles';
 import { messageOf } from './catalogo.util';
-import { fieldError, LIMITS, limitText, wholeNumber } from './catalogo.validators';
+import { wholeNumber } from '../../core/form-errors';
+import { fieldError, LIMITS, limitText } from './catalogo.validators';
 import { removeOutputQuestion, swapOutputQuestion } from './plate-removal';
 
 export interface PartOption {
@@ -22,7 +23,7 @@ const PART_MESSAGES: Record<string, string> = { required: 'Elige la pieza.' };
 const UNITS_MESSAGES: Record<string, string> = {
   required: 'Escribe cuántas salen por corrida.',
   min: 'Por corrida sale al menos 1.',
-  whole: 'Las piezas salen enteras: escribe un número sin decimales.',
+  integer: 'Las piezas salen enteras: escribe un número sin decimales.',
   max: `Hasta ${limitText(LIMITS.perRun)} por corrida.`,
 };
 

@@ -1,5 +1,5 @@
 import { PURCHASE_LIMITS } from '../../core/pricing';
-import { decimalPlaces } from './form-helpers';
+import { decimalPlaces } from '../../core/form-errors';
 import { countedWhole } from './inventario.format';
 
 const NUMBER = new Intl.NumberFormat('es-PE', { maximumFractionDigits: 0 });

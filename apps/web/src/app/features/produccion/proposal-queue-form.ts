@@ -1,6 +1,7 @@
 import { Component, computed, inject, input, OnInit, output, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { wholeNumber } from '../../core/form-errors';
 import type { PlanProposal } from '@pickypop/domain';
 import type { PlanView } from '../../core/plan';
 import { Field } from '../../ui';
@@ -66,7 +67,7 @@ export class ProposalQueueForm implements OnInit {
 
   protected readonly form = new FormGroup({
     printerId: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
-    count: new FormControl<number | null>(null, [Validators.required, Validators.min(1), Validators.pattern(/^\d+$/)]),
+    count: new FormControl<number | null>(null, [Validators.required, Validators.min(1), wholeNumber]),
   });
 
   protected readonly saving = signal(false);

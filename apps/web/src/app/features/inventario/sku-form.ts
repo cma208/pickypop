@@ -3,7 +3,8 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { FormControl, NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Field } from '../../ui';
 import { ARTICLE_DECIMALS, ARTICLE_LIMITS, OUT_OF_RANGE, rangeMessage } from './article-ranges';
-import { blankToNull, inactiveSuffix, invalidMessage, maxDecimals, requiredText, selectableOptions } from './form-helpers';
+import { maxDecimals, requiredText } from '../../core/form-errors';
+import { blankToNull, inactiveSuffix, invalidMessage, selectableOptions } from './form-helpers';
 import {
   InventarioData,
   type BrandOption,

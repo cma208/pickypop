@@ -54,9 +54,8 @@ import {
   MAX_VALIDITY_DAYS,
   QUOTE_FIELD_ERRORS,
   validUntilFor,
-  WHOLE_NUMBER,
 } from './quote-form';
-import { errorOf } from '../../core/form-errors';
+import { errorOf, requiredText, wholeNumber } from '../../core/form-errors';
 import { requestKey, type SentRequest } from '../pedidos/request-key';
 import type { NewQuote } from './cotizador.data';
 
@@ -142,10 +141,10 @@ export class CotizadorPage {
   // ------------------------------------------------------------- forms
 
   protected readonly lineForm = this.fb.nonNullable.group({
-    description: ['', [Validators.required, Validators.pattern(/\S/), Validators.maxLength(180)]],
+    description: ['', [requiredText, Validators.maxLength(180)]],
     variantId: [''],
     // Whole units: 2.5 was quoted as 3 without a word (T4-13).
-    quantity: [1, [Validators.required, Validators.min(1), Validators.max(MAX_QUOTE_UNITS), Validators.pattern(WHOLE_NUMBER)]],
+    quantity: [1, [Validators.required, Validators.min(1), Validators.max(MAX_QUOTE_UNITS), wholeNumber]],
     setupMinutes: [0, [Validators.required, Validators.min(0), Validators.max(MAX_MINUTES)]],
     minutesPerUnit: [0, [Validators.required, Validators.min(0), Validators.max(MAX_MINUTES)]],
   });
@@ -163,7 +162,7 @@ export class CotizadorPage {
     requestId: [''],
     validityDays: [
       DEFAULT_VALIDITY_DAYS,
-      [Validators.required, Validators.min(0), Validators.max(MAX_VALIDITY_DAYS), Validators.pattern(WHOLE_NUMBER)],
+      [Validators.required, Validators.min(0), Validators.max(MAX_VALIDITY_DAYS), wholeNumber],
     ],
     note: [''],
   });

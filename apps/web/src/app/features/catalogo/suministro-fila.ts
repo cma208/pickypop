@@ -7,7 +7,8 @@ import type { RecipeSupply, SupplyOption } from './catalogo.models';
 import { CatalogoPermissions } from './catalogo.permissions';
 import { SHARED_STYLES } from './catalogo.styles';
 import { emptyPickerText, messageOf } from './catalogo.util';
-import { DECIMALS, decimalsText, fieldError, LIMITS, limitText, maxDecimals, wholeNumber } from './catalogo.validators';
+import { maxDecimals, wholeNumber } from '../../core/form-errors';
+import { DECIMALS, decimalsText, fieldError, LIMITS, limitText } from './catalogo.validators';
 
 /**
  * What is wrong with a quantity per unit, in words, next to the field. The
@@ -17,7 +18,7 @@ const QUANTITY_MESSAGES: Record<'part' | 'supply', Record<string, string>> = {
   part: {
     required: 'Escribe cuántas lleva cada producto.',
     min: 'Cada producto lleva al menos 1.',
-    whole: 'Las piezas van enteras: un producto no lleva media pieza.',
+    integer: 'Las piezas van enteras: un producto no lleva media pieza.',
     max: `Hasta ${limitText(LIMITS.perUnit)} por producto.`,
   },
   supply: {

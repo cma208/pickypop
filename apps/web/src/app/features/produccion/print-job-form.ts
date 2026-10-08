@@ -1,6 +1,7 @@
 import { Component, computed, inject, input, OnInit, output, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormArray, FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { wholeNumber } from '../../core/form-errors';
 import { Card, Field, FORMAT_PIPES, ItemPicker, Thumb, type PickerOption } from '../../ui';
 import { borrowedPhoto } from '../../core/article-photos';
 import { duration } from '../../core/format';
@@ -197,7 +198,7 @@ export class PrintJobForm implements OnInit {
     label: new FormControl('', { nonNullable: true, validators: [Validators.maxLength(LABEL_MAX_LENGTH)] }),
     printerId: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
     plateId: new FormControl('', { nonNullable: true }),
-    estimatedMinutes: new FormControl<number | null>(null, [Validators.min(1), Validators.max(MAX_MINUTES), Validators.pattern(/^\d+$/)]),
+    estimatedMinutes: new FormControl<number | null>(null, [Validators.min(1), Validators.max(MAX_MINUTES), wholeNumber]),
     note: new FormControl('', { nonNullable: true, validators: [Validators.maxLength(NOTE_MAX_LENGTH)] }),
     filaments: new FormArray([createFilamentRow()]),
   });

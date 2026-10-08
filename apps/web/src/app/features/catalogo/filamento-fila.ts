@@ -5,14 +5,15 @@ import type { Lookups, RecipeFilament } from './catalogo.models';
 import { CatalogoPermissions } from './catalogo.permissions';
 import { SHARED_STYLES } from './catalogo.styles';
 import { messageOf } from './catalogo.util';
-import { DECIMALS, decimalsText, fieldError, LIMITS, limitText, maxDecimals, wholeNumber } from './catalogo.validators';
+import { maxDecimals, wholeNumber } from '../../core/form-errors';
+import { DECIMALS, decimalsText, fieldError, LIMITS, limitText } from './catalogo.validators';
 
 const DEFAULT_COLOR = '#808080';
 
 const SLOT_MESSAGES: Record<string, string> = {
   required: 'Ranura: escribe su número.',
   min: 'Ranura: desde 1.',
-  whole: 'Ranura: un número entero.',
+  integer: 'Ranura: un número entero.',
   max: `Ranura: hasta ${LIMITS.slot}.`,
 };
 

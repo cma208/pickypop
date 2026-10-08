@@ -5,14 +5,15 @@ import { CatalogoData } from './catalogo.data';
 import { STATUS_LABELS, type ProductDetail, type ProductStatus } from './catalogo.models';
 import { SHARED_STYLES } from './catalogo.styles';
 import { messageOf, pairArray, parseTags, readPairs, repeatedProductMessage, SLUG_PATTERN } from './catalogo.util';
-import { fieldError, LIMITS, requiredText, wholeNumber } from './catalogo.validators';
+import { requiredText, wholeNumber } from '../../core/form-errors';
+import { fieldError, LIMITS } from './catalogo.validators';
 import { PairsEditor } from './pairs-editor';
 
 const STATUSES: ProductStatus[] = ['draft', 'published', 'archived'];
 
 const LEAD_MESSAGES: Record<string, string> = {
   min: 'No puede ser negativo.',
-  whole: 'Escribe días enteros.',
+  integer: 'Escribe días enteros.',
   max: `Hasta ${LIMITS.leadTimeDays} días.`,
 };
 

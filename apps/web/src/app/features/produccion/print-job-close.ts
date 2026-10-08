@@ -1,6 +1,7 @@
 import { Component, computed, inject, input, OnInit, output, signal } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { FormArray, FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { wholeNumber } from '../../core/form-errors';
 import { Field, FORMAT_PIPES } from '../../ui';
 import { explainProductionError } from './production-errors';
 import { ProduccionData, type CloseJob, type CloseOutcome, type JobItem } from './produccion.data';
@@ -195,7 +196,7 @@ export class PrintJobClose implements OnInit {
     result: new FormControl<CloseResult>('success', { nonNullable: true }),
     failureCause: new FormControl<FailureCause | ''>('', { nonNullable: true }),
     percentComplete: new FormControl<number | null>(null, [Validators.min(0), Validators.max(100)]),
-    actualMinutes: new FormControl<number | null>(null, [Validators.min(1), Validators.max(MAX_MINUTES), Validators.pattern(/^\d+$/)]),
+    actualMinutes: new FormControl<number | null>(null, [Validators.min(1), Validators.max(MAX_MINUTES), wholeNumber]),
     note: new FormControl('', { nonNullable: true, validators: [Validators.maxLength(NOTE_MAX_LENGTH)] }),
     usage: new FormArray<ReturnType<typeof createUsageRow>>([]),
     outputs: new FormArray<FormControl<number | null>>([]),

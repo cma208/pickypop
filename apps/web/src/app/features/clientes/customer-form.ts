@@ -2,11 +2,11 @@ import { Component, computed, inject, input, output, signal } from '@angular/cor
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Field } from '../../ui';
-import { errorOf, textOrNull } from '../../core/form-errors';
+import { errorOf, requiredText, textOrNull } from '../../core/form-errors';
 import { friendlyError } from '../../core/friendly-error';
 import { SECTION_STYLES } from '../../core/styles';
 import { ClientesData } from './clientes.data';
-import { isWalkInName, NOT_BLANK, sameName, type KnownCustomer } from './customer-match';
+import { isWalkInName, sameName, type KnownCustomer } from './customer-match';
 import {
   DOC_FORMAT_HINTS,
   DOC_TYPE_LABELS,
@@ -119,7 +119,7 @@ export class CustomerForm {
   protected readonly form = new FormGroup(
     {
       kind: new FormControl<CustomerKind>('person', { nonNullable: true }),
-      name: new FormControl('', { nonNullable: true, validators: [Validators.required, Validators.pattern(NOT_BLANK)] }),
+      name: new FormControl('', { nonNullable: true, validators: [requiredText] }),
       docType: new FormControl<DocType>('none', { nonNullable: true }),
       docNumber: new FormControl('', { nonNullable: true }),
       phone: new FormControl('', { nonNullable: true }),
@@ -167,8 +167,7 @@ export class CustomerForm {
 
   protected nameError(): string | null {
     return errorOf(this.form.controls.name, {
-      required: 'Escribe el nombre del cliente.',
-      pattern: 'Escribe el nombre del cliente: solo espacios no cuenta.',
+      required: 'Escribe el nombre del cliente: solo espacios no cuenta.',
     });
   }
 
