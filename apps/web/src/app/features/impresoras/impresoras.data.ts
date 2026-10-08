@@ -355,7 +355,7 @@ export class ImpresorasData {
     const jobs = await fetchAll((from, to) =>
       this.supabase
         .from('print_jobs')
-        .select('id, printer_id, status, started_at, actual_time_s')
+        .select('id, printer_id, status, actual_time_s')
         .order('id')
         .range(from, to),
     );
@@ -364,7 +364,7 @@ export class ImpresorasData {
     for (const job of jobs) {
       const current = stats.get(job.printer_id) ?? { seconds: 0, count: 0 };
       current.count += 1;
-      current.seconds += printedSeconds({ status: job.status, startedAt: job.started_at, actualTimeS: job.actual_time_s });
+      current.seconds += printedSeconds({ status: job.status, actualTimeS: job.actual_time_s });
       stats.set(job.printer_id, current);
     }
     return stats;

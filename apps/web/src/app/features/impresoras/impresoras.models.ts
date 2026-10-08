@@ -155,7 +155,6 @@ export function totalHours(printer: PrinterRecord): number {
 /** What a print job tells the printer's hour meter. */
 export interface JobRun {
   status: JobStatus;
-  startedAt: string | null;
   actualTimeS: number | null;
 }
 
@@ -164,11 +163,10 @@ export interface JobRun {
  * maintenance plans count. A failed print wore the machine as much as a good
  * one, and its cost already charges the machine hour: counting only the
  * successful ones charged that wear and never brought the next maintenance
- * closer. A cancelled job adds what it ran; cancelled before it started, it
- * ran nothing, whatever time an older close may have saved on it.
+ * closer. A cancelled job adds the time it ran, which is also the time its
+ * cost charges; without one, it never ran.
  */
 export function printedSeconds(job: JobRun): number {
-  if (job.status === 'success' || job.status === 'failed') return job.actualTimeS ?? 0;
-  if (job.status === 'cancelled' && job.startedAt !== null) return job.actualTimeS ?? 0;
-  return 0;
+  const closed = job.status === 'success' || job.status === 'failed' || job.status === 'cancelled';
+  return closed ? (job.actualTimeS ?? 0) : 0;
 }

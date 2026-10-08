@@ -8,7 +8,7 @@ import { FAILURE_CAUSE_LABEL, FAILURE_CAUSES, type FailureCause } from './produc
 import { describeCounts } from './produccion.outputs';
 import { createOutputControl, PrintJobOutputs, type OutputControls } from './print-job-outputs';
 import { filamentName } from '../../core/spool-label';
-import { neverRan, proposeTime, secondsToSave, type ProposedTime } from './job-time';
+import { proposeTime, secondsToSave, type ProposedTime } from './job-time';
 
 type CloseResult = CloseJob['result'];
 
@@ -59,24 +59,22 @@ function createUsageRow(spoolId: string, actualG: number) {
         </pp-field>
       }
 
-      @if (result() !== 'success' && !unstartedCancel()) {
+      @if (result() !== 'success') {
         <pp-field label="Porcentaje completado" hint="Opcional, de 0 a 100." [error]="fieldError('percentComplete', 'Debe estar entre 0 y 100.')">
           <input type="number" inputmode="decimal" min="0" max="100" step="1" formControlName="percentComplete" />
         </pp-field>
       }
 
-      @if (!unstartedCancel()) {
-        <div class="grid two">
-          <pp-field
-            label="Tiempo real (minutos)"
-            [required]="result() !== 'cancelled'"
-            [hint]="result() === 'cancelled' ? 'Opcional: lo que alcanzó a imprimir. Sin tiempo no se cobra máquina ni luz.' : job().estimatedTimeS ? 'Estimado: ' + (job().estimatedTimeS | duration) : undefined"
-            [error]="fieldError('actualMinutes', 'Escribe los minutos reales, en número entero mayor que cero.')"
-          >
-            <input type="number" inputmode="numeric" min="1" step="1" formControlName="actualMinutes" />
-          </pp-field>
-        </div>
-      }
+      <div class="grid two">
+        <pp-field
+          label="Tiempo real (minutos)"
+          [required]="result() !== 'cancelled'"
+          [hint]="result() === 'cancelled' ? cancelledTimeHint : job().estimatedTimeS ? 'Estimado: ' + (job().estimatedTimeS | duration) : undefined"
+          [error]="fieldError('actualMinutes', 'Escribe los minutos reales, en número entero mayor que cero.')"
+        >
+          <input type="number" inputmode="numeric" min="1" step="1" formControlName="actualMinutes" />
+        </pp-field>
+      </div>
 
       @if (result() === 'success') {
         @if (job().plateOutputs.length > 0) {
@@ -86,9 +84,7 @@ function createUsageRow(spoolId: string, actualG: number) {
         }
       }
 
-      @if (unstartedCancel()) {
-        <p class="muted">No llegó a empezar: se cierra sin tiempo real, sin costo y sin descontar filamento.</p>
-      } @else if (result() === 'cancelled') {
+      @if (result() === 'cancelled') {
         <p class="muted">Una impresión cancelada no descuenta filamento.</p>
       } @else {
         <fieldset>
@@ -183,8 +179,12 @@ export class PrintJobClose implements OnInit {
 
   private readonly resultValue = toSignal(this.form.controls.result.valueChanges, { initialValue: 'success' as CloseResult });
   protected readonly result = computed(() => this.resultValue());
-  /** Cancelled before «Iniciar»: it never ran, so it has no time to ask for. */
-  protected readonly unstartedCancel = computed(() => neverRan(this.job().startedAt, this.result()));
+  /**
+   * Nobody may have pressed «Iniciar» on a print that was launched and then
+   * stopped, so the time is asked of every cancelled job, and empty means it
+   * never ran: no time, no cost (`chargedSeconds`).
+   */
+  protected readonly cancelledTimeHint = 'Lo que alcanzó a imprimir. Déjalo vacío si no llegó a empezar: sin tiempo no se cobra máquina ni luz.';
 
   /** The job's estimate, to the second, behind the whole minutes the field proposes. */
   private estimate: ProposedTime | null = null;
@@ -251,8 +251,12 @@ export class PrintJobClose implements OnInit {
   protected summary(): string {
     const result = this.result();
     const total = this.usage.getRawValue().reduce((sum, row) => sum + (row.actualG || 0), 0);
-    if (this.unstartedCancel()) return 'Se cerrará como cancelada, sin tiempo ni costo, y no se moverá el stock.';
-    if (result === 'cancelled') return 'Se cerrará como cancelada y no se moverá el stock.';
+    if (result === 'cancelled') {
+      const minutes = this.form.controls.actualMinutes.value;
+      return minutes
+        ? `Se cerrará como cancelada, con ${minutes} min de máquina y luz, y no se moverá el stock.`
+        : 'Se cerrará como cancelada, sin tiempo ni costo, y no se moverá el stock.';
+    }
     const verb = result === 'success' ? 'Se descontarán' : 'Se registrarán como merma';
     const rolls = this.usage.length === 1 ? '1 rollo' : `${this.usage.length} rollos`;
     const grams =
@@ -276,10 +280,9 @@ export class PrintJobClose implements OnInit {
     const needsCause = result === 'failed' && this.form.controls.failureCause.value === '';
     const usageInvalid = result !== 'cancelled' && this.usage.invalid;
     const outputsInvalid = result === 'success' && this.outputs.invalid;
-    // Both are hidden for a job that never ran, so whatever they held does not count.
-    const ran = !this.unstartedCancel();
-    const timeInvalid = ran && this.form.controls.actualMinutes.invalid;
-    const percentInvalid = ran && this.form.controls.percentComplete.invalid;
+    const timeInvalid = this.form.controls.actualMinutes.invalid;
+    // Hidden for a successful print, which is 100 % whatever the field held.
+    const percentInvalid = result !== 'success' && this.form.controls.percentComplete.invalid;
 
     if (needsTime || needsCause || usageInvalid || outputsInvalid || timeInvalid || percentInvalid) {
       this.error.set('Revisa los campos marcados antes de cerrar.');
@@ -296,10 +299,10 @@ export class PrintJobClose implements OnInit {
     try {
       const outcome = await this.data.closeJob(this.job(), {
         result: value.result,
-        actualTimeS: this.unstartedCancel() ? null : secondsToSave(value.actualMinutes, this.estimate),
+        actualTimeS: secondsToSave(value.actualMinutes, this.estimate),
         usage: value.result === 'cancelled' ? [] : value.usage.map((row) => ({ spoolId: row.spoolId, actualG: row.actualG })),
         failureCause: value.failureCause === '' ? null : value.failureCause,
-        percentComplete: this.unstartedCancel() ? null : value.percentComplete,
+        percentComplete: value.percentComplete,
         outputs: this.job().plateOutputs.map((part, index) => ({
           inventoryItemId: part.inventoryItemId,
           units: value.outputs[index] ?? null,

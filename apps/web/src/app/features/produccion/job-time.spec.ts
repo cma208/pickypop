@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { chargedSeconds, neverRan, proposeTime, secondsToSave } from './job-time';
+import { chargedSeconds, proposeTime, realCostOf, secondsToSave, type SavedCost } from './job-time';
 
 describe('proposeTime', () => {
   it('rounds the plate to whole minutes and keeps its seconds', () => {
@@ -42,30 +42,44 @@ describe('secondsToSave', () => {
 });
 
 describe('chargedSeconds', () => {
-  const planned = { startedAt: null, estimatedTimeS: 1200 };
-  const printing = { startedAt: '2026-10-07T20:00:00Z', estimatedTimeS: 1200 };
+  const job = { estimatedTimeS: 1200 };
 
-  it('charges nothing for a job cancelled before it started', () => {
-    expect(neverRan(planned.startedAt, 'cancelled')).toBe(true);
-    expect(chargedSeconds(planned, 'cancelled', null)).toBeNull();
-    // Not even if a time came along: it did not run.
-    expect(chargedSeconds(planned, 'cancelled', 1200)).toBeNull();
+  it('charges nothing for a cancelled job without a time: it did not run', () => {
+    expect(chargedSeconds(job, 'cancelled', null)).toBeNull();
   });
 
-  it('charges what a started job ran before it was cancelled, never its estimate', () => {
-    expect(neverRan(printing.startedAt, 'cancelled')).toBe(false);
-    expect(chargedSeconds(printing, 'cancelled', 600)).toBe(600);
-    expect(chargedSeconds(printing, 'cancelled', null)).toBe(0);
+  it('charges what a cancelled job ran, never its estimate', () => {
+    expect(chargedSeconds(job, 'cancelled', 600)).toBe(600);
   });
 
   it('charges the real time of a finished job, and its estimate only without one', () => {
-    expect(chargedSeconds(printing, 'success', 1334)).toBe(1334);
-    expect(chargedSeconds(printing, 'failed', 780)).toBe(780);
-    expect(chargedSeconds(printing, 'success', null)).toBe(1200);
+    expect(chargedSeconds(job, 'success', 1334)).toBe(1334);
+    expect(chargedSeconds(job, 'failed', 780)).toBe(780);
+    expect(chargedSeconds(job, 'success', null)).toBe(1200);
+    expect(chargedSeconds({ estimatedTimeS: null }, 'failed', null)).toBe(0);
+  });
+});
+
+describe('realCostOf', () => {
+  const closed: SavedCost = { status: 'success', actualTimeS: 1334, materialCost: 0.31, energyCost: 0.02, machineCost: 0.16 };
+
+  it('adds up the three costs to the cent', () => {
+    expect(realCostOf(closed)).toBe(0.49);
   });
 
-  it('charges a job printed without pressing «Iniciar» like any other', () => {
-    expect(neverRan(planned.startedAt, 'success')).toBe(false);
-    expect(chargedSeconds(planned, 'success', 900)).toBe(900);
+  it('has none to show when nothing was saved', () => {
+    expect(realCostOf({ ...closed, materialCost: null, energyCost: null, machineCost: null })).toBeNull();
+  });
+
+  it('shows none for a cancelled job without a time, empty or at zero', () => {
+    const fromQueue = { status: 'cancelled', actualTimeS: null, materialCost: null, energyCost: null, machineCost: null };
+    const withItsOrder = { status: 'cancelled', actualTimeS: null, materialCost: 0, energyCost: 0, machineCost: 0 };
+    expect(realCostOf(fromQueue)).toBeNull();
+    expect(realCostOf(withItsOrder)).toBeNull();
+  });
+
+  it('shows what a cancelled job cost for the time it ran', () => {
+    // Launched without «Iniciar» and stopped after 10 minutes.
+    expect(realCostOf({ status: 'cancelled', actualTimeS: 600, materialCost: 0, energyCost: 0.01, machineCost: 0.07 })).toBe(0.08);
   });
 });

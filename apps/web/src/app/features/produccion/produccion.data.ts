@@ -8,7 +8,7 @@ import type { FailureCause, JobStatus } from './produccion.labels';
 import { outputsOf, type PartCount, type PlatePart } from './produccion.outputs';
 import type { RunToQueue } from './por-lanzar';
 import type { PlateUse, SpoolStatus } from './produccion.spools';
-import { chargedSeconds, neverRan } from './job-time';
+import { chargedSeconds, realCostOf } from './job-time';
 
 const SECONDS_PER_HOUR = 3600;
 const WATTS_PER_KW = 1000;
@@ -529,15 +529,15 @@ export class ProduccionData {
   async closeJob(job: JobItem, input: CloseJob): Promise<CloseOutcome> {
     const spoolIds = input.usage.map((usage) => usage.spoolId);
     const before = await this.stockOf(spoolIds);
-    const ran = !neverRan(job.startedAt, input.result);
-    // A job cancelled before it started leaves its costs empty, not at zero:
-    // there is no «Costo real» to show for a print that did not happen.
-    const costs = ran ? await this.realCosts(job, input) : null;
+    // A cancelled job without a time leaves its costs empty: there is no
+    // «Costo real» to show for a print that did not happen.
+    const seconds = chargedSeconds(job, input.result, input.actualTimeS);
+    const costs = seconds === null ? null : await this.realCosts(job, input, seconds);
 
     const { error } = await this.supabase.rpc('complete_print_job', {
       p_job_id: job.id,
       p_result: input.result,
-      p_actual_time_s: ran ? (input.actualTimeS ?? undefined) : undefined,
+      p_actual_time_s: input.actualTimeS ?? undefined,
       p_filament_usage: input.usage.map((usage) => ({
         spool_id: usage.spoolId,
         actual_g: usage.actualG,
@@ -555,7 +555,7 @@ export class ProduccionData {
         new Map(input.outputs.map((output) => [output.inventoryItemId, output.units])),
       ),
       // A print cancelled halfway got somewhere too; the form asks it for that.
-      p_percent_complete: input.result !== 'success' && ran ? (input.percentComplete ?? undefined) : undefined,
+      p_percent_complete: input.result !== 'success' ? (input.percentComplete ?? undefined) : undefined,
       p_note: input.note ?? undefined,
     });
     if (error) throw error;
@@ -606,7 +606,7 @@ export class ProduccionData {
     }));
   }
 
-  private async realCosts(job: JobItem, input: CloseJob) {
+  private async realCosts(job: JobItem, input: CloseJob, seconds: number) {
     const spoolIds = input.usage.map((usage) => usage.spoolId);
     const [spools, printers, rates, profile] = await Promise.all([
       spoolIds.length === 0
@@ -630,7 +630,7 @@ export class ProduccionData {
       0,
     );
 
-    const hours = (chargedSeconds(job, input.result, input.actualTimeS) ?? 0) / SECONDS_PER_HOUR;
+    const hours = seconds / SECONDS_PER_HOUR;
     const watts = printers.find((printer) => printer.id === job.printerId)?.profile.avgPowerWatts ?? 0;
 
     return {
@@ -642,9 +642,6 @@ export class ProduccionData {
 }
 
 function toJobItem(row: JobRow): JobItem {
-  const costs = [row.material_cost, row.energy_cost, row.machine_cost];
-  const hasCost = costs.some((cost) => cost != null);
-
   return {
     id: row.id,
     status: row.status,
@@ -673,7 +670,13 @@ function toJobItem(row: JobRow): JobItem {
     failureCause: row.failure_cause,
     percentComplete: row.percent_complete == null ? null : Number(row.percent_complete),
     unitsProduced: Number(row.units_produced),
-    realCost: hasCost ? costs.reduce<number>((sum, cost) => sum + Number(cost ?? 0), 0) : null,
+    realCost: realCostOf({
+      status: row.status,
+      actualTimeS: row.actual_time_s,
+      materialCost: row.material_cost,
+      energyCost: row.energy_cost,
+      machineCost: row.machine_cost,
+    }),
     note: row.note,
     createdAt: row.created_at,
     filaments: row.print_job_filaments

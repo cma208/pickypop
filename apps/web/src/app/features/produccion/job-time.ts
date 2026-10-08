@@ -10,6 +10,8 @@
  * them; left as proposed, the seconds they came from are what is saved.
  */
 
+import { sumMoney } from '../../core/pricing';
+
 export const SECONDS_PER_MINUTE = 60;
 
 /** What the field proposes, and the exact time it was rounded from. */
@@ -39,26 +41,47 @@ export function secondsToSave(minutes: number | null | undefined, proposed: Prop
 export type CloseResult = 'success' | 'failed' | 'cancelled';
 
 /**
- * A job cancelled before anybody pressed «Iniciar» never ran: it has no real
- * time and no machine or power cost. The close used to save its estimate as
- * the real time and charge 0.15 for a print that did not happen.
- */
-export function neverRan(startedAt: string | null, result: CloseResult): boolean {
-  return result === 'cancelled' && startedAt === null;
-}
-
-/**
  * The seconds a closed job charges for machine and power, or null when it
- * charges nothing at all. A cancelled job charges what it ran and never its
- * estimate, which is what it would have taken to finish. A finished one
- * falls back to its estimate only when nobody said how long it took.
+ * charges nothing at all.
+ *
+ * A cancelled job charges what it ran and never its estimate, which is what
+ * finishing would have taken: the close used to save the estimate of a job
+ * nobody started as its real time and charge 0.15 for a print that did not
+ * happen. With no time, nothing ran, so there is no cost. Pressing «Iniciar»
+ * does not decide it: a plate launched on the printer without it and stopped
+ * halfway wore the machine all the same, and the person says for how long.
+ *
+ * A finished one falls back to its estimate only when nobody said how long
+ * it took.
  */
 export function chargedSeconds(
-  job: { startedAt: string | null; estimatedTimeS: number | null },
+  job: { estimatedTimeS: number | null },
   result: CloseResult,
   actualTimeS: number | null,
 ): number | null {
-  if (neverRan(job.startedAt, result)) return null;
-  if (result === 'cancelled') return actualTimeS ?? 0;
+  if (result === 'cancelled') return actualTimeS;
   return actualTimeS ?? job.estimatedTimeS ?? 0;
+}
+
+/** What a closed job saved about its cost. */
+export interface SavedCost {
+  status: string;
+  actualTimeS: number | null;
+  materialCost: number | null;
+  energyCost: number | null;
+  machineCost: number | null;
+}
+
+/**
+ * The «Costo real» of a job, or null when there is none to show.
+ *
+ * A cancelled job without a time never ran, and says so the same way whether
+ * its costs were left empty (the queue) or written as zeros (cancelling it
+ * with its order): neither is a «Costo real: S/ 0.00» of a print.
+ */
+export function realCostOf(job: SavedCost): number | null {
+  if (job.status === 'cancelled' && job.actualTimeS === null) return null;
+  const costs = [job.materialCost, job.energyCost, job.machineCost];
+  if (costs.every((cost) => cost === null)) return null;
+  return sumMoney(costs.map((cost) => Number(cost ?? 0)));
 }
