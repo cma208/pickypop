@@ -842,13 +842,13 @@ isOneToOne: false
                   ]
                 },"print_jobs": {
                   Row: {
-                    "actual_time_s": number | null,"created_at": string,"created_by": string | null,"energy_cost": number | null,"estimated_time_s": number | null,"failure_cause": Database["public"]['Enums']["print_failure_cause"] | null,"finished_at": string | null,"id": string,"label": string | null,"machine_cost": number | null,"material_cost": number | null,"note": string | null,"order_line_id": string | null,"percent_complete": number | null,"printer_id": string,"recipe_plate_id": string | null,"slicer_metadata": NonNullable<Json>,"started_at": string | null,"status": Database["public"]['Enums']["print_job_status"],"units_produced": number,"updated_at": string,"workspace_id": string
+                    "actual_time_s": number | null,"created_at": string,"created_by": string | null,"energy_cost": number | null,"estimated_time_s": number | null,"failure_cause": Database["public"]['Enums']["print_failure_cause"] | null,"finished_at": string | null,"id": string,"label": string | null,"machine_cost": number | null,"material_cost": number | null,"note": string | null,"order_line_id": string | null,"percent_complete": number | null,"printer_id": string,"recipe_plate_id": string | null,"request_key": string | null,"slicer_metadata": NonNullable<Json>,"started_at": string | null,"status": Database["public"]['Enums']["print_job_status"],"units_produced": number,"updated_at": string,"workspace_id": string
                   }
                   Insert: {
-                    "actual_time_s"?: number | null,"created_at"?: string,"created_by"?: string | null,"energy_cost"?: number | null,"estimated_time_s"?: number | null,"failure_cause"?: Database["public"]['Enums']["print_failure_cause"] | null,"finished_at"?: string | null,"id"?: string,"label"?: string | null,"machine_cost"?: number | null,"material_cost"?: number | null,"note"?: string | null,"order_line_id"?: string | null,"percent_complete"?: number | null,"printer_id": string,"recipe_plate_id"?: string | null,"slicer_metadata"?: NonNullable<Json>,"started_at"?: string | null,"status"?: Database["public"]['Enums']["print_job_status"],"units_produced"?: number,"updated_at"?: string,"workspace_id": string
+                    "actual_time_s"?: number | null,"created_at"?: string,"created_by"?: string | null,"energy_cost"?: number | null,"estimated_time_s"?: number | null,"failure_cause"?: Database["public"]['Enums']["print_failure_cause"] | null,"finished_at"?: string | null,"id"?: string,"label"?: string | null,"machine_cost"?: number | null,"material_cost"?: number | null,"note"?: string | null,"order_line_id"?: string | null,"percent_complete"?: number | null,"printer_id": string,"recipe_plate_id"?: string | null,"request_key"?: string | null,"slicer_metadata"?: NonNullable<Json>,"started_at"?: string | null,"status"?: Database["public"]['Enums']["print_job_status"],"units_produced"?: number,"updated_at"?: string,"workspace_id": string
                   }
                   Update: {
-                    "actual_time_s"?: number | null,"created_at"?: string,"created_by"?: string | null,"energy_cost"?: number | null,"estimated_time_s"?: number | null,"failure_cause"?: Database["public"]['Enums']["print_failure_cause"] | null,"finished_at"?: string | null,"id"?: string,"label"?: string | null,"machine_cost"?: number | null,"material_cost"?: number | null,"note"?: string | null,"order_line_id"?: string | null,"percent_complete"?: number | null,"printer_id"?: string,"recipe_plate_id"?: string | null,"slicer_metadata"?: NonNullable<Json>,"started_at"?: string | null,"status"?: Database["public"]['Enums']["print_job_status"],"units_produced"?: number,"updated_at"?: string,"workspace_id"?: string
+                    "actual_time_s"?: number | null,"created_at"?: string,"created_by"?: string | null,"energy_cost"?: number | null,"estimated_time_s"?: number | null,"failure_cause"?: Database["public"]['Enums']["print_failure_cause"] | null,"finished_at"?: string | null,"id"?: string,"label"?: string | null,"machine_cost"?: number | null,"material_cost"?: number | null,"note"?: string | null,"order_line_id"?: string | null,"percent_complete"?: number | null,"printer_id"?: string,"recipe_plate_id"?: string | null,"request_key"?: string | null,"slicer_metadata"?: NonNullable<Json>,"started_at"?: string | null,"status"?: Database["public"]['Enums']["print_job_status"],"units_produced"?: number,"updated_at"?: string,"workspace_id"?: string
                   }
                   Relationships: [
                     {
@@ -2540,6 +2540,7 @@ isOneToOne: false
 "percent_complete": number | null,
 "printer_id": string,
 "recipe_plate_id": string | null,
+"request_key": string | null,
 "slicer_metadata": NonNullable<Json>,
 "started_at": string | null,
 "status": Database["public"]['Enums']["print_job_status"],
@@ -2556,6 +2557,38 @@ isOneToOne: false
 "count_shelf":
 { Args: { "p_counts": Json,"p_note"?: string }; Returns: number
                            },
+"create_print_job":
+{ Args: { "p_estimated_time_s"?: number,"p_filaments"?: Json,"p_label"?: string,"p_note"?: string,"p_order_line_id"?: string,"p_printer_id": string,"p_recipe_plate_id"?: string,"p_request_key"?: string }; Returns: {
+              "actual_time_s": number | null,
+"created_at": string,
+"created_by": string | null,
+"energy_cost": number | null,
+"estimated_time_s": number | null,
+"failure_cause": Database["public"]['Enums']["print_failure_cause"] | null,
+"finished_at": string | null,
+"id": string,
+"label": string | null,
+"machine_cost": number | null,
+"material_cost": number | null,
+"note": string | null,
+"order_line_id": string | null,
+"percent_complete": number | null,
+"printer_id": string,
+"recipe_plate_id": string | null,
+"request_key": string | null,
+"slicer_metadata": NonNullable<Json>,
+"started_at": string | null,
+"status": Database["public"]['Enums']["print_job_status"],
+"units_produced": number,
+"updated_at": string,
+"workspace_id": string
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "print_jobs"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
 "default_channel":
 { Args: { "p_workspace_id": string }; Returns: string
                            },
@@ -2827,6 +2860,38 @@ isOneToOne: false
                           SetofOptions: {
         from: "*"
         to: "quotes"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
+"start_print_job":
+{ Args: { "p_job_id": string,"p_rolls"?: Json }; Returns: {
+              "actual_time_s": number | null,
+"created_at": string,
+"created_by": string | null,
+"energy_cost": number | null,
+"estimated_time_s": number | null,
+"failure_cause": Database["public"]['Enums']["print_failure_cause"] | null,
+"finished_at": string | null,
+"id": string,
+"label": string | null,
+"machine_cost": number | null,
+"material_cost": number | null,
+"note": string | null,
+"order_line_id": string | null,
+"percent_complete": number | null,
+"printer_id": string,
+"recipe_plate_id": string | null,
+"request_key": string | null,
+"slicer_metadata": NonNullable<Json>,
+"started_at": string | null,
+"status": Database["public"]['Enums']["print_job_status"],
+"units_produced": number,
+"updated_at": string,
+"workspace_id": string
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "print_jobs"
         isOneToOne: true
         isSetofReturn: false
       } }
