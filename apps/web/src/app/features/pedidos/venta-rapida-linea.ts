@@ -2,9 +2,8 @@ import { Component, computed, DestroyRef, inject, input, OnInit, output, signal 
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { FORMAT_PIPES, Thumb } from '../../ui';
-import { CostEstimator } from './cost-estimate';
 import { PedidosData } from './pedidos.data';
-import { freeUnits, lineTotal, validQuantity, type CostStatus, type VariantInfo } from './quick-sale';
+import { freeUnits, lineTotal, validQuantity, type PriceStatus, type VariantInfo } from './quick-sale';
 
 const TYPING_DELAY_MS = 300;
 
@@ -12,28 +11,29 @@ export type QuickLineForm = FormGroup<{
   variantId: FormControl<string>;
   quantity: FormControl<number>;
   unitPrice: FormControl<number | null>;
-  /** From the same estimator as «Nuevo pedido», for this quantity, to six decimals. */
-  estimatedUnitCost: FormControl<number | null>;
-  /** Not typed by anybody: whether the estimate above is there yet. The sale waits for it. */
-  costStatus: FormControl<CostStatus>;
+  /** What a unit is worth on the shelf, labour included, as the shelf was last read. */
+  shelfUnitCost: FormControl<number | null>;
+  /** Not typed by anybody: whether the ladder's price for the quantity is there yet. The sale waits for it. */
+  priceStatus: FormControl<PriceStatus>;
 }>;
 
 /** A product tapped on the shelf: one unit at its list price, until the ladder says otherwise. */
-export function createQuickLine(variantId: string, listPrice: number | null): QuickLineForm {
+export function createQuickLine(variantId: string, listPrice: number | null, shelfUnitCost: number | null): QuickLineForm {
   return new FormGroup({
     variantId: new FormControl(variantId, { nonNullable: true }),
     quantity: new FormControl(1, { nonNullable: true, validators: [Validators.required, Validators.min(1)] }),
     unitPrice: new FormControl<number | null>(listPrice, [Validators.required, Validators.min(0)]),
-    estimatedUnitCost: new FormControl<number | null>(null),
-    costStatus: new FormControl<CostStatus>('pending', { nonNullable: true }),
+    shelfUnitCost: new FormControl<number | null>(shelfUnitCost),
+    priceStatus: new FormControl<PriceStatus>('pending', { nonNullable: true }),
   });
 }
 
 /**
  * One product of the quick sale: its photo, how many (never past what is
  * free), the price of the ladder for that quantity, which can be changed, and
- * the cost the order line will carry. Price and cost are asked again only
- * when the quantity changes, not when the price is edited.
+ * what a unit is worth on the shelf, which is what the line will cost
+ * (ADR-022). The price is asked again only when the quantity changes, not
+ * when it is edited.
  */
 @Component({
   selector: 'app-venta-rapida-linea',
@@ -70,7 +70,9 @@ export function createQuickLine(variantId: string, listPrice: number | null): Qu
           } @else {
             <span class="error">Ya no está libre en el estante: quítalo de la venta.</span>
           }
-          @if (suggested() !== null && group().controls.unitPrice.value !== suggested()) {
+          @if (status() === 'pending') {
+            <span>Leyendo el precio…</span>
+          } @else if (suggested() !== null && group().controls.unitPrice.value !== suggested()) {
             <span>
               Precio de lista para {{ quantity() }}: {{ suggested() | money }}
               <button type="button" class="inline-link" (click)="useSuggested()">Usar</button>
@@ -78,24 +80,10 @@ export function createQuickLine(variantId: string, listPrice: number | null): Qu
           } @else if (priceFailed()) {
             <span>No pudimos leer la escalera de precios: revisa el precio.</span>
           }
-          @switch (status()) {
-            @case ('pending') { <span>Calculando el costo…</span> }
-            @case ('failed') {
-              <span class="error">
-                No pudimos calcular el costo.
-                <button type="button" class="inline-link" (click)="retry()">Reintentar</button>
-              </span>
-            }
-            @default {
-              @if (estimate() !== null) {
-                <span>Costo estimado {{ estimate() | money }} c/u</span>
-              } @else {
-                <span class="warn-text">Sin costo estimado: la receta no tiene placas o no hay impresora registrada, así que Resultados la contará sin costo.</span>
-              }
-              @if (unpriced().length > 0) {
-                <span class="warn-text">Es un mínimo: {{ unpriced().join(', ') }} sin costo registrado.</span>
-              }
-            }
+          @if (shelfCost() !== null) {
+            <span>Costo en el estante {{ shelfCost() | money }} c/u</span>
+          } @else {
+            <span class="warn-text">Sin costo en el estante: nada dice cuánto costó armarlo, así que Resultados la contará sin costo.</span>
           }
         </div>
       </div>
@@ -121,7 +109,6 @@ export function createQuickLine(variantId: string, listPrice: number | null): Qu
 })
 export class VentaRapidaLinea implements OnInit {
   private readonly data = inject(PedidosData);
-  private readonly estimator = inject(CostEstimator);
   private readonly destroyRef = inject(DestroyRef);
 
   readonly group = input.required<QuickLineForm>();
@@ -131,11 +118,10 @@ export class VentaRapidaLinea implements OnInit {
   readonly remove = output<void>();
 
   protected readonly quantity = signal(1);
-  protected readonly status = signal<CostStatus>('pending');
+  protected readonly status = signal<PriceStatus>('pending');
   protected readonly suggested = signal<number | null>(null);
   protected readonly priceFailed = signal(false);
-  protected readonly estimate = signal<number | null>(null);
-  protected readonly unpriced = signal<string[]>([]);
+  protected readonly shelfCost = signal<number | null>(null);
   protected priceEdited = false;
 
   protected readonly label = computed(() => `${this.item().productName} ${this.item().variantName}`);
@@ -169,15 +155,12 @@ export class VentaRapidaLinea implements OnInit {
     this.group().controls.unitPrice.setValue(price);
   }
 
-  protected retry(): void {
-    this.lastQuantity = Number.NaN;
-    this.onChange(0);
-  }
-
   /** Only a new quantity asks again; typing a price, or the status written below, does not. */
   private onChange(delay = TYPING_DELAY_MS): void {
-    const quantity = this.group().controls.quantity.value;
+    const { quantity, shelfUnitCost } = this.group().getRawValue();
     this.quantity.set(quantity);
+    // The page writes it when it reads the shelf again.
+    this.shelfCost.set(shelfUnitCost);
     if (Object.is(quantity, this.lastQuantity)) return;
     this.lastQuantity = quantity;
 
@@ -188,34 +171,29 @@ export class VentaRapidaLinea implements OnInit {
     this.timer = setTimeout(() => void this.refresh(quantity), delay);
   }
 
+  /** A ladder that cannot be read leaves the price typed: the person checks it, the sale does not wait. */
   private async refresh(quantity: number): Promise<void> {
     const { variantId } = this.group().getRawValue();
     const request = ++this.sequence;
 
-    const [price, cost] = await Promise.allSettled([
-      this.data.suggestedPrice(variantId, quantity),
-      this.estimator.forVariant(variantId, quantity),
-    ]);
+    let suggested: number | null = null;
+    let failed = false;
+    try {
+      suggested = await this.data.suggestedPrice(variantId, quantity);
+    } catch {
+      failed = true;
+    }
     if (request !== this.sequence) return;
 
-    this.priceFailed.set(price.status === 'rejected');
-    const suggested = price.status === 'fulfilled' ? price.value : null;
+    this.priceFailed.set(failed);
     this.suggested.set(suggested);
     if (!this.priceEdited && suggested !== null) this.group().controls.unitPrice.setValue(suggested);
-
-    if (cost.status === 'rejected') {
-      this.setStatus('failed');
-      return;
-    }
-    this.estimate.set(cost.value?.perUnit ?? null);
-    this.unpriced.set(cost.value?.unpricedSupplies ?? []);
-    this.group().controls.estimatedUnitCost.setValue(cost.value?.perUnit ?? null, { emitEvent: false });
     this.setStatus('ready');
   }
 
   /** Written in the form too: the page reads it to know whether the sale can go. */
-  private setStatus(status: CostStatus): void {
+  private setStatus(status: PriceStatus): void {
     this.status.set(status);
-    this.group().controls.costStatus.setValue(status);
+    this.group().controls.priceStatus.setValue(status);
   }
 }

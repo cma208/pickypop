@@ -38,24 +38,30 @@ export interface ShelfOffer extends VariantInfo {
   free: number;
   /** Assembled units on the shelf, claimed or not. */
   onHand: number;
+  /**
+   * What a unit is worth on the shelf, labour included: what the delivery
+   * will take it out at, and so the cost the line keeps (ADR-022). Null when
+   * nothing says what it cost.
+   */
+  unitCost: number | null;
 }
 
-/** How far the cost estimate of a line got. */
-export type CostStatus = 'pending' | 'ready' | 'failed';
+/** Whether the ladder's price for the quantity has been read. The sale waits for it. */
+export type PriceStatus = 'pending' | 'ready';
 
 /** One line of the sale, as the form holds it. */
 export interface SaleLineValue {
   variantId: string;
   quantity: number;
   unitPrice: number | null;
-  /** Null once ready means the estimator had nothing to cost (no plates): it goes as zero, like «Nuevo pedido». */
-  estimatedUnitCost: number | null;
-  costStatus: CostStatus;
+  /** What a unit is worth on the shelf, as the shelf was last read. The database puts the real one on the line. */
+  shelfUnitCost: number | null;
+  priceStatus: PriceStatus;
 }
 
 export interface SaleTotals {
   total: number;
-  /** The estimated cost of what is sold, line by line as Resultados rounds it. */
+  /** What the sale takes off the shelf, line by line as Resultados rounds it. */
   cost: number;
   collected: number;
   /** What stays in «Por cobrar». */
@@ -92,13 +98,28 @@ export interface CustomerChoice {
   id: string;
   name: string;
   phone: string | null;
-  /** «Cliente al paso»: who the sales without a name go to. */
+  /** «Clientes varios»: who the sales without a name go to. */
   walkIn: boolean;
 }
 
-/** What `quick_sale` receives. */
+/** A sales channel the sale can say it came through. */
+export interface ChannelChoice {
+  id: string;
+  name: string;
+}
+
+/** The active channels, and the one that stands for direct sales, preselected. */
+export interface ChannelOptions {
+  channels: ChannelChoice[];
+  /** Null when the workshop has none: then the sale may go without a channel. */
+  defaultId: string | null;
+}
+
+/** What `quick_sale` receives. The cost is not sent: the database puts what left the shelf. */
 export interface QuickSalePayload {
-  lines: { variant_id: string; quantity: number; unit_price: number; estimated_unit_cost: number }[];
+  lines: { variant_id: string; quantity: number; unit_price: number }[];
+  /** Null is the workshop's default channel, or none if it has none. */
+  channelId: string | null;
   customerId: string | null;
   customerName: string | null;
   customerPhone: string | null;
@@ -158,10 +179,13 @@ export function validQuantity(quantity: number): boolean {
  * order and no hold claims, by the plan's own position of its finished
  * article. A product that is not assembled leaves as its parts and goes
  * through a normal order; one nobody has assembled has nothing to offer.
+ * `costs` is what a unit of each variant is worth on the shelf, read from
+ * the database (`finished_good_costs`), never worked out here.
  */
 export function shelfOffers(
   view: { input: Pick<PlanInput, 'recipes'>; result: Pick<PlanResult, 'items'> },
   variants: readonly VariantInfo[],
+  costs: ReadonlyMap<string, number> = new Map(),
 ): ShelfOffer[] {
   const positions = new Map(view.result.items.map((position) => [position.itemId, position]));
   const known = new Map(variants.map((variant) => [variant.id, variant]));
@@ -174,7 +198,15 @@ export function shelfOffers(
       if (!position || !variant) return [];
       const free = wholeUnits(position.free);
       if (free < 1) return [];
-      return [{ ...variant, label: `${variant.productName} — ${variant.variantName}`, free, onHand: wholeUnits(position.onHand) }];
+      return [
+        {
+          ...variant,
+          label: `${variant.productName} — ${variant.variantName}`,
+          free,
+          onHand: wholeUnits(position.onHand),
+          unitCost: costs.get(recipe.variantId) ?? null,
+        },
+      ];
     })
     .sort((a, b) => a.label.localeCompare(b.label, 'es'));
 }
@@ -199,7 +231,7 @@ export function saleTotals(lines: readonly SaleLineValue[], collected: number | 
   const total = sumMoney(lines.map(lineTotal));
   const cost = sumMoney(
     lines.map((line) =>
-      validQuantity(line.quantity) && line.estimatedUnitCost !== null ? totalFor(line.estimatedUnitCost, line.quantity) : 0,
+      validQuantity(line.quantity) && line.shelfUnitCost !== null ? totalFor(line.shelfUnitCost, line.quantity) : 0,
     ),
   );
   const paid = collected !== null && Number.isFinite(collected) ? roundMoney(Math.max(0, collected)) : 0;
@@ -294,21 +326,24 @@ function lineProblem(line: SaleLineValue, offer: ShelfOffer | undefined): string
   }
   const price = salePrice(line.unitPrice);
   if (price === null || price < 0) return `Escribe el precio de «${offer.label}».`;
-  if (line.costStatus === 'pending') return `Un momento: estamos calculando el costo de «${offer.label}».`;
-  if (line.costStatus === 'failed') return `No pudimos calcular el costo de «${offer.label}». Toca «Reintentar» en su línea.`;
+  // The ladder may lower the price for this quantity: selling before it answers would sell at the old one.
+  if (line.priceStatus === 'pending') return `Un momento: estamos leyendo el precio de «${offer.label}» para esa cantidad.`;
   return null;
 }
 
 /**
  * What `quick_sale` receives. A customer from the list goes alone; a name
  * and phone go to be created; neither is the walk-in customer. Nothing
- * collected sends no account: there is no money to put anywhere.
+ * collected sends no account: there is no money to put anywhere. No cost
+ * travels: the database writes on each line what left the shelf.
  */
 export function toQuickSale(sale: {
   lines: readonly SaleLineValue[];
   customer: SaleCustomer;
   payment: SalePayment;
   note: string;
+  /** Empty is no channel chosen: the database takes the workshop's default. */
+  channelId?: string;
 }): QuickSalePayload {
   const { lines, customer, payment } = sale;
   const amount = roundMoney(Math.max(0, payment.amount ?? 0));
@@ -320,8 +355,8 @@ export function toQuickSale(sale: {
       variant_id: line.variantId,
       quantity: line.quantity,
       unit_price: salePrice(line.unitPrice) ?? 0,
-      estimated_unit_cost: line.estimatedUnitCost ?? 0,
     })),
+    channelId: sale.channelId || null,
     customerId: chosen,
     customerName: chosen ? null : textOrNull(customer.name),
     customerPhone: chosen ? null : textOrNull(customer.phone),

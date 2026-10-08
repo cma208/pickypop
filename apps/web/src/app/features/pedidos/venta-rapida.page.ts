@@ -16,6 +16,7 @@ import {
   sameTotals,
   toQuickSale,
   validQuantity,
+  type ChannelOptions,
   type CustomerChoice,
   type QuickSalePayload,
   type SaleDone,
@@ -24,6 +25,7 @@ import {
   type ShelfOffer,
   type VariantInfo,
 } from './quick-sale';
+import { VentaRapidaCanal } from './venta-rapida-canal';
 import { createQuickCustomer, VentaRapidaCliente, WALK_IN_NAME } from './venta-rapida-cliente';
 import { createQuickPayment, VentaRapidaCobro, type QuickPaymentForm } from './venta-rapida-cobro';
 import { QuickSaleData, type SoldOrder } from './venta-rapida.data';
@@ -37,12 +39,16 @@ const UNKNOWN_ITEM: Omit<VariantInfo, 'id'> = { productName: 'Producto', variant
 /** Pedidos with every status: a quick sale is born delivered, and «En curso» never shows it. */
 const ALL_ORDERS = { estado: 'todos' };
 
+/** Until the channels are read: nothing to ask. */
+const NO_CHANNELS: ChannelOptions = { channels: [], defaultId: null };
+
 /**
  * «Venta rápida» (ADR-024): what is assembled and free on the shelf, sold,
  * handed over and collected in one step. The database does all of it in one
  * transaction (`quick_sale`); this screen picks the products by their photo,
- * prices them like «Nuevo pedido» and says before the button what would stop
- * the sale.
+ * prices them like «Nuevo pedido», shows what they are worth on the shelf
+ * (the cost each line will keep, ADR-022) and says before the button what
+ * would stop the sale.
  */
 @Component({
   selector: 'app-venta-rapida',
@@ -56,6 +62,7 @@ const ALL_ORDERS = { estado: 'todos' };
     VentaRapidaEstante,
     VentaRapidaLinea,
     VentaRapidaCliente,
+    VentaRapidaCanal,
     VentaRapidaCobro,
     VentaRapidaHecha,
     ...FORMAT_PIPES,
@@ -98,7 +105,7 @@ const ALL_ORDERS = { estado: 'todos' };
                 <dt>Total</dt>
                 <dd class="num total">{{ totals().total | money }}</dd>
                 @if (totals().cost > 0) {
-                  <dt class="muted">Costo estimado</dt>
+                  <dt class="muted">Costo en el estante</dt>
                   <dd class="num muted">{{ totals().cost | money }}</dd>
                 }
               </dl>
@@ -106,6 +113,7 @@ const ALL_ORDERS = { estado: 'todos' };
 
             <pp-card heading="Cliente">
               <app-venta-rapida-cliente [group]="form.controls.customer" [customers]="customers()" [owes]="totals().owed > 0" />
+              <app-venta-rapida-canal [control]="form.controls.channelId" [options]="channels()" />
               <pp-field label="Nota" hint="Opcional. Por ejemplo: «Feria de Barranco».">
                 <input type="text" formControlName="note" autocomplete="off" />
               </pp-field>
@@ -162,10 +170,13 @@ export class VentaRapidaPage {
     customer: createQuickCustomer(),
     payment: createQuickPayment(),
     note: new FormControl('', { nonNullable: true }),
+    /** Empty is no channel: only offered when the workshop has no default. */
+    channelId: new FormControl('', { nonNullable: true }),
   });
 
   protected readonly offers = signal<ShelfOffer[]>([]);
   protected readonly customers = signal<CustomerChoice[]>([]);
+  protected readonly channels = signal<ChannelOptions>(NO_CHANNELS);
   protected readonly accounts = signal<AccountOption[]>([]);
   protected readonly loading = signal(true);
   protected readonly loadError = signal<string | null>(null);
@@ -228,7 +239,7 @@ export class VentaRapidaPage {
     this.sellError.set(null);
     const line = this.lines.controls.find((row) => row.controls.variantId.value === offer.id);
     if (line) line.controls.quantity.setValue(oneMore(line.controls.quantity.value, offer.free));
-    else this.lines.push(createQuickLine(offer.id, offer.listPrice));
+    else this.lines.push(createQuickLine(offer.id, offer.listPrice, offer.unitCost));
   }
 
   protected removeLine(index: number): void {
@@ -304,9 +315,10 @@ export class VentaRapidaPage {
   }
 
   /**
-   * The next sale starts empty, from the same account and dated when it is
-   * made. The method goes back to the account's: the next customer may pay
-   * another way, and a method left from the last one would go unnoticed.
+   * The next sale starts empty, from the same account and channel (a fair is
+   * many sales through one) and dated when it is made. The method goes back
+   * to the account's: the next customer may pay another way, and a method
+   * left from the last one would go unnoticed.
    */
   private resetSale(): void {
     this.lines.clear();
@@ -327,9 +339,9 @@ export class VentaRapidaPage {
       if (made) return this.sold(payload, made);
     }
     // What refused it may have changed under the screen: the shelf, or an
-    // account deactivated meanwhile. Read again first, then say why, so the
-    // reload (which may clear that account) does not wipe the reason.
-    await Promise.allSettled([this.reloadShelf(), this.loadAccounts()]);
+    // account or a channel deactivated meanwhile. Read again first, then say
+    // why, so the reload (which may clear that choice) does not wipe the reason.
+    await Promise.allSettled([this.reloadShelf(), this.loadAccounts(), this.loadChannels()]);
     this.sellError.set(this.sellFailure(error));
     this.unsure.set(!refused);
   }
@@ -359,15 +371,21 @@ export class VentaRapidaPage {
     return { ...payment, soldAt: payment.soldAt ? inputToIso(payment.soldAt) : null };
   }
 
+  /** What is free, and what each line in the sale is worth on the shelf now: another assembly may have moved it. */
   private applyOffers(offers: ShelfOffer[]): void {
     this.offers.set(offers);
     this.known.update((known) => new Map([...known, ...offers.map((offer) => [offer.id, offer] as const)]));
+    const byId = new Map(offers.map((offer) => [offer.id, offer]));
+    for (const line of this.lines.controls) {
+      const offer = byId.get(line.controls.variantId.value);
+      if (offer && offer.unitCost !== line.controls.shelfUnitCost.value) line.controls.shelfUnitCost.setValue(offer.unitCost);
+    }
   }
 
   private async load(): Promise<void> {
     const shelf = this.reloadShelf();
     try {
-      await Promise.all([this.loadAccounts(), this.loadCustomers()]);
+      await Promise.all([this.loadAccounts(), this.loadCustomers(), this.loadChannels()]);
       // With one account there is nothing to choose.
       const accounts = this.accounts();
       if (accounts.length === 1) this.form.controls.payment.controls.accountId.setValue(accounts[0]!.id);
@@ -381,6 +399,14 @@ export class VentaRapidaPage {
 
   private async loadCustomers(): Promise<void> {
     this.customers.set(await this.data.customers());
+  }
+
+  /** The direct channel comes chosen; a channel deactivated meanwhile stops being chosen. */
+  private async loadChannels(): Promise<void> {
+    const options = await this.data.channels();
+    this.channels.set(options);
+    const chosen = this.form.controls.channelId;
+    if (!options.channels.some((channel) => channel.id === chosen.value)) chosen.setValue(options.defaultId ?? '');
   }
 
   /** Only active accounts. One that stopped being so is no longer chosen: the screen would offer it blank and send it anyway. */

@@ -235,6 +235,28 @@ export class ConfiguracionData {
     }));
   }
 
+  /**
+   * The channel that stands for direct sales, the one the quick sale
+   * preselects and the database uses when a sale names none: the owner's
+   * choice while active, or else the only active channel (`default_channel`).
+   */
+  async defaultChannel(): Promise<string | null> {
+    const { data, error } = await this.supabase.rpc('default_channel', {
+      p_workspace_id: await this.workspace.requireId(),
+    });
+    if (error) throw error;
+    return data ?? null;
+  }
+
+  /** The database refuses a channel of another workshop: the foreign key carries the workshop. */
+  async saveDefaultChannel(channelId: string): Promise<void> {
+    const { error } = await this.supabase.from('workshop_settings').upsert({
+      workspace_id: await this.workspace.requireId(),
+      default_channel_id: channelId,
+    });
+    if (error) throw error;
+  }
+
   async saveChannel(channelId: string | null, draft: Omit<ChannelRecord, 'id'>): Promise<void> {
     const values = {
       name: draft.name.trim(),

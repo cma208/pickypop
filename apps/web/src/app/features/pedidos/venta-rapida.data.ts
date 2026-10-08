@@ -4,7 +4,14 @@ import { UserFacingError } from '../../core/friendly-error';
 import { PlanService } from '../../core/plan';
 import { SUPABASE } from '../../core/supabase';
 import { CurrentWorkspace } from '../../core/workspace';
-import { shelfOffers, type CustomerChoice, type QuickSalePayload, type ShelfOffer, type VariantInfo } from './quick-sale';
+import {
+  shelfOffers,
+  type ChannelOptions,
+  type CustomerChoice,
+  type QuickSalePayload,
+  type ShelfOffer,
+  type VariantInfo,
+} from './quick-sale';
 
 /** SQLSTATE of a `raise exception` in plpgsql: a message written for a person. */
 const RAISED_BY_DATABASE = 'P0001';
@@ -30,8 +37,27 @@ export class QuickSaleData {
    */
   async offers(fresh = false): Promise<ShelfOffer[]> {
     if (fresh) this.planner.invalidate();
-    const [view, variants] = await Promise.all([this.planner.current(), this.variants()]);
-    return shelfOffers(view, variants);
+    const [view, variants, costs] = await Promise.all([this.planner.current(), this.variants(), this.shelfCosts()]);
+    return shelfOffers(view, variants, costs);
+  }
+
+  /**
+   * The active channels and the one preselected: the workshop's default, the
+   * one that stands for direct sales (`default_channel`). The database
+   * applies the same default when a sale names none.
+   */
+  async channels(): Promise<ChannelOptions> {
+    const workspaceId = await this.workspace.requireId();
+    const [list, chosen] = await Promise.all([
+      this.supabase.from('sales_channels').select('id, name').eq('active', true).order('name'),
+      this.supabase.rpc('default_channel', { p_workspace_id: workspaceId }),
+    ]);
+    if (list.error) throw list.error;
+    if (chosen.error) throw chosen.error;
+
+    const channels = list.data.map((row) => ({ id: row.id, name: row.name }));
+    const defaultId = channels.some((channel) => channel.id === chosen.data) ? chosen.data : null;
+    return { channels, defaultId };
   }
 
   /**
@@ -72,6 +98,7 @@ export class QuickSaleData {
       p_reference: sale.reference ?? undefined,
       p_note: sale.note ?? undefined,
       p_sale_key: key,
+      p_channel_id: sale.channelId ?? undefined,
     });
     if (error?.code === RAISED_BY_DATABASE) throw new UserFacingError(error.message);
     if (error) throw error;
@@ -95,6 +122,26 @@ export class QuickSaleData {
 
     this.planner.invalidate();
     return { id: data.id, number: data.number, total: Number(data.total) };
+  }
+
+  /**
+   * What a unit of each assembled product is worth on the shelf, labour
+   * included: what the delivery takes it out at. The database works it out;
+   * this only reads it.
+   */
+  private async shelfCosts(): Promise<Map<string, number>> {
+    const rows = await fetchAll((from, to) =>
+      this.supabase
+        .from('finished_good_costs')
+        .select('variant_id, unit_cost')
+        .order('inventory_item_id')
+        .range(from, to),
+    );
+    return new Map(
+      rows.flatMap((row) =>
+        row.variant_id !== null && row.unit_cost !== null ? [[row.variant_id, Number(row.unit_cost)] as const] : [],
+      ),
+    );
   }
 
   /** Every variant with its name, its picture (its own, or its product's) and its list price. */

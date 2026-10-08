@@ -5,9 +5,8 @@ import { ArticlePhotos } from '../../core/article-photos';
 import { UserFacingError } from '../../core/friendly-error';
 import { Media } from '../../core/media';
 import { FinanzasData } from '../finanzas/finanzas.data';
-import { CostEstimator } from './cost-estimate';
 import { PedidosData, type AccountOption } from './pedidos.data';
-import type { QuickSalePayload, ShelfOffer } from './quick-sale';
+import type { ChannelOptions, QuickSalePayload, ShelfOffer } from './quick-sale';
 import { QuickSaleData, type SoldOrder } from './venta-rapida.data';
 import { VentaRapidaPage } from './venta-rapida.page';
 
@@ -20,6 +19,15 @@ const PINK: ShelfOffer = {
   label: 'Canastita — Rosada',
   free: 5,
   onHand: 5,
+  unitCost: 6.4,
+};
+
+const CHANNELS: ChannelOptions = {
+  channels: [
+    { id: 'direct', name: 'Directo' },
+    { id: 'instagram', name: 'Instagram' },
+  ],
+  defaultId: 'direct',
 };
 
 const CASH: AccountOption = { id: 'cash', name: 'Efectivo', defaultMethod: 'cash', openingBalanceOn: '2026-01-01' };
@@ -41,6 +49,7 @@ interface Opened {
 
 interface Script {
   accounts?: AccountOption[];
+  channels?: ChannelOptions;
   /** What the database does with each sale, in order. By default it makes it. */
   sell?: ((sent: Sent, made: SoldOrder) => Promise<SoldOrder>)[];
   /** What asking for a sale by its key answers, in order. By default, what was made with that key. */
@@ -61,7 +70,6 @@ async function open(script: Script = {}): Promise<Opened> {
       { provide: Media, useValue: { url: async () => null, version: signal(0) } },
       { provide: ArticlePhotos, useValue: { resolve: async () => ({ path: null, kind: 'part' }) } },
       { provide: FinanzasData, useValue: { paymentCategories: async () => ({ order: null, purchase: null }) } },
-      { provide: CostEstimator, useValue: { forVariant: async () => ({ perUnit: 6, total: 6, unpricedSupplies: [] }) } },
       {
         provide: PedidosData,
         useValue: { paymentAccounts: async () => script.accounts ?? [CASH], suggestedPrice: async () => 15 },
@@ -71,6 +79,7 @@ async function open(script: Script = {}): Promise<Opened> {
         useValue: {
           offers: async () => [PINK],
           customers: async () => [],
+          channels: async () => script.channels ?? CHANNELS,
           sell: async (payload: QuickSalePayload, key: string) => {
             const call = { payload, key };
             sent.push(call);
@@ -101,7 +110,7 @@ async function open(script: Script = {}): Promise<Opened> {
   return { fixture, sent, lookups };
 }
 
-/** The line asks for its price and cost after a short delay: real time has to pass. */
+/** The line asks for its price after a short delay: real time has to pass. */
 async function settle(fixture: ComponentFixture<VentaRapidaPage>): Promise<void> {
   for (let round = 0; round < 4; round++) {
     await new Promise((resolve) => setTimeout(resolve, 5));
@@ -110,7 +119,7 @@ async function settle(fixture: ComponentFixture<VentaRapidaPage>): Promise<void>
   }
 }
 
-/** A new quantity asks for its price and cost again once typing stops (300 ms). */
+/** A new quantity asks for its price again once typing stops (300 ms). */
 async function moreOfTheSame(fixture: ComponentFixture<VentaRapidaPage>): Promise<void> {
   button(fixture, 'Agregar Canastita — Rosada').click();
   await new Promise((resolve) => setTimeout(resolve, 350));
@@ -167,7 +176,53 @@ async function oneBasket(script: Script = {}): Promise<Opened> {
   return opened;
 }
 
+function channelSelect(fixture: ComponentFixture<VentaRapidaPage>): HTMLSelectElement | null {
+  return fixture.nativeElement.querySelector('select[aria-label="Canal de venta"]');
+}
+
 describe('VentaRapidaPage', () => {
+  it('sells through the direct channel unless another is chosen, and keeps it for the next sale', async () => {
+    const { fixture, sent } = await oneBasket();
+
+    const select = channelSelect(fixture)!;
+    expect(select.value).toBe('direct');
+    // With a default every sale names a channel: there is no «Sin canal».
+    expect(Array.from(select.options).map((option) => option.textContent?.trim())).toEqual(['Directo', 'Instagram']);
+    await press(fixture, /^Vender/);
+    expect(sent[0]!.payload.channelId).toBe('direct');
+
+    select.value = 'instagram';
+    select.dispatchEvent(new Event('change'));
+    await press(fixture, 'Agregar Canastita — Rosada');
+    await press(fixture, /^Vender/);
+    expect(sent[1]!.payload.channelId).toBe('instagram');
+    expect(channelSelect(fixture)!.value).toBe('instagram');
+  });
+
+  it('lets a sale go without a channel only when the workshop has no default', async () => {
+    const { fixture, sent } = await oneBasket({ channels: { ...CHANNELS, defaultId: null } });
+
+    const select = channelSelect(fixture)!;
+    expect(select.value).toBe('');
+    expect(select.options[0]!.textContent?.trim()).toBe('Sin canal');
+    await press(fixture, /^Vender/);
+    expect(sent[0]!.payload.channelId).toBeNull();
+  });
+
+  it('does not ask for a channel the workshop does not have', async () => {
+    const { fixture } = await oneBasket({ channels: { channels: [], defaultId: null } });
+    expect(channelSelect(fixture)).toBeNull();
+  });
+
+  it('shows what the basket is worth on the shelf and sends no cost: the database puts it', async () => {
+    const { fixture, sent } = await oneBasket();
+
+    expect(text(fixture)).toMatch(/Costo en el estante S\/\s6\.40 c\/u/);
+    expect(text(fixture)).toContain('Sin cliente, la venta queda a nombre de «Clientes varios».');
+    await press(fixture, /^Vender/);
+    expect(sent[0]!.payload.lines).toEqual([{ variant_id: 'pink', quantity: 1, unit_price: 15 }]);
+  });
+
   it('sells only with the button: Enter in a field, or «Ir» on a phone, submits nothing', async () => {
     const { fixture, sent } = await oneBasket();
 
