@@ -12,13 +12,19 @@
 -- Lo mismo con lo que se mueve a mano (`move_item_stock`, origen `manual`):
 --
 -- * **Una merma** (salida por merma) es pérdida: resta.
--- * **Un consumo** (salida por consumo) también resta. Un insumo, un
---   empaque o un repuesto solo llega a Resultados por la receta de lo que se
---   vende (costo de ventas). Lo que se usa fuera de una receta (la bolsa de
---   un regalo, el pegamento de una reparación, la boquilla que se cambió)
---   no se vende nunca, y si no restara aquí no restaría en ningún sitio.
+-- * **Un consumo** (salida por consumo) no resta: ya llega a Resultados por
+--   otro camino, y restarlo aquí lo contaría dos veces. El insumo de una línea
+--   a medida está en su estimado (los insumos de la cotización), que es su
+--   costo de ventas, y `deliver_order` no lo saca del stock: sacarlo a mano es
+--   lo único que deja el kardex bien. Y un repuesto que se cambia (la
+--   boquilla) ya lo paga el costo de máquina de cada impresión, que lleva el
+--   presupuesto de mantenimiento. Lo que se usa fuera de todo eso (la bolsa de
+--   un regalo) se queda sin restar: es poco, y es el precio de no contar dos
+--   veces lo de todos los días.
 -- * **Un conteo** es como el del estante o un pesaje: resta lo que faltó y
---   suma lo que sobró.
+--   suma lo que sobró. Menos el primero de un artículo que nunca tuvo
+--   movimientos: es su stock inicial, lo que ya había el día que se empezó a
+--   contar, y cuenta como una entrada.
 -- * **Una entrada** no suma. Es stock que llega sin compra (lo que ya había
 --   el día que se empezó a usar el sistema, algo que regaló un proveedor):
 --   contarla como ganancia subiría la utilidad con plata que nunca entró, y
@@ -27,9 +33,10 @@
 -- Una entrada y un conteo que encontró de más son el mismo movimiento
 -- (`adjustment` positivo, origen `manual`). Para separarlos, `move_item_stock`
 -- deja ahora en `source_id` el artículo que contó, como el pesaje deja su
--- rollo. Los conteos de antes no lo tienen: los que encontraron menos restan
--- (solo un conteo saca con un ajuste), y los que encontraron más quedan
--- fuera, como una entrada.
+-- rollo, salvo en el primer conteo de un artículo sin movimientos, que queda
+-- como una entrada. Los conteos de antes no lo tienen: los que encontraron
+-- menos restan (solo un conteo saca con un ajuste), y los que encontraron
+-- más quedan fuera, como una entrada.
 --
 -- Todo eso va en una columna nueva, `stock_written_off`, al costo con que
 -- salió y en el mes del taller en que salió. Es parte de «Producción no
@@ -59,6 +66,7 @@ declare
   v_type public.stock_movement_type;
   v_note text := nullif(btrim(coalesce(p_note, '')), '');
   v_result jsonb;
+  v_tracked boolean;
 begin
   select * into v_item from public.inventory_items where id = p_item_id for update;
   if not found then
@@ -100,7 +108,7 @@ begin
     raise exception '% se cuenta por %: la cantidad va entera.', v_item.name, v_item.unit;
   end if;
 
-  select coalesce(sum(m.quantity), 0) into v_before
+  select coalesce(sum(m.quantity), 0), count(*) > 0 into v_before, v_tracked
   from public.stock_movements m
   where m.inventory_item_id = p_item_id
     and m.type not in ('reservation', 'release');
@@ -123,7 +131,9 @@ begin
 
   if v_difference <> 0 then
     -- A count names what it counted, as a weighing names its roll: that is
-    -- how Resultados tells a count that found more from an entry.
+    -- how Resultados tells a count that found more from an entry. The first
+    -- count of an article that never moved is its opening stock, what was
+    -- there before anyone counted: it names nothing, like an entry.
     insert into public.stock_movements (
       workspace_id, type, inventory_item_id, quantity, unit_cost, source_type, source_id, note
     )
@@ -134,7 +144,7 @@ begin
       v_difference,
       (select c.cost_per_unit from public.inventory_item_costs c where c.inventory_item_id = p_item_id),
       'manual',
-      case when p_mode = 'count' then p_item_id end,
+      case when p_mode = 'count' and v_tracked then p_item_id end,
       coalesce(
         v_note,
         case when p_mode = 'count'
@@ -332,9 +342,12 @@ written_off as (
   -- What left the inventory without being sold, outside the shelf's flows
   -- and the prints, at what it was worth when it left: a roll marked
   -- «Agotado» or «Descartado» with grams on it, a weighing, and a supply, a
-  -- bag or a spare part taken out or counted by hand. Less what weighings
-  -- and counts found over. A manual entry is not here: it is stock that came
-  -- in without a purchase, and its cost reaches the result when it is used.
+  -- bag or a spare part lost (waste) or counted short by hand. Less what
+  -- weighings and counts found over. A manual entry is not here: it is stock
+  -- that came in without a purchase, and its cost reaches the result when it
+  -- is used. Nor is a manual consumption: a made-to-order line carries its
+  -- supplies in its estimate, and a printer's spare parts are in the machine
+  -- cost of every print, so subtracting it here would count it twice.
   select
     m.workspace_id,
     date_trunc('month', m.occurred_at at time zone w.timezone)::date as month,
@@ -342,10 +355,14 @@ written_off as (
   from public.stock_movements m
   join public.workspaces w on w.id = m.workspace_id
   where m.source_type in ('spool_status', 'weighing')
-     -- By hand: whatever went out, and a count (it names its article) that
-     -- found more. Before 20261027120000 a count named nothing, and one that
-     -- found more cannot be told from an entry: it stays out.
-     or (m.source_type = 'manual' and (m.quantity < 0 or m.source_id is not null))
+     -- By hand: a waste, a count that found less (only a count takes out with
+     -- an adjustment), and a count that found more (it names its article).
+     -- Before 20261027120000 a count named nothing, and one that found more
+     -- cannot be told from an entry: it stays out, like an opening count.
+     or (
+       m.source_type = 'manual'
+       and (m.type = 'waste' or (m.type = 'adjustment' and (m.quantity < 0 or m.source_id is not null)))
+     )
   group by m.workspace_id, 2
 ),
 months as (
@@ -420,10 +437,10 @@ from merged;
 
 
 comment on view public.monthly_income_statement is
-  'Profitability by month, in the workshop''s time zone. The cost of sales of a catalogue line is what its delivered units cost when they left the shelf (labour included), plus its pending units at their estimate; a made-to-order line costs its estimate, or else its prints. What was printed and never sold is an expense of its month: moulds, tests and their failed or cancelled tries, counted losses, the failed prints (cancelled ones that ran included) no estimate pays for, and what left the inventory without being sold outside the shelf (rolls emptied or discarded with grams, weighings, supplies taken out or counted by hand). Other income (money in that is neither a sale nor capital) adds to the net profit on its own line. All failed prints of production are also shown against print_cost and the failure allowance. Inventory purchases are shown apart: they reach the result through the cost of sales.';
+  'Profitability by month, in the workshop''s time zone. The cost of sales of a catalogue line is what its delivered units cost when they left the shelf (labour included), plus its pending units at their estimate; a made-to-order line costs its estimate, or else its prints. What was printed and never sold is an expense of its month: moulds, tests and their failed or cancelled tries, counted losses, the failed prints (cancelled ones that ran included) no estimate pays for, and what left the inventory without being sold outside the shelf (rolls emptied or discarded with grams, weighings, supplies lost or counted by hand). Other income (money in that is neither a sale nor capital) adds to the net profit on its own line. All failed prints of production are also shown against print_cost and the failure allowance. Inventory purchases are shown apart: they reach the result through the cost of sales.';
 
 comment on column public.monthly_income_statement.unsold_production is
   'Printed or bought and never sold, subtracted from net_profit: tools_and_tests + shelf_count_losses + uncovered_failed_prints + stock_written_off.';
 
 comment on column public.monthly_income_statement.stock_written_off is
-  'What left the inventory without being sold outside the shelf''s flows and the prints, at what it was worth when it left: rolls marked empty or discarded with grams on them (spool_status), weighings, and supplies, bags and spare parts taken out (waste or consumption) or counted by hand (manual), less what weighings and counts found over. A manual entry is not here. Part of unsold_production, so subtracted.';
+  'What left the inventory without being sold outside the shelf''s flows and the prints, at what it was worth when it left: rolls marked empty or discarded with grams on them (spool_status), weighings, and supplies, bags and spare parts lost (waste) or counted by hand (manual), less what weighings and counts found over. A manual entry, an opening count and a manual consumption are not here: the consumption already reaches the result through an estimate or the machine cost. Part of unsold_production, so subtracted.';

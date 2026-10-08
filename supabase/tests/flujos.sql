@@ -149,7 +149,8 @@ join (values (411, 1000), (412, 1000), (413, 1000), (414, 500), (415, 1000)) as 
 
 insert into public.inventory_items (id, workspace_id, kind, name, unit, standard_cost) values
   (pg_temp.id(421), pg_temp.id(1), 'supply', 'Pegamento', 'unidad', 2),
-  (pg_temp.id(422), pg_temp.id(1), 'packaging', 'Bolsa chica', 'unidad', 1);
+  (pg_temp.id(422), pg_temp.id(1), 'packaging', 'Bolsa chica', 'unidad', 1),
+  (pg_temp.id(423), pg_temp.id(1), 'supply', 'Imán', 'unidad', 0.30);
 
 insert into public.stock_movements (workspace_id, occurred_at, type, inventory_item_id, quantity, unit_cost, source_type, note) values
   (pg_temp.id(1), now() - interval '70 days', 'purchase', pg_temp.id(421), 10, 2, 'purchase', 'Prueba de flujos'),
@@ -169,22 +170,51 @@ select pg_temp.expect('Lo que sale del inventario sin venderse llega a Resultado
     perform public.weigh_spool(#4, 1100, 200);                   -- 900 g of 1000: 100 g at 0.04, 4.00
     perform public.weigh_spool(#5, 600, 0);                      -- 600 g of 500: 100 g over at 0.03, -3.00
     perform public.move_item_stock(#6, 'out', 2, 'waste');       -- 2 at 2: 4.00
-    perform public.move_item_stock(#6, 'out', 1, 'consumption'); -- 1 at 2: 2.00
+    perform public.move_item_stock(#6, 'out', 1, 'consumption'); -- 1 at 2: nothing, its estimate pays it
     perform public.move_item_stock(#6, 'count', 5);              -- 7 counted as 5: 4.00
     perform public.move_item_stock(#7, 'count', 4);              -- 3 counted as 4: -1.00
     perform public.move_item_stock(#6, 'in', 10);                -- an entry: nothing
+    perform public.move_item_stock(#8, 'count', 200);            -- opening stock, 200 at 0.30: nothing
+
+    if (select m.source_id from public.stock_movements m where m.inventory_item_id = #8) is not null then
+      raise exception 'el primer conteo del imán quedó como un conteo y no como su stock inicial';
+    end if;
 
     select * into r from public.monthly_income_statement where workspace_id = #1 and month = v_month;
-    if r.stock_written_off is distinct from 120.00 then
-      raise exception 'stock_written_off da % y no 120.00', r.stock_written_off;
+    if r.stock_written_off is distinct from 118.00 then
+      raise exception 'stock_written_off da % y no 118.00', r.stock_written_off;
     end if;
-    if r.unsold_production is distinct from 120.00 or r.shelf_count_losses <> 0 then
+    if r.unsold_production is distinct from 118.00 or r.shelf_count_losses <> 0 then
       raise exception 'producción no vendida da % (conteo del estante %)', r.unsold_production, r.shelf_count_losses;
     end if;
-    if r.net_profit is distinct from -120.00 then
-      raise exception 'la utilidad neta da % y no -120.00', r.net_profit;
+    if r.net_profit is distinct from -118.00 then
+      raise exception 'la utilidad neta da % y no -118.00', r.net_profit;
     end if;
-  end $x$$q$, 1, 411, 412, 413, 414, 421, 422), 'ok:');
+  end $x$$q$, 1, 411, 412, 413, 414, 421, 422, 423), 'ok:');
+
+-- What a made-to-order line used, taken out by hand, is already in its
+-- estimate: Resultados counts it once, as cost of sales.
+select pg_temp.expect('Un insumo de una línea a medida resta una sola vez', 'operator', pg_temp.q($q$do $x$
+  declare
+    v_month date := date_trunc('month', app.workspace_day(#1, now()))::date;
+    v_before record;
+    v_after record;
+  begin
+    reset role;
+    insert into public.orders (id, workspace_id, number, purpose, customer_id, status, total, ordered_on)
+    values (#2, #1, 'FLU-0009', 'sale', #3, 'confirmed', 50, app.workspace_day(#1, now()));
+    insert into public.order_lines (workspace_id, order_id, position, variant_id, description, quantity, unit_price, estimated_unit_cost)
+    values (#1, #2, 1, null, 'Llaveros con nombre', 10, 5, 3);
+    set local role authenticated;
+
+    select * into v_before from public.monthly_income_statement where workspace_id = #1 and month = v_month;
+    perform public.move_item_stock(#4, 'out', 5, 'consumption', 'Para FLU-0009');
+    select * into v_after from public.monthly_income_statement where workspace_id = #1 and month = v_month;
+
+    if v_before.cost_of_sales is distinct from 30.00 or v_after.net_profit is distinct from v_before.net_profit then
+      raise exception 'costo de ventas %, y la utilidad pasó de % a %', v_before.cost_of_sales, v_before.net_profit, v_after.net_profit;
+    end if;
+  end $x$$q$, 1, 709, 301, 421), 'ok:');
 
 -- A roll emptied last month is a loss of last month, at what a gram cost.
 select pg_temp.expect('Un rollo descartado el mes pasado resta en su mes', 'operator', pg_temp.q($q$do $x$
