@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { partsOnlyThisPlateMakes, removePlateQuestion } from './plate-removal';
+import { isOnlySourceOf, partsOnlyThisPlateMakes, removeOutputQuestion, removePlateQuestion, swapOutputQuestion } from './plate-removal';
 
 const plate = (id: string, ...parts: string[]) => ({
   id,
@@ -37,5 +37,29 @@ describe('removePlateQuestion (T2-07)', () => {
     expect(removePlateQuestion({ plateIndex: 1, label: null }, ['Tapa', 'Gancho'])).toContain(
       'imprime «Tapa» y «Gancho». La receta las sigue pidiendo',
     );
+  });
+});
+
+describe('isOnlySourceOf', () => {
+  it('tells whether another output of the recipe prints the same part', () => {
+    const caps = plate('p1', 'cap', 'hook');
+    const spareCaps = plate('p4', 'cap');
+
+    expect(isOnlySourceOf(caps.outputs[1], [caps, spareCaps])).toBe(true);
+    expect(isOnlySourceOf(caps.outputs[0], [caps, spareCaps])).toBe(false);
+    expect(isOnlySourceOf(spareCaps.outputs[0], [caps, spareCaps])).toBe(false);
+  });
+});
+
+describe('removeOutputQuestion and swapOutputQuestion (T2-07)', () => {
+  it('say what is left without a plate, like removing the plate does', () => {
+    const removing = removeOutputQuestion('Trasera de calavera');
+    expect(removing).toContain('¿Quitar «Trasera de calavera» de esta placa?');
+    expect(removing).toContain('Es la única placa de la receta que la imprime.');
+    expect(removing).toContain('el plan no sabrá con qué placa hacerla');
+
+    const swapping = swapOutputQuestion('Tapa', 'Gancho');
+    expect(swapping).toContain('¿Cambiar «Tapa» por «Gancho» en esta placa?');
+    expect(swapping).toContain('Es la única placa de la receta que imprime «Tapa».');
   });
 });

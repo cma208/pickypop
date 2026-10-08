@@ -8,6 +8,7 @@ import { CatalogoPermissions } from './catalogo.permissions';
 import { SHARED_STYLES } from './catalogo.styles';
 import { messageOf } from './catalogo.util';
 import { fieldError, LIMITS, limitText, wholeNumber } from './catalogo.validators';
+import { removeOutputQuestion, swapOutputQuestion } from './plate-removal';
 
 export interface PartOption {
   id: string;
@@ -97,6 +98,8 @@ export class SalidaFila {
   readonly usedIds = input<string[]>([]);
   /** Position for a new row. */
   readonly nextPosition = input(1);
+  /** No other output of the recipe prints this row's part: removing it or changing it leaves the part with no plate. */
+  readonly soleSource = input(false);
   readonly changed = output<void>();
 
   protected readonly busy = signal(false);
@@ -178,6 +181,11 @@ export class SalidaFila {
 
     const value = this.form.getRawValue();
     const input = { inventoryItemId: value.inventoryItemId, unitsPerRun: Number(value.unitsPerRun) };
+    const saved = this.current();
+    if (saved && this.soleSource() && saved.inventoryItemId !== input.inventoryItemId) {
+      const newName = this.parts().find((part) => part.id === input.inventoryItemId)?.name ?? 'otra pieza';
+      if (!confirm(swapOutputQuestion(this.partName(saved), newName))) return;
+    }
 
     this.busy.set(true);
     try {
@@ -202,6 +210,8 @@ export class SalidaFila {
   protected async remove(): Promise<void> {
     const current = this.current();
     if (!current || this.busy()) return;
+    // The only plate that prints the part: say what that does before (T2-07).
+    if (this.soleSource() && !confirm(removeOutputQuestion(this.partName(current)))) return;
 
     this.busy.set(true);
     this.error.set(null);
@@ -214,5 +224,9 @@ export class SalidaFila {
     }
     // Removed or refused, what the page shows may be old: read it again.
     this.changed.emit();
+  }
+
+  private partName(output: PlateOutput): string {
+    return output.part?.name ?? this.parts().find((part) => part.id === output.inventoryItemId)?.name ?? 'esta pieza';
   }
 }

@@ -7,7 +7,7 @@ import { CatalogoPermissions } from './catalogo.permissions';
 import { SHARED_STYLES } from './catalogo.styles';
 import { messageOf } from './catalogo.util';
 import { DECIMALS, decimalsText, fieldError, LIMITS, limitText, maxDecimals } from './catalogo.validators';
-import { partsOnlyThisPlateMakes, removePlateQuestion } from './plate-removal';
+import { isOnlySourceOf, partsOnlyThisPlateMakes, removePlateQuestion } from './plate-removal';
 import { FilamentoFila } from './filamento-fila';
 import { describeObjects } from './importacion';
 import { SalidaFila, type PartOption } from './salida-fila';
@@ -110,7 +110,7 @@ const MINUTES_MESSAGES: Record<string, string> = {
             <p class="muted hint">Sin piezas, la placa no deja nada en el estante al cerrar la impresión.</p>
           }
           @for (out of current.outputs; track out.id) {
-            <app-salida-fila [plateId]="current.id" [current]="out" [parts]="parts()" [usedIds]="usedPartIds()" (changed)="changed.emit()" />
+            <app-salida-fila [plateId]="current.id" [current]="out" [parts]="parts()" [usedIds]="usedPartIds()" [soleSource]="soleOutputs().has(out.id)" (changed)="changed.emit()" />
           }
           <app-salida-fila [plateId]="current.id" [parts]="parts()" [usedIds]="usedPartIds()" [nextPosition]="current.outputs.length + 1" (changed)="changed.emit()" />
         </div>
@@ -145,6 +145,13 @@ export class PlacaEditor {
       .map((item) => ({ id: item.id, name: item.name, unit: item.unit, imagePath: item.imagePath ?? null })),
   );
   protected readonly usedPartIds = computed(() => this.plate()?.outputs.map((out) => out.inventoryItemId) ?? []);
+  /** This plate's outputs that are the only ones in the recipe printing their part. */
+  protected readonly soleOutputs = computed(() => {
+    const plate = this.plate();
+    if (!plate) return new Set<string>();
+    const plates = this.plates().length > 0 ? this.plates() : [plate];
+    return new Set(plate.outputs.filter((out) => isOnlySourceOf(out, plates)).map((out) => out.id));
+  });
 
   protected readonly nextSlot = computed(
     () => Math.max(0, ...(this.plate()?.filaments.map((filament) => filament.slot) ?? [])) + 1,
