@@ -3,8 +3,8 @@ import { friendlyError } from '../../core/friendly-error';
 import { SECTION_STYLES } from '../../core/styles';
 import { Field, FORMAT_PIPES } from '../../ui';
 import { FinanzasData, type LedgerRow } from './finanzas.data';
-import { TRANSACTION_TYPE_LABELS } from './finanzas.models';
 import { FINANCE_STYLES } from './finanzas.styles';
+import { voidSummary } from './void-summary';
 
 /**
  * Annuls a movement. There is no delete: the row stays on the record with the
@@ -19,8 +19,8 @@ import { FINANCE_STYLES } from './finanzas.styles';
       <h3>Anular movimiento</h3>
 
       <p class="muted">
-        {{ typeLabels[row().type] }} de <strong>{{ row().amount | money }}</strong> en
-        {{ row().accountName }}, del {{ row().occurredAt | fecha }}.
+        <strong>{{ summary().what }}</strong>, del {{ row().occurredAt | fecha }}.
+        @if (summary().legs; as legs) { {{ legs }} }
         El movimiento no se borra: deja de contar en los saldos y queda registrado como anulado.
       </p>
 
@@ -48,7 +48,7 @@ export class VoidForm {
   readonly voided = output<string>();
   readonly cancelled = output<void>();
 
-  protected readonly typeLabels = TRANSACTION_TYPE_LABELS;
+  protected readonly summary = computed(() => voidSummary(this.row()));
 
   protected readonly reason = signal('');
   protected readonly touched = signal(false);
