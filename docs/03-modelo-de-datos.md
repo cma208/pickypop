@@ -9,6 +9,8 @@
 | Nombres | `snake_case`, tablas en plural y en inglés |
 | Identificadores | `id uuid` |
 | Multi-taller | **Todas** las tablas de negocio llevan `workspace_id` y políticas RLS por membresía, aunque hoy haya un solo usuario |
+| Permisos | Cada tabla es del día a día, de configuración o un libro, con las políticas que le tocan (§3.5, ADR-025) |
+| Nombres únicos | Sin distinguir mayúsculas ni espacios alrededor: índices sobre `lower(btrim(name))` en canales, cuentas, categorías de dinero y de regalo, marcas, materiales, acabados, impresoras, insumos y el color del filamento (`*_name_ci_key`, `filament_skus_identity_ci_key`) |
 | Auditoría | `created_at`, `created_by`, `updated_at` |
 | Borrado | **Nunca se borra un registro financiero.** Se usa `archived_at` o una operación inversa (anulación) |
 | Dinero | `numeric(12,2)` en soles; decimales exactos en TypeScript, nunca `float` |
@@ -25,10 +27,10 @@
 
 | Tabla | Columnas clave |
 |---|---|
-| `workspaces` | name, currency (`PEN`), timezone, tax_regime (`none`, `nrus`, `rer`, `rmt`, `general`), ruc, legal_name |
-| `workspace_members` | workspace_id, user_id, role (`owner`, `operator`, `viewer`) |
+| `workspaces` | name, currency (`PEN`), timezone, tax_regime (`none`, `nrus`, `rer`, `rmt`, `general`), ruc, legal_name. La aplicación formatea siempre en soles y en hora de Lima, así que Configuración muestra la moneda y la zona y no ofrece cambiarlas; las funciones de la base sí leen `timezone` (`app.workspace_day`) |
+| `workspace_members` | workspace_id, user_id, role (`owner`, `operator`, `viewer`; qué puede cada uno, en §3.5). La base no deja al taller sin dueño (`workspace_members_keep_an_owner`) |
 | `workshop_settings` | print_first_start, print_last_start, print_end_by (la ventana de impresión: hoy 6:00, 23:00 y medianoche), changeover_default_minutes, hold_default_days, hold_default_time (un separo vence a las 23:00 del día siguiente), order_payment_category_id y purchase_payment_category_id (en qué categoría de Caja queda un cobro de pedido y un pago de compra cuando nadie elige otra; sin elegir, la única categoría activa de esa dirección; la de los cobros queda marcada como de ventas al elegirla), **default_channel_id** (el canal de las ventas directas, que la Venta rápida trae elegido y `quick_sale` usa si la venta no nombra uno; sin elegir, ninguno, y la Venta rápida y Configuración avisan que falta. Clave foránea compuesta contra `sales_channels (id, workspace_id)`: no puede ser de otro taller. `app.default_channel` aplica la regla). Una fila por taller (ADR-021) |
-| `cost_profiles` | valid_from, energy_rate_kwh, labor_rate_hour, failure_rate, material_waste_rate, target_margin, min_order_price, rounding_step, igv_rate, material_valuation (`weighted_avg`, `last_cost`, `replacement`) |
+| `cost_profiles` | valid_from, energy_rate_kwh, labor_rate_hour, failure_rate, material_waste_rate, target_margin, min_order_price, rounding_step, igv_rate, material_valuation (`weighted_avg`, `last_cost`, `replacement`). Una versión programada (que todavía no empezó) se corrige o se quita; la vigente y las anteriores no se tocan, y ninguna empieza antes de hoy (el día del taller). Lo impone `cost_profiles_versions_stay_put` |
 
 ### Materiales e inventario
 
@@ -212,9 +214,27 @@ Estas operaciones escriben en varias tablas y deben hacerlo **todo o nada**. Ser
 | `record_purchase_payment` | `transactions` (egreso ligado a la compra). Rechaza pagar de más (ADR-019) |
 | `record_payment` | `transactions`, estado de la orden |
 | `log_maintenance` | `maintenance_logs`, `stock_movements` (repuestos), `transactions` |
+| `save_printer` | `assets` y `printers`, juntos o nada: guardar la impresora ya no deja el costo del activo cambiado si la impresora falla. Solo el dueño; el nombre no se repite sin importar mayúsculas |
 | `cancel_order` | Estado de la orden, liberación de reservas, reembolso si corresponde |
 | `assemble_product` | `stock_movements` (consumo de piezas, insumos y empaque, y la entrada del producto como `production`). **Todo o nada:** si falta un componente no mueve nada y lanza un `P0001` con qué falta y cuánto, que la pantalla muestra tal cual. Rechaza una receta vacía y un producto que no se arma, y bloquea lo que va a consumir. **El producto entra a lo que consumió más la mano de obra de la receta** (ADR-022): los minutos por unidad por cada una y la preparación una vez por armado, a la tarifa del perfil vigente ese día en el taller (`app.recipe_labor_cost`, la regla de `laborCost` en el dominio) |
 
-Escritas hasta hoy: `complete_print_job`, `record_payment`, `record_purchase_payment`, `assemble_product`, `deliver_order`, `quick_sale`, `count_shelf`, `accept_quote`, `set_quote_hold`, `set_order_hold` y `prioritize_order`. Faltan `register_purchase`, `log_maintenance` y `cancel_order`.
+Escritas hasta hoy: `complete_print_job`, `record_payment`, `record_purchase_payment`, `assemble_product`, `deliver_order`, `quick_sale`, `count_shelf`, `accept_quote`, `set_quote_hold`, `set_order_hold`, `prioritize_order` y `save_printer`. Faltan `register_purchase`, `log_maintenance` y `cancel_order`.
 
 **«Entregado» lo pone la entrega.** Un disparador rechaza pasar un pedido a `delivered` o `closed` a mano mientras quede algo por entregar: el único camino es `deliver_order`, que lo pasa solo cuando ya no queda nada pendiente. Nota: `purchases.account_id` figura en este documento pero nunca se creó, y hace falta si el formulario de compra va a elegir cuenta.
+
+## 3.5 Permisos
+
+La matriz es decisión del dueño (ADR-025) y vive en las políticas: la pantalla solo la lee para no ofrecer lo que la base va a negar. `supabase/tests/permisos.sql` la verifica entera.
+
+| Forma | Tablas | Leer | Agregar y cambiar | Borrar |
+|---|---|---|---|---|
+| **Día a día** (`app.apply_workspace_rls`) | Todas las demás: catálogo, recetas, insumos y filamentos, compras, rollos, clientes, cotizaciones, pedidos, trabajos de impresión, mantenimiento hecho, incidentes… | Cualquier miembro | Dueño y operador (`app.can_operate`) | Dueño |
+| **Configuración** (`app.apply_owner_rls`) | `cost_profiles`, `workshop_settings`, `sales_channels`, `accounts`, `transaction_categories`, `gift_categories`, `printers`, `assets`, `printer_components`, `maintenance_plans` | Cualquier miembro | Dueño | Dueño |
+| **Libros** (`app.apply_ledger_rls`) | `transactions`, `stock_movements`, `order_deliveries`, `order_delivery_lines` | Cualquier miembro | Agregar: dueño y operador. **Cambiar: nadie** | **Nadie** |
+| Propias | `workspaces` (cambia el dueño; crea cualquiera con sesión), `workspace_members` (el dueño), `document_counters` (solo la función de numeración) | Miembros | — | — |
+
+- «Cualquier miembro» incluye «Solo lectura», que no escribe nada.
+- Al cambiar, la política ve la fila con ser miembro y exige el rol en la fila escrita: quien no puede recibe un error, no un cambio de cero filas, y el operador puede bloquear la impresora al iniciar un trabajo.
+- En los libros no hay ni política ni privilegio de `update`, `delete` o `truncate` para `anon`, `authenticated` ni `service_role`. El dinero se anula (`void_transaction`, solo el dueño); el stock se corrige con otro movimiento. `stock_movements_are_permanent` impide además que un rollo o un artículo con historial se borre llevándose sus movimientos en cascada.
+- Las funciones `security definer` no pasan por las políticas y exigen ellas mismas el rol. Las demás son `security invoker`: el operador puede todo lo que hacen porque solo agregan a los libros.
+- Las fotos (`storage.objects`, carpeta del taller) siguen la misma regla que el catálogo: subir, reemplazar y borrar es de dueño y operador.

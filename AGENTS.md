@@ -19,8 +19,16 @@ Está **en producción** desde el 2026-10-05, con datos reales entrando. Las pan
 - El margen se toma **sobre el precio**, nunca sobre el costo: `precio = costo / (1 - margen)`.
 - Cada componente de dinero se redondea a céntimos **por separado**, para que el desglose sume exactamente el total.
 - El redondeo pasa por `roundMoney` y `sumMoney`. Siempre.
+- **La mano de obra vive en dos sitios, a propósito**: `laborCost` en el dominio y, en la base, `app.recipe_labor_cost` y `app.recipe_unit_labor`, porque armar y entregar la cobran dentro de una transacción (ADR-022). Es la misma regla: si cambias una, cambia la otra.
 
-**Las reglas de acceso viven en la base de datos.** Cada tabla tiene seguridad por fila (RLS) aplicada con `app.apply_workspace_rls`. El frontend **nunca** filtra por taller: ya lo hace la base. Ocultar un botón no es seguridad: cualquiera puede llamar la API directamente.
+**Las reglas de acceso viven en la base de datos.** Cada tabla tiene seguridad por fila (RLS). El frontend **nunca** filtra por taller: ya lo hace la base. Ocultar un botón no es seguridad: cualquiera puede llamar la API directamente.
+
+**Quién puede qué lo decide la base** (ADR-025, decisión del dueño). El operador hace el día a día: producir, armar y contar el estante, comprar, vender, cobrar y llevar el catálogo. **Solo el dueño** cambia la configuración (parámetros de costo, horario y datos del taller, canales, cuentas y sus aperturas, categorías de dinero y de regalo, miembros, impresoras con sus activos, componentes y planes) y anula dinero. «Solo lectura» solo lee.
+
+- Una tabla nueva usa una de las tres formas: `app.apply_workspace_rls` (el día a día), `app.apply_owner_rls` (configuración) o `app.apply_ledger_rls` (un libro). `supabase/tests/permisos.sql` verifica la matriz entera; si tu tabla no es del día a día, agrégala a su lista.
+- **Nadie, ni el dueño, edita ni borra un cobro, un pago, un movimiento de dinero o de stock, ni una entrega.** El dinero se anula (`void_transaction`); el stock se corrige con otro movimiento, un pesaje o un conteo. La base no tiene ni la política ni el privilegio: un `update` o un `delete` sobre esas tablas es un error, también desde la llave de servicio.
+- Una función `security definer` se salta las políticas: exige ella misma el rol que corresponde. Las demás heredan la matriz de quien las llama.
+- La pantalla lee el rol de `CurrentWorkspace` (`isOwner`, `canOperate`) solo para no ofrecer lo que la base va a negar y decir por qué. Si la base lo niega igual, lo dice `friendlyError`, y la pantalla vuelve a leer el rol (`refresh`).
 
 **Los saldos no se guardan, se derivan.** El stock sale de sus movimientos; el saldo de una cuenta, de los suyos más el saldo de apertura. No añadas una columna de saldo editable por mucho que parezca más rápido.
 
@@ -54,6 +62,12 @@ pnpm --filter @pickypop/web exec ng test --watch=false
 pnpm --filter @pickypop/web exec ng build
 ```
 
+Los permisos se prueban contra una base local con las migraciones, sin dejar rastro (todo dentro de `begin … rollback`):
+
+```bash
+docker exec -i supabase_db_pickypop psql -U postgres -d postgres -v ON_ERROR_STOP=1 < supabase/tests/permisos.sql
+```
+
 **Que compile no es que funcione.** Los dos errores más caros de este proyecto —un cálculo que nunca se recalculaba y una estimación multiplicada por el número de placas— pasaban el build y los tests. Solo aparecieron al usar la aplicación.
 
 Así que: levanta el servidor local, entra, y **haz la tarea completa como la haría una persona**. Luego comprueba contra la base lo que creíste que pasó:
@@ -79,7 +93,7 @@ Si creas datos de prueba, **bórralos al terminar** y di cuáles fueron.
 | `docs/02-dominio.md` | Modelo de negocio, fórmula de costo y precio, ejemplos con números reales |
 | `docs/03-modelo-de-datos.md` | Todas las tablas y vistas |
 | `docs/04-arquitectura.md` | Cómo encaja, y por qué el coste de operación es cero |
-| `docs/05-decisiones.md` | 24 decisiones de arquitectura, con su porqué |
+| `docs/05-decisiones.md` | 25 decisiones de arquitectura, con su porqué |
 | `docs/06-frontend.md` | Contrato del frontend: estructura, diseño, pantallas |
 | `docs/07-plan-de-trabajo.md` | **El reparto de trabajo vigente** |
 | `packages/domain` | Las reglas de dinero |
