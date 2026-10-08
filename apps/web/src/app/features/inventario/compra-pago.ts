@@ -1,19 +1,24 @@
 import { Component, computed, effect, inject, input, output, signal, untracked } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
+import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { inputToIso, nowForInput } from '../../core/dates';
+import { inputToIso, nowForInput, todayLocal } from '../../core/dates';
 import { errorOf } from '../../core/form-errors';
 import { roundMoney } from '../../core/pricing';
 import { Field, FORMAT_PIPES } from '../../ui';
 import { PAYMENT_METHOD_LABELS, PAYMENT_METHODS, type PaymentMethod } from '../finanzas/finanzas.models';
 import { beforeOpening, beforeOpeningNotice } from '../finanzas/opening-balance';
 import { PaymentCategoryNote } from '../finanzas/payment-category-note';
+import { maxDecimals } from './form-helpers';
 import { InventarioData, type PaymentAccount, type PurchaseSummary } from './inventario.data';
 import { describeError } from './inventario.errors';
 import { INVENTORY_STYLES } from './inventario.styles';
+import { notBefore, notInTheFutureMoment, purchaseDateFloor } from './purchase-dates';
 
 const NO_ACCOUNT = '';
 const NO_METHOD = '';
+const MIN_PAYMENT = 0.01;
+const MONEY_DECIMALS = 2;
+const MONEY = new Intl.NumberFormat('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 /**
  * Pays what is still owed on a purchase: the one bought on credit, the one paid
@@ -49,8 +54,8 @@ const NO_METHOD = '';
           <pp-field label="Monto (S/)" [required]="true" hint="Por defecto, lo que falta." [error]="amountError()">
             <input type="number" min="0.01" step="0.01" formControlName="amount" inputmode="decimal" />
           </pp-field>
-          <pp-field label="Fecha y hora" [required]="true">
-            <input type="datetime-local" formControlName="occurredAt" />
+          <pp-field label="Fecha y hora" [required]="true" [error]="momentError()">
+            <input type="datetime-local" formControlName="occurredAt" [min]="oldestMoment" [max]="latestMoment" />
           </pp-field>
           <pp-field label="Medio de pago">
             <select formControlName="method">
@@ -82,20 +87,38 @@ export class CompraPago {
   readonly accounts = input.required<PaymentAccount[]>();
   /** The money is recorded; the list that owns the purchase reloads it. */
   readonly paid = output<void>();
+  /** The database refused it: the purchase may have been paid from another tab. The list reloads behind the message. */
+  readonly refused = output<void>();
 
   protected readonly methods = PAYMENT_METHODS;
   protected readonly methodLabel = PAYMENT_METHOD_LABELS;
   protected readonly noAccount = NO_ACCOUNT;
   protected readonly noMethod = NO_METHOD;
+  protected readonly oldestMoment = `${purchaseDateFloor(todayLocal())}T00:00`;
+  protected readonly latestMoment = nowForInput();
   protected readonly saving = signal(false);
   protected readonly error = signal<string | null>(null);
 
   protected readonly form = new FormGroup({
     accountId: new FormControl(NO_ACCOUNT, { nonNullable: true, validators: [Validators.required] }),
-    amount: new FormControl<number | null>(null, [Validators.required, Validators.min(0.01)]),
-    occurredAt: new FormControl(nowForInput(), { nonNullable: true, validators: [Validators.required] }),
+    amount: new FormControl<number | null>(null, [
+      Validators.required,
+      Validators.min(MIN_PAYMENT),
+      maxDecimals(MONEY_DECIMALS),
+    ]),
+    occurredAt: new FormControl(nowForInput(), {
+      nonNullable: true,
+      validators: [Validators.required, notInTheFutureMoment, notBefore(purchaseDateFloor(todayLocal()))],
+    }),
     method: new FormControl<PaymentMethod | typeof NO_METHOD>(NO_METHOD, { nonNullable: true }),
   });
+
+  /**
+   * Names this payment for the database, which writes it once however many
+   * times it arrives: a double click, or an answer lost on the way back
+   * (T1-01). Any change to the form is another payment, with a key of its own.
+   */
+  private paymentKey = crypto.randomUUID();
 
   private readonly chosenAccountId = toSignal(this.form.controls.accountId.valueChanges, {
     initialValue: NO_ACCOUNT,
@@ -103,6 +126,10 @@ export class CompraPago {
 
   private readonly chosenMoment = toSignal(this.form.controls.occurredAt.valueChanges, {
     initialValue: this.form.controls.occurredAt.value,
+  });
+
+  private readonly chosenAmount = toSignal(this.form.controls.amount.valueChanges, {
+    initialValue: this.form.controls.amount.value,
   });
 
   /** A payment dated before the account opened settles the purchase but leaves the balance alone (E5-02). */
@@ -120,6 +147,12 @@ export class CompraPago {
     return method ? `El de la cuenta (${PAYMENT_METHOD_LABELS[method]})` : 'El de la cuenta';
   });
 
+  /** More than is owed is refused by the database too; said here, it is said before the click. */
+  private readonly overPending = computed(() => {
+    const amount = this.chosenAmount();
+    return typeof amount === 'number' && amount > roundMoney(this.purchase().pending);
+  });
+
   constructor() {
     // The suggestion follows what is owed, so a second partial payment already
     // proposes the rest.
@@ -127,6 +160,7 @@ export class CompraPago {
       const pending = this.purchase().pending;
       untracked(() => this.form.controls.amount.setValue(roundMoney(pending)));
     });
+    this.form.valueChanges.pipe(takeUntilDestroyed()).subscribe(() => (this.paymentKey = crypto.randomUUID()));
   }
 
   protected accountError(): string | null {
@@ -134,30 +168,50 @@ export class CompraPago {
   }
 
   protected amountError(): string | null {
-    return errorOf(this.form.controls.amount, {
+    const control = this.form.controls.amount;
+    if (this.overPending() && (control.touched || control.dirty)) {
+      return `No puede pasar de lo que falta: S/ ${MONEY.format(this.purchase().pending)}.`;
+    }
+    return errorOf(control, {
       required: 'Indica cuánto pagaste.',
-      min: 'El monto tiene que ser mayor que cero.',
+      min: 'El monto mínimo es S/ 0.01.',
+      decimals: 'El monto va en céntimos: hasta 2 decimales.',
+    });
+  }
+
+  protected momentError(): string | null {
+    return errorOf(this.form.controls.occurredAt, {
+      required: 'Indica cuándo pagaste.',
+      future: 'La fecha no puede ser futura: registra el pago cuando lo hagas.',
+      tooOld: 'La fecha es de hace más de dos años: revisa el año.',
     });
   }
 
   protected async submit(): Promise<void> {
+    // Before anything else: a second click while the first is on its way does nothing.
+    if (this.saving()) return;
     this.form.markAllAsTouched();
     this.error.set(null);
-    if (this.form.invalid) return;
+    if (this.form.invalid || this.overPending()) return;
 
     const { accountId, amount, occurredAt, method } = this.form.getRawValue();
     this.saving.set(true);
     try {
-      await this.data.recordPurchasePayment({
-        purchaseId: this.purchase().id,
-        accountId,
-        amount: amount ?? 0,
-        method: method === NO_METHOD ? null : method,
-        occurredAt: inputToIso(occurredAt),
-      });
+      await this.data.recordPurchasePayment(
+        {
+          purchaseId: this.purchase().id,
+          accountId,
+          amount: amount ?? 0,
+          method: method === NO_METHOD ? null : method,
+          occurredAt: inputToIso(occurredAt),
+        },
+        this.paymentKey,
+      );
+      this.paymentKey = crypto.randomUUID();
       this.paid.emit();
     } catch (error) {
       this.error.set(describeError(error, 'No pudimos registrar el pago. Inténtalo de nuevo.'));
+      this.refused.emit();
     } finally {
       this.saving.set(false);
     }

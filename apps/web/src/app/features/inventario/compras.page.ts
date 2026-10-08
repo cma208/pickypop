@@ -15,7 +15,7 @@ import { describeError } from './inventario.errors';
 import { INVENTORY_PIPES, unitFor } from './inventario.format';
 import { INVENTORY_STYLES } from './inventario.styles';
 import { InventoryPlan } from './inventory-plan';
-import { spoolName } from '../../core/spool-label';
+import { savedPurchaseNotice } from './purchase-entries';
 
 /** What a supply line is counted in when its item has no unit of its own. */
 const DEFAULT_UNIT = 'unidad';
@@ -35,9 +35,6 @@ const DEFAULT_UNIT = 'unidad';
       @if (notice(); as text) {
         <p class="notice" role="status">{{ text }}</p>
       }
-      @if (warning(); as text) {
-        <p class="alert alert-warn" role="alert">{{ text }}</p>
-      }
 
       <pp-async [loading]="loading()" [error]="error()">
         @if (creating()) {
@@ -47,6 +44,7 @@ const DEFAULT_UNIT = 'unidad';
             [supplierOptions]="suppliers()"
             [accountOptions]="accounts()"
             (saved)="onSaved($event)"
+            (refused)="refresh()"
             (cancelled)="creating.set(false)"
           />
         } @else if (purchases().length === 0) {
@@ -136,7 +134,12 @@ const DEFAULT_UNIT = 'unidad';
                           @if (purchase.note) { · {{ purchase.note }} }
                         </p>
                         @if (purchase.pending > 0) {
-                          <app-compra-pago [purchase]="purchase" [accounts]="accounts()" (paid)="onPaid()" />
+                          <app-compra-pago
+                            [purchase]="purchase"
+                            [accounts]="accounts()"
+                            (paid)="onPaid()"
+                            (refused)="refresh()"
+                          />
                         } @else {
                           <p class="muted meta">Pagada: {{ purchase.paid | money }}.</p>
                         }
@@ -170,7 +173,6 @@ export class ComprasPage {
   protected readonly items = signal<InventoryItemSummary[]>([]);
   protected readonly suppliers = signal<SupplierOption[]>([]);
   protected readonly accounts = signal<PaymentAccount[]>([]);
-  protected readonly warning = signal<string | null>(null);
   protected readonly loading = signal(true);
   protected readonly error = signal<string | null>(null);
   protected readonly notice = signal<string | null>(null);
@@ -183,7 +185,6 @@ export class ComprasPage {
 
   protected startNew(): void {
     this.notice.set(null);
-    this.warning.set(null);
     this.creating.set(true);
   }
 
@@ -211,27 +212,23 @@ export class ComprasPage {
   }
 
   protected async onSaved(saved: SavedPurchase): Promise<void> {
-    const { rolls, spools, paymentFailed } = saved;
     this.creating.set(false);
     // What came in may be exactly what an order was missing: the plan computes again.
     this.planner.changed();
-    // The labels are what gets written on the rolls, so they are listed here.
-    const labels = spools.length > 0 ? `: ${spools.map(spoolName).join(', ')}` : '';
-    this.notice.set(
-      rolls > 0
-        ? `Compra registrada. Se crearon ${rolls} ${rolls === 1 ? 'rollo' : 'rollos'} con su costo final${labels}.`
-        : 'Compra registrada. El stock de insumos ya subió.',
-    );
-    this.warning.set(
-      paymentFailed
-        ? 'No pudimos registrar el pago, así que la compra quedó «por pagar». Ábrela con «Detalle» y regístralo ahí.'
-        : null,
-    );
+    this.notice.set(savedPurchaseNotice(saved));
+    await this.load();
+  }
+
+  /**
+   * The database refused something: what this screen shows may be old (a
+   * filament switched off, a purchase paid from another tab). The form or the
+   * payment keeps its message; the lists behind it come back up to date.
+   */
+  protected async refresh(): Promise<void> {
     await this.load();
   }
 
   protected async onPaid(): Promise<void> {
-    this.warning.set(null);
     this.notice.set('Pago registrado. Ya figura en Caja, ligado a la compra.');
     await this.load();
   }

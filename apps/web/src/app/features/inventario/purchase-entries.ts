@@ -1,3 +1,4 @@
+import { spoolName, type SpoolIdentity } from '../../core/spool-label';
 import { ITEM_KINDS, type ItemKind } from './inventario.format';
 
 /** How an article of each kind is counted in a sentence: «1 insumo», «2 empaques». */
@@ -36,4 +37,20 @@ export function purchaseEntries(rolls: number, itemKinds: readonly ItemKind[]): 
   if (rolls > 0) return `${rollText}.`;
   if (items) return `${verb.charAt(0).toUpperCase()}${verb.slice(1)} ${items}.`;
   return '';
+}
+
+/**
+ * «Compra registrada. Se creó 1 rollo con su costo final: PLA-NEGRO-03 · PLA
+ * Negro.» The labels are listed because they are what gets written on the
+ * rolls, and the verb agrees with how many there are: it said «Se crearon 1
+ * rollo» (T1-24).
+ */
+export function savedPurchaseNotice(saved: { rolls: number; spools: readonly SpoolIdentity[]; paid: number }): string {
+  const labels = saved.spools.length > 0 ? `: ${saved.spools.map(spoolName).join(', ')}` : '';
+  const entered =
+    saved.rolls === 0
+      ? 'El stock de insumos ya subió.'
+      : `${saved.rolls === 1 ? 'Se creó 1 rollo' : `Se crearon ${saved.rolls} rollos`} con su costo final${labels}.`;
+  const payment = saved.paid > 0 ? ' El pago ya figura en Caja, ligado a la compra.' : '';
+  return `Compra registrada. ${entered}${payment}`;
 }

@@ -6,13 +6,16 @@ import type { PlanLine, PurchasePlan } from '../../core/pricing';
 
 const COST_PER_GRAM_DIGITS = 3;
 
+/**
+ * One line of the purchase as it will be stored. The quantity and the price
+ * come from the plan, rounded the way the database keeps them, so the
+ * preview multiplies the same numbers the purchase is paid by (T1-16).
+ */
 export interface PreviewRow {
   label: string;
   kind: 'sku' | 'item';
-  quantity: number;
   /** The unit as it is counted, singular: «rollo», «g», «unidad». */
   unit: string;
-  unitPrice: number;
   netWeightG: number | null;
   line: PlanLine;
 }
@@ -43,7 +46,7 @@ interface CostGroup {
       <article class="row-card">
         <h3>{{ row.label }}</h3>
         <dl>
-          <div><dt>Compra</dt><dd>{{ quantityText(row) }} × {{ row.unitPrice | unitPrice }} = {{ row.line.subtotal | money }}</dd></div>
+          <div><dt>Compra</dt><dd>{{ quantityText(row) }} × {{ row.line.unitPrice | unitPrice }} = {{ row.line.subtotal | money }}</dd></div>
           <div><dt>Parte del envío y otros costos</dt><dd>{{ row.line.extra | money }}</dd></div>
           @if (row.kind === 'sku') {
             @for (group of groups()[$index]; track group.cost) {
@@ -99,14 +102,15 @@ export class PurchasePreview {
 
   protected readonly methodText = computed(() =>
     this.plan().method === 'by_weight'
-      ? 'El envío y los otros costos se reparten por peso: los insumos no reciben parte porque no tienen peso conocido.'
+      ? 'El envío y los otros costos se reparten por peso, y el peso que se cuenta es el neto de cada rollo: los insumos no reciben parte, aunque se compren por gramos.'
       : 'El envío y los otros costos se reparten por monto: cada línea carga una parte proporcional a lo que costó.',
   );
 
   /** «20 unidades», «1 rollo», «1000 g»: the unit agrees with the number. */
   protected quantityText(row: PreviewRow): string {
-    const unit = row.kind === 'sku' ? (row.quantity === 1 ? 'rollo' : 'rollos') : unitFor(row.quantity, row.unit);
-    return `${row.quantity} ${unit}`;
+    const quantity = row.line.quantity;
+    const unit = row.kind === 'sku' ? (quantity === 1 ? 'rollo' : 'rollos') : unitFor(quantity, row.unit);
+    return `${quantity} ${unit}`;
   }
 
   protected readonly groups = computed(() =>

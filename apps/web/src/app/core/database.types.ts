@@ -1112,13 +1112,13 @@ isOneToOne: false
                   ]
                 },"purchases": {
                   Row: {
-                    "allocation": Database["public"]['Enums']["cost_allocation"],"created_at": string,"created_by": string | null,"document_ref": string | null,"id": string,"note": string | null,"other_costs": number,"purchased_at": string,"shipping_cost": number,"supplier_id": string | null,"updated_at": string,"workspace_id": string
+                    "allocation": Database["public"]['Enums']["cost_allocation"],"created_at": string,"created_by": string | null,"document_ref": string | null,"id": string,"note": string | null,"other_costs": number,"purchase_key": string | null,"purchased_at": string,"shipping_cost": number,"supplier_id": string | null,"updated_at": string,"workspace_id": string
                   }
                   Insert: {
-                    "allocation"?: Database["public"]['Enums']["cost_allocation"],"created_at"?: string,"created_by"?: string | null,"document_ref"?: string | null,"id"?: string,"note"?: string | null,"other_costs"?: number,"purchased_at"?: string,"shipping_cost"?: number,"supplier_id"?: string | null,"updated_at"?: string,"workspace_id": string
+                    "allocation"?: Database["public"]['Enums']["cost_allocation"],"created_at"?: string,"created_by"?: string | null,"document_ref"?: string | null,"id"?: string,"note"?: string | null,"other_costs"?: number,"purchase_key"?: string | null,"purchased_at"?: string,"shipping_cost"?: number,"supplier_id"?: string | null,"updated_at"?: string,"workspace_id": string
                   }
                   Update: {
-                    "allocation"?: Database["public"]['Enums']["cost_allocation"],"created_at"?: string,"created_by"?: string | null,"document_ref"?: string | null,"id"?: string,"note"?: string | null,"other_costs"?: number,"purchased_at"?: string,"shipping_cost"?: number,"supplier_id"?: string | null,"updated_at"?: string,"workspace_id"?: string
+                    "allocation"?: Database["public"]['Enums']["cost_allocation"],"created_at"?: string,"created_by"?: string | null,"document_ref"?: string | null,"id"?: string,"note"?: string | null,"other_costs"?: number,"purchase_key"?: string | null,"purchased_at"?: string,"shipping_cost"?: number,"supplier_id"?: string | null,"updated_at"?: string,"workspace_id"?: string
                   }
                   Relationships: [
                     {
@@ -2581,6 +2581,9 @@ isOneToOne: false
 "duplicate_variant":
 { Args: { "p_name": string,"p_variant_id": string }; Returns: string
                            },
+"move_item_stock":
+{ Args: { "p_item_id": string,"p_mode": string,"p_note"?: string,"p_quantity": number,"p_reason"?: Database["public"]['Enums']["stock_movement_type"] }; Returns: Json
+                           },
 "next_document_number":
 { Args: { "p_doc_kind": string,"p_workspace": string }; Returns: string
                            },
@@ -2684,7 +2687,7 @@ isOneToOne: false
         isSetofReturn: false
       } },
 "record_purchase_payment":
-{ Args: { "p_account_id": string,"p_amount": number,"p_note"?: string,"p_occurred_at"?: string,"p_payment_method"?: Database["public"]['Enums']["payment_method"],"p_purchase_id": string,"p_reference"?: string }; Returns: {
+{ Args: { "p_account_id": string,"p_amount": number,"p_note"?: string,"p_occurred_at"?: string,"p_payment_key"?: string,"p_payment_method"?: Database["public"]['Enums']["payment_method"],"p_purchase_id": string,"p_reference"?: string }; Returns: {
               "account_id": string,
 "amount": number,
 "category_id": string | null,
@@ -2714,6 +2717,9 @@ isOneToOne: false
         isOneToOne: true
         isSetofReturn: false
       } },
+"register_purchase":
+{ Args: { "p_account_id"?: string,"p_allocation"?: Database["public"]['Enums']["cost_allocation"],"p_document_ref"?: string,"p_lines": Json,"p_note"?: string,"p_other_costs"?: number,"p_payment_method"?: Database["public"]['Enums']["payment_method"],"p_purchase_key"?: string,"p_purchased_at"?: string,"p_shipping_cost"?: number,"p_supplier_id"?: string,"p_workspace_id": string }; Returns: Json
+                           },
 "set_opportunity_stage":
 { Args: { "p_opportunity": string,"p_reason"?: string,"p_stage": Database["public"]['Enums']["opportunity_stage"] }; Returns: {
               "blocked_at": string | null,
@@ -2798,6 +2804,9 @@ isOneToOne: false
         isOneToOne: true
         isSetofReturn: false
       } },
+"set_spool_status":
+{ Args: { "p_expected"?: Database["public"]['Enums']["spool_status"],"p_spool_id": string,"p_status": Database["public"]['Enums']["spool_status"] }; Returns: Json
+                           },
 "set_quote_hold":
 { Args: { "p_quote_id": string,"p_until": string }; Returns: {
               "channel_id": string | null,
@@ -2829,7 +2838,10 @@ isOneToOne: false
         to: "quotes"
         isOneToOne: true
         isSetofReturn: false
-      } }
+      } },
+"weigh_spool":
+{ Args: { "p_gross_g": number,"p_spool_id": string,"p_tare_g": number }; Returns: Json
+                           }
           }
           Enums: {
             "account_kind": "cash"|"bank"|"wallet","component_kind": "nozzle"|"hotend"|"plate"|"ptfe"|"cutter"|"fan"|"ams"|"other","cost_allocation": "by_amount"|"by_weight","customer_doc_type": "none"|"dni"|"ruc"|"ce","customer_kind": "person"|"company","gift_treatment": "marketing"|"owner_draw"|"other","inventory_item_kind": "supply"|"packaging"|"spare_part"|"finished_good"|"part","material_valuation": "weighted_avg"|"last_cost"|"replacement","member_role": "owner"|"operator"|"viewer","opportunity_stage": "new"|"quoted"|"negotiating"|"won"|"closed"|"lost","order_payment_status": "not_applicable"|"unpaid"|"partial"|"paid","order_purpose": "sale"|"personal"|"gift","order_status": "confirmed"|"queued"|"printing"|"post_processing"|"ready"|"delivered"|"closed"|"on_hold"|"cancelled","payment_method": "cash"|"yape"|"plin"|"transfer","print_failure_cause": "adhesion"|"clog"|"spaghetti"|"layer_shift"|"filament_runout"|"power_loss"|"wrong_settings"|"warping"|"other","print_job_status": "planned"|"printing"|"success"|"failed"|"cancelled","printer_status": "active"|"maintenance"|"retired","product_status": "draft"|"published"|"archived","quote_line_kind": "catalog"|"custom"|"service","quote_status": "draft"|"sent"|"accepted"|"rejected"|"expired","request_status": "new"|"awaiting_slicing"|"quoted"|"discarded","spool_status": "sealed"|"open"|"in_use"|"empty"|"discarded","stock_movement_type": "purchase"|"consumption"|"waste"|"adjustment"|"maintenance"|"reservation"|"release"|"production"|"delivery","tax_regime": "none"|"nrus"|"rer"|"rmt"|"general","transaction_direction": "income"|"expense","transaction_type": "income"|"expense"|"transfer"|"owner_contribution"|"owner_draw"
