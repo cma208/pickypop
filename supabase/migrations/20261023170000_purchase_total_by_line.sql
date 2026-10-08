@@ -10,42 +10,27 @@
 --
 -- The rule of the domain is the line one: each money component is rounded
 -- to the cent on its own, so the breakdown adds up exactly to the total
--- (AGENTS.md). The view follows it now, and the three numbers are one.
+-- (AGENTS.md). Purchases registered from now on follow it.
 --
--- Purchases already registered: their total moves only when two or more of
--- their lines have fractions of a cent, and then by a cent or two. A paid one
--- may show a cent «por pagar» (or a cent more paid than the total, which
--- the view shows as nothing pending). Their stock was already valued line by
--- line, so the new total is the one that matches their kardex. The notice
--- below says how many there are when this runs, so it can be checked.
+-- Purchases already registered keep the total they had. Re-adding them line
+-- by line would move the total of the ones with two or more lines in
+-- fractions of a cent, by a cent or two, after they were paid: a purchase
+-- paid in full at S/ 210.01 would show «Falta S/ 0.01» and could only be
+-- closed by inventing a payment of one cent. What was agreed and paid stays
+-- as it was. `total_by_line` tells them apart: false for every purchase that
+-- exists when this runs, true for every one after.
+--
+-- Adding the column with a constant default writes no row; changing the
+-- default afterwards only touches the purchases to come.
 
-do $$
-declare
-  v_changed integer;
-  v_paid_changed integer;
-begin
-  with totals as (
-    select
-      p.id,
-      round(coalesce(sum(l.quantity * l.unit_price), 0) + p.shipping_cost + p.other_costs, 2) as once,
-      coalesce(sum(round(l.quantity * l.unit_price, 2)), 0) + p.shipping_cost + p.other_costs as by_line
-    from public.purchases p
-    left join public.purchase_lines l on l.purchase_id = p.id
-    group by p.id
-  )
-  select
-    count(*) filter (where once <> by_line),
-    count(*) filter (where once <> by_line and exists (
-      select 1 from public.transactions t
-      where t.purchase_id = totals.id and t.type = 'expense' and t.voided_at is null
-    ))
-  into v_changed, v_paid_changed
-  from totals;
+alter table public.purchases
+  add column total_by_line boolean not null default false;
 
-  raise notice 'purchase_payment_status: % compras cambian de total al redondear por línea (% con pagos).',
-    v_changed, v_paid_changed;
-end;
-$$;
+alter table public.purchases
+  alter column total_by_line set default true;
+
+comment on column public.purchases.total_by_line is
+  'Cómo se suma el total de la compra en purchase_payment_status. Verdadero: cada línea redondeada a céntimos y luego sumada, como la vista previa y los movimientos que valorizan el stock. Falso solo en las compras registradas antes de 20261023170000, que conservan el total con que se pagaron: todas las líneas sin redondear y un redondeo al final.';
 
 create or replace view public.purchase_payment_status with (security_invoker = true) as
 with totals as (
@@ -53,13 +38,26 @@ with totals as (
     p.id as purchase_id,
     p.workspace_id,
     p.purchased_at,
-    -- Each line rounded to the cent, then added, the way `planPurchase` and
-    -- `register_purchase` add them up.
-    coalesce((
-      select sum(round(l.quantity * l.unit_price, 2))
-      from public.purchase_lines l
-      where l.purchase_id = p.id
-    ), 0) + p.shipping_cost + p.other_costs as total
+    case
+      -- Each line rounded to the cent, then added, the way `planPurchase`
+      -- and `register_purchase` add them up.
+      when p.total_by_line then
+        coalesce((
+          select sum(round(l.quantity * l.unit_price, 2))
+          from public.purchase_lines l
+          where l.purchase_id = p.id
+        ), 0) + p.shipping_cost + p.other_costs
+      -- A purchase registered before: the total it was paid by, rounded once.
+      else
+        round(
+          coalesce((
+            select sum(l.quantity * l.unit_price)
+            from public.purchase_lines l
+            where l.purchase_id = p.id
+          ), 0) + p.shipping_cost + p.other_costs,
+          2
+        )
+    end as total
   from public.purchases p
 ),
 paid as (
@@ -81,4 +79,4 @@ from totals
 left join paid on paid.purchase_id = totals.purchase_id;
 
 comment on view public.purchase_payment_status is
-  'How much of each purchase has been paid and how much is still owed, from the expenses tied to it. The total is the sum of its lines, each rounded to the cent, plus shipping and other costs.';
+  'How much of each purchase has been paid and how much is still owed, from the expenses tied to it. The total is the sum of its lines, each rounded to the cent, plus shipping and other costs; a purchase registered before 20261023170000 (total_by_line false) keeps the total it was paid by, rounded once at the end.';

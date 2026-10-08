@@ -1112,13 +1112,13 @@ isOneToOne: false
                   ]
                 },"purchases": {
                   Row: {
-                    "allocation": Database["public"]['Enums']["cost_allocation"],"created_at": string,"created_by": string | null,"document_ref": string | null,"id": string,"note": string | null,"other_costs": number,"purchase_key": string | null,"purchased_at": string,"shipping_cost": number,"supplier_id": string | null,"updated_at": string,"workspace_id": string
+                    "allocation": Database["public"]['Enums']["cost_allocation"],"created_at": string,"created_by": string | null,"document_ref": string | null,"id": string,"note": string | null,"other_costs": number,"purchase_key": string | null,"purchased_at": string,"shipping_cost": number,"supplier_id": string | null,"total_by_line": boolean,"updated_at": string,"workspace_id": string
                   }
                   Insert: {
-                    "allocation"?: Database["public"]['Enums']["cost_allocation"],"created_at"?: string,"created_by"?: string | null,"document_ref"?: string | null,"id"?: string,"note"?: string | null,"other_costs"?: number,"purchase_key"?: string | null,"purchased_at"?: string,"shipping_cost"?: number,"supplier_id"?: string | null,"updated_at"?: string,"workspace_id": string
+                    "allocation"?: Database["public"]['Enums']["cost_allocation"],"created_at"?: string,"created_by"?: string | null,"document_ref"?: string | null,"id"?: string,"note"?: string | null,"other_costs"?: number,"purchase_key"?: string | null,"purchased_at"?: string,"shipping_cost"?: number,"supplier_id"?: string | null,"total_by_line"?: boolean,"updated_at"?: string,"workspace_id": string
                   }
                   Update: {
-                    "allocation"?: Database["public"]['Enums']["cost_allocation"],"created_at"?: string,"created_by"?: string | null,"document_ref"?: string | null,"id"?: string,"note"?: string | null,"other_costs"?: number,"purchase_key"?: string | null,"purchased_at"?: string,"shipping_cost"?: number,"supplier_id"?: string | null,"updated_at"?: string,"workspace_id"?: string
+                    "allocation"?: Database["public"]['Enums']["cost_allocation"],"created_at"?: string,"created_by"?: string | null,"document_ref"?: string | null,"id"?: string,"note"?: string | null,"other_costs"?: number,"purchase_key"?: string | null,"purchased_at"?: string,"shipping_cost"?: number,"supplier_id"?: string | null,"total_by_line"?: boolean,"updated_at"?: string,"workspace_id"?: string
                   }
                   Relationships: [
                     {
