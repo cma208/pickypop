@@ -1,4 +1,5 @@
 import { FormArray, FormControl, FormGroup, Validators, type ValidatorFn } from '@angular/forms';
+import { UserFacingError } from '../../core/friendly-error';
 import type { Pair, ProductStatus, VariantUsage } from './catalogo.models';
 
 export const SLUG_PATTERN = /^[a-z0-9]+(-[a-z0-9]+)*$/;
@@ -93,12 +94,16 @@ export function readPairs(array: FormArray<PairGroup>): Pair[] {
 
 // ------------------------------------------------------------------- errors
 
-/** An error whose message is already written for the person using the app. */
-export class CatalogoError extends Error {}
+/**
+ * An error whose message is already written for the person using the app.
+ * It is a `UserFacingError`, so `friendlyError` and `afterRefusal` read it
+ * like any other: what the database said travels as its `cause`.
+ */
+export class CatalogoError extends UserFacingError {}
 
 /** Message to show for anything thrown by the data layer. */
 export function messageOf(error: unknown, fallback = 'Algo salió mal. Inténtalo otra vez.'): string {
-  if (error instanceof CatalogoError) return error.message;
+  if (error instanceof UserFacingError) return error.message;
   console.error(error);
   return fallback;
 }

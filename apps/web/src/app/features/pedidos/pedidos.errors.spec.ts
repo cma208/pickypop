@@ -16,8 +16,28 @@ describe('explainError', () => {
     );
   });
 
-  it('falls back for anything else', () => {
-    expect(explainError({ code: '23503', message: 'violates foreign key' }, 'generic')).toBe('generic');
+  it('says what went wrong with a number too large instead of inviting a retry (T3-14)', () => {
+    const tooLarge = explainError(
+      { code: '22003', message: 'numeric field overflow', details: 'A field with precision 12, scale 2 must round to an absolute value less than 10^10.' },
+      'No pudimos guardar. Inténtalo de nuevo.',
+    );
+
+    expect(tooLarge).toContain('demasiado grande');
+    expect(tooLarge).toContain('9,999,999,999.99');
+  });
+
+  it('leaves to friendlyError what it does not know: permissions, the network, other areas', () => {
+    expect(explainError({ code: '42501', message: 'new row violates row-level security policy' }, 'generic')).toContain(
+      'No tienes permiso',
+    );
+    expect(explainError({ code: '23514', message: 'violates check constraint "customers_dni_format"' }, 'generic')).toContain(
+      '8 dígitos',
+    );
+    expect(explainError(new TypeError('Failed to fetch'), 'generic')).toContain('No hay conexión');
+  });
+
+  it('falls back when nobody knows better', () => {
+    expect(explainError({ code: '99999', message: 'something odd' }, 'generic')).toBe('generic');
     expect(explainError({ code: 'P0001', message: '  ' }, 'generic')).toBe('generic');
   });
 });
