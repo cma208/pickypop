@@ -28,15 +28,16 @@ const DRAFT: ImportDraft = {
   ],
 };
 
+/** The database creates the new parts and the plates in one call, or nothing. */
 function fakeData() {
-  let created = 0;
   return {
-    createPart: vi.fn(async (name: string) => ({ id: `real-${++created}`, name, unit: 'unidad', imagePath: null })),
-    importPlates: vi.fn(async (_recipe: string, _first: number, plates: ImportedPlate[]) => ({
-      created: plates.length,
-      withoutThumbnail: 0,
-    })),
-    deleteUnusedPart: vi.fn(async () => true),
+    importPlates: vi.fn(
+      async (_recipe: string, _first: number, plates: ImportedPlate[], newParts: { key: string; name: string }[]) => ({
+        created: plates.length,
+        partsCreated: newParts.length,
+        withoutThumbnail: 0,
+      }),
+    ),
   };
 }
 
@@ -56,9 +57,9 @@ function open(data: ReturnType<typeof fakeData>) {
   fixture.componentRef.setInput('parts', []);
   fixture.componentRef.setInput('perProduct', new Map());
   const saved: ImportOutcome[] = [];
-  const cancelled: string[][] = [];
+  const cancelled: true[] = [];
   fixture.componentInstance.saved.subscribe((outcome) => saved.push(outcome));
-  fixture.componentInstance.cancelled.subscribe((kept) => cancelled.push(kept));
+  fixture.componentInstance.cancelled.subscribe(() => cancelled.push(true));
   fixture.detectChanges();
   return { fixture, saved, cancelled };
 }
@@ -92,12 +93,11 @@ describe('ImportarPlacas, a part named during the review', () => {
 
     button(fixture, 'Descartar').click();
 
-    expect(cancelled).toEqual([[]]);
-    expect(data.createPart).not.toHaveBeenCalled();
+    expect(cancelled).toHaveLength(1);
     expect(data.importPlates).not.toHaveBeenCalled();
   });
 
-  it('is created on saving, and the plate is saved with its real id', async () => {
+  it('travels with the plates, by its provisional id and its name, in the same call', async () => {
     const data = fakeData();
     const { fixture, saved } = open(data);
     namePart(fixture, 'Cap', 'Tapa de calavera');
@@ -105,14 +105,15 @@ describe('ImportarPlacas, a part named during the review', () => {
     button(fixture, 'Guardar 1 placa').click();
     await vi.waitFor(() => expect(saved).toHaveLength(1));
 
-    expect(data.createPart).toHaveBeenCalledExactlyOnceWith('Tapa de calavera');
-    const plates = data.importPlates.mock.calls[0]![2];
-    expect(plates[0]!.outputs).toEqual([{ inventoryItemId: 'real-1', unitsPerRun: 7 }]);
-    expect(plates[0]!.record.objects.map((object) => object.inventoryItemId)).toEqual(['real-1', null]);
+    expect(data.importPlates).toHaveBeenCalledTimes(1);
+    const [, , plates, newParts] = data.importPlates.mock.calls[0]!;
+    expect(newParts).toEqual([{ key: plates[0]!.outputs[0]!.inventoryItemId, name: 'Tapa de calavera' }]);
+    expect(plates[0]!.outputs).toEqual([{ inventoryItemId: newParts[0]!.key, unitsPerRun: 7 }]);
+    expect(plates[0]!.record.objects.map((object) => object.inventoryItemId)).toEqual([newParts[0]!.key, null]);
     expect(saved[0]!.partsCreated).toBe(1);
   });
 
-  it('is not created if no object uses it any more', async () => {
+  it('is not sent if no object uses it any more', async () => {
     const data = fakeData();
     const { fixture, saved } = open(data);
     namePart(fixture, 'Cap', 'Tapa de calavera');
@@ -122,83 +123,50 @@ describe('ImportarPlacas, a part named during the review', () => {
     button(fixture, 'Guardar 1 placa').click();
     await vi.waitFor(() => expect(saved).toHaveLength(1));
 
-    expect(data.createPart).not.toHaveBeenCalled();
+    expect(data.importPlates.mock.calls[0]![3]).toEqual([]);
     expect(saved[0]!.partsCreated).toBe(0);
   });
 
-  it('is taken back if saving the plates fails, so a discard afterwards still leaves nothing', async () => {
+  it('says what failed and leaves nothing to take back: the database saved nothing (E2-03)', async () => {
     const data = fakeData();
-    data.importPlates.mockRejectedValueOnce(new Error('network'));
+    data.importPlates.mockRejectedValueOnce(
+      new CatalogoError('La receta cambió mientras revisabas: ya tiene una placa 1. Recarga la página y vuelve a cargar el archivo.'),
+    );
     const { fixture, saved } = open(data);
     namePart(fixture, 'Cap', 'Tapa de calavera');
 
     button(fixture, 'Guardar 1 placa').click();
-    await vi.waitFor(() => expect(data.deleteUnusedPart).toHaveBeenCalledWith('real-1'));
-    await vi.waitFor(() => expect(button(fixture, 'Guardar 1 placa').disabled).toBe(false));
-    fixture.detectChanges();
-    expect(fixture.nativeElement.querySelector('[role="alert"]')?.textContent).toContain('No pudimos guardar las placas.');
-    expect(saved).toHaveLength(0);
-
-    // Trying again creates it again, since the failed try left nothing.
-    button(fixture, 'Guardar 1 placa').click();
-    await vi.waitFor(() => expect(saved).toHaveLength(1));
-    expect(data.createPart).toHaveBeenCalledTimes(2);
-  });
-
-  it('names the part a member could not take back, and a retry uses that same part', async () => {
-    // Only the owner may delete an article: for anyone else the delete
-    // touches no row, and the part stays.
-    const data = fakeData();
-    data.importPlates.mockRejectedValueOnce(new CatalogoError('Ya existe una placa con ese número.'));
-    data.deleteUnusedPart.mockResolvedValue(false);
-    const { fixture, saved } = open(data);
-    namePart(fixture, 'Cap', 'Tapa de calavera');
-
-    button(fixture, 'Guardar 1 placa').click();
-    await vi.waitFor(() => expect(data.deleteUnusedPart).toHaveBeenCalledWith('real-1'));
     await vi.waitFor(() => expect(button(fixture, 'Guardar 1 placa').disabled).toBe(false));
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('[role="alert"]')?.textContent).toBe(
-      'Ya existe una placa con ese número. La pieza «Tapa de calavera» ya quedó creada en Inventario › Piezas impresas: ' +
-        'si vuelves a guardar, se usa esa misma.',
+      'La receta cambió mientras revisabas: ya tiene una placa 1. Recarga la página y vuelve a cargar el archivo.',
     );
+    expect(saved).toHaveLength(0);
 
+    // Trying again sends the same new part again: the failed try created none.
     button(fixture, 'Guardar 1 placa').click();
     await vi.waitFor(() => expect(saved).toHaveLength(1));
-    expect(data.createPart).toHaveBeenCalledTimes(1);
-    expect(data.importPlates.mock.calls[1]![2][0]!.outputs).toEqual([{ inventoryItemId: 'real-1', unitsPerRun: 7 }]);
+    expect(data.importPlates.mock.calls[1]![3]).toEqual([expect.objectContaining({ name: 'Tapa de calavera' })]);
   });
 
-  it('tries once more to take the part back on discarding, and says which ones stayed', async () => {
+  it('sends the plates once, however many times «Guardar» is clicked while saving', async () => {
     const data = fakeData();
-    data.importPlates.mockRejectedValueOnce(new Error('network'));
-    data.deleteUnusedPart.mockResolvedValue(false);
-    const { fixture, cancelled } = open(data);
-    namePart(fixture, 'Cap', 'Tapa de calavera');
-    button(fixture, 'Guardar 1 placa').click();
-    await vi.waitFor(() => expect(button(fixture, 'Guardar 1 placa').disabled).toBe(false));
+    let finish: () => void = () => undefined;
+    data.importPlates.mockImplementationOnce(
+      (_recipe, _first, plates) =>
+        new Promise((resolve) => {
+          finish = () => resolve({ created: plates.length, partsCreated: 0, withoutThumbnail: 0 });
+        }),
+    );
+    const { fixture, saved } = open(data);
 
-    button(fixture, 'Descartar').click();
-    await vi.waitFor(() => expect(cancelled).toHaveLength(1));
+    const save = button(fixture, 'Guardar 1 placa');
+    save.click();
+    save.click();
+    finish();
+    await vi.waitFor(() => expect(saved).toHaveLength(1));
 
-    expect(data.deleteUnusedPart).toHaveBeenCalledTimes(2);
-    expect(cancelled[0]).toEqual(['Tapa de calavera']);
-  });
-
-  it('leaves nothing to say on discarding when the second try takes the part back', async () => {
-    const data = fakeData();
-    data.importPlates.mockRejectedValueOnce(new Error('network'));
-    // The connection dropped for the delete too, and came back for the discard.
-    data.deleteUnusedPart.mockResolvedValueOnce(false);
-    const { fixture, cancelled } = open(data);
-    namePart(fixture, 'Cap', 'Tapa de calavera');
-    button(fixture, 'Guardar 1 placa').click();
-    await vi.waitFor(() => expect(button(fixture, 'Guardar 1 placa').disabled).toBe(false));
-
-    button(fixture, 'Descartar').click();
-    await vi.waitFor(() => expect(cancelled).toHaveLength(1));
-
-    expect(cancelled[0]).toEqual([]);
+    expect(data.importPlates).toHaveBeenCalledTimes(1);
   });
 
   it('refuses the name of a part that already exists in the review', () => {

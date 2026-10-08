@@ -780,22 +780,27 @@ union all
 select workspace_id, id, '00000000-0000-4000-8000-000000000162'::uuid, units_per_run
 from public.recipe_plates where id = '00000000-0000-4000-8000-000000000095';
 
--- La receta consume una de cada una por unidad armada.
+-- La receta consume una de cada una por unidad armada. Desde 20261013110000
+-- guardar lo que sale de una placa ya mete la pieza en la receta, una por
+-- producto, así que esto solo confirma la cantidad: sin el «on conflict» la
+-- semilla chocaba con lo que acababa de poner el disparador y no cargaba.
 insert into public.recipe_items (workspace_id, recipe_id, inventory_item_id, quantity_per_unit) values
   ('00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000093',
    '00000000-0000-4000-8000-000000000161', 1),
   ('00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000093',
-   '00000000-0000-4000-8000-000000000162', 1);
+   '00000000-0000-4000-8000-000000000162', 1)
+on conflict (recipe_id, inventory_item_id) do update set quantity_per_unit = excluded.quantity_per_unit;
 
 -- Lo que las impresiones del mes dejaron en el estante. Sobran tapas respecto
 -- de las botellas, que es exactamente lo que pasa cuando una placa rinde nueve.
+-- Entran como producción, no como compra: una pieza impresa no se compra.
 insert into public.stock_movements (workspace_id, occurred_at, type, inventory_item_id, quantity, unit_cost, source_type, note) values
   ('00000000-0000-4000-8000-000000000001',
    ((current_date - 18)::timestamp + interval '11 hours') at time zone 'America/Lima',
-   'purchase', '00000000-0000-4000-8000-000000000161', 30, 0.597, 'print_job', 'Botellas del pedido del colegio'),
+   'production', '00000000-0000-4000-8000-000000000161', 30, 0.597, 'print_job', 'Botellas del pedido del colegio'),
   ('00000000-0000-4000-8000-000000000001',
    ((current_date - 18)::timestamp + interval '12 hours') at time zone 'America/Lima',
-   'purchase', '00000000-0000-4000-8000-000000000162', 45, 0.131, 'print_job', 'Cinco corridas de nueve tapas'),
+   'production', '00000000-0000-4000-8000-000000000162', 45, 0.131, 'print_job', 'Cinco corridas de nueve tapas'),
   ('00000000-0000-4000-8000-000000000001',
    ((current_date - 17)::timestamp + interval '10 hours') at time zone 'America/Lima',
    'consumption', '00000000-0000-4000-8000-000000000161', -30, 0.597, 'assembly', 'Armado del pedido del colegio'),
@@ -804,7 +809,7 @@ insert into public.stock_movements (workspace_id, occurred_at, type, inventory_i
    'consumption', '00000000-0000-4000-8000-000000000162', -30, 0.131, 'assembly', 'Armado del pedido del colegio'),
   ('00000000-0000-4000-8000-000000000001',
    ((current_date - 11)::timestamp + interval '11 hours') at time zone 'America/Lima',
-   'purchase', '00000000-0000-4000-8000-000000000161', 18, 0.612, 'print_job', 'Botellas del Café Lima'),
+   'production', '00000000-0000-4000-8000-000000000161', 18, 0.612, 'print_job', 'Botellas del Café Lima'),
   ('00000000-0000-4000-8000-000000000001',
    ((current_date - 10)::timestamp + interval '10 hours') at time zone 'America/Lima',
    'consumption', '00000000-0000-4000-8000-000000000161', -10, 0.612, 'assembly', 'Armado del Café Lima'),

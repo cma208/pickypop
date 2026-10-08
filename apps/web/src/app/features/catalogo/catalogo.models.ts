@@ -84,6 +84,20 @@ export interface Variant {
 
 export type VariantInput = Omit<Variant, 'id' | 'productId'>;
 
+/** Where a variant is used, as `variant_usage` counts it. Used anywhere, it is switched off instead of deleted. */
+export interface VariantUsage {
+  quotes: number;
+  orders: number;
+  /** Inventory articles that are its assembled product. */
+  shelf: number;
+  /** Of `quotes`, the ones still in draft or sent, one per number. */
+  openQuotes: number;
+  /** Of `orders`, the ones not delivered, closed or cancelled yet. */
+  openOrders: number;
+  /** Assembled units of it on the shelf. */
+  onHand: number;
+}
+
 export interface RecipeFilament {
   id: string;
   slot: number;
@@ -138,9 +152,21 @@ export interface PlateOutput {
   id: string;
   inventoryItemId: string;
   unitsPerRun: number;
+  /**
+   * La pieza tal como se leyó con la placa. Las opciones de la página solo
+   * traen las activas, y una pieza desactivada se dibujaba como una fila vacía
+   * que invitaba a borrarla (T2-13).
+   */
+  part?: OutputPart;
 }
 
-export type PlateOutputInput = Omit<PlateOutput, 'id'>;
+export interface OutputPart {
+  name: string;
+  imagePath: string | null;
+  active: boolean;
+}
+
+export type PlateOutputInput = Pick<PlateOutput, 'inventoryItemId' | 'unitsPerRun'>;
 
 export interface RecipePlateInput {
   label: string | null;
@@ -160,6 +186,13 @@ export interface ImportedPlate {
   record: PlateFileRecord;
   /** La miniatura recortada, todavía sin subir. */
   thumbnail: Blob | null;
+}
+
+/** What `import_plates` saved. */
+export interface ImportResult {
+  created: number;
+  partsCreated: number;
+  withoutThumbnail: number;
 }
 
 export interface ImportedFilament {
@@ -188,6 +221,8 @@ export interface RecipeSupplyItem {
   name: string;
   unit: string;
   imagePath: string | null;
+  /** Falso: se desactivó en Inventario, y ya no se ofrece ni se cuenta en el estante. */
+  active?: boolean;
 }
 
 export interface RecipeSupply {
@@ -265,6 +300,14 @@ export interface Lookups {
   materials: MaterialOption[];
   skus: SkuOption[];
   supplies: SupplyOption[];
+  /**
+   * Qué recetas activas imprimen cada pieza (pieza → recetas). Se lee una vez
+   * por página, así que la receta que se está editando se mira en sus propias
+   * placas, que sí están al día, y aquí solo cuentan las demás: tras quitar la
+   * única placa que imprimía una pieza, la pantalla seguía diciendo «la
+   * imprime otra receta» hasta recargar (T2-07).
+   */
+  printedBy: ReadonlyMap<string, ReadonlySet<string>>;
 }
 
 export interface PrinterOption {

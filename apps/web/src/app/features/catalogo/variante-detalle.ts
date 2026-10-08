@@ -24,6 +24,7 @@ import { VariantCostModel } from './variant-cost.model';
       <app-variante-form
         [productId]="variant().productId"
         [productSlug]="productSlug()"
+        [siblings]="siblings()"
         [variant]="variant()"
         (saved)="variantSaved.emit()"
         (removed)="variantRemoved.emit()"
@@ -56,6 +57,8 @@ export class VarianteDetalle implements OnInit {
   readonly variant = input.required<Variant>();
   /** Only used to suggest an internal code. */
   readonly productSlug = input<string>('');
+  /** The product's variants, so a repeated name is said before saving. */
+  readonly siblings = input<readonly { id: string; name: string }[]>([]);
   readonly lookups = input<Lookups | null>(null);
   readonly lookupsError = input<string | null>(null);
   /** A refresh of the options that failed; it warns without taking the recipe away. */

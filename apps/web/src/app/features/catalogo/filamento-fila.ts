@@ -2,10 +2,26 @@ import { Component, computed, effect, inject, input, output, signal, untracked }
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { CatalogoData } from './catalogo.data';
 import type { Lookups, RecipeFilament } from './catalogo.models';
+import { CatalogoPermissions } from './catalogo.permissions';
 import { SHARED_STYLES } from './catalogo.styles';
 import { messageOf } from './catalogo.util';
+import { DECIMALS, decimalsText, fieldError, LIMITS, limitText, maxDecimals, wholeNumber } from './catalogo.validators';
 
 const DEFAULT_COLOR = '#808080';
+
+const SLOT_MESSAGES: Record<string, string> = {
+  required: 'Ranura: escribe su número.',
+  min: 'Ranura: desde 1.',
+  whole: 'Ranura: un número entero.',
+  max: `Ranura: hasta ${LIMITS.slot}.`,
+};
+
+const GRAMS_MESSAGES: Record<string, string> = {
+  required: 'Gramos: escribe los de una corrida; si no usa nada, pon 0.',
+  min: 'Gramos: no pueden ser negativos.',
+  max: `Gramos: hasta ${limitText(LIMITS.grams)} por corrida.`,
+  decimals: `Gramos: ${decimalsText(DECIMALS.grams)}.`,
+};
 
 /** One filament of a plate: a saved row to edit, or an empty row to add. */
 @Component({
@@ -57,10 +73,13 @@ const DEFAULT_COLOR = '#808080';
           [attr.aria-label]="filament() ? 'Guardar filamento' : 'Agregar filamento'">
           {{ filament() ? 'Guardar' : 'Agregar' }}
         </button>
-        @if (filament()) {
+        @if (filament() && permissions.isOwner()) {
           <button type="button" class="ghost" [disabled]="busy()" (click)="remove()" aria-label="Quitar filamento">✕</button>
         }
       </div>
+      @if (formError(); as message) {
+        <p class="err error">{{ message }}</p>
+      }
       @if (error(); as message) {
         <p class="err error" role="alert">{{ message }}</p>
       }
@@ -69,6 +88,7 @@ const DEFAULT_COLOR = '#808080';
 })
 export class FilamentoFila {
   private readonly data = inject(CatalogoData);
+  protected readonly permissions = inject(CatalogoPermissions);
 
   readonly plateId = input.required<string>();
   readonly filament = input<RecipeFilament | null>(null);
@@ -81,12 +101,22 @@ export class FilamentoFila {
   protected readonly error = signal<string | null>(null);
 
   protected readonly form = new FormGroup({
-    slot: new FormControl<number | null>(1, [Validators.required, Validators.min(1), Validators.pattern(/^\d+$/)]),
+    slot: new FormControl<number | null>(1, [Validators.required, Validators.min(1), wholeNumber, Validators.max(LIMITS.slot)]),
     materialId: new FormControl('', { nonNullable: true }),
     colorHex: new FormControl(DEFAULT_COLOR, { nonNullable: true }),
     skuId: new FormControl('', { nonNullable: true }),
-    grams: new FormControl<number | null>(null, [Validators.required, Validators.min(0)]),
+    grams: new FormControl<number | null>(null, [
+      Validators.required,
+      Validators.min(0),
+      Validators.max(LIMITS.grams),
+      maxDecimals(DECIMALS.grams),
+    ]),
   });
+
+  protected formError(): string | null {
+    const { slot, grams } = this.form.controls;
+    return fieldError(slot, SLOT_MESSAGES) ?? fieldError(grams, GRAMS_MESSAGES);
+  }
 
   private readonly materialId = signal('');
   private filling = false;
@@ -122,8 +152,10 @@ export class FilamentoFila {
   }
 
   protected async save(): Promise<void> {
+    if (this.busy()) return;
+    this.error.set(null);
     this.form.markAllAsTouched();
-    if (this.form.invalid || this.busy()) return;
+    if (this.form.invalid) return;
 
     const value = this.form.getRawValue();
     const input = {
@@ -135,7 +167,6 @@ export class FilamentoFila {
     };
 
     this.busy.set(true);
-    this.error.set(null);
     try {
       const current = this.filament();
       if (current) {
@@ -147,6 +178,8 @@ export class FilamentoFila {
       this.changed.emit();
     } catch (error) {
       this.error.set(messageOf(error, 'No pudimos guardar el filamento.'));
+      // A refusal may come from a tab that is behind: read the recipe again.
+      this.changed.emit();
     } finally {
       this.busy.set(false);
     }
@@ -154,18 +187,19 @@ export class FilamentoFila {
 
   protected async remove(): Promise<void> {
     const current = this.filament();
-    if (!current || !confirm(`¿Quitar el filamento de la ranura ${current.slot}?`)) return;
+    if (!current || this.busy() || !confirm(`¿Quitar el filamento de la ranura ${current.slot}?`)) return;
 
     this.busy.set(true);
     this.error.set(null);
     try {
       await this.data.deleteFilament(current.id);
-      this.changed.emit();
     } catch (error) {
       this.error.set(messageOf(error, 'No pudimos quitar el filamento.'));
     } finally {
       this.busy.set(false);
     }
+    // Removed or refused, what the page shows may be old: read it again.
+    this.changed.emit();
   }
 
   private fill(filament: RecipeFilament | null, nextSlot: number): void {

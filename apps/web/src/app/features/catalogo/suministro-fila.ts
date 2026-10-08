@@ -1,11 +1,40 @@
 import { Component, computed, effect, inject, input, output, signal, untracked } from '@angular/core';
-import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormControl, FormGroup, ReactiveFormsModule, Validators, type AbstractControl, type ValidationErrors } from '@angular/forms';
 import { borrowedPhoto } from '../../core/article-photos';
 import { FORMAT_PIPES, ItemPicker, type PickerOption } from '../../ui';
 import { CatalogoData } from './catalogo.data';
 import type { RecipeSupply, SupplyOption } from './catalogo.models';
+import { CatalogoPermissions } from './catalogo.permissions';
 import { SHARED_STYLES } from './catalogo.styles';
 import { emptyPickerText, messageOf } from './catalogo.util';
+import { DECIMALS, decimalsText, fieldError, LIMITS, limitText, maxDecimals, wholeNumber } from './catalogo.validators';
+
+/**
+ * What is wrong with a quantity per unit, in words, next to the field. The
+ * button used to do nothing for a 0 or a -2 and say nothing (T2-12).
+ */
+const QUANTITY_MESSAGES: Record<'part' | 'supply', Record<string, string>> = {
+  part: {
+    required: 'Escribe cuántas lleva cada producto.',
+    min: 'Cada producto lleva al menos 1.',
+    whole: 'Las piezas van enteras: un producto no lleva media pieza.',
+    max: `Hasta ${limitText(LIMITS.perUnit)} por producto.`,
+  },
+  supply: {
+    required: 'Escribe cuánto lleva cada producto.',
+    min: 'La cantidad tiene que ser mayor que cero.',
+    decimals: `La cantidad va con ${decimalsText(DECIMALS.quantity)}.`,
+    max: `Hasta ${limitText(LIMITS.perUnit)} por producto.`,
+  },
+};
+
+const ITEM_MESSAGES: Record<'part' | 'supply', Record<string, string>> = {
+  part: { required: 'Elige la pieza.' },
+  supply: { required: 'Elige el insumo.' },
+};
+
+/** The smallest amount of a supply the column keeps: 0.001 g. */
+const SMALLEST_SUPPLY = 0.001;
 
 /**
  * One per-unit component of the recipe (66 g of sweets, 1 bag, 1 printed
@@ -39,17 +68,34 @@ import { emptyPickerText, messageOf } from './catalogo.util';
         <button type="submit" [disabled]="busy() || (supply() !== null && form.pristine)">
           {{ supply() ? 'Guardar' : 'Agregar' }}
         </button>
-        @if (supply()) {
+        @if (supply() && permissions.isOwner()) {
           <button type="button" class="ghost" [disabled]="busy()" (click)="remove()" [attr.aria-label]="isPart() ? 'Quitar pieza' : 'Quitar insumo'">✕</button>
         }
       </div>
-      @if (selected(); as item) {
+      @if (formError(); as message) {
+        <p class="note error">{{ message }}</p>
+      }
+      @if (inactive()) {
+        <p class="note muted hint">
+          {{ isPart() ? 'Está desactivada' : 'Está desactivado' }} en Inventario: no se ofrece en las recetas ni entra en el
+          conteo del estante. Si la receta {{ isPart() ? 'la' : 'lo' }} sigue usando, vuelve a {{ isPart() ? 'activarla' : 'activarlo' }} ahí.
+        </p>
+      } @else if (selected(); as item) {
         @if (isPart() && madeHere().has(item.id)) {
           <p class="note muted hint">Sale de las placas de esta receta: su costo ya está en las corridas.</p>
         } @else if (!onlyInRow()) {
           <!-- An item not among the options yet has no known cost: better silent than «sin costo». -->
           <p class="note muted hint">
-            @if (isPart()) {
+            @if (isPart() && !printedElsewhere().has(item.id)) {
+              <!-- Nothing prints it: «la imprime otra receta» was said without checking (T2-07). -->
+              @if (item.costPerUnit === null) {
+                Ninguna placa la imprime: no suma al costo y el plan no sabe con qué placa hacerla. Agrégala a lo que
+                sale de una placa de esta receta, o quítala si el producto ya no la lleva.
+              } @else {
+                Ninguna placa la imprime ahora: suma {{ item.costPerUnit | money:3 }} por unidad, lo que costó imprimirla
+                antes, pero el plan no sabe con qué placa hacer más. Agrégala a lo que sale de una placa de esta receta.
+              }
+            } @else if (isPart()) {
               @if (item.costPerUnit === null) {
                 La imprime otra receta y todavía no se cerró ninguna impresión suya: no suma al costo.
               } @else {
@@ -71,6 +117,7 @@ import { emptyPickerText, messageOf } from './catalogo.util';
 })
 export class SuministroFila {
   private readonly data = inject(CatalogoData);
+  protected readonly permissions = inject(CatalogoPermissions);
 
   readonly recipeId = input.required<string>();
   readonly supply = input<RecipeSupply | null>(null);
@@ -81,6 +128,8 @@ export class SuministroFila {
   readonly mode = input<'supply' | 'part'>('supply');
   /** The parts the recipe's own plates print, whose cost is already in the runs. */
   readonly madeHere = input<ReadonlySet<string>>(new Set());
+  /** The parts that a plate of some other active recipe prints. */
+  readonly printedElsewhere = input<ReadonlySet<string>>(new Set());
   readonly changed = output<void>();
 
   protected readonly isPart = computed(() => this.mode() === 'part');
@@ -98,8 +147,13 @@ export class SuministroFila {
     const supply = this.supply();
     const list = this.supplies();
     if (!supply || !this.onlyInRow()) return list;
-    return [{ id: supply.inventoryItemId, costPerUnit: null, ...supply.item }, ...list];
+    const off = this.isPart() ? ' (desactivada)' : ' (desactivado)';
+    const name = supply.item.active === false ? supply.item.name + off : supply.item.name;
+    return [{ id: supply.inventoryItemId, costPerUnit: null, ...supply.item, name }, ...list];
   });
+
+  /** The row's article was switched off in Inventory: it is still in the recipe, and says so (T2-13). */
+  protected readonly inactive = computed(() => this.supply()?.item.active === false);
 
   /** The saved row's item is not among the options yet, so its cost is not known here. */
   protected readonly onlyInRow = computed(() => {
@@ -132,8 +186,27 @@ export class SuministroFila {
 
   protected readonly form = new FormGroup({
     itemId: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
-    quantity: new FormControl<number | null>(null, [Validators.required, Validators.min(0.001)]),
+    quantity: new FormControl<number | null>(null, [Validators.required, (control) => this.quantityRule(control)]),
   });
+
+  /** A part is counted, a supply weighed: the same field takes different numbers. */
+  private quantityRule(control: AbstractControl): ValidationErrors | null {
+    if (control.value === null || control.value === '') return null;
+    const value = Number(control.value);
+    const part = this.isPart();
+    if (value < (part ? 1 : SMALLEST_SUPPLY)) return { min: true };
+    const shape = part ? wholeNumber(control) : maxDecimals(DECIMALS.quantity)(control);
+    if (shape) return shape;
+    return value > LIMITS.perUnit ? { max: true } : null;
+  }
+
+  protected formError(): string | null {
+    const mode = this.mode();
+    return (
+      fieldError(this.form.controls.itemId, ITEM_MESSAGES[mode]) ??
+      fieldError(this.form.controls.quantity, QUANTITY_MESSAGES[mode])
+    );
+  }
 
   constructor() {
     effect(() => {
@@ -146,12 +219,13 @@ export class SuministroFila {
   }
 
   protected async save(): Promise<void> {
+    if (this.busy()) return;
+    this.error.set(null);
     this.form.markAllAsTouched();
-    if (this.form.invalid || this.busy()) return;
+    if (this.form.invalid) return;
 
     const { itemId, quantity } = this.form.getRawValue();
     this.busy.set(true);
-    this.error.set(null);
     try {
       const current = this.supply();
       if (current) {
@@ -166,6 +240,8 @@ export class SuministroFila {
       this.changed.emit();
     } catch (error) {
       this.error.set(messageOf(error, 'No pudimos guardar el insumo.'));
+      // A refusal may come from a tab that is behind: read the recipe again.
+      this.changed.emit();
     } finally {
       this.busy.set(false);
     }
@@ -174,18 +250,19 @@ export class SuministroFila {
   protected async remove(): Promise<void> {
     const current = this.supply();
     const fallback = this.isPart() ? 'esta pieza' : 'este insumo';
-    if (!current || !confirm(`¿Quitar "${this.selected()?.name ?? fallback}" de la receta?`)) return;
+    if (!current || this.busy() || !confirm(`¿Quitar «${current.item.name || fallback}» de la receta?`)) return;
 
     this.busy.set(true);
     this.error.set(null);
     try {
       await this.data.deleteSupply(current.id);
-      this.changed.emit();
     } catch (error) {
       this.error.set(messageOf(error, 'No pudimos quitar el insumo.'));
     } finally {
       this.busy.set(false);
     }
+    // Removed or refused, what the page shows may be old: read it again.
+    this.changed.emit();
   }
 
   private fill(supply: RecipeSupply | null): void {
@@ -195,5 +272,7 @@ export class SuministroFila {
     this.form.reset({ itemId: supply?.inventoryItemId ?? '', quantity });
     // The item of a saved row is fixed: to change it, remove the row and add another.
     if (supply) this.form.controls.itemId.disable({ emitEvent: false });
+    // A part saved as 1.5 before pieces had to be whole: said at once, so it gets fixed.
+    if (supply && this.form.controls.quantity.invalid) this.form.controls.quantity.markAsTouched();
   }
 }

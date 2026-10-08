@@ -1,5 +1,112 @@
 import { describe, expect, it } from 'vitest';
-import { countOf, emptyPickerText, joinWithAnd } from './catalogo.util';
+import {
+  comparableName,
+  countOf,
+  emptyPickerText,
+  joinWithAnd,
+  repeatedProductMessage,
+  repeatedVariantMessage,
+  sameName,
+  variantUsageText,
+  deactivationWarning,
+} from './catalogo.util';
+
+describe('comparableName and sameName', () => {
+  it('reads names the way a person compares them: no accents, no case, no extra spaces (T2-21)', () => {
+    expect(comparableName('  Poción   ROJA ')).toBe('pocion roja');
+    expect(comparableName('calavéra')).toBe(comparableName('Calavera'));
+  });
+
+  it('finds the one a person would take for the same, or nothing', () => {
+    const products = [{ name: 'Calavera dulcera' }, { name: 'Posavasos' }];
+
+    expect(sameName('calavéra  DULCERA', products)?.name).toBe('Calavera dulcera');
+    expect(sameName('Calavera', products)).toBeNull();
+    expect(sameName('   ', products)).toBeNull();
+  });
+});
+
+describe('repeated names (T2-15)', () => {
+  const products = [
+    { id: 'p1', name: 'Calavera dulcera', status: 'published' as const },
+    { id: 'p2', name: 'Poción', status: 'archived' as const },
+  ];
+
+  it('says which product the name repeats, and that an archived one can be restored', () => {
+    expect(repeatedProductMessage('calavera dulcera ', products)).toBe(
+      'Ya hay un producto «Calavera dulcera». Usa otro nombre, o agrégale una variante a ese.',
+    );
+    expect(repeatedProductMessage('pocion', products)).toBe(
+      'Ya hay un producto «Poción», archivado. Restáuralo desde el catálogo o usa otro nombre.',
+    );
+  });
+
+  it('does not take a product for its own repeat while it is edited', () => {
+    expect(repeatedProductMessage('Calavera Dulcera', products, 'p1')).toBeNull();
+  });
+
+  it('says the same of two variants of one product', () => {
+    const siblings = [{ id: 'v1', name: 'Llavero' }];
+
+    expect(repeatedVariantMessage('llavero ', siblings)).toBe('Ya hay una variante «Llavero» en este producto. Usa otro nombre.');
+    expect(repeatedVariantMessage('llavero', siblings, 'v1')).toBeNull();
+  });
+});
+
+describe('variantUsageText (T2-01)', () => {
+  it('says where a variant is used, agreeing with every number', () => {
+    expect(variantUsageText({ quotes: 2, orders: 1, shelf: 0 })).toBe('Está en 2 cotizaciones y en 1 pedido.');
+    expect(variantUsageText({ quotes: 1, orders: 0, shelf: 1 })).toBe(
+      'Está en 1 cotización y en el inventario como producto armado.',
+    );
+  });
+
+  it('says nothing of a variant nothing uses', () => {
+    expect(variantUsageText({ quotes: 0, orders: 0, shelf: 0 })).toBeNull();
+  });
+});
+
+describe('deactivationWarning', () => {
+  it('says nothing when nothing is pending', () => {
+    expect(deactivationWarning({ openQuotes: 0, openOrders: 0, onHand: 0 })).toBeNull();
+  });
+
+  it('says that its orders not delivered yet could not be assembled', () => {
+    expect(deactivationWarning({ openQuotes: 0, openOrders: 5, onHand: 0 })).toBe(
+      'Tiene 5 pedidos sin entregar. Desactivada, deja de aparecer en Armar y en el conteo del estante: ' +
+        'esos pedidos no se podrán armar hasta que la vuelvas a activar. Mejor desactívala cuando se entreguen.',
+    );
+  });
+
+  it('says that its units on the shelf could not be counted', () => {
+    expect(deactivationWarning({ openQuotes: 0, openOrders: 0, onHand: 1 })).toBe(
+      'Queda 1 unidad armada en el estante. Desactivada, deja de aparecer en Armar y en el conteo del estante: ' +
+        'esa unidad no se podrá contar hasta que la vuelvas a activar.',
+    );
+  });
+
+  it('says both at once', () => {
+    expect(deactivationWarning({ openQuotes: 0, openOrders: 1, onHand: 3 })).toBe(
+      'Tiene 1 pedido sin entregar y quedan 3 unidades armadas en el estante. Desactivada, deja de aparecer en ' +
+        'Armar y en el conteo del estante: ese pedido no se podrá armar y esas unidades no se podrán contar hasta ' +
+        'que la vuelvas a activar. Mejor desactívala cuando se entregue.',
+    );
+  });
+
+  it('says that a new version of an open quote would lose the price list', () => {
+    expect(deactivationWarning({ openQuotes: 2, openOrders: 0, onHand: 0 })).toBe(
+      'Tiene 2 cotizaciones abiertas: se pueden aceptar con el precio que ya tienen, pero desactivada no se ofrece ' +
+        'al cotizar, y una versión nueva de ellas la cotizaría por costo, sin su precio de lista.',
+    );
+  });
+
+  it('puts the quotes after the orders and the shelf', () => {
+    const warning = deactivationWarning({ openQuotes: 1, openOrders: 1, onHand: 0 }) ?? '';
+
+    expect(warning).toMatch(/^Tiene 1 pedido sin entregar\./);
+    expect(warning).toContain('Mejor desactívala cuando se entregue. Tiene 1 cotización abierta: se puede aceptar');
+  });
+});
 
 describe('countOf', () => {
   it('puts the noun in agreement with the number', () => {

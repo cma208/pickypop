@@ -2,9 +2,28 @@ import { Component, computed, inject, input, output, signal } from '@angular/cor
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Card, Badge, FORMAT_PIPES } from '../../ui';
 import { CatalogoData } from './catalogo.data';
+import { CatalogoPermissions, OWNER_ONLY } from './catalogo.permissions';
 import { SHARED_STYLES } from './catalogo.styles';
 import { countOf, messageOf } from './catalogo.util';
+import { DECIMALS, decimalsText, fieldError, LIMITS, limitText, maxDecimals, wholeNumber } from './catalogo.validators';
 import { VariantCostModel } from './variant-cost.model';
+
+/** The smallest price that is not zero. */
+const ONE_CENT = 0.01;
+
+const QUANTITY_MESSAGES: Record<string, string> = {
+  required: 'Desde: escribe desde cuántas unidades rige.',
+  min: 'Desde: al menos 1 unidad.',
+  whole: 'Desde: un número entero de unidades.',
+  max: `Desde: hasta ${limitText(LIMITS.units)} unidades.`,
+};
+
+const PRICE_MESSAGES: Record<string, string> = {
+  required: 'Precio: escribe el precio por unidad.',
+  min: 'Precio: tiene que ser mayor que cero. Un escalón a S/ 0.00 regala el producto.',
+  max: `Precio: hasta S/ ${limitText(LIMITS.price)} por unidad.`,
+  decimals: `Precio: en soles, con ${decimalsText(DECIMALS.money)}.`,
+};
 
 /** Quantity discounts of a variant, each with the margin it leaves after costs. */
 @Component({
@@ -59,8 +78,8 @@ import { VariantCostModel } from './variant-cost.model';
                   </td>
                   <td class="num">{{ row.targetPrice | money }}</td>
                   <td>
-                    @if (row.tierId; as id) {
-                      <button type="button" class="ghost" [disabled]="busy()" (click)="remove(id, row.quantity)"
+                    @if (row.tierId && permissions.isOwner()) {
+                      <button type="button" class="ghost" [disabled]="busy()" (click)="remove(row.tierId, row.quantity)"
                         [attr.aria-label]="'Quitar el escalón desde ' + row.quantity + ' unidades'">✕</button>
                     }
                   </td>
@@ -81,7 +100,11 @@ import { VariantCostModel } from './variant-cost.model';
           <ul>
             @for (row of lowRows(); track row.key) {
               <li>
-                {{ row.tierId === null ? 'Precio de lista' : 'Escalón desde ' + row.quantity + ' u.' }}: a {{ row.quantity }} u. el costo es {{ row.costPerUnit | money }} por unidad y deja {{ row.margin | percent1 }}.
+                @if (row.unitPrice <= 0) {
+                  {{ row.tierId === null ? 'Precio de lista' : 'Escalón desde ' + row.quantity + ' u.' }}: a S/ 0.00 regala el producto, que cuesta {{ row.costPerUnit | money }} por unidad.
+                } @else {
+                  {{ row.tierId === null ? 'Precio de lista' : 'Escalón desde ' + row.quantity + ' u.' }}: a {{ row.quantity }} u. el costo es {{ row.costPerUnit | money }} por unidad y deja {{ row.margin | percent1 }}.
+                }
                 Para llegar al objetivo el precio tendría que ser de {{ row.targetPrice | money }} o más.
               </li>
             }
@@ -100,11 +123,14 @@ import { VariantCostModel } from './variant-cost.model';
         </label>
         <button type="submit" [disabled]="busy()">Agregar escalón</button>
       </form>
-      @if (form.touched && form.invalid) {
-        <p class="error hint">Indica una cantidad entera desde 1 y un precio que no sea negativo.</p>
+      @if (formError(); as message) {
+        <p class="error hint">{{ message }}</p>
       }
       @if (error(); as message) {
         <p class="error" role="alert">{{ message }}</p>
+      }
+      @if (!permissions.isOwner() && ladder().length > 0) {
+        <p class="muted hint">{{ ownerOnly }}</p>
       }
     </pp-card>
   `,
@@ -112,6 +138,8 @@ import { VariantCostModel } from './variant-cost.model';
 export class EscaleraPrecios {
   private readonly data = inject(CatalogoData);
   protected readonly cost = inject(VariantCostModel);
+  protected readonly permissions = inject(CatalogoPermissions);
+  protected readonly ownerOnly = OWNER_ONLY.tiers;
 
   readonly variantId = input.required<string>();
   readonly changed = output<void>();
@@ -123,40 +151,61 @@ export class EscaleraPrecios {
   protected readonly lowRows = computed(() => this.ladder().filter((row) => row.belowTarget));
 
   protected readonly form = new FormGroup({
-    minQuantity: new FormControl<number | null>(null, [Validators.required, Validators.min(1), Validators.pattern(/^\d+$/)]),
-    unitPrice: new FormControl<number | null>(null, [Validators.required, Validators.min(0)]),
+    minQuantity: new FormControl<number | null>(null, [
+      Validators.required,
+      Validators.min(1),
+      wholeNumber,
+      Validators.max(LIMITS.units),
+    ]),
+    unitPrice: new FormControl<number | null>(null, [
+      Validators.required,
+      Validators.min(ONE_CENT),
+      Validators.max(LIMITS.price),
+      maxDecimals(DECIMALS.money),
+    ]),
   });
 
+  protected formError(): string | null {
+    const { minQuantity, unitPrice } = this.form.controls;
+    return fieldError(minQuantity, QUANTITY_MESSAGES) ?? fieldError(unitPrice, PRICE_MESSAGES);
+  }
+
   protected async add(): Promise<void> {
+    if (this.busy()) return;
+    // The last refusal goes first: next to a new validation message it read as
+    // two problems when there was one (T2-20).
+    this.error.set(null);
     this.form.markAllAsTouched();
-    if (this.form.invalid || this.busy()) return;
+    if (this.form.invalid) return;
 
     const { minQuantity, unitPrice } = this.form.getRawValue();
     this.busy.set(true);
-    this.error.set(null);
     try {
       await this.data.addTier(this.variantId(), Number(minQuantity), Number(unitPrice));
       this.form.reset();
       this.changed.emit();
     } catch (error) {
       this.error.set(messageOf(error, 'No pudimos agregar el escalón.'));
+      // A refusal may come from a tab that is behind: read the ladder again.
+      this.changed.emit();
     } finally {
       this.busy.set(false);
     }
   }
 
   protected async remove(id: string, quantity: number): Promise<void> {
-    if (!confirm(`¿Quitar el escalón desde ${countOf(quantity, 'unidad', 'unidades')}?`)) return;
+    if (this.busy() || !confirm(`¿Quitar el escalón desde ${countOf(quantity, 'unidad', 'unidades')}?`)) return;
 
     this.busy.set(true);
     this.error.set(null);
     try {
       await this.data.deleteTier(id);
-      this.changed.emit();
     } catch (error) {
       this.error.set(messageOf(error, 'No pudimos quitar el escalón.'));
     } finally {
       this.busy.set(false);
     }
+    // Removed or refused, what the page shows may be old: read it again.
+    this.changed.emit();
   }
 }

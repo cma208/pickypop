@@ -329,6 +329,12 @@ La causa de fondo era una columna que la documentación daba por existente y nun
 - Una placa sin piezas en su lista no pone nada en el estante al cerrarse. Hay que cargar la lista en el editor de la receta o desde el archivo laminado.
 - El costo por separado de las piezas de una placa mixta es aproximado (el punto 3).
 
+**Actualización (2026-10-08, tercera pasada).** Lo que la receta dice de las piezas lo vigila la base, no solo la pantalla:
+
+- **Las piezas salen enteras.** Una salida de placa y una pieza por producto en la receta son números enteros; los insumos sí llevan decimales. Lo guardado antes con decimales se queda hasta que alguien lo edite, y la pantalla lo marca.
+- **Una placa con una impresión en la cola o imprimiéndose no se quita:** al cerrarla ya no sabría qué piezas salen. Quitar la única placa que imprime una pieza avisa antes, y la receta dice «ninguna placa la imprime» en vez de suponer que la imprime otra receta.
+- **Una variante que está en una cotización, un pedido o el inventario no se borra: se desactiva.** Borrarla dejaba las líneas sin producto y la cotización se recotizaba a precio de costo.
+
 ---
 
 ## ADR-021 · La cuenta única: se guardan las decisiones, se calcula el reparto

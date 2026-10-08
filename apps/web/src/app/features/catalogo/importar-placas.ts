@@ -3,7 +3,7 @@ import { CatalogoData } from './catalogo.data';
 import type { ImportedPlate, MaterialOption, SkuOption } from './catalogo.models';
 import { SHARED_STYLES } from './catalogo.styles';
 import { countOf, messageOf } from './catalogo.util';
-import { failedSaveMessage, newPartsUsed, withCreatedParts, type ImportDraft, type ImportOutcome } from './importacion';
+import { newPartsToCreate, type ImportDraft, type ImportOutcome } from './importacion';
 import { confirmedFilaments, confirmedOutputs, ImportarPlaca, plateDraftGroup, type PlateDraftGroup } from './importar-placa';
 import type { PartOption } from './salida-fila';
 
@@ -78,21 +78,12 @@ export class ImportarPlacas {
   protected readonly allParts = linkedSignal(() => this.parts());
 
   readonly saved = output<ImportOutcome>();
-  /** The review was discarded; carries the names of the parts a failed save left behind, if any. */
-  readonly cancelled = output<string[]>();
+  /** The review was discarded. Nothing was written: a save either stores everything or nothing. */
+  readonly cancelled = output<void>();
 
   protected readonly busy = signal(false);
   protected readonly error = signal<string | null>(null);
   protected readonly countOf = countOf;
-
-  /**
-   * Parts already created for this review, by their temporary id. Only a save
-   * that failed after creating them leaves any here: the ones a plate saved
-   * before the failure uses, and, for anyone but the owner, every one, since
-   * only the owner may delete an article. A retry reuses them instead of
-   * creating them twice.
-   */
-  private readonly created = new Map<string, string>();
 
   /**
    * Rebuilt only for a new file. The recipe reloads whenever something else
@@ -125,6 +116,11 @@ export class ImportarPlacas {
   }
 
   protected async save(): Promise<void> {
+    // Before anything else: a second click while the first is saving would
+    // send the same plates twice.
+    if (this.busy()) return;
+    this.error.set(null);
+
     const chosen = this.draft()
       .plates.map((plate, index) => ({ plate, group: this.groups()[index]! }))
       .filter(({ group }) => group.controls.include.value);
@@ -158,65 +154,28 @@ export class ImportarPlacas {
     });
 
     this.busy.set(true);
-    this.error.set(null);
     try {
-      for (const id of newPartsUsed(plates)) {
-        if (this.created.has(id)) continue;
-        const part = await this.data.createPart(this.nameOf(id));
-        this.created.set(id, part.id);
-      }
-
       const result = await this.data.importPlates(
         this.recipeId(),
         this.firstIndex(),
-        plates.map((plate) => withCreatedParts(plate, this.created)),
+        plates,
+        newPartsToCreate(plates, this.allParts()),
       );
       this.saved.emit({
         ...result,
-        partsCreated: this.created.size,
         unmatchedFilaments: plates.reduce(
           (total, plate) => total + plate.filaments.filter((filament) => filament.skuId === null).length,
           0,
         ),
       });
     } catch (error) {
-      await this.undoParts();
-      this.error.set(failedSaveMessage(messageOf(error, 'No pudimos guardar las placas.'), this.keptParts()));
+      this.error.set(messageOf(error, 'No pudimos guardar las placas.'));
     } finally {
       this.busy.set(false);
     }
   }
 
-  /**
-   * Tries once more to take back what a failed save left, since a dropped
-   * connection may have been all that stopped it, and tells the recipe what
-   * still stayed: the review closes, and nobody else would say it.
-   */
-  protected async discard(): Promise<void> {
-    if (this.created.size > 0) {
-      this.busy.set(true);
-      await this.undoParts();
-      this.busy.set(false);
-    }
-    this.cancelled.emit(this.keptParts());
-  }
-
-  /**
-   * A failed save takes back the parts it created. One a saved plate already
-   * uses cannot go (the database refuses), and neither can any for someone
-   * who is not the owner: those stay, for the next try and to be named.
-   */
-  private async undoParts(): Promise<void> {
-    for (const [temporaryId, realId] of [...this.created]) {
-      if (await this.data.deleteUnusedPart(realId)) this.created.delete(temporaryId);
-    }
-  }
-
-  private keptParts(): string[] {
-    return [...this.created.keys()].map((id) => this.nameOf(id));
-  }
-
-  private nameOf(temporaryId: string): string {
-    return this.allParts().find((candidate) => candidate.id === temporaryId)?.name ?? '';
+  protected discard(): void {
+    this.cancelled.emit();
   }
 }
