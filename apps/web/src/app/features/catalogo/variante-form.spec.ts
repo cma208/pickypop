@@ -129,7 +129,7 @@ describe('VarianteForm, switching off a variant with orders still to deliver', (
     const { fixture, data } = await open({ usage: usage(2, 0, 0, { openQuotes: 1 }) });
     const ask = vi.spyOn(window, 'confirm').mockReturnValue(false);
 
-    expect(text(fixture.nativeElement)).toContain('una versión nueva de ella la cotizaría por costo, sin su precio de lista');
+    expect(text(fixture.nativeElement)).toContain('una versión nueva de ella la sigue cotizando a su precio de lista');
     button(fixture, 'Desactivar variante')!.click();
     await fixture.whenStable();
 

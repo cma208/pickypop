@@ -94,9 +94,13 @@ export class CotizadorPage {
   protected readonly error = signal<string | null>(null);
   protected readonly context = signal<QuotingContext | null>(null);
 
-  /** The catalogue to start from, with photos: the variant is recognised before it is read. */
+  /**
+   * The catalogue to start from, with photos: the variant is recognised
+   * before it is read. Only what is offered: a variant switched off is in the
+   * context to keep pricing the quote lines that use it, not for new ones.
+   */
   protected readonly variantOptions = computed<PickerOption[]>(() =>
-    (this.context()?.variants ?? []).map((variant) => ({
+    (this.context()?.variants ?? []).filter((variant) => variant.offered).map((variant) => ({
       value: variant.id,
       label: variant.label,
       photo: { kind: 'variant', id: variant.id },
@@ -215,6 +219,7 @@ export class CotizadorPage {
       // Coming back to a new version already being written finds it as it was
       // left; asking for a new version of another quote starts that one.
       if (draft !== null && (source === null || draft.previousVersion?.quoteId === source)) {
+        await this.keepVariantsOf([draft.line.variantId, ...draft.lines.map((line) => line.draft.variantId)]);
         this.restoreDraft(draft);
       } else if (source !== null) {
         await this.loadPreviousVersion(source, context);
@@ -258,6 +263,8 @@ export class CotizadorPage {
 
     // Rebuild every line from the inputs that were stored with it, and price
     // it again with today's parameters: that is the point of a new version.
+    // A variant switched off since keeps its list price and ladder.
+    await this.keepVariantsOf(quote.storedLines.map((line) => line.variantId));
     for (const stored of quote.storedLines) {
       this.loadLine({
         description: stored.description,
@@ -274,6 +281,23 @@ export class CotizadorPage {
     this.notice.set(
       `Vas a crear la versión ${quote.version + 1} de ${quote.number}. Ajusta lo que haga falta y guarda.`,
     );
+  }
+
+  /**
+   * Adds to the context the variants these lines use and the catalogue no
+   * longer offers (switched off, or of an archived product). Without them a
+   * line of a variant switched off after the quote was sent was quoted again
+   * by its cost, as custom work, and lost its list price (T2-01). They are
+   * not offered for new lines.
+   */
+  private async keepVariantsOf(variantIds: readonly (string | null | undefined)[]): Promise<void> {
+    const context = this.context();
+    if (context === null) return;
+    const known = new Set(context.variants.map((variant) => variant.id));
+    const missing = variantIds.filter((id): id is string => !!id && !known.has(id));
+    if (missing.length === 0) return;
+    const kept = await this.data.variantsByIds(missing);
+    this.context.set({ ...context, variants: [...context.variants, ...kept] });
   }
 
   // ------------------------------------------------------------- draft

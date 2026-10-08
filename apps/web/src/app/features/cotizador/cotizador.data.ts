@@ -1,6 +1,8 @@
 import { inject, Injectable } from '@angular/core';
 import type { PostgrestError } from '@supabase/supabase-js';
 import { todayLocal } from '../../core/dates';
+import { tiersInForce } from '../../core/workshop';
+import { fetchAll } from '../../core/fetch-all';
 import { friendlyError } from '../../core/friendly-error';
 import { SUPABASE } from '../../core/supabase';
 import { CurrentWorkspace, type WorkspaceInfo } from '../../core/workspace';
@@ -58,6 +60,12 @@ export interface VariantOption {
   label: string;
   listPrice: number | null;
   tiers: PriceTier[];
+  /**
+   * Active, of a product still in the catalogue: the only ones offered for a
+   * new line. The others are here because a quote being re-priced uses them,
+   * and its new version keeps their list price and ladder (T2-01).
+   */
+  offered: boolean;
 }
 
 export interface CustomerOption {
@@ -638,39 +646,75 @@ export class CotizadorData {
     });
   }
 
+  /** What the calculator offers for a new line: active variants of products not archived. */
   private async variants(): Promise<VariantOption[]> {
-    const [products, variants, tiers] = await Promise.all([
-      this.supabase.from('catalog_products').select('id, name').neq('status', 'archived'),
+    const [products, variants] = await Promise.all([
+      this.supabase.from('catalog_products').select('id, name, status').neq('status', 'archived'),
       this.supabase
         .from('product_variants')
-        .select('id, product_id, name, list_price')
+        .select('id, product_id, name, list_price, active')
         .eq('active', true),
-      // Only the tiers already in force, latest first, so that among two tiers
-      // with the same minimum the newer one wins: what `price_for_quantity` does.
-      this.supabase
-        .from('price_tiers')
-        .select('variant_id, min_quantity, unit_price')
-        .lte('valid_from', todayLocal())
-        .order('valid_from', { ascending: false }),
     ]);
-
     fail(products.error, 'No pudimos leer el catálogo.');
     fail(variants.error, 'No pudimos leer las variantes.');
-    fail(tiers.error, 'No pudimos leer la escalera de precios.');
+    return this.withTiers(products.data ?? [], variants.data ?? []);
+  }
 
-    const productName = new Map((products.data ?? []).map((row) => [row.id, row.name]));
+  /**
+   * The variants these ids name, switched off or archived included. A
+   * variant switched off after a quote was sent is not offered for new
+   * lines, but a new version of that quote still quotes it by its list price
+   * and ladder: without it, the line fell back to its cost, as custom work.
+   */
+  async variantsByIds(ids: readonly string[]): Promise<VariantOption[]> {
+    const wanted = [...new Set(ids)];
+    if (wanted.length === 0) return [];
+    const variants = await this.supabase
+      .from('product_variants')
+      .select('id, product_id, name, list_price, active')
+      .in('id', wanted);
+    fail(variants.error, 'No pudimos leer las variantes de la cotización.');
+    const productIds = [...new Set((variants.data ?? []).map((variant) => variant.product_id))];
+    const products = await this.supabase.from('catalog_products').select('id, name, status').in('id', productIds);
+    fail(products.error, 'No pudimos leer el catálogo.');
+    return this.withTiers(products.data ?? [], variants.data ?? [], true);
+  }
 
-    return (variants.data ?? [])
-      .filter((variant) => productName.has(variant.product_id))
-      .map((variant) => ({
-        id: variant.id,
-        label: `${productName.get(variant.product_id) ?? ''} · ${variant.name}`,
-        listPrice: variant.list_price == null ? null : num(variant.list_price),
-        tiers: (tiers.data ?? [])
-          .filter((tier) => tier.variant_id === variant.id)
-          .map((tier) => ({ minQuantity: tier.min_quantity, unitPrice: num(tier.unit_price) }))
-          .sort((a, b) => a.minQuantity - b.minQuantity),
-      }))
+  private async withTiers(
+    products: readonly { id: string; name: string; status: string }[],
+    variants: readonly { id: string; product_id: string; name: string; list_price: number | string | null; active: boolean }[],
+    few = false,
+  ): Promise<VariantOption[]> {
+    const product = new Map(products.map((row) => [row.id, row]));
+    const listed = variants.filter((variant) => product.has(variant.product_id));
+    if (listed.length === 0) return [];
+
+    // Only the tiers already in force on the workshop's day, and of two with
+    // the same minimum the newer one: what `price_for_quantity` does. A few
+    // variants ask for theirs by id; the whole catalogue reads every tier,
+    // since hundreds of ids would not fit in the request.
+    const ids = listed.map((variant) => variant.id);
+    const tiers = await fetchAll((from, to) => {
+      const query = this.supabase
+        .from('price_tiers')
+        .select('variant_id, min_quantity, unit_price, valid_from')
+        .lte('valid_from', todayLocal());
+      return (few ? query.in('variant_id', ids) : query).order('id').range(from, to);
+    }).catch((error: unknown) => {
+      throw new DataError(explain(error, 'No pudimos leer la escalera de precios.'));
+    });
+
+    return listed
+      .map((variant): VariantOption => {
+        const owner = product.get(variant.product_id)!;
+        return {
+          id: variant.id,
+          label: `${owner.name} · ${variant.name}`,
+          listPrice: variant.list_price == null ? null : num(variant.list_price),
+          tiers: tiersInForce(tiers.filter((tier) => tier.variant_id === variant.id)),
+          offered: variant.active && owner.status !== 'archived',
+        };
+      })
       .sort((a, b) => a.label.localeCompare(b.label, 'es'));
   }
 
