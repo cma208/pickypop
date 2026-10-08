@@ -33,7 +33,7 @@ export const routes: Routes = [
         data: {
           scope: ['supply', 'spare_part'],
           heading: 'Insumos y repuestos',
-          subtitle: 'Dulces, imanes, boquillas y todo lo que se cuenta por unidad',
+          subtitle: 'Dulces, imanes, boquillas: lo que se compra y se gasta, por unidad, gramo o ml',
         },
         loadComponent: () => import('./features/inventario/insumos.page').then((m) => m.InsumosPage),
       },
