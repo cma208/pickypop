@@ -3,16 +3,23 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { FormControl, NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Field, FORMAT_PIPES } from '../../ui';
 import { invalidMessage } from './form-helpers';
-import { InventarioData, type SpoolSummary } from './inventario.data';
+import { InventarioData, type SpoolSummary, type WeighingResult } from './inventario.data';
 import { describeError } from './inventario.errors';
 import { INVENTORY_PIPES, signedQuantity } from './inventario.format';
 import { INVENTORY_STYLES } from './inventario.styles';
 
 const WEIGHT_PRECISION = 1000;
+/** A 1 kg roll with its spool weighs about 1.2 kg: the database refuses past this, as a typo. */
+const MAX_WEIGHT_G = 100_000;
 
 /**
  * Compares what the scale says (minus the empty spool) with what the movements
  * say should be left, and explains the adjustment before it is saved.
+ *
+ * What it explains is a preview. What is saved is the scale and the tare: the
+ * database takes the difference against what the roll has at that moment, so
+ * a dialog left open while a print closed, or a second tab, leaves the roll at
+ * what the scale said instead of applying the difference twice (T3-02).
  */
 @Component({
   selector: 'app-weigh-form',
@@ -25,7 +32,7 @@ const WEIGHT_PRECISION = 1000;
 
       <div class="form-grid">
         <pp-field label="Peso en la balanza (g)" [required]="true" [error]="msg(form.controls.grossG)">
-          <input type="number" step="0.1" formControlName="grossG" inputmode="decimal" />
+          <input type="number" step="0.1" min="0" formControlName="grossG" inputmode="decimal" />
         </pp-field>
         <pp-field
           label="Tara del carrete (g)"
@@ -33,7 +40,7 @@ const WEIGHT_PRECISION = 1000;
           [hint]="spool().tareG === null ? 'Este filamento no tiene tara guardada: ingrésala aquí.' : undefined"
           [error]="msg(form.controls.tareG)"
         >
-          <input type="number" step="0.1" formControlName="tareG" inputmode="decimal" />
+          <input type="number" step="0.1" min="0" formControlName="tareG" inputmode="decimal" />
         </pp-field>
       </div>
 
@@ -50,7 +57,7 @@ const WEIGHT_PRECISION = 1000;
         } @else if (difference() === null) {
           <p class="muted">Ingresa el peso para ver la diferencia.</p>
         } @else if (difference() === 0) {
-          <p class="notice">El peso coincide con lo esperado. No hay nada que ajustar.</p>
+          <p class="notice">El peso coincide con lo esperado. Si lo registras y nada cambió mientras tanto, no se escribe ningún ajuste.</p>
         } @else {
           <p [class]="difference()! < 0 ? 'alert alert-warn' : 'notice'">
             @if (difference()! < 0) {
@@ -71,7 +78,7 @@ const WEIGHT_PRECISION = 1000;
       <div class="form-actions">
         <button type="button" class="secondary" (click)="cancelled.emit()">Cancelar</button>
         <button type="submit" [disabled]="busy() || !canSave()">
-          {{ busy() ? 'Guardando…' : 'Registrar ajuste' }}
+          {{ busy() ? 'Guardando…' : 'Registrar pesaje' }}
         </button>
       </div>
     </form>
@@ -92,7 +99,7 @@ export class WeighForm {
   private readonly fb = inject(NonNullableFormBuilder);
 
   readonly spool = input.required<SpoolSummary>();
-  readonly saved = output<void>();
+  readonly saved = output<WeighingResult>();
   readonly cancelled = output<void>();
 
   protected readonly busy = signal(false);
@@ -100,8 +107,8 @@ export class WeighForm {
   protected readonly msg = invalidMessage;
 
   protected readonly form = this.fb.group({
-    grossG: new FormControl<number | null>(null, [Validators.required, Validators.min(0)]),
-    tareG: new FormControl<number | null>(null, [Validators.required, Validators.min(0)]),
+    grossG: new FormControl<number | null>(null, [Validators.required, Validators.min(0), Validators.max(MAX_WEIGHT_G)]),
+    tareG: new FormControl<number | null>(null, [Validators.required, Validators.min(0), Validators.max(MAX_WEIGHT_G)]),
   });
 
   private readonly values = toSignal(this.form.valueChanges, { initialValue: this.form.value });
@@ -125,33 +132,27 @@ export class WeighForm {
 
   protected readonly differenceText = computed(() => signedQuantity(this.difference() ?? 0, 'g'));
 
-  protected readonly canSave = computed(() => {
-    const difference = this.difference();
-    return difference !== null && difference !== 0;
-  });
+  /**
+   * Any valid weighing can be saved, a matching one too: what matters is what
+   * the roll has when it is saved, not when the dialog opened.
+   */
+  protected readonly canSave = computed(() => this.difference() !== null);
 
   ngOnInit(): void {
     this.form.controls.tareG.setValue(this.spool().tareG);
   }
 
   protected async submit(): Promise<void> {
+    if (this.busy()) return;
     this.form.markAllAsTouched();
     const { grossG, tareG } = this.form.getRawValue();
-    const difference = this.difference();
-    if (this.form.invalid || grossG === null || tareG === null || !difference || this.busy()) return;
+    if (this.form.invalid || grossG === null || tareG === null || !this.canSave()) return;
 
     this.busy.set(true);
     this.error.set(null);
     try {
-      await this.data.recordWeighing({
-        spoolId: this.spool().id,
-        differenceG: difference,
-        grossG,
-        tareG,
-        theoreticalG: this.spool().remainingG,
-        costPerGram: this.spool().costPerGram,
-      });
-      this.saved.emit();
+      const result = await this.data.recordWeighing({ spoolId: this.spool().id, grossG, tareG });
+      this.saved.emit(result);
     } catch (error) {
       this.error.set(describeError(error, 'No pudimos registrar el pesaje. Inténtalo de nuevo.'));
     } finally {

@@ -3,9 +3,10 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { FormControl, NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Field } from '../../ui';
 import { blankToNull, invalidMessage } from './form-helpers';
-import { InventarioData, type InventoryItemSummary } from './inventario.data';
+import { InventarioData, type InventoryItemSummary, type ItemMovementResult } from './inventario.data';
 import { describeError } from './inventario.errors';
-import { MOVEMENT_TYPE_LABELS, quantity, signedQuantity, type MovementType } from './inventario.format';
+import { countedWhole, MOVEMENT_TYPE_LABELS, quantity, signedQuantity, type MovementType } from './inventario.format';
+import { PURCHASE_LIMITS } from '../../core/pricing';
 import { INVENTORY_STYLES } from './inventario.styles';
 
 type Mode = 'in' | 'out' | 'count';
@@ -22,6 +23,11 @@ const QUANTITY_PRECISION = 1000;
 /**
  * Manual stock movement for a supply or spare part. Always shows what will be
  * recorded and what the stock will be afterwards.
+ *
+ * That is a preview, from what there was when the dialog opened. What is saved
+ * is what the person did (entered, took out, counted), and the database works
+ * out the movement against what there is then: a count from an old tab still
+ * leaves the shelf at what was counted.
  */
 @Component({
   selector: 'app-item-movement-form',
@@ -63,7 +69,9 @@ const QUANTITY_PRECISION = 1000;
       </pp-field>
 
       <section aria-live="polite">
-        @if (problem(); as text) {
+        @if (amountProblem(); as text) {
+          <p class="alert alert-warn">{{ text }}</p>
+        } @else if (problem(); as text) {
           <p class="alert alert-warn">{{ text }}</p>
         } @else if (signed() !== null) {
           <p class="notice">
@@ -79,7 +87,7 @@ const QUANTITY_PRECISION = 1000;
 
       <div class="form-actions">
         <button type="button" class="secondary" (click)="cancelled.emit()">Cancelar</button>
-        <button type="submit" [disabled]="busy() || signed() === null || !!problem()">
+        <button type="submit" [disabled]="busy() || signed() === null || !!problem() || !!amountProblem()">
           {{ busy() ? 'Guardando…' : 'Registrar movimiento' }}
         </button>
       </div>
@@ -92,7 +100,8 @@ export class ItemMovementForm {
   private readonly fb = inject(NonNullableFormBuilder);
 
   readonly item = input.required<InventoryItemSummary>();
-  readonly saved = output<void>();
+  /** What the movement did, said for the screen that owns the list. */
+  readonly saved = output<string>();
   readonly cancelled = output<void>();
 
   protected readonly modes = (Object.keys(MODE_LABELS) as Mode[]).map((value) => ({
@@ -134,6 +143,17 @@ export class ItemMovementForm {
     return null;
   });
 
+  /** Units are counted whole, and past a million it is a typo: the database refuses both too. */
+  protected readonly amountProblem = computed(() => {
+    const { amount } = this.values();
+    if (amount == null) return null;
+    if (amount > PURCHASE_LIMITS.quantityPerLine) return 'Hasta 1 000 000: revisa la cantidad.';
+    if (countedWhole(this.item().unit) && !Number.isInteger(amount)) {
+      return `${this.item().name} se cuenta por ${this.item().unit}: la cantidad va entera.`;
+    }
+    return null;
+  });
+
   protected readonly onHandText = computed(() => quantity(this.item().onHand, this.item().unit));
   protected readonly signedText = computed(() => signedQuantity(this.signed() ?? 0, this.item().unit));
   protected readonly afterText = computed(() =>
@@ -141,26 +161,37 @@ export class ItemMovementForm {
   );
   protected readonly typeLabel = computed(() => MOVEMENT_TYPE_LABELS[this.movementType()].toLowerCase());
 
+  /** From what the database did, not from the preview: a count that matched by then wrote nothing. */
+  private resultText(result: ItemMovementResult): string {
+    const unit = this.item().unit;
+    if (result.difference === 0) {
+      return `El conteo coincide con lo que hay (${quantity(result.after, unit)}): no se registró ningún movimiento.`;
+    }
+    return `Movimiento registrado: ${signedQuantity(result.difference, unit)}. Ahora hay ${quantity(result.after, unit)}. Lo ves en el kardex.`;
+  }
+
   private movementType(): MovementType {
     const { mode, reason } = this.values();
     return mode === 'out' && reason ? reason : 'adjustment';
   }
 
   protected async submit(): Promise<void> {
+    if (this.busy()) return;
     this.form.markAllAsTouched();
-    const signed = this.signed();
-    if (signed === null || this.problem() || this.busy()) return;
+    const { mode, reason, amount, note } = this.form.getRawValue();
+    if (this.signed() === null || this.problem() || this.amountProblem() || amount === null) return;
 
     this.busy.set(true);
     this.error.set(null);
     try {
-      await this.data.recordItemMovement({
+      const result = await this.data.recordItemMovement({
         itemId: this.item().id,
-        type: this.movementType(),
-        quantity: signed,
-        note: blankToNull(this.form.getRawValue().note),
+        mode,
+        quantity: amount,
+        reason: mode === 'out' ? reason : null,
+        note: blankToNull(note),
       });
-      this.saved.emit();
+      this.saved.emit(this.resultText(result));
     } catch (error) {
       this.error.set(describeError(error, 'No pudimos registrar el movimiento. Inténtalo de nuevo.'));
     } finally {

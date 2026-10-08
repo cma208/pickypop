@@ -8,6 +8,7 @@ import {
   type MaterialOption,
   type SkuSummary,
   type SpoolSummary,
+  type WeighingResult,
 } from './inventario.data';
 import { describeError } from './inventario.errors';
 import {
@@ -23,10 +24,18 @@ import { SkuForm } from './sku-form';
 import { SpoolLabelForm } from './spool-label-form';
 import { filamentCells, type PositionCells } from './stock-position';
 import { WeighForm } from './weigh-form';
+import { needsWeighingToReturn, statusNotice, statusWarning, weighingNotice } from './spool-notices';
 
 const COST_PER_GRAM_DIGITS = 3;
 
 type Dialog = { kind: 'weigh' | 'label'; spool: SpoolSummary };
+
+/** A change of state that takes grams out of the stock, waiting for the person to confirm it. */
+interface PendingStatus {
+  spool: SpoolSummary;
+  status: SpoolStatus;
+  warning: string;
+}
 
 /** A filament with what the plan says of its grams. `cells` is null while the plan is not there. */
 interface SkuRow {
@@ -189,11 +198,18 @@ interface SkuRow {
                                     (change)="onStatusChange(spool, $event)"
                                   >
                                     @for (status of statuses; track status) {
-                                      <option [value]="status" [selected]="status === spool.status">
+                                      <option
+                                        [value]="status"
+                                        [selected]="status === spool.status"
+                                        [disabled]="needsWeighing(spool, status)"
+                                      >
                                         {{ labels[status] }}
                                       </option>
                                     }
                                   </select>
+                                  @if (needsWeighing(spool, 'open')) {
+                                    <small class="sub">Para volver a usarlo, pésalo.</small>
+                                  }
                                 </div>
                                 <div class="spool-actions">
                                   <button type="button" class="secondary" (click)="dialog.set({ kind: 'weigh', spool })">
@@ -235,7 +251,7 @@ interface SkuRow {
           <app-modal [heading]="'Registrar pesaje · ' + (current.spool.code ?? 'rollo')" (closed)="dialog.set(null)">
             <app-weigh-form
               [spool]="current.spool"
-              (saved)="onSaved('Pesaje registrado: el ajuste ya está en el kardex.')"
+              (saved)="onWeighed(current.spool, $event)"
               (cancelled)="dialog.set(null)"
             />
           </app-modal>
@@ -248,6 +264,23 @@ interface SkuRow {
             />
           </app-modal>
         }
+      }
+
+      @if (pendingStatus(); as pending) {
+        <app-modal
+          [heading]="(pending.status === 'discarded' ? 'Descartar el rollo ' : 'Marcar agotado el rollo ') + (pending.spool.code ?? '')"
+          (closed)="pendingStatus.set(null)"
+        >
+          <p>{{ pending.warning }}</p>
+          <p class="muted">Si todavía tiene filamento y solo quieres corregir cuánto, pésalo en vez de esto.</p>
+          <div class="form-actions">
+            <button type="button" class="secondary" (click)="weighInstead(pending.spool)">Pesarlo</button>
+            <button type="button" class="secondary" (click)="pendingStatus.set(null)">Cancelar</button>
+            <button type="button" class="danger" [disabled]="busyId() === pending.spool.id" (click)="confirmStatus(pending)">
+              {{ pending.status === 'discarded' ? 'Descartarlo' : 'Marcarlo agotado' }}
+            </button>
+          </div>
+        </app-modal>
       }
     </pp-page>
   `,
@@ -319,6 +352,8 @@ export class FilamentosPage {
   protected readonly busyId = signal<string | null>(null);
   protected readonly editing = signal<SkuSummary | 'new' | null>(null);
   protected readonly dialog = signal<Dialog | null>(null);
+  protected readonly pendingStatus = signal<PendingStatus | null>(null);
+  protected readonly needsWeighing = needsWeighingToReturn;
   protected readonly search = signal('');
   protected readonly onlyLow = signal(false);
   protected readonly open = signal<ReadonlySet<string>>(new Set());
@@ -389,26 +424,64 @@ export class FilamentosPage {
     this.search.set((event.target as HTMLInputElement).value);
   }
 
+  /**
+   * Marking a roll empty or discarded with grams on it takes them out of the
+   * stock (the database writes the movement), so it is asked first, with the
+   * grams and what they cost. Nothing changes until it is confirmed.
+   */
   protected async onStatusChange(spool: SpoolSummary, event: Event): Promise<void> {
     const select = event.target as HTMLSelectElement;
     const status = select.value as SpoolStatus;
     if (status === spool.status) return;
+    // The select shows the state the roll is in until the change is done.
+    select.value = spool.status;
 
     this.notice.set(null);
     this.actionError.set(null);
+    if (needsWeighingToReturn(spool, status)) {
+      this.actionError.set(`El rollo ${spool.code ?? ''} no tiene filamento según sus movimientos: para volver a usarlo, pésalo.`);
+      return;
+    }
+
+    const warning = statusWarning(spool, status);
+    if (warning) {
+      this.pendingStatus.set({ spool, status, warning });
+      return;
+    }
+    await this.applyStatus(spool, status);
+  }
+
+  protected async confirmStatus(pending: PendingStatus): Promise<void> {
+    await this.applyStatus(pending.spool, pending.status);
+    this.pendingStatus.set(null);
+  }
+
+  protected weighInstead(spool: SpoolSummary): void {
+    this.pendingStatus.set(null);
+    this.dialog.set({ kind: 'weigh', spool });
+  }
+
+  protected async onWeighed(spool: SpoolSummary, result: WeighingResult): Promise<void> {
+    await this.onSaved(weighingNotice(spool, result));
+  }
+
+  private async applyStatus(spool: SpoolSummary, status: SpoolStatus): Promise<void> {
+    if (this.busyId() === spool.id) return;
+
     this.busyId.set(spool.id);
     try {
-      await this.data.changeSpoolStatus(spool, status);
-      this.notice.set(`El rollo ${spool.code ?? ''} ahora está: ${SPOOL_STATUS_LABELS[status].toLowerCase()}.`);
-      // A discarded or emptied spool stops counting its grams.
+      const change = await this.data.changeSpoolStatus(spool, status);
+      this.notice.set(statusNotice(spool.code, change));
+      // What an emptied or discarded roll held left the stock, and the plan counts without it.
       this.planner.changed();
-      await this.load();
     } catch (error) {
-      select.value = spool.status;
+      // Refused: somebody changed the roll meanwhile, or it cannot go back without grams.
       this.actionError.set(describeError(error, 'No pudimos cambiar el estado del rollo. Inténtalo de nuevo.'));
     } finally {
       this.busyId.set(null);
     }
+    // Either way, what the list shows may be old.
+    await this.load();
   }
 
   protected async onSaved(message: string): Promise<void> {

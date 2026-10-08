@@ -144,7 +144,7 @@ interface ItemRow {
           <app-modal [heading]="'Movimiento · ' + current.item.name" (closed)="dialog.set(null)">
             <app-item-movement-form
               [item]="current.item"
-              (saved)="onSaved('Movimiento registrado. Lo ves en el kardex.')"
+              (saved)="onSaved($event)"
               (cancelled)="dialog.set(null)"
             />
           </app-modal>
