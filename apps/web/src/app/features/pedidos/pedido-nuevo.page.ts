@@ -306,6 +306,12 @@ export class PedidoNuevoPage {
     const { customerId, giftCategoryId } = this.form.controls;
     this.setRequired(customerId, purpose === 'sale');
     this.setRequired(giftCategoryId, purpose === 'gift');
+    // Without a sale the price is hidden: an emptied one must not block saving from where nobody sees it.
+    if (purpose !== 'sale') {
+      for (const line of this.lines.controls) {
+        if (line.controls.unitPrice.value == null) line.controls.unitPrice.setValue(0);
+      }
+    }
   }
 
   private setRequired(control: FormControl<string>, required: boolean): void {
