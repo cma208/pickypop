@@ -14,7 +14,7 @@ import {
   repeatedVariantMessage,
   variantUsageText,
 } from './catalogo.util';
-import { maxDecimals, requiredText, wholeNumber } from '../../core/form-errors';
+import { breaksItsRules, maxDecimals, requiredText, wholeNumber } from '../../core/form-errors';
 import { DECIMALS, decimalsText, fieldError, LIMITS, limitText } from './catalogo.validators';
 import { PairsEditor } from './pairs-editor';
 import { CurrentWorkspace } from '../../core/workspace';
@@ -427,7 +427,7 @@ export class VarianteForm {
     this.form.markAsPristine();
     this.form.markAsUntouched();
     // A list price of zero saved before it was refused: said at once, so it gets fixed.
-    if (variant && this.form.controls.listPrice.invalid) this.form.controls.listPrice.markAsTouched();
+    if (variant && breaksItsRules(this.form.controls.listPrice)) this.form.controls.listPrice.markAsTouched();
     this.relock();
   }
 }

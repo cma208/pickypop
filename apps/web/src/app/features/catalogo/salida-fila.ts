@@ -6,7 +6,7 @@ import { CatalogoData } from './catalogo.data';
 import type { PlateOutput } from './catalogo.models';
 import { SHARED_STYLES } from './catalogo.styles';
 import { messageOf } from './catalogo.util';
-import { wholeNumber } from '../../core/form-errors';
+import { breaksItsRules, wholeNumber } from '../../core/form-errors';
 import { fieldError, LIMITS, limitText } from './catalogo.validators';
 import { removeOutputQuestion, swapOutputQuestion } from './plate-removal';
 import { CurrentWorkspace } from '../../core/workspace';
@@ -179,7 +179,7 @@ export class SalidaFila {
         if (!this.form.dirty) {
           this.form.reset({ inventoryItemId: output?.inventoryItemId ?? '', unitsPerRun: output?.unitsPerRun ?? null });
           // Saved before pieces had to be whole: said at once, so it gets fixed.
-          if (this.form.controls.unitsPerRun.invalid && output) this.form.controls.unitsPerRun.markAsTouched();
+          if (output && breaksItsRules(this.form.controls.unitsPerRun)) this.form.controls.unitsPerRun.markAsTouched();
         }
       });
     });

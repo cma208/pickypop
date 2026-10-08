@@ -15,6 +15,17 @@ export function errorOf(
   return key ? (messages[key] ?? null) : null;
 }
 
+/**
+ * Whether a control's value breaks its own validators, read even while it is
+ * disabled: a disabled control reports neither `errors` nor `invalid`. A form
+ * filled while it is locked (`lockWhileReadOnly`, before the role is read)
+ * uses it to point at a value saved before a rule existed, so the field is
+ * already marked when it unlocks.
+ */
+export function breaksItsRules(control: AbstractControl): boolean {
+  return (control.validator?.(control) ?? null) !== null;
+}
+
 /** Empty strings become null, so optional text columns stay clean. */
 export function textOrNull(value: string | null | undefined): string | null {
   const trimmed = (value ?? '').trim();

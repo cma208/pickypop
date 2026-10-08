@@ -1,7 +1,7 @@
-import { FormControl } from '@angular/forms';
+import { FormControl, Validators } from '@angular/forms';
 import { describe, expect, it } from 'vitest';
 import { isoToInput, nowForInput, todayLocal } from './dates';
-import { decimalPlaces, isInTheFuture, maxDecimals, notInFuture, requiredText, wholeNumber } from './form-errors';
+import { breaksItsRules, decimalPlaces, isInTheFuture, maxDecimals, notInFuture, requiredText, wholeNumber } from './form-errors';
 
 describe('requiredText', () => {
   it('treats a name of only spaces as empty, like the database does', () => {
@@ -96,5 +96,18 @@ describe('wholeNumber', () => {
     expect(wholeNumber(new FormControl(15))).toBeNull();
     expect(wholeNumber(new FormControl(0))).toBeNull();
     expect(wholeNumber(new FormControl(null))).toBeNull();
+  });
+});
+
+describe('breaksItsRules', () => {
+  it('reads the rules of a disabled control, which reports no errors of its own', () => {
+    const price = new FormControl(0, [Validators.min(0.01)]);
+    price.disable();
+
+    expect(price.invalid).toBe(false);
+    expect(breaksItsRules(price)).toBe(true);
+    price.setValue(5);
+    expect(breaksItsRules(price)).toBe(false);
+    expect(breaksItsRules(new FormControl('sin reglas'))).toBe(false);
   });
 });

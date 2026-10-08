@@ -6,7 +6,7 @@ import { CatalogoData } from './catalogo.data';
 import type { RecipeSupply, SupplyOption } from './catalogo.models';
 import { SHARED_STYLES } from './catalogo.styles';
 import { emptyPickerText, messageOf } from './catalogo.util';
-import { maxDecimals, wholeNumber } from '../../core/form-errors';
+import { breaksItsRules, maxDecimals, wholeNumber } from '../../core/form-errors';
 import { DECIMALS, decimalsText, fieldError, LIMITS, limitText } from './catalogo.validators';
 import { CurrentWorkspace } from '../../core/workspace';
 import { lockWhileReadOnly } from '../../core/read-only';
@@ -289,6 +289,6 @@ export class SuministroFila {
     // The item of a saved row is fixed: to change it, remove the row and add another.
     if (supply) this.form.controls.itemId.disable({ emitEvent: false });
     // A part saved as 1.5 before pieces had to be whole: said at once, so it gets fixed.
-    if (supply && this.form.controls.quantity.invalid) this.form.controls.quantity.markAsTouched();
+    if (supply && breaksItsRules(this.form.controls.quantity)) this.form.controls.quantity.markAsTouched();
   }
 }
