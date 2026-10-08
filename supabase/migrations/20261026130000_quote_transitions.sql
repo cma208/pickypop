@@ -17,9 +17,9 @@
 --   de hoy. Si se echa atrás de una aceptada, se cancela su pedido.
 -- * Una enviada no vuelve a borrador: para cambiarla, una versión nueva.
 -- * Se acepta creando su pedido (`accept_quote`): aceptada sin pedido no.
--- * Solo la última versión de un documento se envía, se acepta o separa: las
---   anteriores quedan como historial. Rechazar una vieja sí se puede, porque
---   solo suelta lo que separaba.
+-- * Solo la última versión de un documento se envía, se acepta, o empieza
+--   o alarga un separo: las anteriores quedan como historial. Rechazar una
+--   vieja sí se puede, porque solo suelta lo que separaba.
 -- * Un documento que ya tiene pedido vivo, en cualquiera de sus versiones,
 --   no se vuelve a enviar ni separa: lo que pide ya lo tiene el pedido.
 --
@@ -27,10 +27,17 @@
 -- dejan de separar en ese momento. Antes, la versión 1 enviada seguía
 -- apartando estante después de enviar la 2, o de aceptarla.
 --
--- Lo que ya existe: los separos vivos de versiones viejas, o de documentos
--- que ya tienen pedido, terminan ahora. No se cambia ningún estado: una
--- cotización rechazada con pedido (la de la pasada) queda como está, y solo
--- deja de poder cambiar.
+-- Una versión vieja que se envió sigue separando hasta que se envíe o se
+-- acepte una más nueva: el cliente tiene la primera oferta mientras la
+-- segunda es un borrador. No se alarga, pero se puede soltar.
+--
+-- Lo que ya existe se corta con las mismas reglas: termina el separo vivo
+-- de un documento que ya tiene pedido, y el de una versión que tiene otra
+-- más nueva ya enviada (o aceptada, rechazada o vencida, que pasaron por
+-- enviada). Una versión enviada con su siguiente en borrador sigue
+-- separando, como seguiría con las reglas de ahora. No se cambia ningún
+-- estado: una cotización rechazada con pedido (la de la pasada) queda como
+-- está, y solo deja de poder cambiar.
 
 /*
  * The newest version of a quote document.
@@ -159,11 +166,20 @@ create trigger quotes_release_other_versions
   after update of status on public.quotes
   for each row execute function app.release_other_versions();
 
--- What already holds and should not: old versions, and documents with a live order.
+-- What already holds and would not under the rules above: a document with
+-- its live order, and a version a newer one replaced by going out. A newer
+-- draft replaces nothing yet, so the version sent before it keeps holding.
 update public.quotes q
    set hold_until = now()
  where q.hold_until > now()
    and (
-     q.version < app.latest_quote_version(q.workspace_id, q.number)
-     or app.quote_document_order(q.workspace_id, q.number) is not null
+     app.quote_document_order(q.workspace_id, q.number) is not null
+     or exists (
+       select 1
+       from public.quotes newer
+       where newer.workspace_id = q.workspace_id
+         and newer.number = q.number
+         and newer.version > q.version
+         and newer.status <> 'draft'
+     )
    );
