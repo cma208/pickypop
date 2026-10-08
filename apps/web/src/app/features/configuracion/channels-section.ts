@@ -1,4 +1,4 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { AsyncState, Badge, Card, Empty, Field, FORMAT_PIPES } from '../../ui';
 import { ConfiguracionData } from './configuracion.data';
@@ -14,9 +14,11 @@ const RATE_DECIMALS = 10_000;
 /**
  * Sales channels with the commission each one charges, and which one stands
  * for direct sales: the one the quick sale preselects and the database uses
- * when a sale names none. The commission only grosses up the price of
- * made-to-order work in the quote calculator; a catalogue sale is at its list
- * price, so for the quick sale the channel is only recorded.
+ * when a sale names none. Nothing chooses it on its own: with none chosen
+ * the section says so, because the quick sale would sell without a channel.
+ * The commission only grosses up the price of made-to-order work in the
+ * quote calculator; a catalogue sale is at its list price, so for the quick
+ * sale the channel is only recorded.
  */
 @Component({
   selector: 'app-channels-section',
@@ -35,6 +37,12 @@ const RATE_DECIMALS = 10_000;
           <button type="button" [class.secondary]="formOpen()" (click)="open(null)">+ Nuevo canal</button>
         </div>
 
+        @if (missingDefault()) {
+          <p class="notice warn" role="status">
+            Ningún canal es el de las ventas directas: la Venta rápida no trae ninguno elegido, y lo que se venda sin
+            cambiarlo queda sin canal. Elige el que corresponda con «Usar por defecto».
+          </p>
+        }
         @if (notice(); as text) {
           <p class="notice" role="status">{{ text }}</p>
         }
@@ -100,8 +108,12 @@ export class ChannelsSection {
   private readonly data = inject(ConfiguracionData);
 
   protected readonly channels = signal<ChannelRecord[]>([]);
-  /** The channel of direct sales as the database applies it: the choice, or the only active one. */
+  /** The channel of direct sales as the database applies it: the owner's choice, while it is active. */
   protected readonly defaultId = signal<string | null>(null);
+  /** Active channels and none of them the default: the quick sale would sell without one. */
+  protected readonly missingDefault = computed(
+    () => !this.loading() && this.defaultId() === null && this.channels().some((channel) => channel.active),
+  );
   protected readonly loading = signal(true);
   protected readonly loadError = signal<string | null>(null);
   protected readonly formOpen = signal(false);

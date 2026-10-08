@@ -9,10 +9,11 @@
 -- send it yet still records one.
 --
 -- * The default is the owner's choice (`workshop_settings.default_channel_id`,
---   in Configuración › Canales de venta), not a guess at a name, as with the
---   default categories. It is set here, once, to the active channel called
---   «Directo», which bootstrap.sql creates. Without a choice, the only active
---   channel is the default; with several and no choice, there is none.
+--   in Configuración › Canales de venta). It is set here, once, to the active
+--   channel called «Directo», which bootstrap.sql creates. A workshop without
+--   one has no default until the owner chooses it: nothing else is guessed,
+--   not even the only active channel, because «Instagram» alone is not where
+--   the sales at the door come from. The screen says it is missing.
 -- * The channel has to be of the workshop and active.
 -- * A channel's commission is only used by the quote calculator, to gross up
 --   the price of made-to-order work. A catalogue product sells at its list
@@ -45,7 +46,7 @@ alter table public.workshop_settings
     references public.sales_channels (id, workspace_id);
 
 comment on column public.workshop_settings.default_channel_id is
-  'El canal de las ventas directas: el que la Venta rápida pone por defecto. Sin elegir, el único canal activo si es uno solo.';
+  'El canal de las ventas directas: el que la Venta rápida pone por defecto. Sin elegir, ninguno: la Venta rápida avisa que falta y vende sin canal.';
 
 -- «Directo» and «directo» may both exist: one per workshop, or the upsert
 -- would touch the same row twice.
@@ -60,30 +61,19 @@ on conflict (workspace_id) do update
   where public.workshop_settings.default_channel_id is null;
 
 /*
- * The workshop's default channel: the one the owner chose while it is still
- * active, or else the only active one. With several and no choice, none: it
- * is not guessed by its name.
+ * The workshop's default channel: the one the owner chose, while it is still
+ * active. Without a choice, none: which channel the sales at the door come
+ * through is not guessed.
  */
 create or replace function app.default_channel(p_workspace_id uuid)
 returns uuid
 language sql
 stable
 as $$
-  select coalesce(
-    (
-      select c.id
-      from public.workshop_settings s
-      join public.sales_channels c on c.id = s.default_channel_id and c.active
-      where s.workspace_id = p_workspace_id
-    ),
-    (
-      select (array_agg(c.id))[1]
-      from public.sales_channels c
-      where c.workspace_id = p_workspace_id
-        and c.active
-      having count(*) = 1
-    )
-  );
+  select c.id
+  from public.workshop_settings s
+  join public.sales_channels c on c.id = s.default_channel_id and c.active
+  where s.workspace_id = p_workspace_id;
 $$;
 
 grant execute on function app.default_channel(uuid) to authenticated;

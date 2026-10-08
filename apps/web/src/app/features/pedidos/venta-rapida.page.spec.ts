@@ -186,8 +186,9 @@ describe('VentaRapidaPage', () => {
 
     const select = channelSelect(fixture)!;
     expect(select.value).toBe('direct');
-    // With a default every sale names a channel: there is no «Sin canal».
+    // With a default every sale names a channel: there is no «Sin canal», and nothing is missing.
     expect(Array.from(select.options).map((option) => option.textContent?.trim())).toEqual(['Directo', 'Instagram']);
+    expect(text(fixture)).not.toContain('Ningún canal es el de las ventas directas');
     await press(fixture, /^Vender/);
     expect(sent[0]!.payload.channelId).toBe('direct');
 
@@ -205,6 +206,8 @@ describe('VentaRapidaPage', () => {
     const select = channelSelect(fixture)!;
     expect(select.value).toBe('');
     expect(select.options[0]!.textContent?.trim()).toBe('Sin canal');
+    // Said, not left to go unnoticed sale after sale.
+    expect(text(fixture)).toContain('Ningún canal es el de las ventas directas');
     await press(fixture, /^Vender/);
     expect(sent[0]!.payload.channelId).toBeNull();
   });

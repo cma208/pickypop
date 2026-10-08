@@ -238,7 +238,7 @@ export class ConfiguracionData {
   /**
    * The channel that stands for direct sales, the one the quick sale
    * preselects and the database uses when a sale names none: the owner's
-   * choice while active, or else the only active channel (`default_channel`).
+   * choice while active, or none (`default_channel`).
    */
   async defaultChannel(): Promise<string | null> {
     const { data, error } = await this.supabase.rpc('default_channel', {
