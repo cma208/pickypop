@@ -490,9 +490,8 @@ export class ConfiguracionData {
   }
 }
 
-const PROFILE_GONE = 'Esa versión ya no existe: alguien la quitó mientras la corregías. El historial se volvió a cargar.';
-const PROFILE_NOT_REMOVED =
-  'No se quitó nada: esa versión ya no está, o tu rol no permite quitarla. El historial se volvió a cargar.';
+const PROFILE_GONE = 'Esa versión ya no existe: alguien la quitó mientras la corregías. Cierra el formulario para ver el historial al día.';
+const PROFILE_NOT_REMOVED = 'No se quitó nada: esa versión ya no está, o tu rol no permite quitarla.';
 
 function costProfileColumns(draft: CostProfileDraft) {
   return {

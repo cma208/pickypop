@@ -154,9 +154,11 @@ export class CostProfileSection {
     this.formOpen.set(true);
   }
 
+  /** Read again on the way out: a refused correction may mean the version started or is gone. */
   protected closeForm(): void {
     this.formOpen.set(false);
     this.editing.set(null);
+    void this.reload();
   }
 
   protected afterSave(corrected: CostProfileRecord | null): void {
@@ -166,7 +168,6 @@ export class CostProfileSection {
         ? `Versión del ${fecha(corrected.validFrom)} corregida.`
         : 'Versión guardada. Rige desde su fecha; las cotizaciones de antes no cambian.',
     );
-    void this.reload();
   }
 
   protected async remove(profile: CostProfileRecord): Promise<void> {
