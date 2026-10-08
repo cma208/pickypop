@@ -2,10 +2,7 @@ import { Component, computed, DestroyRef, inject, input, OnInit, signal } from '
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { Field } from '../../ui';
-import { sameCustomer, type CustomerChoice, type SaleCustomer } from './quick-sale';
-
-/** The name the walk-in customer has until the workshop creates or renames it. */
-export const WALK_IN_NAME = 'Cliente al paso';
+import { isWalkInName, sameCustomer, WALK_IN_NAME, type CustomerChoice, type SaleCustomer } from './quick-sale';
 
 export type QuickCustomerForm = FormGroup<{
   customerId: FormControl<string>;
@@ -50,7 +47,13 @@ export function createQuickCustomer(): QuickCustomerForm {
             <input type="tel" formControlName="phone" autocomplete="off" inputmode="tel" />
           </pp-field>
         </div>
-        @if (match(); as found) {
+        @if (namesWalkIn()) {
+          <!-- Typed by hand it is the walk-in customer, not a new one: it says so before the database refuses a debt. -->
+          <p class="match" role="status">
+            «{{ walkInName() }}» es el cliente de las ventas sin nombre, no uno nuevo.
+            {{ owes() ? 'Con saldo por cobrar, escribe el nombre de la persona que te debe.' : 'Si no sabes el nombre, deja el campo vacío.' }}
+          </p>
+        } @else if (match(); as found) {
           <p class="match" role="status">
             Ya tienes a <strong>{{ found.name }}</strong>{{ found.phone ? ' (' + found.phone + ')' : '' }}.
             <button type="button" class="inline-link" (click)="choose(found)">Es esa persona: elegirla</button>
@@ -87,6 +90,7 @@ export class VentaRapidaCliente implements OnInit {
       ? `Queda saldo por cobrar: elige quién te debe, o escribe su nombre. A nombre de «${this.walkInName()}» no habría a quién cobrárselo.`
       : `Opcional. Sin cliente, la venta queda a nombre de «${this.walkInName()}».`,
   );
+  protected readonly namesWalkIn = computed(() => isWalkInName(this.values().name, this.walkInName()));
   protected readonly match = computed(() => {
     const { name, phone } = this.values();
     return sameCustomer(this.customers(), name, phone);

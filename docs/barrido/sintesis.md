@@ -243,7 +243,7 @@ Todo está en la rama `etapa2-cuenta`, y `nav-y-plan` la sigue. Pasan las 266 pr
 4. Si se quiere la miniatura de las recetas viejas, volver a importar su `.gcode.3mf`.
 
 **Decisiones que esperan al dueño:**
-- **ADR-022:** el costo de ventas sigue en el estimado (con mano de obra), o pasa a lo entregado más la mano de obra.
+- ~~**ADR-022:** el costo de ventas sigue en el estimado (con mano de obra), o pasa a lo entregado más la mano de obra.~~ Decidido el 2026-10-07: lo entregado, con la mano de obra que suma armar.
 - **Lo hecho a medida que ya está en curso:** las líneas a medida que se escribieron a mano no tienen placas. El plan dice «Sin fecha» hasta que se coticen con su archivo.
 
 **Pendientes menores:**

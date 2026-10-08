@@ -19,7 +19,10 @@ export interface MonthResult {
   inventoryPurchases: number;
   ownerContributions: number;
   ownerDraws: number;
-  /** Printed and never sold: `toolsAndTests` plus `shelfCountLosses`. Subtracted (ADR-023). */
+  /**
+   * Printed and never sold: `toolsAndTests`, `shelfCountLosses` and
+   * `uncoveredFailedPrints`. Subtracted (ADR-023).
+   */
   unsoldProduction: number;
   /**
    * Moulds, jigs and test prints: jobs of no order that put nothing on the
@@ -30,10 +33,18 @@ export interface MonthResult {
   /** What the shelf count found missing, less what it found over. */
   shelfCountLosses: number;
   /**
-   * Failed prints of production. Reported apart, never subtracted: the
-   * failure allowance in the cost of sales pays for them.
+   * Failed prints of production, held against `printCost` and the failure
+   * allowance the prices carry. The ones no estimate pays for also subtract,
+   * as `uncoveredFailedPrints`; the rest are paid by the allowance of the
+   * estimate a sale's line is still costed at.
    */
   failedPrints: number;
+  /**
+   * Failed prints no estimate pays for: the shelf's (what is sold off it costs
+   * what left it, and a failed try never reaches it), a gift's, a cancelled
+   * order's. Part of `unsoldProduction`, so subtracted.
+   */
+  uncoveredFailedPrints: number;
   /**
    * What was printed to produce that month, failures included: what the
    * failures are measured against. Moulds and tests do not carry the
@@ -61,6 +72,7 @@ const EMPTY: ResultTotals = {
   toolsAndTests: 0,
   shelfCountLosses: 0,
   failedPrints: 0,
+  uncoveredFailedPrints: 0,
   printCost: 0,
 };
 
@@ -84,6 +96,7 @@ export function addUpMonths(rows: readonly MonthResult[]): ResultTotals {
     toolsAndTests: total((row) => row.toolsAndTests),
     shelfCountLosses: total((row) => row.shelfCountLosses),
     failedPrints: total((row) => row.failedPrints),
+    uncoveredFailedPrints: total((row) => row.uncoveredFailedPrints),
     printCost: total((row) => row.printCost),
   };
 }

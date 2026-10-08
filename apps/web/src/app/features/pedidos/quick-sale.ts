@@ -13,6 +13,13 @@ import type { PaymentMethod } from './pedidos.labels';
  * read as it is; this only turns it into whole units a person can sell.
  */
 
+/**
+ * The name the walk-in customer has until the workshop creates or renames
+ * it: the people who buy on the way past (the owner's decision). The
+ * database names it the same in `app.walk_in_customer`.
+ */
+export const WALK_IN_NAME = 'Clientes varios';
+
 /** Dust of the plan's numeric columns: 2.9999999 assembled baskets are 3. */
 const UNIT_EPSILON = 1e-6;
 /** A phone is recognised by its last nine digits, the length of a mobile in Peru: «+51 987…» is «987…». */
@@ -38,24 +45,30 @@ export interface ShelfOffer extends VariantInfo {
   free: number;
   /** Assembled units on the shelf, claimed or not. */
   onHand: number;
+  /**
+   * What a unit is worth on the shelf, labour included: what the delivery
+   * will take it out at, and so the cost the line keeps (ADR-022). Null when
+   * nothing says what it cost.
+   */
+  unitCost: number | null;
 }
 
-/** How far the cost estimate of a line got. */
-export type CostStatus = 'pending' | 'ready' | 'failed';
+/** Whether the ladder's price for the quantity has been read. The sale waits for it. */
+export type PriceStatus = 'pending' | 'ready';
 
 /** One line of the sale, as the form holds it. */
 export interface SaleLineValue {
   variantId: string;
   quantity: number;
   unitPrice: number | null;
-  /** Null once ready means the estimator had nothing to cost (no plates): it goes as zero, like «Nuevo pedido». */
-  estimatedUnitCost: number | null;
-  costStatus: CostStatus;
+  /** What a unit is worth on the shelf, as the shelf was last read. The database puts the real one on the line. */
+  shelfUnitCost: number | null;
+  priceStatus: PriceStatus;
 }
 
 export interface SaleTotals {
   total: number;
-  /** The estimated cost of what is sold, line by line as Resultados rounds it. */
+  /** What the sale takes off the shelf, line by line as Resultados rounds it. */
   cost: number;
   collected: number;
   /** What stays in «Por cobrar». */
@@ -92,13 +105,28 @@ export interface CustomerChoice {
   id: string;
   name: string;
   phone: string | null;
-  /** «Cliente al paso»: who the sales without a name go to. */
+  /** «Clientes varios»: who the sales without a name go to. */
   walkIn: boolean;
 }
 
-/** What `quick_sale` receives. */
+/** A sales channel the sale can say it came through. */
+export interface ChannelChoice {
+  id: string;
+  name: string;
+}
+
+/** The active channels, and the one that stands for direct sales, preselected. */
+export interface ChannelOptions {
+  channels: ChannelChoice[];
+  /** Null when the workshop has none: then the sale may go without a channel. */
+  defaultId: string | null;
+}
+
+/** What `quick_sale` receives. The cost is not sent: the database puts what left the shelf. */
 export interface QuickSalePayload {
-  lines: { variant_id: string; quantity: number; unit_price: number; estimated_unit_cost: number }[];
+  lines: { variant_id: string; quantity: number; unit_price: number }[];
+  /** Null is the workshop's default channel, or none if it has none. */
+  channelId: string | null;
   customerId: string | null;
   customerName: string | null;
   customerPhone: string | null;
@@ -158,10 +186,13 @@ export function validQuantity(quantity: number): boolean {
  * order and no hold claims, by the plan's own position of its finished
  * article. A product that is not assembled leaves as its parts and goes
  * through a normal order; one nobody has assembled has nothing to offer.
+ * `costs` is what a unit of each variant is worth on the shelf, read from
+ * the database (`finished_good_costs`), never worked out here.
  */
 export function shelfOffers(
   view: { input: Pick<PlanInput, 'recipes'>; result: Pick<PlanResult, 'items'> },
   variants: readonly VariantInfo[],
+  costs: ReadonlyMap<string, number> = new Map(),
 ): ShelfOffer[] {
   const positions = new Map(view.result.items.map((position) => [position.itemId, position]));
   const known = new Map(variants.map((variant) => [variant.id, variant]));
@@ -174,7 +205,15 @@ export function shelfOffers(
       if (!position || !variant) return [];
       const free = wholeUnits(position.free);
       if (free < 1) return [];
-      return [{ ...variant, label: `${variant.productName} — ${variant.variantName}`, free, onHand: wholeUnits(position.onHand) }];
+      return [
+        {
+          ...variant,
+          label: `${variant.productName} — ${variant.variantName}`,
+          free,
+          onHand: wholeUnits(position.onHand),
+          unitCost: costs.get(recipe.variantId) ?? null,
+        },
+      ];
     })
     .sort((a, b) => a.label.localeCompare(b.label, 'es'));
 }
@@ -199,7 +238,7 @@ export function saleTotals(lines: readonly SaleLineValue[], collected: number | 
   const total = sumMoney(lines.map(lineTotal));
   const cost = sumMoney(
     lines.map((line) =>
-      validQuantity(line.quantity) && line.estimatedUnitCost !== null ? totalFor(line.estimatedUnitCost, line.quantity) : 0,
+      validQuantity(line.quantity) && line.shelfUnitCost !== null ? totalFor(line.shelfUnitCost, line.quantity) : 0,
     ),
   );
   const paid = collected !== null && Number.isFinite(collected) ? roundMoney(Math.max(0, collected)) : 0;
@@ -233,9 +272,11 @@ export function saleProblem(check: {
   payment: SalePayment;
   /** The accounts the screen offers, to know whether the chosen one brings its own method. */
   accounts?: readonly AccountChoice[];
+  /** What the walk-in customer is called in the workshop: typed as a name, it is nobody new. */
+  walkInName?: string;
   now?: Date;
 }): string | null {
-  const { lines, offers, customer, payment } = check;
+  const { lines, offers, customer, payment, walkInName } = check;
   if (lines.length === 0) return 'Toca un producto del estante para agregarlo a la venta.';
 
   for (const line of lines) {
@@ -262,10 +303,13 @@ export function saleProblem(check: {
     return `Falta el medio de pago: la cuenta ${account.name} no tiene uno por defecto.`;
   }
 
+  if (!customer.customerId && customer.phone.trim() && isWalkInName(customer.name, walkInName)) {
+    return `«${customer.name.trim()}» es el cliente de las ventas sin nombre: para guardar un teléfono, escribe el nombre de la persona.`;
+  }
   if (!customer.customerId && !customer.name.trim() && customer.phone.trim()) {
     return 'Escribe el nombre del cliente para guardar su teléfono.';
   }
-  if (owesWithoutName(totals, customer)) {
+  if (owesWithoutName(totals, customer, walkInName)) {
     return `Quedan ${money(totals.owed)} por cobrar. Escribe el nombre de quien te debe, o elige al cliente: una deuda sin nombre no hay a quién cobrársela.`;
   }
 
@@ -278,10 +322,28 @@ export function saleProblem(check: {
 /**
  * Something stays owed and nobody is named to owe it. The walk-in customer
  * is everybody: «Por cobrar» would list the debt and nobody could say whom to
- * ask. The database refuses it too.
+ * ask. Its name typed by hand names nobody either. The database refuses both.
  */
-export function owesWithoutName(totals: Pick<SaleTotals, 'owed'>, customer: SaleCustomer): boolean {
-  return totals.owed > 0 && !customer.customerId && !customer.name.trim();
+export function owesWithoutName(
+  totals: Pick<SaleTotals, 'owed'>,
+  customer: SaleCustomer,
+  walkInName?: string,
+): boolean {
+  return (
+    totals.owed > 0 && !customer.customerId && (!customer.name.trim() || isWalkInName(customer.name, walkInName))
+  );
+}
+
+/**
+ * Whether a typed name is the walk-in customer's: what it is called in the
+ * workshop, or the name it is created with, written in any case or with any
+ * accent. The database takes such a name as the walk-in customer
+ * (`app.is_walk_in_name`) and lets nobody else be called that: a second
+ * «Clientes varios» could owe, and nobody would know whom to ask.
+ */
+export function isWalkInName(name: string, walkInName: string = WALK_IN_NAME): boolean {
+  const typed = nameKey(name);
+  return typed !== null && (typed === nameKey(walkInName) || typed === nameKey(WALK_IN_NAME));
 }
 
 function lineProblem(line: SaleLineValue, offer: ShelfOffer | undefined): string | null {
@@ -294,37 +356,43 @@ function lineProblem(line: SaleLineValue, offer: ShelfOffer | undefined): string
   }
   const price = salePrice(line.unitPrice);
   if (price === null || price < 0) return `Escribe el precio de «${offer.label}».`;
-  if (line.costStatus === 'pending') return `Un momento: estamos calculando el costo de «${offer.label}».`;
-  if (line.costStatus === 'failed') return `No pudimos calcular el costo de «${offer.label}». Toca «Reintentar» en su línea.`;
+  // The ladder may lower the price for this quantity: selling before it answers would sell at the old one.
+  if (line.priceStatus === 'pending') return `Un momento: estamos leyendo el precio de «${offer.label}» para esa cantidad.`;
   return null;
 }
 
 /**
  * What `quick_sale` receives. A customer from the list goes alone; a name
- * and phone go to be created; neither is the walk-in customer. Nothing
- * collected sends no account: there is no money to put anywhere.
+ * and phone go to be created; neither, or the walk-in customer's own name,
+ * is the walk-in customer. Nothing collected sends no account: there is no
+ * money to put anywhere. No cost travels: the database writes on each line
+ * what left the shelf.
  */
 export function toQuickSale(sale: {
   lines: readonly SaleLineValue[];
   customer: SaleCustomer;
   payment: SalePayment;
   note: string;
+  /** Empty is no channel chosen: the database takes the workshop's default. */
+  channelId?: string;
+  walkInName?: string;
 }): QuickSalePayload {
   const { lines, customer, payment } = sale;
   const amount = roundMoney(Math.max(0, payment.amount ?? 0));
   const collects = amount > 0;
   const chosen = customer.customerId || null;
+  const nobodyNew = chosen !== null || isWalkInName(customer.name, sale.walkInName);
 
   return {
     lines: lines.map((line) => ({
       variant_id: line.variantId,
       quantity: line.quantity,
       unit_price: salePrice(line.unitPrice) ?? 0,
-      estimated_unit_cost: line.estimatedUnitCost ?? 0,
     })),
+    channelId: sale.channelId || null,
     customerId: chosen,
-    customerName: chosen ? null : textOrNull(customer.name),
-    customerPhone: chosen ? null : textOrNull(customer.phone),
+    customerName: nobodyNew ? null : textOrNull(customer.name),
+    customerPhone: nobodyNew ? null : textOrNull(customer.phone),
     accountId: collects ? payment.accountId || null : null,
     amount,
     method: collects && payment.method ? payment.method : null,

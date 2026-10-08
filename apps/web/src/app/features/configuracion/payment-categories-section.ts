@@ -1,4 +1,4 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, inject, output, signal } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { AsyncState, Card, Field } from '../../ui';
 import { friendlyError } from '../../core/friendly-error';
@@ -24,7 +24,8 @@ const AUTOMATIC = '';
         <p class="muted">
           Dónde queda anotado cada cobro de un pedido y cada pago de una compra cuando nadie elige otra categoría al
           registrarlo. En «Automática», si el taller tiene una sola categoría activa de ese tipo se usa esa, y si tiene
-          varias queda sin categoría.
+          varias queda sin categoría. La de los cobros queda marcada como de ventas: un ingreso suelto de Caja no la
+          ofrece.
         </p>
         <form [formGroup]="form" (ngSubmit)="save()">
           <div class="grid two">
@@ -61,6 +62,9 @@ const AUTOMATIC = '';
 })
 export class PaymentCategoriesSection {
   private readonly data = inject(ConfiguracionData);
+
+  /** Saved: the category chosen for collections is now one of sales, and the list below shows it. */
+  readonly defaultsSaved = output<void>();
 
   protected readonly automatic = AUTOMATIC;
   protected readonly loading = signal(true);
@@ -121,6 +125,7 @@ export class PaymentCategoriesSection {
         purchaseCategoryId: purchaseCategoryId || null,
       });
       this.saved.set(true);
+      this.defaultsSaved.emit();
     } catch (error) {
       this.error.set(friendlyError(error, 'No pudimos guardar las categorías por defecto.'));
     } finally {

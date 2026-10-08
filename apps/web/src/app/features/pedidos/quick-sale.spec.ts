@@ -1,5 +1,6 @@
 import type { PlanItemPosition, PlanRecipe } from '@pickypop/domain';
 import {
+  isWalkInName,
   lineTotal,
   oneMore,
   owesWithoutName,
@@ -42,8 +43,8 @@ const pink: VariantInfo = { id: 'pink', productName: 'Canastita', variantName: '
 const blue: VariantInfo = { id: 'blue', productName: 'Canastita', variantName: 'Azul', imagePath: null, listPrice: 18 };
 const skull: VariantInfo = { id: 'skull', productName: 'Calavera dulcera', variantName: 'Con dulces', imagePath: null, listPrice: 25 };
 
-function offer(variant: VariantInfo, free: number): ShelfOffer {
-  return { ...variant, label: `${variant.productName} — ${variant.variantName}`, free, onHand: free };
+function offer(variant: VariantInfo, free: number, unitCost: number | null = null): ShelfOffer {
+  return { ...variant, label: `${variant.productName} — ${variant.variantName}`, free, onHand: free, unitCost };
 }
 
 const offers = new Map([
@@ -52,7 +53,7 @@ const offers = new Map([
 ]);
 
 function line(overrides: Partial<SaleLineValue> = {}): SaleLineValue {
-  return { variantId: 'pink', quantity: 2, unitPrice: 15, estimatedUnitCost: 6.123456, costStatus: 'ready', ...overrides };
+  return { variantId: 'pink', quantity: 2, unitPrice: 15, shelfUnitCost: 6.123456, priceStatus: 'ready', ...overrides };
 }
 
 const nobody: SaleCustomer = { customerId: '', name: '', phone: '' };
@@ -73,11 +74,11 @@ describe('shelfOffers', () => {
       },
     };
 
-    const result = shelfOffers(view, [pink, blue, skull]);
+    const result = shelfOffers(view, [pink, blue, skull], new Map([['pink', 6.123456]]));
 
-    expect(result.map((row) => [row.label, row.free, row.onHand])).toEqual([
-      ['Calavera dulcera — Con dulces', 1, 1],
-      ['Canastita — Rosada', 3, 5],
+    expect(result.map((row) => [row.label, row.free, row.onHand, row.unitCost])).toEqual([
+      ['Calavera dulcera — Con dulces', 1, 1, null],
+      ['Canastita — Rosada', 3, 5, 6.123456],
     ]);
     expect(result[1]!.imagePath).toBe('pink.jpg');
   });
@@ -121,11 +122,11 @@ describe('saleTotals', () => {
   it('adds the lines with the price as it will be stored, to the cent', () => {
     // 15.555 is stored as 15.56: two of them are 31.12, not 31.11.
     expect(lineTotal({ quantity: 2, unitPrice: 15.555 })).toBe(31.12);
-    const totals = saleTotals([line(), line({ variantId: 'blue', quantity: 1, unitPrice: 18, estimatedUnitCost: 7 })], 20);
+    const totals = saleTotals([line(), line({ variantId: 'blue', quantity: 1, unitPrice: 18, shelfUnitCost: 7 })], 20);
     expect(totals).toEqual({ total: 48, cost: 19.25, collected: 20, owed: 28 });
   });
 
-  it('rounds the cost of each line like Resultados does', () => {
+  it('rounds what each line takes off the shelf like Resultados does', () => {
     // 6.123456 × 2 = 12.246912, which the income statement rounds to 12.25.
     expect(saleTotals([line()], 0).cost).toBe(12.25);
   });
@@ -140,7 +141,7 @@ describe('saleTotals', () => {
     // Half a unit counts for nothing; a line without a price still has its cost.
     const totals = saleTotals([line({ quantity: 1.5 }), line({ unitPrice: null })], null);
     expect(totals).toEqual({ total: 0, cost: 12.25, collected: 0, owed: 0 });
-    expect(saleTotals([line({ estimatedUnitCost: null })], 0).cost).toBe(0);
+    expect(saleTotals([line({ shelfUnitCost: null })], 0).cost).toBe(0);
   });
 });
 
@@ -177,13 +178,12 @@ describe('saleProblem', () => {
     expect(check({ lines: [line({ unitPrice: -1 })] })).toBe('Escribe el precio de «Canastita — Rosada».');
   });
 
-  it('waits for the cost, and says when it could not be computed', () => {
-    expect(check({ lines: [line({ costStatus: 'pending' })] })).toBe(
-      'Un momento: estamos calculando el costo de «Canastita — Rosada».',
+  it('waits for the ladder’s price for that quantity, not for a cost', () => {
+    expect(check({ lines: [line({ priceStatus: 'pending' })] })).toBe(
+      'Un momento: estamos leyendo el precio de «Canastita — Rosada» para esa cantidad.',
     );
-    expect(check({ lines: [line({ costStatus: 'failed' })] })).toBe(
-      'No pudimos calcular el costo de «Canastita — Rosada». Toca «Reintentar» en su línea.',
-    );
+    // Nothing on the shelf says what it cost: the sale goes, and the line says so.
+    expect(check({ lines: [line({ shelfUnitCost: null })] })).toBeNull();
   });
 
   it('refuses a sale of nothing: that is a gift', () => {
@@ -231,6 +231,25 @@ describe('saleProblem', () => {
     expect(check({ customer: nobody })).toBeNull();
   });
 
+  it('takes the walk-in customer\'s name typed by hand for nobody: it cannot owe', () => {
+    const owed = 'Quedan S/\u00a030.00 por cobrar. Escribe el nombre de quien te debe, o elige al cliente: una deuda sin nombre no hay a quién cobrársela.';
+    const typed = { customerId: '', name: ' clientes  VARIOS ', phone: '' };
+
+    expect(check({ customer: typed, payment: { ...cash, amount: 0, accountId: '' } })).toBe(owed);
+    // Renamed in the workshop, its own name and the default one both name nobody.
+    const renamed = { customerId: '', name: 'Público General', phone: '' };
+    expect(check({ customer: renamed, walkInName: 'Público general', payment: { ...cash, amount: 0 } })).toBe(owed);
+    expect(check({ customer: typed, walkInName: 'Público general', payment: { ...cash, amount: 0 } })).toBe(owed);
+    // Paid in full, the sale goes to the walk-in customer as if no name was typed.
+    expect(check({ customer: typed })).toBeNull();
+  });
+
+  it('keeps no phone for the walk-in customer', () => {
+    expect(check({ customer: { customerId: '', name: 'Clientes varios', phone: '987654321' } })).toBe(
+      '«Clientes varios» es el cliente de las ventas sin nombre: para guardar un teléfono, escribe el nombre de la persona.',
+    );
+  });
+
   it('wants a name to keep a phone, and no sale in the future', () => {
     expect(check({ customer: { ...nobody, phone: '987654321' } })).toBe('Escribe el nombre del cliente para guardar su teléfono.');
     expect(check({ customer: { customerId: 'maria', name: '', phone: '987' } })).toBeNull();
@@ -244,15 +263,17 @@ describe('saleProblem', () => {
 });
 
 describe('toQuickSale', () => {
-  it('sends the lines with their price to the cent and their cost to six decimals', () => {
+  it('sends the lines with their price to the cent and no cost: the database puts what left the shelf', () => {
     const payload = toQuickSale({ lines: [line({ unitPrice: 14.999 })], customer: nobody, payment: cash, note: '  ' });
-    expect(payload.lines).toEqual([{ variant_id: 'pink', quantity: 2, unit_price: 15, estimated_unit_cost: 6.123456 }]);
+    expect(payload.lines).toEqual([{ variant_id: 'pink', quantity: 2, unit_price: 15 }]);
     expect(payload.note).toBeNull();
   });
 
-  it('sends a ready estimate with nothing to cost as zero, like «Nuevo pedido»', () => {
-    const payload = toQuickSale({ lines: [line({ estimatedUnitCost: null })], customer: nobody, payment: cash, note: '' });
-    expect(payload.lines[0]!.estimated_unit_cost).toBe(0);
+  it('sends the chosen channel, or none for the workshop’s default', () => {
+    const base = { lines: [line()], customer: nobody, payment: cash, note: '' };
+    expect(toQuickSale({ ...base, channelId: 'instagram' }).channelId).toBe('instagram');
+    expect(toQuickSale({ ...base, channelId: '' }).channelId).toBeNull();
+    expect(toQuickSale(base).channelId).toBeNull();
   });
 
   it('sends nobody for the walk-in customer, a name to create, or only the chosen one', () => {
@@ -264,6 +285,20 @@ describe('toQuickSale', () => {
 
     const chosen = toQuickSale({ lines: [line()], customer: { customerId: 'maria', name: 'Rosa', phone: '912' }, payment: cash, note: '' });
     expect([chosen.customerId, chosen.customerName, chosen.customerPhone]).toEqual(['maria', null, null]);
+  });
+
+  it('sends nobody when the name typed is the walk-in customer\'s', () => {
+    const typed = toQuickSale({ lines: [line()], customer: { customerId: '', name: 'CLIENTES VARIOS', phone: '' }, payment: cash, note: '' });
+    expect([typed.customerId, typed.customerName]).toEqual([null, null]);
+
+    const renamed = toQuickSale({
+      lines: [line()],
+      customer: { customerId: '', name: 'público general', phone: '' },
+      payment: cash,
+      note: '',
+      walkInName: 'Público general',
+    });
+    expect(renamed.customerName).toBeNull();
   });
 
   it('sends no account, method nor reference when nothing is collected', () => {
@@ -298,7 +333,7 @@ describe('toQuickSale', () => {
 
 describe('sameCustomer', () => {
   const customers: CustomerChoice[] = [
-    { id: 'walk-in', name: 'Cliente al paso', phone: null, walkIn: true },
+    { id: 'walk-in', name: 'Clientes varios', phone: null, walkIn: true },
     { id: 'maria', name: 'María Torres', phone: '987 654 321', walkIn: false },
     { id: 'rosa', name: 'Rosa Díaz', phone: null, walkIn: false },
   ];
@@ -313,7 +348,7 @@ describe('sameCustomer', () => {
   });
 
   it('never offers the walk-in customer, and needs enough to go on', () => {
-    expect(sameCustomer(customers, 'cliente al paso', '')).toBeNull();
+    expect(sameCustomer(customers, 'clientes varios', '')).toBeNull();
     expect(sameCustomer(customers, '', '987')).toBeNull();
     expect(sameCustomer(customers, '', '')).toBeNull();
     expect(sameCustomer(customers, 'Pedro', '912345678')).toBeNull();
@@ -326,6 +361,27 @@ describe('owesWithoutName', () => {
     expect(owesWithoutName({ owed: 5 }, rosa)).toBe(false);
     expect(owesWithoutName({ owed: 5 }, { customerId: 'maria', name: '', phone: '' })).toBe(false);
     expect(owesWithoutName({ owed: 0 }, nobody)).toBe(false);
+  });
+
+  it('is a balance in the walk-in customer\'s name, too', () => {
+    expect(owesWithoutName({ owed: 5 }, { customerId: '', name: 'Clientes Varios', phone: '' })).toBe(true);
+    expect(owesWithoutName({ owed: 5 }, { customerId: '', name: 'Feria', phone: '' }, 'Feria')).toBe(true);
+    expect(owesWithoutName({ owed: 0 }, { customerId: '', name: 'Clientes varios', phone: '' })).toBe(false);
+  });
+});
+
+describe('isWalkInName', () => {
+  it('is the default name, or the workshop\'s, in any case, spacing or accent', () => {
+    expect(isWalkInName('  clientes   VARIOS ')).toBe(true);
+    expect(isWalkInName('Clientes vários')).toBe(true);
+    expect(isWalkInName('público general', 'Público General')).toBe(true);
+    expect(isWalkInName('Clientes varios', 'Público General')).toBe(true);
+  });
+
+  it('is not a person, nor an empty field', () => {
+    expect(isWalkInName('Rosa Díaz')).toBe(false);
+    expect(isWalkInName('Clientes')).toBe(false);
+    expect(isWalkInName('   ')).toBe(false);
   });
 });
 
@@ -355,9 +411,10 @@ describe('saleKey', () => {
     expect(saleKey(last, payload({ amount: 20 }), fresh)).toEqual({ key: 'key-1', reused: false });
     expect(saleKey(last, payload({ customerName: 'Rosa' }), fresh).reused).toBe(false);
     expect(
-      saleKey(last, payload({ lines: [{ variant_id: 'pink', quantity: 3, unit_price: 15, estimated_unit_cost: 6.123456 }] }), fresh)
-        .reused,
+      saleKey(last, payload({ lines: [{ variant_id: 'pink', quantity: 3, unit_price: 15 }] }), fresh).reused,
     ).toBe(false);
+    // Through another channel it is another sale too.
+    expect(saleKey(last, payload({ channelId: 'instagram' }), fresh).reused).toBe(false);
   });
 });
 
@@ -369,10 +426,10 @@ describe('saleDone', () => {
       payment: { ...cash, amount: 20 },
       note: '',
     });
-    expect(saleDone({ id: 'order', number: 'ORD-2026-0012', total: 48 }, payload, 'Cliente al paso')).toEqual({
+    expect(saleDone({ id: 'order', number: 'ORD-2026-0012', total: 48 }, payload, 'Clientes varios')).toEqual({
       orderId: 'order',
       number: 'ORD-2026-0012',
-      customerName: 'Cliente al paso',
+      customerName: 'Clientes varios',
       units: 3,
       total: 48,
       collected: 20,

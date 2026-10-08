@@ -115,6 +115,17 @@ interface Built {
                       <span class="strong">{{ outcome.entering }}</span>
                     </li>
                   </ul>
+                  <!--
+                    ADR-022: what is sold off the shelf costs what it really cost, the hands that assembled it
+                    included. A delivery takes a unit out at the average of everything produced of it, not at
+                    this assembly's value, so the text does not promise this figure to Resultados.
+                  -->
+                  <p class="muted">
+                    Cada unidad entra al estante valorizada en lo que consume más la mano de obra de su receta: los
+                    minutos por unidad, y la preparación una vez por armado, a la tarifa del perfil de costo vigente.
+                    Al venderse sale al promedio de lo que costó producir este producto, con lo armado antes, y eso
+                    es lo que cuenta Resultados.
+                  </p>
                   <div class="actions">
                     <button type="button" [disabled]="busy()" (click)="assemble()">{{ busy() ? 'Armando…' : 'Sí, armar' }}</button>
                     <button type="button" class="secondary" [disabled]="busy()" (click)="confirming.set(false)">Volver</button>

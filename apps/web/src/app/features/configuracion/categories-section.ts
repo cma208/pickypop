@@ -1,4 +1,5 @@
 import { Component, computed, inject, output, signal } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { AsyncState, Badge, Card, Empty, Field } from '../../ui';
 import { ConfiguracionData } from './configuracion.data';
@@ -22,6 +23,11 @@ const DIRECTION_LABEL: Record<MovementDirection, string> = {
  *
  * Se desactivan, no se borran: una categoría usada por un movimiento viejo
  * tiene que seguir explicándolo.
+ *
+ * Una categoría de ingreso puede ser «de ventas» (decisión del dueño): la usan
+ * los cobros de pedidos y la Venta rápida, y un ingreso suelto de Caja no la
+ * ofrece, porque una venta anotada ahí no sale del estante ni lleva su costo.
+ * La base aplica la regla; aquí solo se marca.
  */
 @Component({
   selector: 'app-categories-section',
@@ -32,7 +38,8 @@ const DIRECTION_LABEL: Record<MovementDirection, string> = {
       <pp-card heading="Categorías de movimiento">
         <p class="muted">
           Con qué se clasifica cada ingreso y cada egreso en la caja. Una categoría ya usada no se borra: se
-          desactiva, deja de ofrecerse y sigue explicando los movimientos viejos.
+          desactiva, deja de ofrecerse y sigue explicando los movimientos viejos. Las de ventas son para los cobros de
+          pedidos y la Venta rápida: un ingreso suelto de Caja no las ofrece.
         </p>
         @if (!canEdit()) {
           <p class="notice warn">Solo el dueño del taller puede cambiar las categorías. Aquí las ves en modo lectura.</p>
@@ -57,6 +64,12 @@ const DIRECTION_LABEL: Record<MovementDirection, string> = {
                 }
               </select>
             </pp-field>
+            @if (isIncome()) {
+              <label class="check">
+                <input type="checkbox" formControlName="sales" />
+                Es de ventas: la usan los cobros de pedidos y la Venta rápida, y un ingreso suelto no la ofrece
+              </label>
+            }
             @if (error(); as message) {
               <p class="error" role="alert">{{ message }}</p>
             }
@@ -82,13 +95,16 @@ const DIRECTION_LABEL: Record<MovementDirection, string> = {
                   <li class="item">
                     <header>
                       <span class="title">{{ category.name }}</span>
+                      @if (category.sales) {
+                        <pp-badge tone="info">De ventas</pp-badge>
+                      }
                       <pp-badge [tone]="category.active ? 'good' : 'neutral'">
                         {{ category.active ? 'Activa' : 'Inactiva' }}
                       </pp-badge>
                     </header>
                     @if (canEdit()) {
                       <div class="actions">
-                        <button type="button" class="secondary" (click)="open(category)">Renombrar</button>
+                        <button type="button" class="secondary" (click)="open(category)">Editar</button>
                         <button type="button" class="secondary" [disabled]="saving()" (click)="toggle(category)">
                           {{ category.active ? 'Desactivar' : 'Activar' }}
                         </button>
@@ -131,14 +147,25 @@ export class CategoriesSection {
   protected readonly form = new FormGroup({
     name: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
     direction: new FormControl<MovementDirection>('expense', { nonNullable: true }),
+    sales: new FormControl(false, { nonNullable: true }),
   });
+
+  private readonly direction = toSignal(this.form.controls.direction.valueChanges, {
+    initialValue: this.form.controls.direction.value,
+  });
+  /** Only an income can be a category of sales: the database refuses it on an expense. */
+  protected readonly isIncome = computed(() => this.direction() === 'income');
 
   constructor() {
     void this.reload();
   }
 
   protected open(category: CategoryRecord | null): void {
-    this.form.reset({ name: category?.name ?? '', direction: category?.direction ?? 'expense' });
+    this.form.reset({
+      name: category?.name ?? '',
+      direction: category?.direction ?? 'expense',
+      sales: category?.sales ?? false,
+    });
     this.error.set(null);
     this.editing.set(category);
     this.formOpen.set(true);
@@ -153,15 +180,17 @@ export class CategoriesSection {
     if (this.form.invalid || this.saving()) return;
 
     const editing = this.editing();
+    // Cambiar el tipo movería de lado todos los movimientos que ya la usan.
+    const direction = editing?.direction ?? this.form.getRawValue().direction;
     this.saving.set(true);
     this.error.set(null);
 
     try {
       await this.data.saveCategory(editing?.id ?? null, {
         name: this.form.getRawValue().name,
-        // Cambiar el tipo movería de lado todos los movimientos que ya la usan.
-        direction: editing?.direction ?? this.form.getRawValue().direction,
+        direction,
         active: editing?.active ?? true,
+        sales: direction === 'income' && this.form.getRawValue().sales,
       });
       this.formOpen.set(false);
       await this.reload();
@@ -184,6 +213,7 @@ export class CategoriesSection {
         name: category.name,
         direction: category.direction,
         active: !category.active,
+        sales: category.sales,
       });
       await this.reload();
       this.changed.emit();
@@ -194,7 +224,8 @@ export class CategoriesSection {
     }
   }
 
-  private async reload(): Promise<void> {
+  /** Read again: choosing the category of collections marks it as one of sales in the database. */
+  async reload(): Promise<void> {
     try {
       const [categories, role] = await Promise.all([this.data.categories(), this.data.currentRole()]);
       this.categories.set(categories);

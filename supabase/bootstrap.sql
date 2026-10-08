@@ -82,23 +82,34 @@ begin
     (shop_id, 'Cuenta bancaria', 'bank', 0, 'transfer', 'Pendiente: banco y saldo inicial')
   on conflict (workspace_id, name) do nothing;
 
-  insert into public.transaction_categories (workspace_id, name, direction)
+  -- Las dos de ingreso son de ventas: las usan los cobros de pedidos y la
+  -- Venta rápida, y un ingreso suelto de Caja no puede usarlas.
+  insert into public.transaction_categories (workspace_id, name, direction, sales)
   values
-    (shop_id, 'Venta de productos', 'income'),
-    (shop_id, 'Trabajos por encargo', 'income'),
-    (shop_id, 'Filamento', 'expense'),
-    (shop_id, 'Dulces y empaque', 'expense'),
-    (shop_id, 'Repuestos y herramientas', 'expense'),
-    (shop_id, 'Mantenimiento', 'expense'),
-    (shop_id, 'Envíos', 'expense'),
-    (shop_id, 'Comisiones de venta', 'expense'),
-    (shop_id, 'Publicidad', 'expense'),
-    (shop_id, 'Luz', 'expense')
+    (shop_id, 'Venta de productos', 'income', true),
+    (shop_id, 'Trabajos por encargo', 'income', true),
+    (shop_id, 'Filamento', 'expense', false),
+    (shop_id, 'Dulces y empaque', 'expense', false),
+    (shop_id, 'Repuestos y herramientas', 'expense', false),
+    (shop_id, 'Mantenimiento', 'expense', false),
+    (shop_id, 'Envíos', 'expense', false),
+    (shop_id, 'Comisiones de venta', 'expense', false),
+    (shop_id, 'Publicidad', 'expense', false),
+    (shop_id, 'Luz', 'expense', false)
   on conflict (workspace_id, direction, name) do nothing;
 
   insert into public.sales_channels (workspace_id, name, commission_rate)
   values (shop_id, 'Directo', 0), (shop_id, 'Instagram', 0)
   on conflict (workspace_id, name) do nothing;
+
+  -- «Directo» es el canal de las ventas directas: la Venta rápida lo trae
+  -- elegido. Si el dueño ya eligió otro, se respeta.
+  insert into public.workshop_settings (workspace_id, default_channel_id)
+  select shop_id, c.id
+  from public.sales_channels c
+  where c.workspace_id = shop_id and c.name = 'Directo' and c.active
+  on conflict (workspace_id) do update
+    set default_channel_id = coalesce(public.workshop_settings.default_channel_id, excluded.default_channel_id);
 
   insert into public.gift_categories (workspace_id, name, treatment)
   values

@@ -16,6 +16,7 @@ function month(overrides: Partial<MonthResult> = {}): MonthResult {
     toolsAndTests: 0,
     shelfCountLosses: 0,
     failedPrints: 0,
+    uncoveredFailedPrints: 0,
     printCost: 0,
     failureReserveRate: 0.1,
     ...overrides,
@@ -87,6 +88,19 @@ describe('addUpMonths', () => {
     expect(totals.failedPrints).toBe(0.28);
     expect(totals.printCost).toBe(14.17);
     expect('failureReserveRate' in totals).toBe(false);
+  });
+
+  it('adds the failures no estimate pays for, which are part of what was never sold', () => {
+    // A failed plate of the shelf (0.30) and a failed made-to-order try its estimate pays (0.20).
+    const totals = addUpMonths([
+      month({ unsoldProduction: 7.72 + 0.3, toolsAndTests: 7.72, failedPrints: 0.5, uncoveredFailedPrints: 0.3, printCost: 4 }),
+      month({ month: '2026-09-01', unsoldProduction: 0.15, failedPrints: 0.15, uncoveredFailedPrints: 0.15, printCost: 2 }),
+    ]);
+
+    expect(totals.uncoveredFailedPrints).toBe(0.45);
+    expect(totals.failedPrints).toBe(0.65);
+    expect(totals.unsoldProduction).toBe(8.17);
+    expect(totals.toolsAndTests + totals.shelfCountLosses + totals.uncoveredFailedPrints).toBeCloseTo(totals.unsoldProduction, 10);
   });
 
   it('answers zeros for an empty period', () => {

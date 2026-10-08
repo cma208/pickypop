@@ -71,7 +71,9 @@ import type { OrderPurpose } from './pedidos.labels';
             @if (printsForIt() && closedJobs()) { El costo real es lo que se llegó a imprimir para él. }
           } @else {
             @if (s.deliveredUnits > 0) {
-              Lo entregado cuesta lo que salió del estante: piezas, insumos y empaque al promedio de lo que había, sin la mano de obra de armar, que el estimado sí incluye.
+              Lo entregado cuesta lo que salió del estante: piezas, insumos y empaque al promedio de lo que había, más
+              la mano de obra de armar y empacar (lo armado antes de que se sumara entró sin ella). Es lo que cuenta
+              Resultados; el estimado es lo que costaría hacer un lote nuevo de esa cantidad.
             }
             @if (printsForIt()) {
               El costo real de producción suma material, luz y máquina de las impresiones de lo hecho a medida, y es parcial mientras falten por imprimir.

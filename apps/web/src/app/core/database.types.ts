@@ -1671,13 +1671,13 @@ isOneToOne: false
                   ]
                 },"transaction_categories": {
                   Row: {
-                    "active": boolean,"created_at": string,"direction": Database["public"]['Enums']["transaction_direction"],"id": string,"name": string,"note": string | null,"updated_at": string,"workspace_id": string
+                    "active": boolean,"created_at": string,"direction": Database["public"]['Enums']["transaction_direction"],"id": string,"name": string,"note": string | null,"sales": boolean,"updated_at": string,"workspace_id": string
                   }
                   Insert: {
-                    "active"?: boolean,"created_at"?: string,"direction": Database["public"]['Enums']["transaction_direction"],"id"?: string,"name": string,"note"?: string | null,"updated_at"?: string,"workspace_id": string
+                    "active"?: boolean,"created_at"?: string,"direction": Database["public"]['Enums']["transaction_direction"],"id"?: string,"name": string,"note"?: string | null,"sales"?: boolean,"updated_at"?: string,"workspace_id": string
                   }
                   Update: {
-                    "active"?: boolean,"created_at"?: string,"direction"?: Database["public"]['Enums']["transaction_direction"],"id"?: string,"name"?: string,"note"?: string | null,"updated_at"?: string,"workspace_id"?: string
+                    "active"?: boolean,"created_at"?: string,"direction"?: Database["public"]['Enums']["transaction_direction"],"id"?: string,"name"?: string,"note"?: string | null,"sales"?: boolean,"updated_at"?: string,"workspace_id"?: string
                   }
                   Relationships: [
                     {
@@ -1811,16 +1811,22 @@ isOneToOne: false
                   ]
                 },"workshop_settings": {
                   Row: {
-                    "changeover_default_minutes": number,"hold_default_days": number,"hold_default_time": string,"order_payment_category_id": string | null,"order_payment_direction": Database["public"]['Enums']["transaction_direction"] | null,"print_end_by": string,"print_first_start": string,"print_last_start": string,"purchase_payment_category_id": string | null,"purchase_payment_direction": Database["public"]['Enums']["transaction_direction"] | null,"updated_at": string,"workspace_id": string
+                    "changeover_default_minutes": number,"default_channel_id": string | null,"hold_default_days": number,"hold_default_time": string,"order_payment_category_id": string | null,"order_payment_direction": Database["public"]['Enums']["transaction_direction"] | null,"print_end_by": string,"print_first_start": string,"print_last_start": string,"purchase_payment_category_id": string | null,"purchase_payment_direction": Database["public"]['Enums']["transaction_direction"] | null,"updated_at": string,"workspace_id": string
                   }
                   Insert: {
-                    "changeover_default_minutes"?: number,"hold_default_days"?: number,"hold_default_time"?: string,"order_payment_category_id"?: string | null,"order_payment_direction"?: never,"print_end_by"?: string,"print_first_start"?: string,"print_last_start"?: string,"purchase_payment_category_id"?: string | null,"purchase_payment_direction"?: never,"updated_at"?: string,"workspace_id": string
+                    "changeover_default_minutes"?: number,"default_channel_id"?: string | null,"hold_default_days"?: number,"hold_default_time"?: string,"order_payment_category_id"?: string | null,"order_payment_direction"?: never,"print_end_by"?: string,"print_first_start"?: string,"print_last_start"?: string,"purchase_payment_category_id"?: string | null,"purchase_payment_direction"?: never,"updated_at"?: string,"workspace_id": string
                   }
                   Update: {
-                    "changeover_default_minutes"?: number,"hold_default_days"?: number,"hold_default_time"?: string,"order_payment_category_id"?: string | null,"order_payment_direction"?: never,"print_end_by"?: string,"print_first_start"?: string,"print_last_start"?: string,"purchase_payment_category_id"?: string | null,"purchase_payment_direction"?: never,"updated_at"?: string,"workspace_id"?: string
+                    "changeover_default_minutes"?: number,"default_channel_id"?: string | null,"hold_default_days"?: number,"hold_default_time"?: string,"order_payment_category_id"?: string | null,"order_payment_direction"?: never,"print_end_by"?: string,"print_first_start"?: string,"print_last_start"?: string,"purchase_payment_category_id"?: string | null,"purchase_payment_direction"?: never,"updated_at"?: string,"workspace_id"?: string
                   }
                   Relationships: [
                     {
+      foreignKeyName: "workshop_settings_default_channel_fkey"
+      columns: ["default_channel_id","workspace_id"]
+isOneToOne: false
+      referencedRelation: "sales_channels"
+      referencedColumns: ["id","workspace_id"]
+    },{
       foreignKeyName: "workshop_settings_order_payment_category_fkey"
       columns: ["order_payment_category_id","order_payment_direction"]
 isOneToOne: false
@@ -2082,6 +2088,19 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"finished_good_costs": {
+                  Row: {
+                    "inventory_item_id": string | null,"unit_cost": number | null,"variant_id": string | null,"workspace_id": string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "inventory_items_workspace_id_fkey"
+      columns: ["workspace_id"]
+isOneToOne: false
+      referencedRelation: "workspaces"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"inventory_balances": {
                   Row: {
                     "available": number | null,"inventory_item_id": string | null,"kind": Database["public"]['Enums']["inventory_item_kind"] | null,"min_stock": number | null,"name": string | null,"on_hand": number | null,"reserved": number | null,"unit": string | null,"workspace_id": string | null
@@ -2110,7 +2129,7 @@ isOneToOne: false
                   ]
                 },"monthly_income_statement": {
                   Row: {
-                    "cost_of_sales": number | null,"failed_prints": number | null,"failure_reserve_rate": number | null,"gross_profit": number | null,"inventory_purchases": number | null,"month": string | null,"net_profit": number | null,"operating_expenses": number | null,"other_income": number | null,"owner_contributions": number | null,"owner_draws": number | null,"print_cost": number | null,"sales": number | null,"shelf_count_losses": number | null,"tools_and_tests": number | null,"unsold_production": number | null,"workspace_id": string | null
+                    "cost_of_sales": number | null,"failed_prints": number | null,"failure_reserve_rate": number | null,"gross_profit": number | null,"inventory_purchases": number | null,"month": string | null,"net_profit": number | null,"operating_expenses": number | null,"other_income": number | null,"owner_contributions": number | null,"owner_draws": number | null,"print_cost": number | null,"sales": number | null,"shelf_count_losses": number | null,"tools_and_tests": number | null,"uncovered_failed_prints": number | null,"unsold_production": number | null,"workspace_id": string | null
                   }
                   Relationships: [
                     
@@ -2483,6 +2502,9 @@ isOneToOne: false
 "count_shelf":
 { Args: { "p_counts": Json,"p_note"?: string }; Returns: number
                            },
+"default_channel":
+{ Args: { "p_workspace_id": string }; Returns: string
+                           },
 "default_hold_until":
 { Args: { "p_workspace_id": string }; Returns: string
                            },
@@ -2546,7 +2568,7 @@ isOneToOne: false
         isSetofReturn: false
       } },
 "quick_sale":
-{ Args: { "p_account_id"?: string,"p_amount"?: number,"p_customer_id"?: string,"p_customer_name"?: string,"p_customer_phone"?: string,"p_lines": Json,"p_note"?: string,"p_payment_method"?: Database["public"]['Enums']["payment_method"],"p_reference"?: string,"p_sale_key"?: string,"p_sold_at"?: string,"p_workspace_id": string }; Returns: {
+{ Args: { "p_account_id"?: string,"p_amount"?: number,"p_channel_id"?: string,"p_customer_id"?: string,"p_customer_name"?: string,"p_customer_phone"?: string,"p_lines": Json,"p_note"?: string,"p_payment_method"?: Database["public"]['Enums']["payment_method"],"p_reference"?: string,"p_sale_key"?: string,"p_sold_at"?: string,"p_workspace_id": string }; Returns: {
               "channel_id": string | null,
 "created_at": string,
 "created_by": string | null,

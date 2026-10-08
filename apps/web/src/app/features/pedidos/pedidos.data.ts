@@ -441,11 +441,17 @@ export class PedidosData {
     }));
   }
 
+  /**
+   * Who an order can be for. Not «Clientes varios»: it buys only in the
+   * quick sale, which collects on the spot, and the database refuses an
+   * order of it anywhere else (ADR-024).
+   */
   async customers(): Promise<CustomerOption[]> {
     const { data, error } = await this.supabase
       .from('customers')
       .select('id, name')
       .eq('active', true)
+      .eq('walk_in', false)
       .order('name');
     if (error) throw error;
     return data;

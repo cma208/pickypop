@@ -1,4 +1,4 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { AsyncState, Badge, Card, Empty, Field, FORMAT_PIPES } from '../../ui';
 import { ConfiguracionData } from './configuracion.data';
@@ -11,7 +11,15 @@ const PERCENT_SCALE = 100;
 const MAX_PERCENT = 99.99;
 const RATE_DECIMALS = 10_000;
 
-/** Sales channels with the commission each one charges. */
+/**
+ * Sales channels with the commission each one charges, and which one stands
+ * for direct sales: the one the quick sale preselects and the database uses
+ * when a sale names none. Nothing chooses it on its own: with none chosen
+ * the section says so, because the quick sale would sell without a channel.
+ * The commission only grosses up the price of made-to-order work in the
+ * quote calculator; a catalogue sale is at its list price, so for the quick
+ * sale the channel is only recorded.
+ */
 @Component({
   selector: 'app-channels-section',
   imports: [ReactiveFormsModule, Card, Field, Badge, Empty, AsyncState, FORMAT_PIPES],
@@ -20,15 +28,26 @@ const RATE_DECIMALS = 10_000;
     <pp-async [loading]="loading()" [error]="loadError()">
       <pp-card heading="Canales de venta">
         <p class="muted">
-          Por dónde llegan las ventas. La comisión es lo que el canal se queda de cada venta (0 % si no cobra).
+          Por dónde llegan las ventas. La comisión es lo que el canal se queda de cada venta (0 % si no cobra): el
+          cotizador la suma al precio de lo hecho a medida; lo del catálogo se vende a su precio de lista. El canal
+          «Por defecto» es el de las ventas directas: la Venta rápida lo trae elegido.
         </p>
         <div class="toolbar">
           <!-- Always there: when it vanished while the form was open, the form's own title took its place and looked like the button. -->
           <button type="button" [class.secondary]="formOpen()" (click)="open(null)">+ Nuevo canal</button>
         </div>
 
+        @if (missingDefault()) {
+          <p class="notice warn" role="status">
+            Ningún canal es el de las ventas directas: la Venta rápida no trae ninguno elegido, y lo que se venda sin
+            cambiarlo queda sin canal. Elige el que corresponda con «Usar por defecto».
+          </p>
+        }
         @if (notice(); as text) {
           <p class="notice" role="status">{{ text }}</p>
+        }
+        @if (listError(); as message) {
+          <p class="error" role="alert">{{ message }}</p>
         }
 
         @if (formOpen()) {
@@ -61,6 +80,9 @@ const RATE_DECIMALS = 10_000;
               <li class="item">
                 <header>
                   <span class="title">{{ channel.name }}</span>
+                  @if (channel.id === defaultId()) {
+                    <pp-badge tone="info">Por defecto</pp-badge>
+                  }
                   <pp-badge [tone]="channel.active ? 'good' : 'neutral'">{{ channel.active ? 'Activo' : 'Inactivo' }}</pp-badge>
                 </header>
                 <p class="muted">
@@ -68,6 +90,11 @@ const RATE_DECIMALS = 10_000;
                 </p>
                 <div class="actions">
                   <button type="button" class="secondary" (click)="open(channel)">Editar</button>
+                  @if (channel.active && channel.id !== defaultId()) {
+                    <button type="button" class="secondary" [disabled]="saving()" (click)="makeDefault(channel)">
+                      Usar por defecto
+                    </button>
+                  }
                 </div>
               </li>
             }
@@ -81,6 +108,12 @@ export class ChannelsSection {
   private readonly data = inject(ConfiguracionData);
 
   protected readonly channels = signal<ChannelRecord[]>([]);
+  /** The channel of direct sales as the database applies it: the owner's choice, while it is active. */
+  protected readonly defaultId = signal<string | null>(null);
+  /** Active channels and none of them the default: the quick sale would sell without one. */
+  protected readonly missingDefault = computed(
+    () => !this.loading() && this.defaultId() === null && this.channels().some((channel) => channel.active),
+  );
   protected readonly loading = signal(true);
   protected readonly loadError = signal<string | null>(null);
   protected readonly formOpen = signal(false);
@@ -88,6 +121,7 @@ export class ChannelsSection {
   protected readonly saving = signal(false);
   protected readonly error = signal<string | null>(null);
   protected readonly notice = signal<string | null>(null);
+  protected readonly listError = signal<string | null>(null);
 
   protected readonly form = new FormGroup({
     name: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
@@ -151,9 +185,28 @@ export class ChannelsSection {
     }
   }
 
+  protected async makeDefault(channel: ChannelRecord): Promise<void> {
+    if (this.saving()) return;
+
+    this.saving.set(true);
+    this.listError.set(null);
+    this.notice.set(null);
+    try {
+      await this.data.saveDefaultChannel(channel.id);
+      this.notice.set(`«${channel.name}» es el canal por defecto: la Venta rápida lo trae elegido.`);
+      await this.reload();
+    } catch (error) {
+      this.listError.set(friendlyError(error, 'No pudimos cambiar el canal por defecto.'));
+    } finally {
+      this.saving.set(false);
+    }
+  }
+
   private async reload(): Promise<void> {
     try {
-      this.channels.set(await this.data.channels());
+      const [channels, defaultId] = await Promise.all([this.data.channels(), this.data.defaultChannel()]);
+      this.channels.set(channels);
+      this.defaultId.set(defaultId);
       this.loadError.set(null);
     } catch (error) {
       this.loadError.set(friendlyError(error, 'No pudimos cargar los canales de venta.'));

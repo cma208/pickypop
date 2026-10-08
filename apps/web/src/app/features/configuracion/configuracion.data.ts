@@ -235,6 +235,28 @@ export class ConfiguracionData {
     }));
   }
 
+  /**
+   * The channel that stands for direct sales, the one the quick sale
+   * preselects and the database uses when a sale names none: the owner's
+   * choice while active, or none (`default_channel`).
+   */
+  async defaultChannel(): Promise<string | null> {
+    const { data, error } = await this.supabase.rpc('default_channel', {
+      p_workspace_id: await this.workspace.requireId(),
+    });
+    if (error) throw error;
+    return data ?? null;
+  }
+
+  /** The database refuses a channel of another workshop: the foreign key carries the workshop. */
+  async saveDefaultChannel(channelId: string): Promise<void> {
+    const { error } = await this.supabase.from('workshop_settings').upsert({
+      workspace_id: await this.workspace.requireId(),
+      default_channel_id: channelId,
+    });
+    if (error) throw error;
+  }
+
   async saveChannel(channelId: string | null, draft: Omit<ChannelRecord, 'id'>): Promise<void> {
     const values = {
       name: draft.name.trim(),
@@ -327,17 +349,32 @@ export class ConfiguracionData {
   async categories(): Promise<CategoryRecord[]> {
     const { data, error } = await this.supabase
       .from('transaction_categories')
-      .select('id, name, direction, active')
+      .select('id, name, direction, active, sales')
       .order('direction')
       .order('name');
     if (error) throw error;
 
-    return data.map((row) => ({ id: row.id, name: row.name, direction: row.direction, active: row.active }));
+    return data.map((row) => ({
+      id: row.id,
+      name: row.name,
+      direction: row.direction,
+      active: row.active,
+      sales: row.sales,
+    }));
   }
 
+  /**
+   * The database refuses unmarking the category collections are filed under
+   * while it is chosen, with a message for a person: it travels as it is.
+   */
   async saveCategory(categoryId: string | null, draft: CategoryDraft): Promise<void> {
     const duplicate = 'Ya existe una categoría con ese nombre para ese tipo.';
-    const values = { name: draft.name.trim(), direction: draft.direction, active: draft.active };
+    const values = {
+      name: draft.name.trim(),
+      direction: draft.direction,
+      active: draft.active,
+      sales: draft.direction === 'income' && draft.sales,
+    };
 
     if (categoryId) {
       const { data, error } = await this.supabase
