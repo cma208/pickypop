@@ -252,6 +252,7 @@ interface SkuRow {
             <app-weigh-form
               [spool]="current.spool"
               (saved)="onWeighed(current.spool, $event)"
+              (refused)="onWeighingRefused()"
               (cancelled)="dialog.set(null)"
             />
           </app-modal>
@@ -463,6 +464,27 @@ export class FilamentosPage {
 
   protected async onWeighed(spool: SpoolSummary, result: WeighingResult): Promise<void> {
     await this.onSaved(weighingNotice(spool, result));
+  }
+
+  /**
+   * A weighing was refused, or its answer was lost: the roll may have changed
+   * since the dialog opened, discarded or emptied in another tab. The list and
+   * the open dialog come back up to date, so the dialog shows the roll the
+   * database judged (and «Vuelve a usarse» when it is discarded). Quietly: if
+   * the reload fails too, what is on screen stays.
+   */
+  protected async onWeighingRefused(): Promise<void> {
+    try {
+      const spools = await this.data.spools();
+      this.spools.set(spools);
+      this.dialog.update((current) => {
+        if (current?.kind !== 'weigh') return current;
+        const fresh = spools.find((spool) => spool.id === current.spool.id);
+        return fresh ? { kind: 'weigh', spool: fresh } : current;
+      });
+    } catch (error) {
+      console.error(error);
+    }
   }
 
   private async applyStatus(spool: SpoolSummary, status: SpoolStatus): Promise<void> {

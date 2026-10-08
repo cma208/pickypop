@@ -131,6 +131,13 @@ export class WeighForm {
   readonly spool = input.required<SpoolSummary>();
   readonly saved = output<WeighingResult>();
   readonly cancelled = output<void>();
+  /**
+   * Refused, or no answer: the roll may have changed since the dialog opened
+   * (discarded or emptied in another tab). The screen that owns the list
+   * reloads it and hands the fresh roll back, so what the dialog asks for, like
+   * «Vuelve a usarse», matches the roll the database judged.
+   */
+  readonly refused = output<void>();
 
   protected readonly busy = signal(false);
   protected readonly error = signal<string | null>(null);
@@ -199,6 +206,7 @@ export class WeighForm {
       this.saved.emit(result);
     } catch (error) {
       this.error.set(describeError(error, 'No pudimos registrar el pesaje. Inténtalo de nuevo.'));
+      this.refused.emit();
     } finally {
       this.busy.set(false);
     }

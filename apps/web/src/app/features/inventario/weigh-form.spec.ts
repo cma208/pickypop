@@ -24,7 +24,7 @@ const SPOOL: SpoolSummary = {
 
 const RESULT: WeighingResult = { netG: 650, beforeG: 0, differenceG: 650, afterG: 650, status: 'open' };
 
-function open(spool: SpoolSummary) {
+function open(spool: SpoolSummary, refusal: object | null = null) {
   const calls: WeighingInput[] = [];
   TestBed.configureTestingModule({
     providers: [
@@ -33,6 +33,7 @@ function open(spool: SpoolSummary) {
         useValue: {
           recordWeighing: async (input: WeighingInput) => {
             calls.push(input);
+            if (refusal) throw refusal;
             return RESULT;
           },
         },
@@ -41,8 +42,10 @@ function open(spool: SpoolSummary) {
   });
   const fixture = TestBed.createComponent(WeighForm);
   fixture.componentRef.setInput('spool', spool);
+  const refused = { count: 0 };
+  fixture.componentInstance.refused.subscribe(() => refused.count++);
   fixture.detectChanges();
-  return { fixture, calls };
+  return { fixture, calls, refused };
 }
 
 const el = (fixture: ComponentFixture<WeighForm>) => fixture.nativeElement as HTMLElement;
@@ -102,5 +105,29 @@ describe('WeighForm', () => {
 
     expect(el(fixture).querySelector('input[type=checkbox]')).toBeNull();
     expect(calls[0]?.reopen).toBe(false);
+  });
+
+  it('asks the page to reload when the database refuses, and offers «Vuelve a usarse» once the fresh roll is discarded (review)', async () => {
+    // The dialog opened on a roll in use; another tab discarded it meanwhile.
+    const refusal = {
+      code: 'P0001',
+      message: 'El rollo PETG-NEGRO-01 está descartado: para volver a usarlo marca «Vuelve a usarse».',
+    };
+    const { fixture, refused } = open({ ...SPOOL, status: 'open', remainingG: 500 }, refusal);
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    weigh(fixture, 700);
+    await save(fixture);
+    fixture.detectChanges();
+
+    expect(refused.count).toBe(1);
+    expect(el(fixture).querySelector('input[type=checkbox]')).toBeNull();
+
+    // filamentos.page reloads and hands the dialog the roll as it is now.
+    fixture.componentRef.setInput('spool', { ...SPOOL, remainingG: 0 });
+    fixture.detectChanges();
+
+    expect(text(fixture)).toContain('está descartado');
+    expect(el(fixture).querySelector('input[type=checkbox]')).not.toBeNull();
+    vi.restoreAllMocks();
   });
 });
