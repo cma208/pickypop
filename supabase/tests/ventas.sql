@@ -151,7 +151,7 @@ insert into public.catalog_products (id, workspace_id, name, slug, status) value
 
 insert into public.product_variants (id, workspace_id, product_id, name, list_price, active) values
   (pg_temp.id(511), pg_temp.id(1), pg_temp.id(501), 'Roja', 20, true),
-  (pg_temp.id(512), pg_temp.id(1), pg_temp.id(501), 'Molde de prueba', 0, false);
+  (pg_temp.id(512), pg_temp.id(1), pg_temp.id(501), 'Molde de prueba', null, false);
 
 insert into public.inventory_items (id, workspace_id, kind, name, unit, product_variant_id) values
   (pg_temp.id(521), pg_temp.id(1), 'finished_good', 'Botella roja armada', 'unidad', pg_temp.id(511));
