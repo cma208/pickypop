@@ -1064,6 +1064,12 @@ isOneToOne: false
       foreignKeyName: "purchase_lines_inventory_item_id_fkey"
       columns: ["inventory_item_id"]
 isOneToOne: false
+      referencedRelation: "finished_good_costs"
+      referencedColumns: ["inventory_item_id"]
+    },{
+      foreignKeyName: "purchase_lines_inventory_item_id_fkey"
+      columns: ["inventory_item_id"]
+isOneToOne: false
       referencedRelation: "inventory_balances"
       referencedColumns: ["inventory_item_id"]
     },{
@@ -1297,6 +1303,12 @@ isOneToOne: false
       foreignKeyName: "recipe_items_inventory_item_id_fkey"
       columns: ["inventory_item_id"]
 isOneToOne: false
+      referencedRelation: "finished_good_costs"
+      referencedColumns: ["inventory_item_id"]
+    },{
+      foreignKeyName: "recipe_items_inventory_item_id_fkey"
+      columns: ["inventory_item_id"]
+isOneToOne: false
       referencedRelation: "inventory_balances"
       referencedColumns: ["inventory_item_id"]
     },{
@@ -1408,6 +1420,12 @@ isOneToOne: false
       columns: ["inventory_item_id"]
 isOneToOne: false
       referencedRelation: "assembly_components"
+      referencedColumns: ["inventory_item_id"]
+    },{
+      foreignKeyName: "recipe_plate_outputs_inventory_item_id_fkey"
+      columns: ["inventory_item_id"]
+isOneToOne: false
+      referencedRelation: "finished_good_costs"
       referencedColumns: ["inventory_item_id"]
     },{
       foreignKeyName: "recipe_plate_outputs_inventory_item_id_fkey"
@@ -1605,6 +1623,12 @@ isOneToOne: false
       columns: ["inventory_item_id"]
 isOneToOne: false
       referencedRelation: "assembly_components"
+      referencedColumns: ["inventory_item_id"]
+    },{
+      foreignKeyName: "stock_movements_inventory_item_id_fkey"
+      columns: ["inventory_item_id"]
+isOneToOne: false
+      referencedRelation: "finished_good_costs"
       referencedColumns: ["inventory_item_id"]
     },{
       foreignKeyName: "stock_movements_inventory_item_id_fkey"
@@ -2092,8 +2116,38 @@ isOneToOne: false
                   Row: {
                     "inventory_item_id": string | null,"unit_cost": number | null,"variant_id": string | null,"workspace_id": string | null
                   }
-                  Relationships: [
+                  Insert: {
+                           "inventory_item_id"?: string | null,"unit_cost"?: never,"variant_id"?: string | null,"workspace_id"?: string | null
+                         }
+                        Update: {
+                           "inventory_item_id"?: string | null,"unit_cost"?: never,"variant_id"?: string | null,"workspace_id"?: string | null
+                         }
+                        Relationships: [
                     {
+      foreignKeyName: "inventory_items_product_variant_id_fkey"
+      columns: ["variant_id"]
+isOneToOne: false
+      referencedRelation: "assembly_options"
+      referencedColumns: ["variant_id"]
+    },{
+      foreignKeyName: "inventory_items_product_variant_id_fkey"
+      columns: ["variant_id"]
+isOneToOne: false
+      referencedRelation: "product_variants"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "inventory_items_product_variant_id_fkey"
+      columns: ["variant_id"]
+isOneToOne: false
+      referencedRelation: "production_needs"
+      referencedColumns: ["variant_id"]
+    },{
+      foreignKeyName: "inventory_items_product_variant_id_fkey"
+      columns: ["variant_id"]
+isOneToOne: false
+      referencedRelation: "variant_available_colors"
+      referencedColumns: ["variant_id"]
+    },{
       foreignKeyName: "inventory_items_workspace_id_fkey"
       columns: ["workspace_id"]
 isOneToOne: false
