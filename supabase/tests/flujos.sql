@@ -19,6 +19,10 @@
 -- * No se imprime con un rollo agotado o descartado (T3-07): ni al crear el
 --   trabajo, ni al iniciarlo (eligiéndolo o con el que tenía de la cola), ni
 --   al cerrarlo con gramos. Con cero gramos sí cierra.
+-- * La receta que se usa es la activa, aunque haya una versión más alta
+--   desactivada: al armar, al entregar, al vender y en las pantallas de armar
+--   y de contar.
+-- * La Venta rápida escribe sus montos con doce cifras (T4-15).
 --
 -- Los rechazos escritos para una persona son P0001.
 
@@ -275,6 +279,86 @@ select pg_temp.expect('Cerrar con gramos en un rollo en uso', 'operator', pg_tem
 select pg_temp.expect('Atar a mano un rollo agotado a un trabajo de la cola', 'operator', pg_temp.q($q$
   insert into public.print_job_filaments (workspace_id, print_job_id, spool_id, estimated_g) values (#1, #2, #3, 10)
   $q$, 1, 612, 416), 'error:P0001:No se imprime con el rollo FLUJOS-F');
+
+-- ================================================== la receta que se usa es la activa
+
+-- Version 1 is active and assembled with the red cap. Version 2 is higher,
+-- switched off, and not assembled, with the blue cap: the screen shows
+-- version 1, and so must everything that moves the shelf.
+insert into public.catalog_products (id, workspace_id, name, slug, status) values
+  (pg_temp.id(501), pg_temp.id(1), 'Botella de flujos', 'botella-de-flujos-prueba', 'published');
+
+insert into public.product_variants (id, workspace_id, product_id, name, list_price, active) values
+  (pg_temp.id(511), pg_temp.id(1), pg_temp.id(501), 'Roja', 20, true);
+
+insert into public.inventory_items (id, workspace_id, kind, name, unit, product_variant_id) values
+  (pg_temp.id(521), pg_temp.id(1), 'part', 'Tapa roja de flujos', 'unidad', null),
+  (pg_temp.id(522), pg_temp.id(1), 'part', 'Tapa azul de flujos', 'unidad', null),
+  (pg_temp.id(523), pg_temp.id(1), 'finished_good', 'Botella roja de flujos', 'unidad', pg_temp.id(511));
+
+insert into public.recipes (id, workspace_id, variant_id, version, assembled, active) values
+  (pg_temp.id(531), pg_temp.id(1), pg_temp.id(511), 1, true, true),
+  (pg_temp.id(532), pg_temp.id(1), pg_temp.id(511), 2, false, false);
+
+insert into public.recipe_items (workspace_id, recipe_id, inventory_item_id, quantity_per_unit) values
+  (pg_temp.id(1), pg_temp.id(531), pg_temp.id(521), 1),
+  (pg_temp.id(1), pg_temp.id(532), pg_temp.id(522), 1);
+
+insert into public.stock_movements (workspace_id, occurred_at, type, inventory_item_id, quantity, unit_cost, source_type, note) values
+  (pg_temp.id(1), now() - interval '2 days', 'production', pg_temp.id(521), 5, 1, 'print_job', 'Prueba de flujos'),
+  (pg_temp.id(1), now() - interval '2 days', 'production', pg_temp.id(522), 5, 1, 'print_job', 'Prueba de flujos'),
+  (pg_temp.id(1), now() - interval '2 days', 'production', pg_temp.id(523), 3, 8, 'assembly', 'Prueba de flujos');
+
+insert into public.orders (id, workspace_id, number, purpose, customer_id, status, total) values
+  (pg_temp.id(701), pg_temp.id(1), 'FLU-0001', 'sale', pg_temp.id(301), 'confirmed', 20);
+
+insert into public.order_lines (id, workspace_id, order_id, position, variant_id, description, quantity, unit_price) values
+  (pg_temp.id(711), pg_temp.id(1), pg_temp.id(701), 1, pg_temp.id(511), 'Botella de flujos — Roja', 1, 20);
+
+select pg_temp.expect('Armar usa la receta activa', 'operator', pg_temp.q($q$do $x$
+  declare n_red integer; n_blue integer;
+  begin
+    perform public.assemble_product(#1, 1);
+    select count(*) filter (where inventory_item_id = #2), count(*) filter (where inventory_item_id = #3)
+      into n_red, n_blue
+    from public.stock_movements where source_type = 'assembly' and type = 'consumption' and workspace_id = #4;
+    if n_red <> 1 or n_blue <> 0 then raise exception 'armó con la roja % y con la azul %', n_red, n_blue; end if;
+  end $x$$q$, 511, 521, 522, 1), 'ok:');
+
+select pg_temp.expect('Entregar usa la receta activa', 'operator', pg_temp.q($q$do $x$
+  declare n_product integer; n_blue integer;
+  begin
+    perform public.deliver_order(#1);
+    select count(*) filter (where inventory_item_id = #2), count(*) filter (where inventory_item_id = #3)
+      into n_product, n_blue
+    from public.stock_movements where source_type = 'order_delivery' and workspace_id = #4;
+    if n_product <> 1 or n_blue <> 0 then raise exception 'sacó % botellas y % tapas azules', n_product, n_blue; end if;
+  end $x$$q$, 701, 523, 522, 1), 'ok:');
+
+select pg_temp.expect('Vender usa la receta activa', 'operator', pg_temp.q($q$
+  select public.quick_sale(#1, ('[{"variant_id": "' || #2 || '", "quantity": 1, "unit_price": 20}]')::jsonb, #3)
+  $q$, 1, 511, 301), 'ok:1');
+
+select pg_temp.expect('Las pantallas de armar y de contar enseñan la receta activa', 'operator', pg_temp.q($q$do $x$
+  begin
+    if not exists (select 1 from public.assembly_options where variant_id = #1) then
+      raise exception 'la pantalla de armar no ofrece la botella';
+    end if;
+    if exists (select 1 from public.assembly_components where variant_id = #1 and inventory_item_id = #2)
+       or not exists (select 1 from public.assembly_components where variant_id = #1 and inventory_item_id = #3) then
+      raise exception 'la pantalla de armar enseña otra receta';
+    end if;
+    if not exists (select 1 from public.shelf_count_items where variant_id = #1) then
+      raise exception 'el conteo no ofrece la botella';
+    end if;
+  end $x$$q$, 511, 522, 521), 'ok:');
+
+-- ============================================ la Venta rápida con cifras grandes
+
+select pg_temp.expect('Un cobro de más con cifras grandes dice el monto (T4-15)', 'operator', pg_temp.q($q$
+  select public.quick_sale(#1, ('[{"variant_id": "' || #2 || '", "quantity": 1, "unit_price": 20}]')::jsonb, #3,
+    null, null, #4, 5000000000)
+  $q$, 1, 511, 301, 201), 'error:P0001:Lo cobrado (S/ 5000000000.00) pasa del total de la venta (S/ 20.00)');
 
 -- --------------------------------------------------------------- resultado
 

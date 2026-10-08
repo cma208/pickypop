@@ -719,8 +719,7 @@ begin
   for v_i in 1 .. array_length(v_flows, 1) loop
     perform pg_temp.expect(v_names[v_i], 'operator', v_flows[v_i], 'ok:');
     perform pg_temp.expect(v_names[v_i], 'owner', v_flows[v_i], 'ok:');
-    perform pg_temp.expect(v_names[v_i], 'viewer', v_flows[v_i],
-      case when v_i = 5 then 'error:42501' else 'error:42501:Solo el dueño o un operador del taller pueden' end);
+    perform pg_temp.expect(v_names[v_i], 'viewer', v_flows[v_i], 'error:42501:Solo el dueño o un operador del taller pueden');
     perform pg_temp.expect(v_names[v_i], 'outsider', v_flows[v_i], 'error:P0001:');
   end loop;
 
