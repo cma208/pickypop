@@ -121,6 +121,8 @@ export class MaintenanceTab {
   protected readonly history = computed(() => this.logs().slice(0, HISTORY_LIMIT));
 
   protected readonly attentionSummary = computed(() => {
+    // Without a plan nothing is being watched, and "todo al día" would vouch for it.
+    if (this.statuses().length === 0) return 'Sin planes de mantenimiento activos: nada vigila esta impresora.';
     const overdue = this.statuses().filter((status) => status.state === 'overdue').length;
     const attention = needsAttention(this.statuses()).length;
     if (attention === 0) return 'Sin mantenimientos pendientes: todo al día.';
