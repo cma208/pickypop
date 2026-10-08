@@ -2523,7 +2523,7 @@ isOneToOne: false
         isSetofReturn: false
       } },
 "complete_print_job":
-{ Args: { "p_actual_time_s"?: number,"p_energy_cost"?: number,"p_failure_cause"?: Database["public"]['Enums']["print_failure_cause"],"p_filament_usage"?: Json,"p_job_id": string,"p_machine_cost"?: number,"p_material_cost"?: number,"p_note"?: string,"p_outputs"?: Json,"p_percent_complete"?: number,"p_result": Database["public"]['Enums']["print_job_status"] }; Returns: {
+{ Args: { "p_actual_time_s"?: number,"p_energy_cost"?: number,"p_expected_status": Database["public"]['Enums']["print_job_status"],"p_failure_cause"?: Database["public"]['Enums']["print_failure_cause"],"p_filament_usage"?: Json,"p_job_id": string,"p_machine_cost"?: number,"p_material_cost"?: number,"p_note"?: string,"p_outputs"?: Json,"p_percent_complete"?: number,"p_result": Database["public"]['Enums']["print_job_status"] }; Returns: {
               "actual_time_s": number | null,
 "created_at": string,
 "created_by": string | null,

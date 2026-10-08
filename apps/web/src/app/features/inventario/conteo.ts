@@ -53,13 +53,23 @@ export function needsCost(row: CountRow): boolean {
   return difference(row) > 0 && row.knownCost === null;
 }
 
+/**
+ * Bounds no shelf reaches, the same `count_shelf` checks: an extra zero is
+ * caught next to the field instead of ending in the database's refusal.
+ */
+export const MAX_COUNT = 100000;
+export const MAX_UNIT_COST = 100000;
+
 /** Why a row cannot be sent yet, in words for the person; null when it can. */
 export function rowProblem(row: CountRow): string | null {
   if (row.counted === null) return null;
-  if (!Number.isInteger(row.counted) || row.counted < 0) return 'Escribe un número entero, cero o más.';
-  if (needsCost(row) && (row.typedCost === null || row.typedCost < 0)) {
-    return 'No sabemos cuánto costó: escribe un costo aproximado por unidad.';
+  if (!Number.isInteger(row.counted) || row.counted < 0 || row.counted > MAX_COUNT) {
+    return `Escribe un número entero, de 0 a ${MAX_COUNT}.`;
   }
+  if (!needsCost(row)) return null;
+  const cost = row.typedCost;
+  if (cost === null) return 'No sabemos cuánto costó: escribe un costo aproximado por unidad.';
+  if (cost < 0 || cost > MAX_UNIT_COST) return `Escribe un costo por unidad de S/ 0 a S/ ${MAX_UNIT_COST}.`;
   return null;
 }
 

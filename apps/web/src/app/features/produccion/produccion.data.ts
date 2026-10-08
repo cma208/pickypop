@@ -502,6 +502,10 @@ export class ProduccionData {
    * Closes the job through `complete_print_job`, which moves the stock in one
    * transaction, and reports what happened to each roll.
    *
+   * It sends the status this tab saw the job in. Closed from an old tab, a job
+   * another tab has started since would close without the rolls it spent, or
+   * be cancelled while still printing: the database refuses that instead.
+   *
    * The frozen costs are calculated here from the real grams and time, because
    * the "estimated against real" block of the order reads them from the job.
    */
@@ -516,6 +520,7 @@ export class ProduccionData {
     const { error } = await this.supabase.rpc('complete_print_job', {
       p_job_id: job.id,
       p_result: input.result,
+      p_expected_status: job.status,
       p_actual_time_s: input.actualTimeS ?? undefined,
       p_filament_usage: input.usage.map((usage) => ({
         spool_id: usage.spoolId,

@@ -5,6 +5,8 @@ import {
   initialCount,
   isChanged,
   keepCounts,
+  MAX_COUNT,
+  MAX_UNIT_COST,
   needsCost,
   rowProblem,
   saveLabel,
@@ -63,6 +65,14 @@ describe('counting the shelf', () => {
     expect(rowProblem(row({ counted: 7, knownCost: null }))).toContain('costo');
     expect(rowProblem(row({ counted: 7, knownCost: null, typedCost: 0.2 }))).toBeNull();
     expect(rowProblem(row({ counted: null }))).toBeNull();
+  });
+
+  it('stops an extra zero next to the field, with the bounds count_shelf checks', () => {
+    expect(rowProblem(row({ counted: MAX_COUNT }))).toBeNull();
+    expect(rowProblem(row({ counted: MAX_COUNT + 1 }))).toBe(`Escribe un número entero, de 0 a ${MAX_COUNT}.`);
+    expect(rowProblem(row({ counted: 7, knownCost: null, typedCost: -0.5 }))).toContain('de S/ 0 a S/');
+    expect(rowProblem(row({ counted: 7, knownCost: null, typedCost: MAX_UNIT_COST + 1 }))).toContain('de S/ 0 a S/');
+    expect(rowProblem(row({ counted: 7, knownCost: null, typedCost: MAX_UNIT_COST }))).toBeNull();
   });
 
   it('counts fewer as a negative difference and names the corrections', () => {
