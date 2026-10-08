@@ -114,13 +114,6 @@ export interface JobItem {
   filaments: JobFilament[];
 }
 
-export interface FailureSummary {
-  closedJobs: number;
-  failedJobs: number;
-  failureRate: number | null;
-  mostCommonCause: FailureCause | null;
-}
-
 export interface PlateFilament {
   slot: number;
   grams: number;
@@ -272,26 +265,6 @@ export class ProduccionData {
       produced.sort((a, b) => (order.get(a.inventoryItemId) ?? 99) - (order.get(b.inventoryItemId) ?? 99));
       return { ...job, produced };
     });
-  }
-
-  /** Success rate and the most common cause, from the `failure_stats` view. */
-  async failureSummary(): Promise<FailureSummary> {
-    const [stats, failed] = await Promise.all([
-      this.supabase.from('failure_stats').select('closed_jobs, failed_jobs'),
-      this.supabase.from('print_jobs').select('failure_cause').eq('status', 'failed'),
-    ]);
-    if (stats.error) throw stats.error;
-    if (failed.error) throw failed.error;
-
-    const closedJobs = stats.data.reduce((sum, row) => sum + Number(row.closed_jobs), 0);
-    const failedJobs = stats.data.reduce((sum, row) => sum + Number(row.failed_jobs), 0);
-
-    return {
-      closedJobs,
-      failedJobs,
-      failureRate: closedJobs > 0 ? failedJobs / closedJobs : null,
-      mostCommonCause: mostCommon(failed.data.map((row) => row.failure_cause)),
-    };
   }
 
   printers(): Promise<PrinterSummary[]> {
@@ -731,16 +704,4 @@ function firstThumbnail(plates: unknown): string | null {
     if (typeof path === 'string' && path) return path;
   }
   return null;
-}
-
-function mostCommon(causes: (FailureCause | null)[]): FailureCause | null {
-  const counts = new Map<FailureCause, number>();
-  for (const cause of causes) {
-    if (cause) counts.set(cause, (counts.get(cause) ?? 0) + 1);
-  }
-  let best: FailureCause | null = null;
-  for (const [cause, count] of counts) {
-    if (best === null || count > (counts.get(best) ?? 0)) best = cause;
-  }
-  return best;
 }

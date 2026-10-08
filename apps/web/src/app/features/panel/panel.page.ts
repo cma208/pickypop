@@ -3,10 +3,13 @@ import { RouterLink } from '@angular/router';
 import { AsyncState, Badge, Card, FORMAT_PIPES, Item, Page } from '../../ui';
 import { SECTION_STYLES } from '../../core/styles';
 import { DUE_LABELS, DUE_TONES } from '../impresoras/maintenance-due';
-import { PanelData } from './panel.data';
+import { PanelData, type WeekPrints } from './panel.data';
 import type { TaskUrgency } from './panel.tasks';
 import { FAILURE_CAUSE_LABELS, ORDER_STATUS_LABELS } from './panel.labels';
 import { firstSteps, type SetupCounts } from './panel.setup';
+import { joinCauses } from './panel.prints';
+
+type FailureCause = WeekPrints['commonCauses'][number];
 
 const HIGH_SUCCESS = 0.9;
 
@@ -49,6 +52,7 @@ const TODAY = new Intl.DateTimeFormat('es-PE', {
       .stats span { display: block; font-size: 1.1rem; font-weight: 600; font-variant-numeric: tabular-nums; }
       .stats small { color: var(--muted); }
       .positive { margin: 0; color: var(--good); }
+      .small { font-size: var(--fs-sm); }
       .first-steps { margin-bottom: 1.25rem; }
       .first-steps ol { margin: 0; padding-left: 1.2rem; display: grid; gap: 0.6rem; }
       .first-steps li a { font-weight: 600; }
@@ -175,14 +179,19 @@ const TODAY = new Intl.DateTimeFormat('es-PE', {
         <pp-card heading="Mantenimiento">
           <a card-actions routerLink="/impresoras">Ver impresoras</a>
           <pp-async [loading]="maintenance.isLoading()" [error]="problem(maintenance.error(), 'el mantenimiento')">
-            @if ((maintenance.value() ?? []).length === 0) {
+            @if ((maintenance.value()?.alerts ?? []).length === 0) {
               @if (none('printers')) {
                 <p class="muted">Todavía no hay impresoras registradas.</p>
+              } @else if (maintenance.value()?.watchedPlans === 0) {
+                <p class="muted">
+                  Todavía no hay planes de mantenimiento, así que nada avisa cuándo toca. Créalos en
+                  <a routerLink="/impresoras">Impresoras</a>, pestaña «Planes».
+                </p>
               } @else if (!setup.isLoading()) {
                 <p class="positive">Sin mantenimientos pendientes: las impresoras están al día.</p>
               }
             } @else {
-              @for (alert of maintenance.value(); track alert.key) {
+              @for (alert of maintenance.value()?.alerts; track alert.key) {
                 <div class="row-item">
                   <span class="grow">
                     {{ alert.task }}
@@ -203,7 +212,7 @@ const TODAY = new Intl.DateTimeFormat('es-PE', {
                 <p class="positive">Aún no se cerró ninguna impresión en los últimos 7 días.</p>
               } @else {
                 <div class="big" [class.good-text]="isHealthy(week.successRate)">{{ week.successRate ?? 0 | percent1 }}</div>
-                <p class="muted">de éxito en los últimos 7 días</p>
+                <p class="muted">de las impresiones de los últimos 7 días salieron bien</p>
                 <div class="stats">
                   <div><span>{{ week.successful }}</span><small>exitosas</small></div>
                   <div><span>{{ week.failed }}</span><small>fallidas</small></div>
@@ -212,8 +221,18 @@ const TODAY = new Intl.DateTimeFormat('es-PE', {
               }
               @if (week.historicClosed > 0) {
                 <p class="muted">
-                  Histórico: {{ week.historicFailureRate ?? 0 | percent1 }} de fallos en {{ week.historicClosed }} impresiones.
-                  @if (week.mostCommonCause) { Causa más común: {{ causeLabels[week.mostCommonCause] }}. }
+                  Histórico: fallaron {{ week.historicFailed }} de {{ week.historicClosed }} impresiones
+                  ({{ week.historicFailureRate ?? 0 | percent1 }}).
+                  @if (week.commonCauses.length === 1) {
+                    Causa más común: {{ causeLabels[week.commonCauses[0]!] }}.
+                  } @else if (week.commonCauses.length > 1) {
+                    Ninguna causa se repite más que otra: {{ causeText(week.commonCauses) }}.
+                  }
+                </p>
+                <!-- The price's failure reserve is a share of cost (Resultados); a count of prints is a different number. -->
+                <p class="muted small">
+                  Se cuenta por impresión, no por lo que costaron. La reserva por fallos de tus precios se compara por
+                  costo, en <a routerLink="/finanzas/resultados">Resultados</a>.
                 </p>
               }
             }
@@ -246,12 +265,16 @@ export class PanelPage {
   protected readonly low = resource({ loader: () => this.data.lowFilaments() });
   protected readonly lowItems = resource({ loader: () => this.data.lowItems() });
   protected readonly orders = resource({ loader: () => this.data.ordersInProgress() });
-  protected readonly maintenance = resource({ loader: () => this.data.maintenanceAlerts() });
+  protected readonly maintenance = resource({ loader: () => this.data.maintenance() });
   protected readonly prints = resource({ loader: () => this.data.weekPrints() });
 
   /** The workshop has none of these yet, so a card must not say they are fine. */
   protected none(key: keyof SetupCounts): boolean {
     return this.setup.value()?.[key] === 0;
+  }
+
+  protected causeText(causes: readonly FailureCause[]): string {
+    return joinCauses(causes.map((cause) => this.causeLabels[cause]));
   }
 
   protected isHealthy(rate: number | null): boolean {
