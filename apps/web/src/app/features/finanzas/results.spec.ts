@@ -1,4 +1,4 @@
-import { addUpMonths, failedShare, netMargin, type MonthResult } from './results';
+import { addUpMonths, failedShare, netMargin, reserveCovers, subtractedSign, type MonthResult } from './results';
 
 function month(overrides: Partial<MonthResult> = {}): MonthResult {
   return {
@@ -79,11 +79,35 @@ describe('netMargin', () => {
 });
 
 describe('failedShare', () => {
-  it('is what failed over everything printed', () => {
-    expect(failedShare({ failedPrints: 0.28, printCost: 11.07 })).toBeCloseTo(0.0253, 4);
+  it('is what failed over what was printed to produce', () => {
+    // Three plates of parts (0.71, 0.48, 0.68) and the failure itself: the mould is not in print_cost (E3-02).
+    expect(failedShare({ failedPrints: 0.28, printCost: 2.15 })).toBeCloseTo(0.1302, 4);
   });
 
   it('has no answer when nothing was printed', () => {
     expect(failedShare({ failedPrints: 0, printCost: 0 })).toBeNull();
+  });
+});
+
+describe('reserveCovers', () => {
+  it('falls short when the failures weigh more than the allowance', () => {
+    expect(reserveCovers({ failedPrints: 0.28, printCost: 2.15, failureReserveRate: 0.1 })).toBe(false);
+  });
+
+  it('covers a month whose failures stay within the allowance, the edge included', () => {
+    expect(reserveCovers({ failedPrints: 0.1, printCost: 2, failureReserveRate: 0.1 })).toBe(true);
+    expect(reserveCovers({ failedPrints: 0.2, printCost: 2, failureReserveRate: 0.1 })).toBe(true);
+  });
+
+  it('has no answer without prints or without an allowance', () => {
+    expect(reserveCovers({ failedPrints: 0, printCost: 0, failureReserveRate: 0.1 })).toBeNull();
+    expect(reserveCovers({ failedPrints: 0.1, printCost: 2, failureReserveRate: null })).toBeNull();
+  });
+});
+
+describe('subtractedSign', () => {
+  it('puts a minus only in front of what takes something away (E5-07)', () => {
+    expect(subtractedSign(18.69)).toBe('−');
+    expect(subtractedSign(0)).toBe('');
   });
 });

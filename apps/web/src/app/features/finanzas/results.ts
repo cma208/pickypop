@@ -22,7 +22,11 @@ export interface MonthResult {
   shelfCountLosses: number;
   /** Reported apart, never subtracted: the failure allowance in the cost of sales pays for them. */
   failedPrints: number;
-  /** Everything printed that month, failures included: what the failures are measured against. */
+  /**
+   * What was printed to produce that month, failures included: what the
+   * failures are measured against. Moulds and tests do not carry the
+   * allowance, so they are left out (E3-02, ADR-023).
+   */
   printCost: number;
   /** The failure allowance the prices carried that month, as a fraction. */
   failureReserveRate: number | null;
@@ -81,9 +85,27 @@ export function netMargin(row: Pick<MonthResult, 'sales' | 'netProfit'>): number
 }
 
 /**
- * What failed over what was printed, as a fraction: the figure to hold
- * against the failure allowance. Null when nothing was printed.
+ * What failed over what was printed to produce, both in cost, as a fraction:
+ * the figure to hold against the failure allowance. The price carries
+ * production / (1 − rate), so the allowance covers the month while
+ * failed / (succeeded + failed) stays at or under the rate. Null when nothing
+ * was printed to produce.
  */
 export function failedShare(row: Pick<MonthResult, 'failedPrints' | 'printCost'>): number | null {
   return row.printCost === 0 ? null : row.failedPrints / row.printCost;
+}
+
+/** True when the allowance covered the failures, false when it fell short, null when there is nothing to compare. */
+export function reserveCovers(row: Pick<MonthResult, 'failedPrints' | 'printCost' | 'failureReserveRate'>): boolean | null {
+  const share = failedShare(row);
+  if (share === null || row.failureReserveRate === null) return null;
+  return share <= row.failureReserveRate;
+}
+
+/**
+ * The «−» in front of what a line takes away. Only when it takes something:
+ * a month without expenses read «−S/ 0.00» (E5-07).
+ */
+export function subtractedSign(value: number): string {
+  return value > 0 ? '−' : '';
 }
