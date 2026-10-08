@@ -64,15 +64,25 @@
 
 | Tabla | Columnas clave |
 |---|---|
-| `catalog_products` | name, slug, description, category, tags, status, bot_visible, specs (jsonb), care_notes, lead_time_days |
-| `product_variants` | product_id, name, options (jsonb: color, tamaño, material), list_price, active |
+| `catalog_products` | name (**único en el taller**, sin distinguir mayúsculas ni espacios de más), slug (único), description, category, tags, status, bot_visible, specs (jsonb), care_notes, lead_time_days |
+| `product_variants` | product_id, name (**único dentro del producto**, igual que el del producto), options (jsonb: color, tamaño, material), list_price (vacío o mayor que cero), active. **Una variante que está en una cotización, un pedido o el inventario no se borra: se desactiva** |
 | `product_media` | product_id, variant_id, storage_path, sort_order |
-| `recipes` | variant_id, version, valid_from, setup_minutes, minutes_per_unit, note, active, **assembled** (si el producto pasa por «Armar». Si no, se entrega descontando directo sus piezas y su empaque) |
-| `recipe_plates` | recipe_id, label, plate_index, units_per_run (productos por corrida, para el costeo), print_time_s, source_file_name, thumbnail_path, slicer_metadata (jsonb) |
-| `recipe_plate_outputs` | recipe_plate_id, inventory_item_id (una pieza, `kind = part`), units_per_run, position. **Lo que sale de una corrida al estante.** Una placa puede dar varias piezas distintas a la vez: 7 tapas y 7 cuerpos (ADR-020) |
+| `recipes` | variant_id, version, valid_from (el día del taller), setup_minutes, minutes_per_unit, note, active (**una sola activa por variante**), **assembled** (si el producto pasa por «Armar». Si no, se entrega descontando directo sus piezas y su empaque) |
+| `recipe_plates` | recipe_id, label, plate_index, units_per_run (productos por corrida, para el costeo; puede tener decimales), print_time_s, source_file_name, thumbnail_path, slicer_metadata (jsonb) |
+| `recipe_plate_outputs` | recipe_plate_id, inventory_item_id (una pieza, `kind = part`), units_per_run (**entero**), position. **Lo que sale de una corrida al estante.** Una placa puede dar varias piezas distintas a la vez: 7 tapas y 7 cuerpos (ADR-020). Guardar una salida mete la pieza en la receta, una por producto |
 | `recipe_plate_filaments` | recipe_plate_id, slot, material_id, color_hex, filament_sku_id, grams |
-| `recipe_items` | recipe_id, inventory_item_id, quantity_per_unit |
+| `recipe_items` | recipe_id, inventory_item_id, quantity_per_unit (**entera si es una pieza impresa**; un insumo sí lleva decimales: 66 g de dulces) |
+| `price_tiers` | variant_id, min_quantity, unit_price (**mayor que cero**), valid_from (el día del taller, nunca el de UTC), note. Rige el escalón más alto cuyo mínimo se alcanza (`price_for_quantity`) |
 | `price_history` | variant_id, list_price, valid_from, reason |
+
+**Lo que el catálogo deja en la base** (no en la pantalla):
+
+- **Nada que un documento use se borra.** Un disparador en `product_variants` rechaza, con un `P0001` que dice dónde, borrar una variante que está en una cotización, un pedido o el inventario como producto armado; vale también al borrar el producto entero. `variant_usage` da el mismo conteo a la pantalla, que ofrece «Desactivar» en su lugar. Una placa con una impresión en la cola o imprimiéndose tampoco se quita. Borrar sigue siendo solo del dueño; la pantalla no se lo ofrece al operador.
+- **`create_recipe`** crea la receta (o la versión siguiente si todas estaban desactivadas) bloqueando la variante: dos pestañas no crean dos versiones activas. Un índice único parcial (`recipes_one_active_per_variant`) es la red.
+- **`duplicate_variant`** copia la variante con su receta activa, cómo se entrega (`assembled`), sus placas, lo que sale de cada una, sus filamentos, sus piezas e insumos (con la cantidad del original) y su escalera. No copia el código interno ni los precios en cero.
+- **`import_plates`** guarda las placas revisadas de un archivo laminado con las piezas nuevas que se nombraron al revisarlo, todo o nada, también para el operador.
+- Los nombres se comparan con `app.catalog_name_key` (sin mayúsculas ni espacios de más). La pantalla, además, compara sin tildes.
+- Piezas enteras y precios mayores que cero los vigilan disparadores que solo miran lo que se escribe: un valor viejo que no cumple se queda hasta que alguien lo edite, y la pantalla lo marca.
 
 ### Clientes, cotizaciones y órdenes
 
