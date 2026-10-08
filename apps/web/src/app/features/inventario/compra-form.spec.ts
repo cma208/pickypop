@@ -147,4 +147,20 @@ describe('CompraForm', () => {
     expect(outcome.refused).toBe(1);
     expect((fixture.nativeElement as HTMLElement).querySelector('fieldset')?.disabled).toBe(false);
   });
+
+  it('lets go of an account and a filament that the reload after a refusal no longer has', async () => {
+    const closed = { code: 'P0001', message: 'La cuenta Efectivo está desactivada.' };
+    const { fixture, internals } = open([closed]);
+
+    await confirm(fixture, internals);
+    // compras.page reloads: the account was closed and the filament switched off in another tab.
+    fixture.componentRef.setInput('accountOptions', []);
+    fixture.componentRef.setInput('skuOptions', [{ ...SKU, active: false }]);
+    fixture.detectChanges();
+
+    const raw = (internals as unknown as { form: { getRawValue(): { paidFrom: string; lines: { target: string }[] } } }).form.getRawValue();
+    expect(raw.paidFrom).toBe('');
+    expect(raw.lines[0]?.target).toBe('');
+    expect(text(fixture)).toContain('Elige desde qué cuenta la pagaste');
+  });
 });

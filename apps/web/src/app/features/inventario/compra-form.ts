@@ -3,12 +3,14 @@ import {
   Component,
   computed,
   DestroyRef,
+  effect,
   ElementRef,
   inject,
   Injector,
   input,
   output,
   signal,
+  untracked,
   viewChild,
 } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
@@ -480,6 +482,38 @@ export class CompraForm {
 
   constructor() {
     this.form.valueChanges.pipe(takeUntilDestroyed()).subscribe(() => (this.purchaseKey = crypto.randomUUID()));
+    // After a refusal the lists reload. An account closed or a filament
+    // switched off in another tab is gone from them: the form lets go of it
+    // and asks again, instead of showing nothing chosen, saying «Queda por
+    // pagar» in the confirmation and sending it anyway.
+    effect(() => {
+      const accounts = this.accountOptions();
+      const skus = this.skuById();
+      const items = this.itemById();
+      untracked(() => this.dropVanishedChoices(accounts, skus, items));
+    });
+  }
+
+  private dropVanishedChoices(
+    accounts: PaymentAccount[],
+    skus: ReadonlyMap<string, SkuSummary>,
+    items: ReadonlyMap<string, InventoryItemSummary>,
+  ): void {
+    // While nobody knows whether it went in, the purchase stays as it was sent.
+    if (this.uncertain()) return;
+    const paidFrom = this.form.controls.paidFrom;
+    if (paidFrom.value !== '' && paidFrom.value !== NOT_PAID && !accounts.some((account) => account.id === paidFrom.value)) {
+      paidFrom.setValue('');
+      paidFrom.markAsTouched();
+    }
+    for (const line of this.lines.controls) {
+      const target = parseTarget(line.controls.target.value);
+      const gone = target !== null && !(target.kind === 'sku' ? skus.has(target.id) : items.has(target.id));
+      if (gone) {
+        line.controls.target.setValue('');
+        line.controls.target.markAsTouched();
+      }
+    }
   }
 
   protected readonly createSupplier = async (name: string): Promise<void> => {
