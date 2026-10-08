@@ -17,9 +17,15 @@
 --    tiene que ser solo del dueño o un libro, va en su lista de abajo.
 -- 2. **Casos de verdad**, con filas reales y como `authenticated`: lo que
 --    encontraron los recorridos (cambiar el monto de un cobro, desanular,
---    borrar stock, que el operador cambie el horario…) y las reglas que no son
---    de políticas (versiones de parámetros, el último dueño, la impresora en
---    un solo paso, los nombres que solo cambian en mayúsculas).
+--    borrar stock, que el operador cambie el horario…), las fotos de
+--    `storage.objects`, y las reglas que no son de políticas (versiones de
+--    parámetros, el último dueño, la impresora en un solo paso, los nombres
+--    que solo cambian en mayúsculas, nada de mantenimientos ni incidentes
+--    futuros).
+--
+-- Lo que no prueba: el renombre de los gemelos que ya existían
+-- (20261021130000) corre una sola vez, al migrar, y sobre una base ya migrada
+-- no queda nada que renombrar.
 
 begin;
 
@@ -54,6 +60,14 @@ create function pg_temp.ledgers() returns text[] language sql immutable as $$
   select array['order_deliveries', 'order_delivery_lines', 'stock_movements', 'transactions']
 $$;
 
+-- Tables that, like a ledger, are only appended to, without being one: an
+-- idempotency key names one payment for good (order_payment_keys, from
+-- ventas). The service key keeps its rights on them. A table that is not
+-- there yet is simply not in the loop.
+create function pg_temp.append_only() returns text[] language sql immutable as $$
+  select array['order_payment_keys']
+$$;
+
 create function pg_temp.expected(p_table text, p_cmd text, p_who text) returns boolean
 language sql immutable as $$
   select case
@@ -64,7 +78,7 @@ language sql immutable as $$
     when p_table = 'workspace_members' then p_who = 'owner'
     when p_table = 'document_counters' then false
     when p_table = any (pg_temp.owner_tables()) then p_who = 'owner'
-    when p_table = any (pg_temp.ledgers()) then p_cmd = 'INSERT' and p_who in ('owner', 'operator')
+    when p_table = any (pg_temp.ledgers() || pg_temp.append_only()) then p_cmd = 'INSERT' and p_who in ('owner', 'operator')
     when p_cmd = 'DELETE' then p_who = 'owner'
     else p_who in ('owner', 'operator')
   end
@@ -306,6 +320,11 @@ insert into public.printers (id, workspace_id, asset_id, name, avg_power_w) valu
 insert into public.customers (id, workspace_id, name) values
   ('00000000-7e57-4000-8000-000000000601', '00000000-7e57-4000-8000-000000000001', 'Cliente de prueba');
 
+-- Una foto ya subida, para reemplazarla y borrarla (las fotos van bajo la
+-- carpeta del taller, en el bucket «media»).
+insert into storage.objects (bucket_id, name) values
+  ('media', '00000000-7e57-4000-8000-000000000001/permisos-ya-subida.webp');
+
 -- ------------------------------------------- 2. casos de verdad: pruebas
 
 do $$
@@ -316,6 +335,7 @@ declare
   c_movement constant text := '''00000000-7e57-4000-8000-000000000441''';
   c_printer constant text := '''00000000-7e57-4000-8000-000000000511''';
   c_owner constant text := '''00000000-7e57-4000-8000-0000000000a1''';
+  c_photo constant text := '''00000000-7e57-4000-8000-000000000001/permisos-ya-subida.webp''';
 begin
   -- El libro de dinero (T1-02, T5-01): nadie edita, desanula ni borra.
   perform pg_temp.expect('Cambiar el monto de un cobro', 'operator',
@@ -380,6 +400,17 @@ begin
     'update public.printers set name = ''Otra'' where id = ' || c_printer, 'error:42501');
   perform pg_temp.expect('Renombrar la impresora', 'owner',
     'update public.printers set name = ''Otra'' where id = ' || c_printer, 'ok:1');
+  -- Los planes de mantenimiento son configuración de la impresora: los
+  -- decide el dueño. Registrar lo que se hizo es del día a día (abajo).
+  perform pg_temp.expect('Crear un plan de mantenimiento', 'operator',
+    'insert into public.maintenance_plans (workspace_id, printer_id, task, every_hours) values ('
+    || c_ws || ', ' || c_printer || ', ''Limpiar la placa'', 50)', 'error:42501');
+  perform pg_temp.expect('Crear un plan de mantenimiento', 'owner',
+    'insert into public.maintenance_plans (workspace_id, printer_id, task, every_hours) values ('
+    || c_ws || ', ' || c_printer || ', ''Limpiar la placa'', 50)', 'ok:1');
+  perform pg_temp.expect('Instalar un componente', 'operator',
+    'insert into public.printer_components (workspace_id, printer_id, kind) values ('
+    || c_ws || ', ' || c_printer || ', ''nozzle'')', 'error:42501');
   -- Producción bloquea la fila de la impresora al iniciar un trabajo
   -- (one_print_at_a_time): el operador tiene que poder hacerlo.
   perform pg_temp.expect('Bloquear la impresora al iniciar un trabajo', 'operator',
@@ -430,7 +461,7 @@ begin
     'select public.save_printer(p_printer_id => ' || c_printer || ', p_name => ''A1 mini'', p_initial_hours => 0, '
     || 'p_avg_power_w => 57, p_maintenance_budget_per_year => 240, p_expected_hours_per_year => 2000, '
     || 'p_asset_cost => 2000, p_useful_life_hours => 5000)',
-    'error:P0001');
+    'error:42501:Solo el dueño');
   perform pg_temp.expect('Guardar la impresora con una potencia imposible', 'owner',
     'select public.save_printer(p_printer_id => ' || c_printer || ', p_name => ''A1 mini'', p_initial_hours => 0, '
     || 'p_avg_power_w => 10000000, p_maintenance_budget_per_year => 240, p_expected_hours_per_year => 2000, '
@@ -446,6 +477,58 @@ begin
     || 'p_initial_hours => 0, p_avg_power_w => 120, p_maintenance_budget_per_year => 300, '
     || 'p_expected_hours_per_year => 2000, p_asset_cost => 3500, p_useful_life_hours => 6000)',
     'ok:1');
+
+  -- Las fotos (storage.objects, bucket «media»): sube, reemplaza y borra
+  -- quien opera; el de solo lectura solo mira. Supabase solo deja borrar
+  -- desde su API de Storage, que avisa con storage.allow_delete_query: la
+  -- prueba hace lo mismo, para medir la política y no esa protección.
+  perform set_config('storage.allow_delete_query', 'true', true);
+  perform pg_temp.expect('Subir una foto', 'operator',
+    'insert into storage.objects (bucket_id, name) values (''media'', ''00000000-7e57-4000-8000-000000000001/permisos-nueva.webp'')',
+    'ok:1');
+  perform pg_temp.expect('Subir una foto', 'viewer',
+    'insert into storage.objects (bucket_id, name) values (''media'', ''00000000-7e57-4000-8000-000000000001/permisos-nueva.webp'')',
+    'error:42501');
+  perform pg_temp.expect('Subir una foto a otro taller', 'outsider',
+    'insert into storage.objects (bucket_id, name) values (''media'', ''00000000-7e57-4000-8000-000000000001/permisos-nueva.webp'')',
+    'error:42501');
+  perform pg_temp.expect('Reemplazar una foto', 'operator',
+    'update storage.objects set metadata = ''{}'' where bucket_id = ''media'' and name = ' || c_photo, 'ok:1');
+  perform pg_temp.expect('Reemplazar una foto', 'viewer',
+    'update storage.objects set metadata = ''{}'' where bucket_id = ''media'' and name = ' || c_photo, 'error:42501');
+  perform pg_temp.expect('Ver una foto', 'viewer',
+    'select 1 from storage.objects where bucket_id = ''media'' and name = ' || c_photo, 'ok:1');
+  perform pg_temp.expect('Ver una foto de otro taller', 'outsider',
+    'select 1 from storage.objects where bucket_id = ''media'' and name = ' || c_photo, 'ok:0');
+  perform pg_temp.expect('Borrar una foto', 'operator',
+    'delete from storage.objects where bucket_id = ''media'' and name = ' || c_photo, 'ok:1');
+  perform pg_temp.expect('Borrar una foto', 'viewer',
+    'delete from storage.objects where bucket_id = ''media'' and name = ' || c_photo, 'ok:0');
+
+  -- Mantenimiento, incidentes y componentes registran lo que ya pasó: nada
+  -- con fecha futura.
+  perform pg_temp.expect('Registrar un mantenimiento', 'operator',
+    'insert into public.maintenance_logs (workspace_id, printer_id, performed_at) values ('
+    || c_ws || ', ' || c_printer || ', now() - interval ''1 hour'')', 'ok:1');
+  perform pg_temp.expect('Registrar un mantenimiento para mañana', 'operator',
+    'insert into public.maintenance_logs (workspace_id, printer_id, performed_at) values ('
+    || c_ws || ', ' || c_printer || ', now() + interval ''1 day'')', 'error:P0001');
+  perform pg_temp.expect('Registrar un incidente', 'operator',
+    'insert into public.incidents (workspace_id, printer_id, symptom, occurred_at) values ('
+    || c_ws || ', ' || c_printer || ', ''Se despegó la placa'', now() - interval ''1 hour'')', 'ok:1');
+  perform pg_temp.expect('Registrar un incidente para mañana', 'operator',
+    'insert into public.incidents (workspace_id, printer_id, symptom, occurred_at) values ('
+    || c_ws || ', ' || c_printer || ', ''Se despegó la placa'', now() + interval ''1 day'')', 'error:P0001');
+  perform pg_temp.expect('Resolver un incidente mañana', 'operator',
+    'insert into public.incidents (workspace_id, printer_id, symptom, occurred_at, resolved_at) values ('
+    || c_ws || ', ' || c_printer || ', ''Se despegó la placa'', now() - interval ''1 hour'', now() + interval ''1 day'')',
+    'error:P0001');
+  perform pg_temp.expect('Instalar un componente', 'owner',
+    'insert into public.printer_components (workspace_id, printer_id, kind, installed_on) values ('
+    || c_ws || ', ' || c_printer || ', ''nozzle'', app.workspace_day(' || c_ws || ', now()))', 'ok:1');
+  perform pg_temp.expect('Instalar un componente mañana', 'owner',
+    'insert into public.printer_components (workspace_id, printer_id, kind, installed_on) values ('
+    || c_ws || ', ' || c_printer || ', ''nozzle'', app.workspace_day(' || c_ws || ', now()) + 1)', 'error:P0001');
 
   -- Los nombres no se repiten por cambiar mayúsculas o espacios (T1-11).
   perform pg_temp.expect('Canal «instagram» junto a «Instagram»', 'owner',
