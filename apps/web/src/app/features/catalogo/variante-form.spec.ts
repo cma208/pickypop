@@ -51,6 +51,7 @@ const usage = (quotes: number, orders: number, shelf: number, pending: Partial<V
   quotes,
   orders,
   shelf,
+  openQuotes: 0,
   openOrders: 0,
   onHand: 0,
   ...pending,
@@ -121,6 +122,19 @@ describe('VarianteForm, switching off a variant with orders still to deliver', (
 
     expect(ask).toHaveBeenCalled();
     expect(data.updateVariant).not.toHaveBeenCalled();
+    ask.mockRestore();
+  });
+
+  it('asks before switching off a variant that open quotes still have, saying a new version loses its price', async () => {
+    const { fixture, data } = await open({ usage: usage(2, 0, 0, { openQuotes: 1 }) });
+    const ask = vi.spyOn(window, 'confirm').mockReturnValue(false);
+
+    expect(text(fixture.nativeElement)).toContain('una versión nueva de ella la cotizaría por costo, sin su precio de lista');
+    button(fixture, 'Desactivar variante')!.click();
+    await fixture.whenStable();
+
+    expect(ask).toHaveBeenCalledWith(expect.stringContaining('Tiene 1 cotización abierta'));
+    expect(data.setVariantActive).not.toHaveBeenCalled();
     ask.mockRestore();
   });
 

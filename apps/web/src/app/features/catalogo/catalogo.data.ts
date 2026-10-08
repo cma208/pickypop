@@ -333,6 +333,7 @@ export class CatalogoData {
       quotes: Number(usage['quotes'] ?? 0),
       orders: Number(usage['orders'] ?? 0),
       shelf: Number(usage['shelf'] ?? 0),
+      openQuotes: Number(usage['open_quotes'] ?? 0),
       openOrders: Number(usage['open_orders'] ?? 0),
       onHand: Number(usage['on_hand'] ?? 0),
     };

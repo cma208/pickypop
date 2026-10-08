@@ -90,6 +90,8 @@ export interface VariantUsage {
   orders: number;
   /** Inventory articles that are its assembled product. */
   shelf: number;
+  /** Of `quotes`, the ones still in draft or sent, one per number. */
+  openQuotes: number;
   /** Of `orders`, the ones not delivered, closed or cancelled yet. */
   openOrders: number;
   /** Assembled units of it on the shelf. */

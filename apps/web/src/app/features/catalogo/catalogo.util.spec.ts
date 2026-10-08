@@ -68,29 +68,43 @@ describe('variantUsageText (T2-01)', () => {
 
 describe('deactivationWarning', () => {
   it('says nothing when nothing is pending', () => {
-    expect(deactivationWarning({ openOrders: 0, onHand: 0 })).toBeNull();
+    expect(deactivationWarning({ openQuotes: 0, openOrders: 0, onHand: 0 })).toBeNull();
   });
 
   it('says that its orders not delivered yet could not be assembled', () => {
-    expect(deactivationWarning({ openOrders: 5, onHand: 0 })).toBe(
+    expect(deactivationWarning({ openQuotes: 0, openOrders: 5, onHand: 0 })).toBe(
       'Tiene 5 pedidos sin entregar. Desactivada, deja de aparecer en Armar y en el conteo del estante: ' +
         'esos pedidos no se podrán armar hasta que la vuelvas a activar. Mejor desactívala cuando se entreguen.',
     );
   });
 
   it('says that its units on the shelf could not be counted', () => {
-    expect(deactivationWarning({ openOrders: 0, onHand: 1 })).toBe(
+    expect(deactivationWarning({ openQuotes: 0, openOrders: 0, onHand: 1 })).toBe(
       'Queda 1 unidad armada en el estante. Desactivada, deja de aparecer en Armar y en el conteo del estante: ' +
         'esa unidad no se podrá contar hasta que la vuelvas a activar.',
     );
   });
 
   it('says both at once', () => {
-    expect(deactivationWarning({ openOrders: 1, onHand: 3 })).toBe(
+    expect(deactivationWarning({ openQuotes: 0, openOrders: 1, onHand: 3 })).toBe(
       'Tiene 1 pedido sin entregar y quedan 3 unidades armadas en el estante. Desactivada, deja de aparecer en ' +
         'Armar y en el conteo del estante: ese pedido no se podrá armar y esas unidades no se podrán contar hasta ' +
         'que la vuelvas a activar. Mejor desactívala cuando se entregue.',
     );
+  });
+
+  it('says that a new version of an open quote would lose the price list', () => {
+    expect(deactivationWarning({ openQuotes: 2, openOrders: 0, onHand: 0 })).toBe(
+      'Tiene 2 cotizaciones abiertas: se pueden aceptar con el precio que ya tienen, pero desactivada no se ofrece ' +
+        'al cotizar, y una versión nueva de ellas la cotizaría por costo, sin su precio de lista.',
+    );
+  });
+
+  it('puts the quotes after the orders and the shelf', () => {
+    const warning = deactivationWarning({ openQuotes: 1, openOrders: 1, onHand: 0 }) ?? '';
+
+    expect(warning).toMatch(/^Tiene 1 pedido sin entregar\./);
+    expect(warning).toContain('Mejor desactívala cuando se entregue. Tiene 1 cotización abierta: se puede aceptar');
   });
 });
 

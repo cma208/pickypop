@@ -133,7 +133,7 @@ const MINIMUM_MESSAGES: Record<string, string> = {
           <p class="muted hint">
             No se puede eliminar: {{ lowerFirst(where) }}
             {{ variant()!.active ? 'Desactívala para que no se ofrezca más:' : 'Ya está desactivada:' }}
-            lo que ya se cotizó o se vendió conserva su producto.
+            lo que ya se cotizó o se vendió conserva su producto y su precio.
           </p>
           @if (variant()!.active && deactivationNote(); as note) {
             <p class="notice">{{ note }}</p>

@@ -170,10 +170,33 @@ export function variantUsageText(usage: Pick<VariantUsage, 'quotes' | 'orders' |
  * nothing is. A switched-off variant leaves Armar and the shelf count, so its
  * orders not delivered yet could not be assembled and its units on the shelf
  * could not be counted, while the screen said it changed nothing for what
- * was sold.
+ * was sold. It also leaves the quoting screen, so a new version of an open
+ * quote lost its price list.
  */
-export function deactivationWarning(usage: Pick<VariantUsage, 'openOrders' | 'onHand'>): string | null {
-  const { openOrders, onHand } = usage;
+export function deactivationWarning(usage: Pick<VariantUsage, 'openQuotes' | 'openOrders' | 'onHand'>): string | null {
+  const said = [shelfWarning(usage.openOrders, usage.onHand), quotesWarning(usage.openQuotes)].filter(
+    (text): text is string => text !== null,
+  );
+  return said.length === 0 ? null : said.join(' ');
+}
+
+/**
+ * Open quotes keep the price they were sent with, so they can still be
+ * accepted. A new version is quoted again, and the quoting screen offers only
+ * active variants: it priced the line from its cost, as custom work.
+ */
+function quotesWarning(openQuotes: number): string | null {
+  if (openQuotes <= 0) return null;
+  const one = openQuotes === 1;
+  return (
+    `Tiene ${countOf(openQuotes, 'cotización abierta', 'cotizaciones abiertas')}: ` +
+    `${one ? 'se puede aceptar con el precio que ya tiene' : 'se pueden aceptar con el precio que ya tienen'}, ` +
+    `pero desactivada no se ofrece al cotizar, y una versión nueva de ${one ? 'ella' : 'ellas'} ` +
+    'la cotizaría por costo, sin su precio de lista.'
+  );
+}
+
+function shelfWarning(openOrders: number, onHand: number): string | null {
   if (openOrders <= 0 && onHand <= 0) return null;
 
   const pending = [
