@@ -63,12 +63,16 @@ export function withinLedgerLimit(control: AbstractControl): ValidationErrors | 
 
 /**
  * The opening balance is what was already there the day it is registered, so
- * its day cannot be after today in the workshop (T5-02, T1-10).
+ * its day cannot be after today in the workshop (T5-02, T1-10). Only a day
+ * the person moves is judged, as the database does: an account that already
+ * opens in the future (from before the rule) still takes a new note without
+ * having its date moved first. `kept` is the day the account has.
  */
-export function notAfterToday(today: () => string = todayLocal) {
+export function notAfterToday(today: () => string = todayLocal, kept: () => string | null = () => null) {
   return (control: AbstractControl): ValidationErrors | null => {
     const value = control.value as string | null;
-    return value && value > today() ? { future: true } : null;
+    if (!value || value === kept()) return null;
+    return value > today() ? { future: true } : null;
   };
 }
 

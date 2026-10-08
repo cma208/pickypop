@@ -155,7 +155,11 @@ export class AccountForm {
     name: ['', notBlank],
     kind: ['cash' as AccountKind],
     openingBalance: new FormControl<number>(0, { nonNullable: true, validators: [Validators.required, withinLedgerLimit] }),
-    openingBalanceOn: [todayLocal(), [Validators.required, notAfterToday()]],
+    // The day the account already has is not judged again: see notAfterToday.
+    openingBalanceOn: [
+      todayLocal(),
+      [Validators.required, notAfterToday(todayLocal, () => this.account()?.openingBalanceOn ?? null)],
+    ],
     // A new account starts as a cash box, and a cash box takes cash.
     defaultPaymentMethod: [(defaultMethodFor('cash') ?? '') as PaymentMethod | ''],
     note: [''],

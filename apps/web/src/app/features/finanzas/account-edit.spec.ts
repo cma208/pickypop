@@ -65,6 +65,12 @@ describe('account validators (T5-02, T5-11)', () => {
     expect(validator(new FormControl('2026-10-08'))).toBeNull();
     expect(validator(new FormControl('2026-10-01'))).toBeNull();
   });
+
+  it('lets an account keep the future day it already had, and judges any other', () => {
+    const validator = notAfterToday(() => '2026-10-08', () => '2026-12-31');
+    expect(validator(new FormControl('2026-12-31'))).toBeNull();
+    expect(validator(new FormControl('2026-12-30'))).toEqual({ future: true });
+  });
 });
 
 describe('openingShift (T5-02)', () => {
