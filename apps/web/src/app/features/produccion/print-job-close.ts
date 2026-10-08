@@ -4,7 +4,7 @@ import { FormArray, FormControl, FormGroup, ReactiveFormsModule, Validators } fr
 import { Field, FORMAT_PIPES } from '../../ui';
 import { explainProductionError } from './production-errors';
 import { ProduccionData, type CloseJob, type CloseOutcome, type JobItem } from './produccion.data';
-import { FAILURE_CAUSE_LABEL, FAILURE_CAUSES, type FailureCause } from './produccion.labels';
+import { FAILURE_CAUSE_LABEL, FAILURE_CAUSES, JOB_STATUS_LABEL, type FailureCause } from './produccion.labels';
 import { describeCounts } from './produccion.outputs';
 import { createOutputControl, PrintJobOutputs, type OutputControls } from './print-job-outputs';
 import { duration } from '../../core/format';
@@ -41,7 +41,12 @@ function createUsageRow(spoolId: string, actualG: number | null) {
   imports: [ReactiveFormsModule, Field, PrintJobOutputs, ...FORMAT_PIPES],
   template: `
     <form [formGroup]="form" (ngSubmit)="review()" novalidate class="close">
-      @if (job().status === 'planned') {
+      @if (changedSince(); as text) {
+        <!-- The card outlives a reload on the order page: the job can move under an open form. -->
+        <p class="alert" role="alert">{{ text }}</p>
+      }
+
+      @if (opened.status === 'planned') {
         <!-- Closing without «Iniciar» is allowed (a plate launched on the printer directly), but nothing here ran in the app. -->
         <p class="alert-warn" role="status">Este trabajo nunca se inició en la aplicación. Escribe lo que de verdad pasó: el tiempo y los gramos que gastó.</p>
       }
@@ -89,10 +94,10 @@ function createUsageRow(spoolId: string, actualG: number | null) {
       </div>
 
       @if (result() === 'success') {
-        @if (job().plateOutputs.length > 0) {
-          <app-print-job-outputs [parts]="job().plateOutputs" [controls]="outputs" [submitted]="submitted()" [idPrefix]="'out-' + job().id + '-'" />
+        @if (opened.plateOutputs.length > 0) {
+          <app-print-job-outputs [parts]="opened.plateOutputs" [controls]="outputs" [submitted]="submitted()" [idPrefix]="'out-' + opened.id + '-'" />
         } @else {
-          <p class="muted">{{ job().plateLabel ? 'Su placa no tiene piezas definidas' : 'Sin placa de receta' }}: al cerrarla no entra nada al estante.</p>
+          <p class="muted">{{ opened.plateLabel ? 'Su placa no tiene piezas definidas' : 'Sin placa de receta' }}: al cerrarla no entra nada al estante.</p>
         }
       }
 
@@ -119,7 +124,7 @@ function createUsageRow(spoolId: string, actualG: number | null) {
           <!-- A job queued from «Por lanzar» gets its rolls on «Iniciar»; closed before that, it has none. -->
           <p class="no-rolls">
             Este trabajo no tiene rollos, así que cerrarlo no descuenta filamento.
-            @if (job().status === 'planned') { Si ya se imprimió, usa «Iniciar…» primero para elegir con qué rollos. }
+            @if (opened.status === 'planned') { Si ya se imprimió, usa «Iniciar…» primero para elegir con qué rollos. }
           </p>
         }
       </fieldset>
@@ -134,13 +139,13 @@ function createUsageRow(spoolId: string, actualG: number | null) {
         <div class="confirm" role="alert">
           <p><strong>Esto no se puede deshacer.</strong> {{ summary() }}</p>
           <div class="row">
-            <button type="button" (click)="confirm()" [disabled]="busy()">{{ busy() ? 'Cerrando…' : 'Sí, cerrar impresión' }}</button>
+            <button type="button" (click)="confirm()" [disabled]="busy() || changedSince() !== null">{{ busy() ? 'Cerrando…' : 'Sí, cerrar impresión' }}</button>
             <button type="button" class="secondary" (click)="confirming.set(false)" [disabled]="busy()">Volver</button>
           </div>
         </div>
       } @else {
         <div class="row">
-          <button type="submit">Revisar y cerrar</button>
+          <button type="submit" [disabled]="changedSince() !== null">Revisar y cerrar</button>
           <button type="button" class="secondary" (click)="cancelled.emit()">No cerrar</button>
         </div>
       }
@@ -168,6 +173,13 @@ export class PrintJobClose implements OnInit {
   private readonly data = inject(ProduccionData);
 
   readonly job = input.required<JobItem>();
+  /**
+   * The job as it was when the form opened: its rows, its proposal and the
+   * status the close sends as the one this tab saw. The card can outlive a
+   * reload (the order page keeps it), and `job()` then brings the job as it
+   * is now; closing it with this form's rows would close something else.
+   */
+  protected opened!: JobItem;
   readonly closed = output<CloseOutcome>();
   readonly cancelled = output<void>();
   /** The database refused the close, with what it said: the job is not what this tab believed. */
@@ -224,6 +236,7 @@ export class PrintJobClose implements OnInit {
 
   ngOnInit(): void {
     const job = this.job();
+    this.opened = job;
     for (const filament of job.filaments) {
       this.usage.push(createUsageRow(filament.spoolId, null));
     }
@@ -243,7 +256,7 @@ export class PrintJobClose implements OnInit {
   }
 
   protected filamentOf(index: number) {
-    return this.job().filaments[index]!;
+    return this.opened.filaments[index]!;
   }
 
   /** «PETG Negro»: the code on the roll does not say what material it is. */
@@ -253,7 +266,7 @@ export class PrintJobClose implements OnInit {
   }
 
   protected partOf(index: number) {
-    return this.job().plateOutputs[index]!;
+    return this.opened.plateOutputs[index]!;
   }
 
   /**
@@ -264,7 +277,7 @@ export class PrintJobClose implements OnInit {
     if (this.result() === 'cancelled') {
       return 'Lo que alcanzó a imprimir. Déjalo vacío si no llegó a empezar: sin tiempo no se cobra máquina ni luz.';
     }
-    const estimate = this.job().estimatedTimeS;
+    const estimate = this.opened.estimatedTimeS;
     return estimate ? `Estimado: ${duration(estimate)}` : undefined;
   }
 
@@ -311,17 +324,37 @@ export class PrintJobClose implements OnInit {
         ? `Se cerrará como cancelada, con ${minutes} min de máquina y luz. ${grams}`
         : 'Se cerrará como cancelada, sin tiempo ni costo, y no se moverá el stock.';
     }
-    if (result !== 'success' || this.job().plateOutputs.length === 0) return grams;
+    if (result !== 'success' || this.opened.plateOutputs.length === 0) return grams;
 
     const counts = this.outputs.getRawValue().map((units, index) => ({ name: this.partOf(index).name, units: units ?? 0 }));
     return `${grams} Entran al estante: ${describeCounts(counts)}.`;
   }
 
   /** First step: check the form and ask for confirmation. */
+  /**
+   * What changed in the job since the form opened, said for a person, or
+   * null while it is the job the form was made for. Started elsewhere, it
+   * has rolls this form has no row for; closing it as it was seen would
+   * cancel a print that is running.
+   */
+  protected changedSince(): string | null {
+    const now = this.job();
+    const opened = this.opened;
+    if (!opened) return null;
+    if (now.status !== opened.status) {
+      return `Este trabajo cambió mientras lo cerrabas: ahora está «${JOB_STATUS_LABEL[now.status]}». Pulsa «No cerrar» y vuelve a abrirlo para cerrarlo como está ahora.`;
+    }
+    if (rollKey(now) !== rollKey(opened)) {
+      return 'Los rollos de este trabajo cambiaron mientras lo cerrabas. Pulsa «No cerrar» y vuelve a abrirlo para escribir lo que gastó cada uno.';
+    }
+    return null;
+  }
+
   protected review(): void {
     this.submitted.set(true);
     this.error.set(null);
     this.form.markAllAsTouched();
+    if (this.changedSince() !== null) return;
 
     const result = this.result();
     const needsTime = result !== 'cancelled' && !this.form.controls.actualMinutes.value;
@@ -343,18 +376,22 @@ export class PrintJobClose implements OnInit {
   protected async confirm(): Promise<void> {
     // Before any await: a second click in the same gesture must not close twice.
     if (this.busy()) return;
+    if (this.changedSince() !== null) {
+      this.confirming.set(false);
+      return;
+    }
     const value = this.form.getRawValue();
     this.busy.set(true);
     this.error.set(null);
 
     try {
-      const outcome = await this.data.closeJob(this.job(), {
+      const outcome = await this.data.closeJob(this.opened, {
         result: value.result,
         actualTimeS: secondsToSave(value.actualMinutes, this.proposedTime),
         usage: this.usageToSave(value.result, value.actualMinutes, value.usage),
         failureCause: value.failureCause === '' ? null : value.failureCause,
         percentComplete: value.percentComplete,
-        outputs: this.job().plateOutputs.map((part, index) => ({
+        outputs: this.opened.plateOutputs.map((part, index) => ({
           inventoryItemId: part.inventoryItemId,
           units: value.outputs[index] ?? null,
         })),
@@ -400,7 +437,7 @@ export class PrintJobClose implements OnInit {
 
   /** Writes the proposal for the result and percentage in the fields that still hold the last one. */
   private propose(): void {
-    const job = this.job();
+    const job = this.opened;
     const proposal = closeProposal(
       this.result(),
       job.estimatedTimeS,
@@ -426,10 +463,18 @@ export class PrintJobClose implements OnInit {
 
   private async loadCurrentStock(): Promise<void> {
     try {
-      const rows = await this.data.stockOf(this.job().filaments.map((f) => f.spoolId));
+      const rows = await this.data.stockOf(this.opened.filaments.map((f) => f.spoolId));
       this.current.set(Object.fromEntries(rows.map((row) => [row.spoolId, row.beforeG])));
     } catch {
       // The roll stock is a convenience here; closing does not depend on it.
     }
   }
+}
+
+/** The rolls of a job, in an order that does not depend on how they were read. */
+function rollKey(job: JobItem): string {
+  return job.filaments
+    .map((filament) => filament.spoolId)
+    .sort()
+    .join(',');
 }

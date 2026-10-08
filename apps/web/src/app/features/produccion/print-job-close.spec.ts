@@ -246,3 +246,58 @@ describe('PrintJobClose, double clicks and stale tabs (T3-11, T3-16)', () => {
     expect(text(fixture)).toContain('ya se cerró como «Exitoso»');
   });
 });
+
+describe('PrintJobClose, a job that moves while the form is open', () => {
+  /** The order page keeps the card across a reload: the same form gets the job as it is now. */
+  const startedElsewhere: JobItem = {
+    ...PLANNED,
+    status: 'printing',
+    startedAt: '2026-10-07T15:05:00Z',
+    filaments: PRINTING.filaments,
+  };
+
+  it('sends the status the form was opened with, not the one a reload brings', async () => {
+    const { fixture, closeJob } = open(PLANNED);
+    choose(fixture, 'Cancelada');
+    button(fixture, 'Revisar y cerrar').click();
+    fixture.detectChanges();
+
+    // Another tab renames it; the form is still about the job it saw.
+    fixture.componentRef.setInput('job', { ...PLANNED, label: 'Llavero renombrado' });
+    fixture.detectChanges();
+    button(fixture, 'Sí, cerrar impresión').click();
+    await fixture.whenStable();
+
+    expect(closeJob).toHaveBeenCalledOnce();
+    // The job as the form saw it: its status is the one the database is told to expect.
+    expect(closeJob.mock.calls[0]![0]).toMatchObject({ status: 'planned', label: 'Llavero' });
+  });
+
+  it('will not cancel, without its time, a print another tab started meanwhile', async () => {
+    const { fixture, closeJob } = open(PLANNED);
+    choose(fixture, 'Cancelada');
+    button(fixture, 'Revisar y cerrar').click();
+    fixture.detectChanges();
+
+    fixture.componentRef.setInput('job', startedElsewhere);
+    fixture.detectChanges();
+
+    expect(text(fixture)).toContain('Este trabajo cambió mientras lo cerrabas: ahora está «Imprimiendo»');
+    expect(button(fixture, 'Sí, cerrar impresión').disabled).toBe(true);
+    // Even pressed through, nothing is sent.
+    (fixture.componentInstance as unknown as { confirm(): Promise<void> }).confirm();
+    await fixture.whenStable();
+    expect(closeJob).not.toHaveBeenCalled();
+  });
+
+  it('asks to open it again before writing the grams of rolls it did not have', () => {
+    const { fixture, closeJob } = open(PLANNED);
+    fixture.componentRef.setInput('job', { ...PLANNED, filaments: PRINTING.filaments });
+    fixture.detectChanges();
+
+    expect(text(fixture)).toContain('Los rollos de este trabajo cambiaron mientras lo cerrabas');
+    expect(button(fixture, 'Revisar y cerrar').disabled).toBe(true);
+    expect(el(fixture).querySelector('.confirm')).toBeNull();
+    expect(closeJob).not.toHaveBeenCalled();
+  });
+});
