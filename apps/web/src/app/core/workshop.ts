@@ -1,4 +1,5 @@
 import { inject, Injectable } from '@angular/core';
+import { todayLocal } from './dates';
 import { SUPABASE } from './supabase';
 
 export interface FilamentStock {
@@ -11,11 +12,39 @@ export interface FilamentStock {
   belowMinimum: boolean;
 }
 
+export interface PriceTier {
+  minQuantity: number;
+  unitPrice: number;
+}
+
 export interface CatalogVariant {
   id: string;
   name: string;
   listPrice: number | null;
-  tiers: { minQuantity: number; unitPrice: number }[];
+  tiers: PriceTier[];
+}
+
+interface TierRow {
+  min_quantity: number;
+  unit_price: number | string;
+  valid_from: string;
+}
+
+/**
+ * The ladder in force: rows already started (the caller filters by the
+ * workshop's today), and among two for the same minimum, the newer one.
+ * The same rule `price_for_quantity` applies in the database, so a step
+ * scheduled for next week does not show before it starts.
+ */
+export function tiersInForce(rows: readonly TierRow[]): PriceTier[] {
+  const newest = new Map<number, TierRow>();
+  for (const row of rows) {
+    const kept = newest.get(row.min_quantity);
+    if (!kept || row.valid_from > kept.valid_from) newest.set(row.min_quantity, row);
+  }
+  return [...newest.values()]
+    .map((row) => ({ minQuantity: row.min_quantity, unitPrice: Number(row.unit_price) }))
+    .sort((a, b) => a.minQuantity - b.minQuantity);
 }
 
 export interface CatalogProduct {
@@ -78,7 +107,12 @@ export class Workshop {
     const [products, variants, tiers] = await Promise.all([
       this.supabase.from('catalog_products').select('id, name, status, lead_time_days'),
       this.supabase.from('product_variants').select('id, product_id, name, list_price'),
-      this.supabase.from('price_tiers').select('variant_id, min_quantity, unit_price'),
+      // A step scheduled for later is not in force yet. «Today» is the
+      // workshop's: the server's date already says tomorrow after 19:00 in Lima.
+      this.supabase
+        .from('price_tiers')
+        .select('variant_id, min_quantity, unit_price, valid_from')
+        .lte('valid_from', todayLocal()),
     ]);
 
     if (products.error) throw products.error;
@@ -96,13 +130,7 @@ export class Workshop {
           id: variant.id,
           name: variant.name,
           listPrice: variant.list_price == null ? null : Number(variant.list_price),
-          tiers: tiers.data
-            .filter((tier) => tier.variant_id === variant.id)
-            .map((tier) => ({
-              minQuantity: tier.min_quantity,
-              unitPrice: Number(tier.unit_price),
-            }))
-            .sort((a, b) => a.minQuantity - b.minQuantity),
+          tiers: tiersInForce(tiers.data.filter((tier) => tier.variant_id === variant.id)),
         })),
     }));
   }
