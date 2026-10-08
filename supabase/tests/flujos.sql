@@ -14,19 +14,23 @@
 --
 -- * Resultados ve todo lo que sale del inventario sin venderse, en su mes y
 --   al costo con que salió: rollos agotados o descartados con gramos,
---   pesajes, y mermas, consumos y conteos de insumos a mano. Una entrada a
---   mano no suma (ADR-023, `stock_written_off`).
+--   pesajes, y mermas y conteos de insumos a mano. Una entrada a mano, el
+--   primer conteo de un artículo sin movimientos (su stock inicial) y un
+--   consumo a mano no suman: el consumo ya llega por el estimado de una línea
+--   a medida o el costo de máquina (ADR-023, `stock_written_off`).
 -- * No se imprime con un rollo agotado o descartado (T3-07): ni al crear el
 --   trabajo, ni al iniciarlo (eligiéndolo o con el que tenía de la cola), ni
---   al cerrarlo con gramos. Con cero gramos sí cierra.
+--   al cerrarlo con gramos. Con cero gramos sí cierra. Y un rollo que se está
+--   imprimiendo no se marca agotado ni descartado: primero se cierra la
+--   impresión con lo que gastó.
 -- * La receta que se usa es la activa, aunque haya una versión más alta
 --   desactivada: al armar, al entregar, al vender y en las pantallas de armar
 --   y de contar.
 -- * La Venta rápida escribe sus montos con doce cifras (T4-15).
 -- * Una llave por movimiento de dinero: el cobro de un pedido y el pago de
 --   una compra la dejan en `transactions.entry_key`, la misma llave por
---   `record_payment` es el mismo cobro, una llave de antes sigue valiendo y
---   la llave de otra compra se rechaza.
+--   `record_payment` es el mismo cobro, una llave de antes sigue valiendo, y
+--   la llave de otra compra o de otro pedido se rechaza.
 -- * La ficha del pedido cuenta entre los fallidos una impresión cancelada que
 --   corrió, como el tablero y Resultados (ADR-023, punto 6).
 --
@@ -485,6 +489,12 @@ select pg_temp.expect('El cobro de un pedido deja su llave en el movimiento', 'o
     select count(*) into n from public.transactions where order_id = #1;
     if a is distinct from b or n <> 1 then raise exception 'dos cobros: % filas', n; end if;
   end $x$$q$, 702, 201, 951), 'ok:');
+
+select pg_temp.expect('La llave de un cobro usada en otro pedido', 'operator', pg_temp.q($q$do $x$
+  begin
+    perform public.collect_order_payment(#1, #3, 5, 'cash', null, null, #4);
+    perform public.record_payment(#2, #3, 5, p_key => #4);
+  end $x$$q$, 702, 701, 201, 955), 'error:P0001:Este cobro ya se registró en otro pedido');
 
 select pg_temp.expect('El pago de una compra deja su llave en el movimiento', 'operator', pg_temp.q($q$do $x$
   declare a uuid; b uuid; n integer;

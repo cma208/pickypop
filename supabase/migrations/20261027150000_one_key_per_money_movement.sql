@@ -26,7 +26,8 @@
 --   ahí. `purchase_payment_requests` ya no se escribe: solo se lee, para un
 --   reintento con una llave de antes de esta migración.
 -- * Las dos rechazan la llave usada en otro pedido u otra compra, en vez de
---   devolver el movimiento de otro.
+--   devolver el movimiento de otro. `record_payment`, que también usa Caja,
+--   hace lo mismo: con la llave de un cobro de otro pedido, lo dice.
 --
 -- Lo demás que se pide con llave ya la guarda en la fila que crea
 -- (`orders.quick_sale_key` y `create_key`, `quotes.save_key`,
@@ -237,6 +238,117 @@ begin
       format('Pago de la compra del %s', to_char(v_purchase.purchased_at, 'DD/MM/YYYY'))
     ),
     p_payment_key
+  )
+  returning * into v_transaction;
+
+  return v_transaction;
+end;
+$$;
+
+-- ------------------------------------------------------- el cobro de Caja
+--
+-- La de 20261022140000_ledger_entry_keys: la misma llave en otro pedido se
+-- rechaza, como en `collect_order_payment`, en vez de devolver ese cobro.
+create or replace function app.record_payment(
+  p_order_id uuid,
+  p_account_id uuid,
+  p_amount numeric,
+  p_payment_method public.payment_method default null,
+  p_occurred_at timestamptz default null,
+  p_category_id uuid default null,
+  p_reference text default null,
+  p_note text default null,
+  p_key uuid default null
+)
+returns public.transactions
+language plpgsql
+as $$
+declare
+  v_order public.orders;
+  v_account public.accounts;
+  v_amount numeric(12, 2);
+  v_paid numeric;
+  v_method public.payment_method;
+  v_transaction public.transactions;
+begin
+  -- Rounded up front: the check has to judge the amount that will be stored.
+  v_amount := round(coalesce(p_amount, 0), 2);
+  if v_amount <= 0 then
+    raise exception 'El monto del cobro tiene que ser mayor que cero.';
+  end if;
+
+  select * into v_order from public.orders where id = p_order_id for update;
+  if not found then
+    raise exception 'No existe el pedido solicitado.';
+  end if;
+
+  -- After the lock: a second request with the same key waits for the first
+  -- and then finds what it wrote.
+  if p_key is not null then
+    select * into v_transaction
+    from public.transactions t
+    where t.workspace_id = v_order.workspace_id and t.entry_key = p_key;
+    if found then
+      -- The key names one payment, of this order. Used for another one it is
+      -- a mistake to say, not someone else's payment to give back.
+      if v_transaction.order_id is distinct from p_order_id then
+        raise exception 'Este cobro ya se registró en otro pedido. Recarga la pantalla y vuelve a intentarlo.';
+      end if;
+      return v_transaction;
+    end if;
+  end if;
+
+  if v_order.purpose <> 'sale' then
+    raise exception 'El pedido % no es una venta, así que no se cobra.', v_order.number;
+  end if;
+  if v_order.status = 'cancelled' then
+    raise exception 'El pedido % está cancelado y no admite cobros.', v_order.number;
+  end if;
+
+  select * into v_account from public.accounts where id = p_account_id;
+  if not found then
+    raise exception 'No existe la cuenta indicada para el cobro.';
+  end if;
+  if v_account.workspace_id <> v_order.workspace_id then
+    raise exception 'La cuenta % pertenece a otro taller.', v_account.name;
+  end if;
+  if not v_account.active then
+    raise exception 'La cuenta % está desactivada.', v_account.name;
+  end if;
+
+  v_method := coalesce(p_payment_method, v_account.default_payment_method);
+  if v_method is null then
+    raise exception 'Falta el medio de pago: la cuenta % no tiene uno por defecto.', v_account.name;
+  end if;
+
+  v_paid := app.order_amount_paid(p_order_id);
+  if v_paid + v_amount > v_order.total then
+    raise exception
+      'El cobro excede el saldo del pedido %: el total es S/ %, ya se cobró S/ %, queda pendiente S/ % y se intentó cobrar S/ %.',
+      v_order.number,
+      to_char(v_order.total, 'FM999999999990.00'),
+      to_char(v_paid, 'FM999999999990.00'),
+      to_char(v_order.total - v_paid, 'FM999999999990.00'),
+      to_char(v_amount, 'FM999999999990.00');
+  end if;
+
+  insert into public.transactions (
+    workspace_id, account_id, type, category_id, amount, occurred_at,
+    payment_method, order_id, counterparty, reference, note, entry_key
+  )
+  values (
+    v_order.workspace_id,
+    p_account_id,
+    'income',
+    p_category_id,
+    v_amount,
+    coalesce(p_occurred_at, now()),
+    v_method,
+    p_order_id,
+    (select c.name from public.customers c where c.id = v_order.customer_id),
+    p_reference,
+    coalesce(p_note, format('Cobro del pedido %s', v_order.number)),
+    p_key
   )
   returning * into v_transaction;
 
