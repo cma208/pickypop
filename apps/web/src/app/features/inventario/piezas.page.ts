@@ -8,6 +8,7 @@ import { INVENTORY_STYLES, POSITION_STYLES } from './inventario.styles';
 import { InventoryPlan, type InventoryPositions } from './inventory-plan';
 import { ItemForm } from './item-form';
 import { Modal } from './modal';
+import { PiezasDesactivadas } from './piezas-desactivadas';
 import { itemCells, type PositionCells } from './stock-position';
 
 const COST_DIGITS = 3;
@@ -35,7 +36,7 @@ interface PartRow {
  */
 @Component({
   selector: 'app-piezas',
-  imports: [Page, Card, AsyncState, Empty, Badge, Item, RouterLink, Modal, ItemForm, FORMAT_PIPES],
+  imports: [Page, Card, AsyncState, Empty, Badge, Item, RouterLink, Modal, ItemForm, PiezasDesactivadas, FORMAT_PIPES],
   styles: [
     INVENTORY_STYLES,
     POSITION_STYLES,
@@ -61,7 +62,13 @@ interface PartRow {
       <pp-card heading="En el estante">
         <pp-async [loading]="loading()" [error]="error()">
           @if (parts().length === 0) {
-            <pp-empty message="Todavía no hay piezas. Crea una y di en la receta qué placa la produce.">
+            <pp-empty
+              [message]="
+                inactiveParts().length > 0
+                  ? 'No hay piezas activas. Las desactivadas están más abajo.'
+                  : 'Todavía no hay piezas. Crea una y di en la receta qué placa la produce.'
+              "
+            >
               <button type="button" (click)="editing.set({ item: null })">Crear la primera pieza</button>
             </pp-empty>
           } @else {
@@ -139,6 +146,10 @@ interface PartRow {
         </pp-async>
       </pp-card>
 
+      @if (inactiveParts().length > 0) {
+        <app-piezas-desactivadas [parts]="inactiveParts()" [busyId]="reactivating()" (reactivate)="reactivate($event)" />
+      }
+
       @if (editing(); as current) {
         <app-modal [heading]="current.item ? 'Editar pieza' : 'Nueva pieza'" (closed)="editing.set(null)">
           <app-item-form
@@ -184,6 +195,10 @@ export class PiezasPage {
 
   private readonly itemById = computed(() => new Map(this.items().map((item) => [item.id, item])));
 
+  /** Switched off: out of `part_stock`, so out of the table above, but not out of reach. */
+  protected readonly inactiveParts = computed(() => this.items().filter((item) => !item.active));
+  protected readonly reactivating = signal<string | null>(null);
+
   constructor() {
     void this.load();
   }
@@ -213,6 +228,21 @@ export class PiezasPage {
     }
     this.actionError.set(null);
     this.editing.set({ item });
+  }
+
+  protected async reactivate(part: InventoryItemSummary): Promise<void> {
+    if (this.reactivating()) return;
+    this.reactivating.set(part.id);
+    this.actionError.set(null);
+    this.notice.set(null);
+    try {
+      await this.data.setItemActive(part.id, true);
+      await this.onSaved(`«${part.name}» vuelve a estar activa: ya se ofrece en las recetas y entra en el conteo.`);
+    } catch (error) {
+      this.actionError.set(describeError(error, 'No pudimos volver a activar la pieza. Inténtalo de nuevo.'));
+    } finally {
+      this.reactivating.set(null);
+    }
   }
 
   protected async onSaved(message: string): Promise<void> {

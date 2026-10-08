@@ -15,14 +15,15 @@ const UNIT_SUGGESTIONS = ['unidad', 'g', 'ml', 'm', 'par', 'caja'];
 
 /**
  * A piece is printed, never bought, so «deja de ofrecerse al comprar» said
- * nothing true about it: switching it off takes it out of the recipes and of
- * the pieces list (the `part_stock` view keeps only active ones).
+ * nothing true about it: switching it off takes it out of the recipes, the
+ * shelf count and the pieces table (the `part_stock` view keeps only active
+ * ones). It waits under «Desactivadas», where it can be switched back on.
  */
 const ACTIVE_LABELS: Record<ItemKind, string> = {
   supply: 'Activo (si lo desactivas, deja de ofrecerse al comprar y en las recetas)',
   packaging: 'Activo (si lo desactivas, deja de ofrecerse al comprar y en las recetas)',
   spare_part: 'Activo (si lo desactivas, deja de ofrecerse al comprar y en las recetas)',
-  part: 'Activa (si la desactivas, deja de ofrecerse en las recetas y sale de Piezas impresas y del conteo del estante)',
+  part: 'Activa (si la desactivas, deja de ofrecerse en las recetas y sale del conteo del estante; queda al final de Piezas impresas, en «Desactivadas», para volver a activarla)',
   finished_good: 'Activo (si lo desactivas, deja de ofrecerse para elegir)',
 };
 

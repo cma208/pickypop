@@ -981,6 +981,12 @@ export class InventarioData {
       .sort((a, b) => a.name.localeCompare(b.name, 'es'));
   }
 
+  /** Switches an article on or off and leaves the rest of it as it is. */
+  async setItemActive(id: string, active: boolean): Promise<void> {
+    const { error } = await this.supabase.from('inventory_items').update({ active }).eq('id', id);
+    if (error) throw error;
+  }
+
   async saveItem(id: string | null, input: InventoryItemInput): Promise<void> {
     const values = {
       kind: input.kind,
