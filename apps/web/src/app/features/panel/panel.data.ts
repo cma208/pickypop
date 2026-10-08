@@ -20,7 +20,7 @@ import { totalHours } from '../impresoras/impresoras.models';
 import { dueStatuses, needsAttention, type DueState } from '../impresoras/maintenance-due';
 import { belowMinimum, type LowStock } from './panel.stock';
 import type { SetupCounts } from './panel.setup';
-import { commonCauses } from './panel.prints';
+import { commonCauses, weekAttempts } from './panel.prints';
 import { unwatchedPrinters, type MaintenanceCoverage } from './panel.maintenance';
 
 type OrderStatus = Database['public']['Enums']['order_status'];
@@ -56,7 +56,10 @@ export interface StatusCount {
 /** Counted by number of prints, not by what they cost: Resultados measures the latter. */
 export interface WeekPrints {
   successful: number;
+  /** Failed, and cancelled after they ran (`weekAttempts`). */
   failed: number;
+  /** Of the failed, the ones cancelled halfway. */
+  cancelledRan: number;
   /** Share of closed jobs that succeeded, or null when none closed. */
   successRate: number | null;
   /** All-time figures from the failure_stats view. */
@@ -193,11 +196,13 @@ export class PanelData {
     const since = new Date(Date.now() - WEEK_DAYS * MS_PER_DAY).toISOString();
 
     const [jobs, stats, failures] = await Promise.all([
+      // A cancelled print that ran is a failed attempt, as in `failure_stats`
+      // and Resultados; `weekAttempts` tells it from one that never started.
       fetchAll((from, to) =>
         this.supabase
           .from('print_jobs')
-          .select('id, status')
-          .in('status', ['success', 'failed'])
+          .select('id, status, actual_time_s')
+          .in('status', ['success', 'failed', 'cancelled'])
           .gte('finished_at', since)
           .order('id')
           .range(from, to),
@@ -216,8 +221,8 @@ export class PanelData {
     ]);
     if (stats.error) throw stats.error;
 
-    const successful = jobs.filter((job) => job.status === 'success').length;
-    const failed = jobs.length - successful;
+    const { successful, failed, cancelledRan } = weekAttempts(jobs);
+    const tried = successful + failed;
 
     const rows = stats.data ?? [];
     const historicClosed = rows.reduce((sum, row) => sum + Number(row.closed_jobs ?? 0), 0);
@@ -226,7 +231,8 @@ export class PanelData {
     return {
       successful,
       failed,
-      successRate: jobs.length === 0 ? null : successful / jobs.length,
+      cancelledRan,
+      successRate: tried === 0 ? null : successful / tried,
       historicClosed,
       historicFailed,
       historicFailureRate: historicClosed === 0 ? null : historicFailed / historicClosed,
