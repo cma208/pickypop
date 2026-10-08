@@ -228,6 +228,8 @@ Tres detalles que hay que resolver al construirla:
 2. **Rutas internas:** GitHub Pages no sabe de rutas de una SPA, así que al recargar `/pedidos` daría 404. Se resuelve copiando `index.html` a `404.html` al publicar, o usando rutas con `#`.
 3. **Publicación automática:** un workflow de GitHub Actions que compile y publique en cada push a `main`.
 
+**Primero las migraciones, después la web.** Como la web se publica sola al mezclar a `main`, una rama que trae migraciones se aplica antes al proyecto alojado (`supabase db push`) y recién después se mezcla. Una web nueva sobre una base vieja pide columnas, vistas y funciones que todavía no existen, y las pantallas que las leen dejan de cargar. Una base nueva con la web anterior sí funciona, si las migraciones solo agregan.
+
 **Sobre las llaves:** la llave pública de Supabase (la *anon*) viaja dentro del JavaScript y eso es correcto por diseño: no da acceso a nada, porque quien decide qué se ve son las reglas de acceso de la base. La llave `service_role`, en cambio, **nunca** puede salir en el build.
 
 ---
