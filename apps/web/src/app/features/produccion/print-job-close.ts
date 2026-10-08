@@ -8,8 +8,7 @@ import { FAILURE_CAUSE_LABEL, FAILURE_CAUSES, type FailureCause } from './produc
 import { describeCounts } from './produccion.outputs';
 import { createOutputControl, PrintJobOutputs, type OutputControls } from './print-job-outputs';
 import { filamentName } from '../../core/spool-label';
-
-const SECONDS_PER_MINUTE = 60;
+import { neverRan, proposeTime, secondsToSave, type ProposedTime } from './job-time';
 
 type CloseResult = CloseJob['result'];
 
@@ -60,22 +59,24 @@ function createUsageRow(spoolId: string, actualG: number) {
         </pp-field>
       }
 
-      @if (result() !== 'success') {
+      @if (result() !== 'success' && !unstartedCancel()) {
         <pp-field label="Porcentaje completado" hint="Opcional, de 0 a 100." [error]="fieldError('percentComplete', 'Debe estar entre 0 y 100.')">
           <input type="number" inputmode="decimal" min="0" max="100" step="1" formControlName="percentComplete" />
         </pp-field>
       }
 
-      <div class="grid two">
-        <pp-field
-          label="Tiempo real (minutos)"
-          [required]="result() !== 'cancelled'"
-          [hint]="job().estimatedTimeS ? 'Estimado: ' + (job().estimatedTimeS | duration) : undefined"
-          [error]="fieldError('actualMinutes', 'Escribe los minutos reales, en número entero mayor que cero.')"
-        >
-          <input type="number" inputmode="numeric" min="1" step="1" formControlName="actualMinutes" />
-        </pp-field>
-      </div>
+      @if (!unstartedCancel()) {
+        <div class="grid two">
+          <pp-field
+            label="Tiempo real (minutos)"
+            [required]="result() !== 'cancelled'"
+            [hint]="result() === 'cancelled' ? 'Opcional: lo que alcanzó a imprimir. Sin tiempo no se cobra máquina ni luz.' : job().estimatedTimeS ? 'Estimado: ' + (job().estimatedTimeS | duration) : undefined"
+            [error]="fieldError('actualMinutes', 'Escribe los minutos reales, en número entero mayor que cero.')"
+          >
+            <input type="number" inputmode="numeric" min="1" step="1" formControlName="actualMinutes" />
+          </pp-field>
+        </div>
+      }
 
       @if (result() === 'success') {
         @if (job().plateOutputs.length > 0) {
@@ -85,7 +86,9 @@ function createUsageRow(spoolId: string, actualG: number) {
         }
       }
 
-      @if (result() === 'cancelled') {
+      @if (unstartedCancel()) {
+        <p class="muted">No llegó a empezar: se cierra sin tiempo real, sin costo y sin descontar filamento.</p>
+      } @else if (result() === 'cancelled') {
         <p class="muted">Una impresión cancelada no descuenta filamento.</p>
       } @else {
         <fieldset>
@@ -180,9 +183,17 @@ export class PrintJobClose implements OnInit {
 
   private readonly resultValue = toSignal(this.form.controls.result.valueChanges, { initialValue: 'success' as CloseResult });
   protected readonly result = computed(() => this.resultValue());
+  /** Cancelled before «Iniciar»: it never ran, so it has no time to ask for. */
+  protected readonly unstartedCancel = computed(() => neverRan(this.job().startedAt, this.result()));
+
+  /** The job's estimate, to the second, behind the whole minutes the field proposes. */
+  private estimate: ProposedTime | null = null;
 
   constructor() {
-    this.form.controls.result.valueChanges.pipe(takeUntilDestroyed()).subscribe(() => this.confirming.set(false));
+    this.form.controls.result.valueChanges.pipe(takeUntilDestroyed()).subscribe((result) => {
+      this.confirming.set(false);
+      this.proposeTimeFor(result);
+    });
   }
 
   ngOnInit(): void {
@@ -190,9 +201,8 @@ export class PrintJobClose implements OnInit {
     for (const filament of job.filaments) {
       this.usage.push(createUsageRow(filament.spoolId, filament.estimatedG));
     }
-    if (job.estimatedTimeS) {
-      this.form.controls.actualMinutes.setValue(Math.max(1, Math.round(job.estimatedTimeS / SECONDS_PER_MINUTE)));
-    }
+    this.estimate = proposeTime(job.estimatedTimeS);
+    if (this.estimate) this.form.controls.actualMinutes.setValue(this.estimate.minutes);
     for (const part of job.plateOutputs) {
       this.outputs.push(createOutputControl(part.unitsPerRun));
     }
@@ -241,6 +251,7 @@ export class PrintJobClose implements OnInit {
   protected summary(): string {
     const result = this.result();
     const total = this.usage.getRawValue().reduce((sum, row) => sum + (row.actualG || 0), 0);
+    if (this.unstartedCancel()) return 'Se cerrará como cancelada, sin tiempo ni costo, y no se moverá el stock.';
     if (result === 'cancelled') return 'Se cerrará como cancelada y no se moverá el stock.';
     const verb = result === 'success' ? 'Se descontarán' : 'Se registrarán como merma';
     const grams = `${verb} ${Math.round(total * 100) / 100} g de ${this.usage.length} rollo(s).`;
@@ -261,8 +272,12 @@ export class PrintJobClose implements OnInit {
     const needsCause = result === 'failed' && this.form.controls.failureCause.value === '';
     const usageInvalid = result !== 'cancelled' && this.usage.invalid;
     const outputsInvalid = result === 'success' && this.outputs.invalid;
+    // Both are hidden for a job that never ran, so whatever they held does not count.
+    const ran = !this.unstartedCancel();
+    const timeInvalid = ran && this.form.controls.actualMinutes.invalid;
+    const percentInvalid = ran && this.form.controls.percentComplete.invalid;
 
-    if (needsTime || needsCause || usageInvalid || outputsInvalid || this.form.controls.percentComplete.invalid || this.form.controls.actualMinutes.invalid) {
+    if (needsTime || needsCause || usageInvalid || outputsInvalid || timeInvalid || percentInvalid) {
       this.error.set('Revisa los campos marcados antes de cerrar.');
       return;
     }
@@ -277,10 +292,10 @@ export class PrintJobClose implements OnInit {
     try {
       const outcome = await this.data.closeJob(this.job(), {
         result: value.result,
-        actualTimeS: value.actualMinutes ? value.actualMinutes * SECONDS_PER_MINUTE : null,
+        actualTimeS: this.unstartedCancel() ? null : secondsToSave(value.actualMinutes, this.estimate),
         usage: value.result === 'cancelled' ? [] : value.usage.map((row) => ({ spoolId: row.spoolId, actualG: row.actualG })),
         failureCause: value.failureCause === '' ? null : value.failureCause,
-        percentComplete: value.percentComplete,
+        percentComplete: this.unstartedCancel() ? null : value.percentComplete,
         outputs: this.job().plateOutputs.map((part, index) => ({
           inventoryItemId: part.inventoryItemId,
           units: value.outputs[index] ?? null,
@@ -294,6 +309,19 @@ export class PrintJobClose implements OnInit {
     } finally {
       this.busy.set(false);
     }
+  }
+
+  /**
+   * The estimate is a fair guess of how long a finished print took, and no
+   * guess at all for a cancelled one: it is what finishing would have taken.
+   * So «Cancelada» empties the proposed minutes, and going back to another
+   * result brings them back. Minutes the person typed are left alone.
+   */
+  private proposeTimeFor(result: CloseResult): void {
+    const control = this.form.controls.actualMinutes;
+    const proposed = this.estimate?.minutes ?? null;
+    if (result === 'cancelled' && proposed !== null && control.value === proposed) control.setValue(null);
+    if (result !== 'cancelled' && proposed !== null && control.value === null) control.setValue(proposed);
   }
 
   private async loadCurrentStock(): Promise<void> {

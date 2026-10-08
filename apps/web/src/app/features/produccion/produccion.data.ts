@@ -8,6 +8,7 @@ import type { FailureCause, JobStatus } from './produccion.labels';
 import { outputsOf, type PartCount, type PlatePart } from './produccion.outputs';
 import type { RunToQueue } from './por-lanzar';
 import type { PlateUse, SpoolStatus } from './produccion.spools';
+import { chargedSeconds, neverRan } from './job-time';
 
 const SECONDS_PER_HOUR = 3600;
 const WATTS_PER_KW = 1000;
@@ -555,20 +556,23 @@ export class ProduccionData {
   async closeJob(job: JobItem, input: CloseJob): Promise<CloseOutcome> {
     const spoolIds = input.usage.map((usage) => usage.spoolId);
     const before = await this.stockOf(spoolIds);
-    const costs = await this.realCosts(job, input);
+    const ran = !neverRan(job.startedAt, input.result);
+    // A job cancelled before it started leaves its costs empty, not at zero:
+    // there is no «Costo real» to show for a print that did not happen.
+    const costs = ran ? await this.realCosts(job, input) : null;
 
     const { error } = await this.supabase.rpc('complete_print_job', {
       p_job_id: job.id,
       p_result: input.result,
-      p_actual_time_s: input.actualTimeS ?? undefined,
+      p_actual_time_s: ran ? (input.actualTimeS ?? undefined) : undefined,
       p_filament_usage: input.usage.map((usage) => ({
         spool_id: usage.spoolId,
         actual_g: usage.actualG,
       })),
       p_failure_cause: input.result === 'failed' ? (input.failureCause ?? undefined) : undefined,
-      p_material_cost: costs.material,
-      p_energy_cost: costs.energy,
-      p_machine_cost: costs.machine,
+      p_material_cost: costs?.material,
+      p_energy_cost: costs?.energy,
+      p_machine_cost: costs?.machine,
       // Everything the close knows goes in this one call. The units used to be
       // saved afterwards, and the function, which reads them to fill the shelf,
       // found zero and put the whole plate in: 7 caps out, 9 caps in.
@@ -577,7 +581,8 @@ export class ProduccionData {
         input.result,
         new Map(input.outputs.map((output) => [output.inventoryItemId, output.units])),
       ),
-      p_percent_complete: input.result === 'failed' ? (input.percentComplete ?? undefined) : undefined,
+      // A print cancelled halfway got somewhere too; the form asks it for that.
+      p_percent_complete: input.result !== 'success' && ran ? (input.percentComplete ?? undefined) : undefined,
       p_note: input.note ?? undefined,
     });
     if (error) throw error;
@@ -652,7 +657,7 @@ export class ProduccionData {
       0,
     );
 
-    const hours = (input.actualTimeS ?? job.estimatedTimeS ?? 0) / SECONDS_PER_HOUR;
+    const hours = (chargedSeconds(job, input.result, input.actualTimeS) ?? 0) / SECONDS_PER_HOUR;
     const watts = printers.find((printer) => printer.id === job.printerId)?.profile.avgPowerWatts ?? 0;
 
     return {

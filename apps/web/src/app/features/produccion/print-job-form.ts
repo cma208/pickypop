@@ -12,8 +12,7 @@ import type { PrinterSummary } from '../../core/workshop';
 import { describeCounts } from './produccion.outputs';
 import { rowsForPlate, suggestSpool } from './produccion.spools';
 import { labelForPlate } from './job-label';
-
-const SECONDS_PER_MINUTE = 60;
+import { proposeTime, secondsToSave, type ProposedTime } from './job-time';
 
 export interface FixedOrderLine {
   id: string;
@@ -204,6 +203,8 @@ export class PrintJobForm implements OnInit {
   protected readonly selectedPlate = signal('');
   /** What a plate wrote in «Qué se imprime», while the person leaves it as it is. */
   private labelFromPlate: string | null = null;
+  /** The plate's time, to the second, behind the whole minutes the field shows. */
+  private timeFromPlate: ProposedTime | null = null;
 
   protected readonly hasLine = computed(() => this.fixedLine() !== null || this.selectedLine() !== '');
 
@@ -319,7 +320,7 @@ export class PrintJobForm implements OnInit {
         // says what is printed, and a plate's name left in a hidden field
         // must not replace it.
         label: lineId === null ? value.label.trim() || null : null,
-        estimatedTimeS: value.estimatedMinutes ? value.estimatedMinutes * SECONDS_PER_MINUTE : null,
+        estimatedTimeS: secondsToSave(value.estimatedMinutes, this.timeFromPlate),
         note: value.note.trim() || null,
         filaments: value.filaments.map((row) => ({
           spoolId: row.spoolId,
@@ -349,9 +350,11 @@ export class PrintJobForm implements OnInit {
     const label = labelForPlate({ label: this.form.controls.label.value, fromPlate: this.labelFromPlate }, plate?.label ?? null);
     this.form.controls.label.setValue(label.label);
     this.labelFromPlate = label.fromPlate;
+    // Without a plate the minutes left in the field are a figure typed by hand.
+    this.timeFromPlate = proposeTime(plate?.printTimeS);
     if (!plate) return;
 
-    this.form.controls.estimatedMinutes.setValue(Math.max(1, Math.round(plate.printTimeS / SECONDS_PER_MINUTE)));
+    if (this.timeFromPlate) this.form.controls.estimatedMinutes.setValue(this.timeFromPlate.minutes);
     this.filaments.clear();
     // The same proposal as «Iniciar»: the roll on the printer before a sealed kilo.
     const taken = new Set<string>();
