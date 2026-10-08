@@ -479,6 +479,11 @@ begin
    where id = p_job_id
   returning * into v_job;
   perform set_config('app.print_job_flow', '', true);
+  if not found then
+    -- Row Level Security hides a row it will not let change, without an
+    -- error: the screen must not say «hecho» when nothing changed.
+    raise exception 'No pudimos cambiar este trabajo: puede que no tengas permiso, o que ya no esté en la cola. Recarga la página.';
+  end if;
 
   insert into public.print_job_filaments (workspace_id, print_job_id, spool_id, slot, estimated_g)
   select v_job.workspace_id, p_job_id, (r ->> 'spool_id')::uuid, nullif(r ->> 'slot', '')::integer,
@@ -682,6 +687,11 @@ begin
    where id = p_job_id
   returning * into v_job;
   perform set_config('app.print_job_flow', '', true);
+  if not found then
+    -- Row Level Security hides a row it will not let change, without an
+    -- error: the screen must not say «hecho» when nothing changed.
+    raise exception 'No pudimos cambiar este trabajo: puede que no tengas permiso, o que ya no esté en la cola. Recarga la página.';
+  end if;
 
   -- The parts that came out go on the shelf, valued at what the plate cost,
   -- spread over every unit. A part is produced, not bought (ADR-016, ADR-018).
