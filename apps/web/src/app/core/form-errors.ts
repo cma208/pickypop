@@ -91,8 +91,16 @@ export function maxDecimals(decimals: number): ValidatorFn {
 
 /** "2026-10-08" is ten characters; a datetime-local value is longer. */
 const DATE_ONLY_LENGTH = 10;
-/** A few minutes of slack, like the database: the phone's clock is not the server's. */
+/**
+ * How far ahead of now something may be dated: the phone's clock is not the
+ * server's. The database gives the same slack (`app.guard_ledger_entry`).
+ */
 const CLOCK_SLACK_MS = 5 * 60_000;
+
+/** Whether an instant has not come yet, give or take the clocks' difference. */
+export function isInTheFuture(iso: string, now = Date.now()): boolean {
+  return Date.parse(iso) > now + CLOCK_SLACK_MS;
+}
 
 /**
  * What is being recorded already happened: a date ("2026-10-08") may not be
@@ -106,14 +114,14 @@ export function notInFuture(control: AbstractControl): ValidationErrors | null {
   if (typeof value !== 'string' || value === '') return null;
   if (value.length <= DATE_ONLY_LENGTH) return value > todayLocal() ? { future: true } : null;
 
-  let moment: number;
+  let iso: string;
   try {
-    moment = Date.parse(inputToIso(value));
+    iso = inputToIso(value);
   } catch {
     // Half-typed: `required` and the browser speak for it.
     return null;
   }
-  return Number.isFinite(moment) && moment > Date.now() + CLOCK_SLACK_MS ? { future: true } : null;
+  return isInTheFuture(iso) ? { future: true } : null;
 }
 
 /** At least one of the two numeric controls must hold a value. */

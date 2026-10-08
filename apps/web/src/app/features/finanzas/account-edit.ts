@@ -1,5 +1,6 @@
-import type { AbstractControl, ValidationErrors } from '@angular/forms';
+import type { AbstractControl, ValidationErrors, ValidatorFn } from '@angular/forms';
 import { localDate, todayLocal } from '../../core/dates';
+import { notInFuture } from '../../core/form-errors';
 import { money } from '../../core/format';
 import { roundMoney, sumMoney } from '../../core/pricing';
 import type { AccountKind, PaymentMethod, TransactionType } from './finanzas.models';
@@ -48,12 +49,6 @@ export function accountChanges(before: AccountInput, after: AccountInput): Accou
 
 // ------------------------------------------------------------- validators
 
-/** A name of spaces only is no name: the database refuses it, and the form says so first (T5-11). */
-export function notBlank(control: AbstractControl): ValidationErrors | null {
-  const value = control.value as string | null;
-  return (value ?? '').trim() === '' ? { required: true } : null;
-}
-
 /** The opening balance has the ceiling of any movement, both ways. */
 export function withinLedgerLimit(control: AbstractControl): ValidationErrors | null {
   const value = control.value as number | null;
@@ -63,17 +58,15 @@ export function withinLedgerLimit(control: AbstractControl): ValidationErrors | 
 
 /**
  * The opening balance is what was already there the day it is registered, so
- * its day cannot be after today in the workshop (T5-02, T1-10). Only a day
- * the person moves is judged, as the database does: an account that already
- * opens in the future (from before the rule) still takes a new note without
- * having its date moved first. `kept` is the day the account has.
+ * its day cannot be after today in the workshop (T5-02, T1-10): `notInFuture`,
+ * like any date. Only a day the person moves is judged, as the database does:
+ * an account that already opens in the future (from before the rule) still
+ * takes a new note without having its date moved first. `kept` is the day the
+ * account has.
  */
-export function notAfterToday(today: () => string = todayLocal, kept: () => string | null = () => null) {
-  return (control: AbstractControl): ValidationErrors | null => {
-    const value = control.value as string | null;
-    if (!value || value === kept()) return null;
-    return value > today() ? { future: true } : null;
-  };
+export function openingDayNotInFuture(kept: () => string | null = () => null): ValidatorFn {
+  return (control: AbstractControl): ValidationErrors | null =>
+    control.value && control.value === kept() ? null : notInFuture(control);
 }
 
 export const ACCOUNT_FIELD_MESSAGES = {

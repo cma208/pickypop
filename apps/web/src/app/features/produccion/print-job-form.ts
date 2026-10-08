@@ -1,7 +1,7 @@
 import { Component, computed, inject, input, OnInit, output, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormArray, FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { wholeNumber } from '../../core/form-errors';
+import { maxDecimals, wholeNumber } from '../../core/form-errors';
 import { Card, Field, FORMAT_PIPES, ItemPicker, Thumb, type PickerOption } from '../../ui';
 import { borrowedPhoto } from '../../core/article-photos';
 import { duration } from '../../core/format';
@@ -14,7 +14,7 @@ import { describeCounts } from './produccion.outputs';
 import { rowsForPlate, suggestSpool } from './produccion.spools';
 import { labelForPlate } from './job-label';
 import { proposeTime, secondsToSave, type ProposedTime } from './job-time';
-import { GRAMS_MESSAGE, hundredths, MAX_GRAMS, MAX_MINUTES } from './job-grams';
+import { GRAM_DECIMALS, GRAMS_MESSAGE, MAX_GRAMS, MAX_MINUTES } from './job-grams';
 import { requestKey, type SentRequest } from './request-key';
 import { NOTE_MAX_LENGTH } from './print-job-close';
 import { CurrentWorkspace } from '../../core/workspace';
@@ -35,7 +35,7 @@ function createFilamentRow(spoolId = '', estimatedG = 0, slot: number | null = n
     spoolId: new FormControl(spoolId, { nonNullable: true, validators: [Validators.required] }),
     estimatedG: new FormControl(estimatedG, {
       nonNullable: true,
-      validators: [Validators.required, Validators.min(0), Validators.max(MAX_GRAMS), hundredths],
+      validators: [Validators.required, Validators.min(0), Validators.max(MAX_GRAMS), maxDecimals(GRAM_DECIMALS)],
     }),
     slot: new FormControl<number | null>(slot),
   });

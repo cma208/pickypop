@@ -2,7 +2,7 @@ import { Component, computed, effect, inject, input, output, signal, untracked }
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { FormControl, NonNullableFormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { inputToIso, nowForInput } from '../../core/dates';
-import { textOrNull } from '../../core/form-errors';
+import { isInTheFuture, textOrNull } from '../../core/form-errors';
 import { friendlyError } from '../../core/friendly-error';
 import { roundMoney } from '../../core/pricing';
 import { SECTION_STYLES } from '../../core/styles';
@@ -20,7 +20,7 @@ import {
 } from './finanzas.models';
 import { FINANCE_STYLES } from './finanzas.styles';
 import { beforeOpening, beforeOpeningNotice } from './opening-balance';
-import { FUTURE_DATE_PROBLEM, isInTheFuture, TOO_LARGE_PROBLEM } from './transaction-draft';
+import { FUTURE_DATE_PROBLEM, TOO_LARGE_PROBLEM } from './transaction-draft';
 import { CurrentWorkspace } from '../../core/workspace';
 
 /**

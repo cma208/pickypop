@@ -1,7 +1,7 @@
 import { Component, computed, inject, input, OnInit, output, signal } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { FormArray, FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { wholeNumber } from '../../core/form-errors';
+import { maxDecimals, wholeNumber } from '../../core/form-errors';
 import { Field, FORMAT_PIPES } from '../../ui';
 import { explainProductionError } from './production-errors';
 import { ProduccionData, type CloseJob, type CloseOutcome, type JobItem } from './produccion.data';
@@ -12,7 +12,7 @@ import { duration } from '../../core/format';
 import { filamentName } from '../../core/spool-label';
 import { secondsToSave, type ProposedTime } from './job-time';
 import { closeProposal } from './close-proposal';
-import { GRAMS_MESSAGE, hundredths, MAX_GRAMS, MAX_MINUTES, toHundredths } from './job-grams';
+import { GRAM_DECIMALS, GRAMS_MESSAGE, MAX_GRAMS, MAX_MINUTES, toHundredths } from './job-grams';
 import { CurrentWorkspace } from '../../core/workspace';
 
 type CloseResult = CloseJob['result'];
@@ -29,7 +29,7 @@ export const NOTE_MAX_LENGTH = 500;
 function createUsageRow(spoolId: string, actualG: number | null) {
   return new FormGroup({
     spoolId: new FormControl(spoolId, { nonNullable: true }),
-    actualG: new FormControl<number | null>(actualG, [Validators.min(0), Validators.max(MAX_GRAMS), hundredths]),
+    actualG: new FormControl<number | null>(actualG, [Validators.min(0), Validators.max(MAX_GRAMS), maxDecimals(GRAM_DECIMALS)]),
   });
 }
 

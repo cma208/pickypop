@@ -1,8 +1,10 @@
 import { FormControl } from '@angular/forms';
+import { todayLocal } from '../../core/dates';
+import { requiredText } from '../../core/form-errors';
 import {
   accountChanges,
-  notAfterToday,
-  notBlank,
+  ACCOUNT_FIELD_MESSAGES,
+  openingDayNotInFuture,
   openingShift,
   openingShiftNotice,
   withinLedgerLimit,
@@ -47,9 +49,10 @@ describe('accountChanges (T5-09)', () => {
 });
 
 describe('account validators (T5-02, T5-11)', () => {
-  it('treats a name of spaces as no name', () => {
-    expect(notBlank(new FormControl('   '))).toEqual({ required: true });
-    expect(notBlank(new FormControl(' Yape '))).toBeNull();
+  it('treats a name of spaces as no name, and says it under the key `requiredText` gives', () => {
+    const name = new FormControl(' ', requiredText);
+    expect(name.errors).toEqual({ required: true });
+    expect(ACCOUNT_FIELD_MESSAGES.name.required).toBe('Escribe el nombre de la cuenta.');
   });
 
   it('refuses an opening balance over the ceiling, either way', () => {
@@ -59,17 +62,17 @@ describe('account validators (T5-02, T5-11)', () => {
     expect(withinLedgerLimit(new FormControl(null))).toBeNull();
   });
 
-  it('refuses an opening day after today in the workshop', () => {
-    const validator = notAfterToday(() => '2026-10-08');
-    expect(validator(new FormControl('2026-12-31'))).toEqual({ future: true });
-    expect(validator(new FormControl('2026-10-08'))).toBeNull();
+  it('refuses an opening day after today in the workshop, like any date', () => {
+    const validator = openingDayNotInFuture();
+    expect(validator(new FormControl('2999-12-31'))).toEqual({ future: true });
+    expect(validator(new FormControl(todayLocal()))).toBeNull();
     expect(validator(new FormControl('2026-10-01'))).toBeNull();
   });
 
   it('lets an account keep the future day it already had, and judges any other', () => {
-    const validator = notAfterToday(() => '2026-10-08', () => '2026-12-31');
-    expect(validator(new FormControl('2026-12-31'))).toBeNull();
-    expect(validator(new FormControl('2026-12-30'))).toEqual({ future: true });
+    const validator = openingDayNotInFuture(() => '2999-12-31');
+    expect(validator(new FormControl('2999-12-31'))).toBeNull();
+    expect(validator(new FormControl('2999-12-30'))).toEqual({ future: true });
   });
 });
 

@@ -1,11 +1,12 @@
 import { Component, inject, input, OnInit, output, signal } from '@angular/core';
 import { FormArray, FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Field, FORMAT_PIPES } from '../../ui';
+import { maxDecimals } from '../../core/form-errors';
 import { spoolLabel } from '../../core/spool-label';
 import { explainProductionError } from './production-errors';
 import { ProduccionData, type JobItem, type SpoolOption } from './produccion.data';
 import { rowsForPlate, suggestSpool, type SpoolStatus } from './produccion.spools';
-import { GRAMS_MESSAGE, hundredths, MAX_GRAMS } from './job-grams';
+import { GRAM_DECIMALS, GRAMS_MESSAGE, MAX_GRAMS } from './job-grams';
 import { CurrentWorkspace } from '../../core/workspace';
 
 const STATUS_LABEL: Record<SpoolStatus, string> = { in_use: 'en uso', open: 'abierto', sealed: 'sellado' };
@@ -13,7 +14,7 @@ const STATUS_LABEL: Record<SpoolStatus, string> = { in_use: 'en uso', open: 'abi
 function createRollRow(spoolId = '', estimatedG = 0, slot: number | null = null) {
   return new FormGroup({
     spoolId: new FormControl(spoolId, { nonNullable: true, validators: [Validators.required] }),
-    estimatedG: new FormControl(estimatedG, { nonNullable: true, validators: [Validators.required, Validators.min(0), Validators.max(MAX_GRAMS), hundredths] }),
+    estimatedG: new FormControl(estimatedG, { nonNullable: true, validators: [Validators.required, Validators.min(0), Validators.max(MAX_GRAMS), maxDecimals(GRAM_DECIMALS)] }),
     slot: new FormControl<number | null>(slot),
   });
 }

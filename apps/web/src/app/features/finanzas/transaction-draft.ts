@@ -1,19 +1,10 @@
 import { inputToIso } from '../../core/dates';
+import { isInTheFuture } from '../../core/form-errors';
 import { money } from '../../core/format';
 import { roundMoney, sumMoney } from '../../core/pricing';
 import { MAX_LEDGER_AMOUNT, TYPE_DIRECTION, type PaymentMethod, type TransactionType } from './finanzas.models';
 import { beforeOpening, type OpeningOf } from './opening-balance';
 
-/**
- * How far ahead of now a movement may be dated: the phone's clock is not the
- * server's. The database gives the same slack (`app.guard_ledger_entry`).
- */
-const FUTURE_SLACK_MS = 5 * 60_000;
-
-/** True when an instant has not come yet, give or take the clocks' difference. */
-export function isInTheFuture(iso: string, now = Date.now()): boolean {
-  return Date.parse(iso) > now + FUTURE_SLACK_MS;
-}
 
 /** Said next to a date of money that has not come yet (T5-08). */
 export const FUTURE_DATE_PROBLEM = 'Esa fecha todavía no llega: el dinero se registra cuando ya se movió.';

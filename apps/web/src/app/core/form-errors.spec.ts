@@ -1,7 +1,7 @@
 import { FormControl } from '@angular/forms';
 import { describe, expect, it } from 'vitest';
 import { isoToInput, nowForInput, todayLocal } from './dates';
-import { decimalPlaces, maxDecimals, notInFuture, requiredText, wholeNumber } from './form-errors';
+import { decimalPlaces, isInTheFuture, maxDecimals, notInFuture, requiredText, wholeNumber } from './form-errors';
 
 describe('requiredText', () => {
   it('treats a name of only spaces as empty, like the database does', () => {
@@ -12,6 +12,14 @@ describe('requiredText', () => {
 
   it('accepts a name with spaces around it: it is saved trimmed', () => {
     expect(requiredText(new FormControl('  Instagram '))).toBeNull();
+  });
+});
+
+describe('isInTheFuture', () => {
+  it('gives the clocks five minutes, like the database', () => {
+    const now = Date.parse('2026-10-08T15:00:00Z');
+    expect(isInTheFuture('2026-10-08T15:05:00Z', now)).toBe(false);
+    expect(isInTheFuture('2026-10-08T15:05:01Z', now)).toBe(true);
   });
 });
 

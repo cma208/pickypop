@@ -2,15 +2,14 @@ import { Component, computed, inject, input, output, signal } from '@angular/cor
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { todayLocal } from '../../core/dates';
-import { errorOf, textOrNull } from '../../core/form-errors';
+import { errorOf, requiredText, textOrNull } from '../../core/form-errors';
 import { friendlyError } from '../../core/friendly-error';
 import { roundMoney } from '../../core/pricing';
 import { SECTION_STYLES } from '../../core/styles';
 import { Field, FORMAT_PIPES } from '../../ui';
 import {
   ACCOUNT_FIELD_MESSAGES,
-  notAfterToday,
-  notBlank,
+  openingDayNotInFuture,
   openingShift,
   openingShiftNotice,
   withinLedgerLimit,
@@ -160,13 +159,13 @@ export class AccountForm {
   protected readonly shiftConfirmed = signal(false);
 
   protected readonly form = this.fb.group({
-    name: ['', notBlank],
+    name: ['', requiredText],
     kind: ['cash' as AccountKind],
     openingBalance: new FormControl<number>(0, { nonNullable: true, validators: [Validators.required, withinLedgerLimit] }),
-    // The day the account already has is not judged again: see notAfterToday.
+    // The day the account already has is not judged again: see openingDayNotInFuture.
     openingBalanceOn: [
       todayLocal(),
-      [Validators.required, notAfterToday(todayLocal, () => this.account()?.openingBalanceOn ?? null)],
+      [Validators.required, openingDayNotInFuture(() => this.account()?.openingBalanceOn ?? null)],
     ],
     // A new account starts as a cash box, and a cash box takes cash.
     defaultPaymentMethod: [(defaultMethodFor('cash') ?? '') as PaymentMethod | ''],
