@@ -28,8 +28,11 @@
 -- vieja podía poner un trabajo «para este pedido» después de entregarlo.
 -- Una reposición, si hace falta, va como trabajo suelto.
 --
+-- De paso, una entrega no lleva fecha futura: saca stock, y el stock no se
+-- mueve en un día que no llegó. Una de otro día pasado sí vale.
+--
 -- `deliver_order` es la de 20261020100000_assembly_carries_labor, con la
--- regla nueva en el recorrido de las líneas.
+-- fecha revisada y la regla nueva en el recorrido de las líneas.
 
 create or replace function app.deliver_order(
   p_order_id uuid,
@@ -80,6 +83,15 @@ begin
     )
   ) then
     raise exception 'Una de las líneas no es de este pedido.';
+  end if;
+
+  if not isfinite(v_when) then
+    raise exception 'La fecha de la entrega no es válida.';
+  end if;
+  -- Stock does not move in the future. A few minutes of slack: the phone's
+  -- clock is not the server's.
+  if v_when > now() + interval '5 minutes' then
+    raise exception 'La entrega no puede tener fecha futura: anótala con el día en que salió.';
   end if;
 
   v_day := app.workspace_day(v_order.workspace_id, v_when);
