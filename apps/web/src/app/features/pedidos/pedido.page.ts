@@ -68,6 +68,7 @@ import { isFinal, PURPOSE_LABEL, PURPOSE_TONE, STATUS_LABEL, STATUS_TONE, type O
       <pp-async [loading]="loading()" [error]="error()">
         @if (order(); as o) {
           <div class="stack">
+            @if (reloadError(); as message) { <p class="alert alert-warn" role="alert">{{ message }}</p> }
             <pp-card heading="Datos">
               <div class="row badges">
                 <pp-badge [tone]="purposeTone[o.purpose]">{{ purposeLabel[o.purpose] }}</pp-badge>
@@ -254,6 +255,8 @@ export class PedidoPage {
   protected readonly jobs = signal<JobItem[]>([]);
   protected readonly loading = signal(true);
   protected readonly error = signal<string | null>(null);
+  /** Reading it again after a step failed: what is on screen stays, said to be possibly out of date. */
+  protected readonly reloadError = signal<string | null>(null);
   protected readonly summaryError = signal<string | null>(null);
   protected readonly paymentError = signal<string | null>(null);
   protected readonly jobsError = signal<string | null>(null);
@@ -360,8 +363,17 @@ export class PedidoPage {
       this.order.set(order);
       this.deliveries.set(deliveries);
       this.error.set(null);
+      this.reloadError.set(null);
     } catch (error) {
-      this.error.set(explainError(error, 'No pudimos leer este pedido. Inténtalo de nuevo.'));
+      if (!showSpinner && this.order()?.id === id) {
+        // The cards keep what the person typed and why the step failed; an
+        // error page in their place would throw both away.
+        this.reloadError.set(
+          `${explainError(error, 'No pudimos volver a leer este pedido.')} Lo que ves puede no estar al día.`,
+        );
+      } else {
+        this.error.set(explainError(error, 'No pudimos leer este pedido. Inténtalo de nuevo.'));
+      }
       this.loading.set(false);
       return;
     }

@@ -1,5 +1,6 @@
 import { TestBed, type ComponentFixture } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
+import { UserFacingError } from '../../core/friendly-error';
 import { FinanzasData } from '../finanzas/finanzas.data';
 import { PedidoCobro } from './pedido-cobro';
 import { PedidosData, type NewPayment, type PaymentSummary } from './pedidos.data';
@@ -10,13 +11,19 @@ const CASH = { id: 'cash', name: 'Efectivo', defaultMethod: 'cash' as const, ope
 interface Opened {
   fixture: ComponentFixture<PedidoCobro>;
   calls: [NewPayment, string][];
-  finish: () => void;
+  /** The database answers the call in flight: done, or with this failure. */
+  finish: (failure?: unknown) => void;
+  /** Keys asked about after a lost answer. */
+  asked: string[];
+  events: string[];
 }
 
 /** The database answers only when `finish` is called: a second click arrives while it is still busy. */
-async function open(summary: PaymentSummary = OWED): Promise<Opened> {
+async function open(summary: PaymentSummary = OWED, recorded = false): Promise<Opened> {
   const calls: [NewPayment, string][] = [];
-  let finish = () => {};
+  const asked: string[] = [];
+  const events: string[] = [];
+  let finish: (failure?: unknown) => void = () => {};
   TestBed.configureTestingModule({
     providers: [
       provideRouter([]),
@@ -27,7 +34,11 @@ async function open(summary: PaymentSummary = OWED): Promise<Opened> {
           paymentAccounts: async () => [CASH],
           recordPayment: (payment: NewPayment, key: string) => {
             calls.push([payment, key]);
-            return new Promise<void>((resolve) => (finish = resolve));
+            return new Promise<void>((resolve, reject) => (finish = (failure) => (failure ? reject(failure) : resolve())));
+          },
+          paymentRecorded: async (key: string) => {
+            asked.push(key);
+            return recorded;
           },
         },
       },
@@ -36,11 +47,23 @@ async function open(summary: PaymentSummary = OWED): Promise<Opened> {
   const fixture = TestBed.createComponent(PedidoCobro);
   fixture.componentRef.setInput('orderId', 'order-3');
   fixture.componentRef.setInput('summary', summary);
+  fixture.componentInstance.collected.subscribe(() => events.push('collected'));
+  fixture.componentInstance.stale.subscribe(() => events.push('stale'));
   fixture.detectChanges();
   await fixture.whenStable();
   fixture.detectChanges();
-  return { fixture, calls, finish: () => finish() };
+  return { fixture, calls, finish: (failure) => finish(failure), asked, events };
 }
+
+/** The page read the order again: a new summary object, as `payment()` hands it over. */
+async function readAgain(fixture: ComponentFixture<PedidoCobro>, summary: PaymentSummary): Promise<void> {
+  fixture.componentRef.setInput('summary', { ...summary });
+  fixture.detectChanges();
+  await fixture.whenStable();
+  fixture.detectChanges();
+}
+
+const LOST = { code: '', message: 'TypeError: Failed to fetch' };
 
 function field(fixture: ComponentFixture<PedidoCobro>, name: string): HTMLInputElement & HTMLSelectElement {
   return fixture.nativeElement.querySelector(`[formcontrolname="${name}"]`);
@@ -106,5 +129,76 @@ describe('PedidoCobro', () => {
     expect(text(fixture)).toContain('no hay nada que cobrar');
     expect(text(fixture)).not.toContain('Sin cobrar');
     expect(text(fixture)).not.toContain('cobrado por completo');
+  });
+
+  it('keeps the amount typed, and its key, when a refusal reads the order again', async () => {
+    const { fixture, calls, finish, events } = await open();
+    set(fixture, 'accountId', 'cash');
+    set(fixture, 'amount', '5');
+
+    submit(fixture);
+    finish(new UserFacingError('La cuenta Plin está desactivada: elige otra.'));
+    await fixture.whenStable();
+    await readAgain(fixture, OWED);
+
+    expect(events).toEqual(['stale']);
+    expect(field(fixture, 'amount').value).toBe('5');
+    expect(text(fixture)).toContain('La cuenta Plin está desactivada: elige otra.');
+
+    submit(fixture);
+    finish();
+    await fixture.whenStable();
+    expect(calls[1]![0].amount).toBe(5);
+    expect(calls[1]![1]).toBe(calls[0]![1]);
+  });
+
+  it('asks by its key after a lost answer, and a payment that was saved is said as done', async () => {
+    const { fixture, calls, finish, asked, events } = await open(OWED, true);
+    set(fixture, 'accountId', 'cash');
+    set(fixture, 'amount', '5');
+
+    submit(fixture);
+    finish(LOST);
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(asked).toEqual([calls[0]![1]]);
+    expect(events).toEqual(['collected']);
+    expect(text(fixture)).toContain('Cobro registrado.');
+  });
+
+  it('after a lost answer that was not saved, says to send it unchanged, and the retry keeps the key even when the balance moved', async () => {
+    const { fixture, calls, finish } = await open();
+    set(fixture, 'accountId', 'cash');
+    set(fixture, 'amount', '5');
+
+    submit(fixture);
+    finish(LOST);
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(text(fixture)).toContain('Vuelve a tocar «Registrar cobro» sin cambiar nada');
+
+    // Another tab collected 3 meanwhile: the balance shrinks, the 5 typed stays.
+    await readAgain(fixture, { ...OWED, paid: 3, balance: 9.99, paymentStatus: 'partial' });
+    expect(field(fixture, 'amount').value).toBe('5');
+
+    submit(fixture);
+    finish();
+    await fixture.whenStable();
+    expect(calls).toHaveLength(2);
+    expect(calls[1]![1]).toBe(calls[0]![1]);
+  });
+
+  it('proposes what is left once a payment went through', async () => {
+    const { fixture, finish } = await open();
+    set(fixture, 'accountId', 'cash');
+    set(fixture, 'amount', '5');
+
+    submit(fixture);
+    finish();
+    await fixture.whenStable();
+    await readAgain(fixture, { ...OWED, paid: 5, balance: 7.99, paymentStatus: 'partial' });
+
+    expect(field(fixture, 'amount').value).toBe('7.99');
   });
 });

@@ -10,6 +10,7 @@ import { Badge, Card, Field, FORMAT_PIPES } from '../../ui';
 import { beforeOpening, beforeOpeningNotice } from '../finanzas/opening-balance';
 import { PaymentCategoryNote } from '../finanzas/payment-category-note';
 import { PedidosData, type AccountOption, type NewPayment, type PaymentSummary } from './pedidos.data';
+import { refusedByDatabase } from './pedidos.errors';
 import { requestKey, type SentRequest } from './request-key';
 import {
   PAYMENT_METHOD_LABEL,
@@ -221,10 +222,17 @@ export class PedidoCobro {
 
   constructor() {
     // The suggestion follows the balance, so the second part of a split
-    // payment already proposes what is left.
+    // payment already proposes what is left. Only while the person has not
+    // typed an amount: the card is read again after a refusal or a lost
+    // answer, and putting the whole balance over the 5 they received would
+    // change the payment (and its key) without them noticing.
     effect(() => {
       const balance = this.summary().balance;
-      untracked(() => this.form.controls.amount.setValue(roundMoney(balance)));
+      untracked(() => {
+        const amount = this.form.controls.amount;
+        if (amount.dirty) amount.updateValueAndValidity();
+        else amount.setValue(roundMoney(balance));
+      });
     });
     void this.loadAccounts();
   }
@@ -290,14 +298,16 @@ export class PedidoCobro {
     };
     // The same payment sent again keeps its key, and the database records it once.
     this.lastSent = requestKey(this.lastSent, payment);
+    const { key } = this.lastSent;
     this.saving.set(true);
     try {
-      await this.data.recordPayment(payment, this.lastSent.key);
+      await this.data.recordPayment(payment, key);
     } catch (error) {
-      this.error.set(friendlyError(error, 'No pudimos registrar el cobro. Inténtalo de nuevo.'));
-      // Somebody else may have collected or voided meanwhile: read it again.
-      this.stale.emit();
-      return;
+      // Saving stays on while it asks: a click meanwhile must not send it again.
+      if (!(await this.recordedAnyway(error, key))) {
+        await this.failed(error);
+        return;
+      }
     } finally {
       this.saving.set(false);
     }
@@ -306,14 +316,53 @@ export class PedidoCobro {
     this.notice.set('Cobro registrado.');
     this.form.patchValue({ reference: '', occurredAt: nowForInput() });
     this.form.controls.reference.markAsUntouched();
+    // The next payment starts from what is left again.
+    this.form.controls.amount.markAsPristine();
     this.collected.emit();
   }
 
+  /**
+   * A refusal says nothing was saved. A lost answer does not: the payment may
+   * be in the database already, and its key says so.
+   */
+  private async recordedAnyway(error: unknown, key: string): Promise<boolean> {
+    if (refusedByDatabase(error)) return false;
+    return this.data.paymentRecorded(key).catch(() => false);
+  }
+
+  /**
+   * Says why, and reads the order and the accounts again: somebody may have
+   * collected, voided or closed an account meanwhile. What the person typed
+   * stays as it was, and so does its key.
+   */
+  private async failed(error: unknown): Promise<void> {
+    this.error.set(
+      refusedByDatabase(error)
+        ? friendlyError(error, 'No pudimos registrar el cobro. Inténtalo de nuevo.')
+        : `${friendlyError(error, 'No pudimos registrar el cobro.')} Vuelve a tocar «Registrar cobro» sin cambiar nada: si llegó a guardarse, no se cobra dos veces.`,
+    );
+    this.stale.emit();
+    await this.loadAccounts();
+  }
+
+  /**
+   * The accounts money can go into. Read again after a refusal: an account
+   * closed meanwhile leaves the list, and the choice with it, so the
+   * person picks another instead of sending the same refusal again.
+   */
   private async loadAccounts(): Promise<void> {
     try {
-      this.accounts.set(await this.data.paymentAccounts());
+      const accounts = await this.data.paymentAccounts();
+      this.accounts.set(accounts);
+      const chosen = this.form.controls.accountId;
+      if (chosen.value !== NO_ACCOUNT && !accounts.some((account) => account.id === chosen.value)) {
+        chosen.setValue(NO_ACCOUNT);
+      }
     } catch (error) {
-      this.accountsError.set(friendlyError(error, 'No pudimos leer las cuentas. Recarga la pantalla.'));
+      // Read again after a failure, the list already on screen still serves.
+      if (this.accounts().length === 0) {
+        this.accountsError.set(friendlyError(error, 'No pudimos leer las cuentas. Recarga la pantalla.'));
+      }
     } finally {
       this.accountsLoading.set(false);
     }
