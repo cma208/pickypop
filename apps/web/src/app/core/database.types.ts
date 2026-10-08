@@ -2110,7 +2110,7 @@ isOneToOne: false
                   ]
                 },"monthly_income_statement": {
                   Row: {
-                    "cost_of_sales": number | null,"failed_prints": number | null,"failure_reserve_rate": number | null,"gross_profit": number | null,"inventory_purchases": number | null,"month": string | null,"net_profit": number | null,"operating_expenses": number | null,"other_income": number | null,"owner_contributions": number | null,"owner_draws": number | null,"print_cost": number | null,"sales": number | null,"shelf_count_losses": number | null,"tools_and_tests": number | null,"unsold_production": number | null,"workspace_id": string | null
+                    "cost_of_sales": number | null,"failed_prints": number | null,"failure_reserve_rate": number | null,"gross_profit": number | null,"inventory_purchases": number | null,"month": string | null,"net_profit": number | null,"operating_expenses": number | null,"other_income": number | null,"owner_contributions": number | null,"owner_draws": number | null,"print_cost": number | null,"sales": number | null,"shelf_count_losses": number | null,"tools_and_tests": number | null,"uncovered_failed_prints": number | null,"unsold_production": number | null,"workspace_id": string | null
                   }
                   Relationships: [
                     
