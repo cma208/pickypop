@@ -2,7 +2,8 @@ import { Component, computed, inject, input, output, signal } from '@angular/cor
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormControl, NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Field } from '../../ui';
-import { blankToNull, inactiveSuffix, invalidMessage, requiredText, selectableOptions } from './form-helpers';
+import { ARTICLE_DECIMALS, ARTICLE_LIMITS, OUT_OF_RANGE, rangeMessage } from './article-ranges';
+import { blankToNull, inactiveSuffix, invalidMessage, maxDecimals, requiredText, selectableOptions } from './form-helpers';
 import {
   InventarioData,
   type BrandOption,
@@ -19,6 +20,9 @@ const DEFAULT_DIAMETER_MM = 1.75;
 const DEFAULT_NET_WEIGHT_G = 1000;
 const HEX_PATTERN = /^#[0-9a-fA-F]{6}$/;
 const FALLBACK_PICKER_COLOR = '#888888';
+const LIMITS = ARTICLE_LIMITS;
+/** Grams, millimetres and soles keep two decimals: a third would be rounded without anyone seeing it. */
+const TWO_DECIMALS = maxDecimals(ARTICLE_DECIMALS.filament);
 
 /**
  * Create or edit a filament SKU. Brands and materials can be added without
@@ -91,19 +95,22 @@ const FALLBACK_PICKER_COLOR = '#888888';
       }
 
       <div class="form-grid">
-        <pp-field label="Diámetro (mm)" [required]="true" [error]="msg(form.controls.diameterMm)">
+        <pp-field label="Diámetro (mm)" [required]="true" [error]="range(form.controls.diameterMm, outOfRange.diameterMm)">
           <input type="number" step="0.01" formControlName="diameterMm" inputmode="decimal" />
         </pp-field>
-        <pp-field label="Peso neto (g)" [required]="true" [error]="msg(form.controls.netWeightG)">
+        <pp-field label="Peso neto (g)" [required]="true" [error]="range(form.controls.netWeightG, outOfRange.netWeightG)">
           <input type="number" step="1" formControlName="netWeightG" inputmode="decimal" />
         </pp-field>
-        <pp-field label="Tara del carrete (g)" hint="Para los pesajes" [error]="msg(form.controls.tareG)">
+        <pp-field label="Tara del carrete (g)" hint="Para los pesajes" [error]="range(form.controls.tareG, outOfRange.tareG)">
           <input type="number" step="1" formControlName="tareG" inputmode="decimal" />
         </pp-field>
-        <pp-field label="Mínimo (g)" hint="Avisa cuando baje de aquí" [error]="msg(form.controls.minStockG)">
+        <pp-field label="Mínimo (g)" hint="Avisa cuando baje de aquí" [error]="range(form.controls.minStockG, outOfRange.minStockG)">
           <input type="number" step="1" formControlName="minStockG" inputmode="decimal" />
         </pp-field>
-        <pp-field label="Costo de reposición por kg (S/)" [error]="msg(form.controls.replacementCostPerKg)">
+        <pp-field
+          label="Costo de reposición por kg (S/)"
+          [error]="range(form.controls.replacementCostPerKg, outOfRange.replacementCostPerKg)"
+        >
           <input type="number" step="0.01" formControlName="replacementCostPerKg" inputmode="decimal" />
         </pp-field>
       </div>
@@ -160,6 +167,8 @@ export class SkuForm {
   protected readonly busy = signal(false);
   protected readonly error = signal<string | null>(null);
   protected readonly msg = invalidMessage;
+  protected readonly range = rangeMessage;
+  protected readonly outOfRange = OUT_OF_RANGE;
   protected readonly inactiveSuffix = inactiveSuffix;
 
   protected readonly form = this.fb.group({
@@ -168,11 +177,21 @@ export class SkuForm {
     finishId: [''],
     colorName: ['', [requiredText, Validators.maxLength(60)]],
     colorHex: ['', Validators.pattern(HEX_PATTERN)],
-    diameterMm: [DEFAULT_DIAMETER_MM, [Validators.required, Validators.min(0.01)]],
-    netWeightG: [DEFAULT_NET_WEIGHT_G, [Validators.required, Validators.min(1)]],
-    tareG: new FormControl<number | null>(null, Validators.min(0)),
-    minStockG: [0, [Validators.required, Validators.min(0)]],
-    replacementCostPerKg: new FormControl<number | null>(null, Validators.min(0)),
+    diameterMm: [
+      DEFAULT_DIAMETER_MM,
+      [Validators.required, Validators.min(LIMITS.diameterMm.min), Validators.max(LIMITS.diameterMm.max), TWO_DECIMALS],
+    ],
+    netWeightG: [
+      DEFAULT_NET_WEIGHT_G,
+      [Validators.required, Validators.min(LIMITS.netWeightG.min), Validators.max(LIMITS.netWeightG.max), TWO_DECIMALS],
+    ],
+    tareG: new FormControl<number | null>(null, [Validators.min(0), Validators.max(LIMITS.tareG.max), TWO_DECIMALS]),
+    minStockG: [0, [Validators.required, Validators.min(0), Validators.max(LIMITS.minStockG.max), TWO_DECIMALS]],
+    replacementCostPerKg: new FormControl<number | null>(null, [
+      Validators.min(0),
+      Validators.max(LIMITS.replacementCostPerKg.max),
+      TWO_DECIMALS,
+    ]),
     active: [true],
   });
 
@@ -235,8 +254,9 @@ export class SkuForm {
   }
 
   protected async submit(): Promise<void> {
+    if (this.busy()) return;
     this.form.markAllAsTouched();
-    if (this.form.invalid || this.busy()) return;
+    if (this.form.invalid) return;
 
     this.busy.set(true);
     this.error.set(null);

@@ -1,17 +1,25 @@
 import { Component, computed, inject, input, OnDestroy, output, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
-import { NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { NonNullableFormBuilder, ReactiveFormsModule, Validators, type AbstractControl, type ValidationErrors } from '@angular/forms';
 import { ArticlePhotos } from '../../core/article-photos';
 import { Media } from '../../core/media';
 import { Field, ImageField, Thumb } from '../../ui';
-import { blankToNull, invalidMessage, photosToDelete, requiredText } from './form-helpers';
+import { ARTICLE_DECIMALS, ARTICLE_LIMITS, OUT_OF_RANGE, rangeMessage } from './article-ranges';
+import { blankToNull, invalidMessage, maxDecimals, photosToDelete, requiredText } from './form-helpers';
 import { InventarioData, type InventoryItemSummary } from './inventario.data';
 import { describeError } from './inventario.errors';
-import { ITEM_KINDS, ITEM_KIND_LABELS, type ItemKind } from './inventario.format';
+import { countedWhole, ITEM_KINDS, ITEM_KIND_LABELS, type ItemKind } from './inventario.format';
 import { INVENTORY_STYLES } from './inventario.styles';
 
 const DEFAULT_UNIT = 'unidad';
 const UNIT_SUGGESTIONS = ['unidad', 'g', 'ml', 'm', 'par', 'caja'];
+
+/** A minimum of 2.5 bags: what is counted whole has a whole minimum too. */
+function wholeMinimumForWholeUnits(group: AbstractControl): ValidationErrors | null {
+  const unit = group.get('unit')?.value as string | null | undefined;
+  const minimum = group.get('minStock')?.value as number | null | undefined;
+  return countedWhole(unit) && typeof minimum === 'number' && !Number.isInteger(minimum) ? { wholeMinimum: true } : null;
+}
 
 /**
  * A piece is printed, never bought, so «deja de ofrecerse al comprar» said
@@ -80,7 +88,7 @@ const ACTIVE_LABELS: Record<ItemKind, string> = {
             }
           </datalist>
         </pp-field>
-        <pp-field label="Mínimo" hint="Avisa cuando baje de aquí" [error]="msg(form.controls.minStock)">
+        <pp-field label="Mínimo" hint="Avisa cuando baje de aquí" [error]="minStockError()">
           <input type="number" step="any" formControlName="minStock" inputmode="decimal" />
         </pp-field>
       </div>
@@ -150,15 +158,33 @@ export class ItemForm implements OnDestroy {
   private readonly uploaded = new Set<string>();
   private settled = false;
 
-  protected readonly form = this.fb.group({
-    kind: ['supply' as ItemKind, Validators.required],
-    name: ['', [requiredText, Validators.maxLength(100)]],
-    unit: [DEFAULT_UNIT, [requiredText, Validators.maxLength(20)]],
-    minStock: [0, [Validators.required, Validators.min(0)]],
-    perishable: [false],
-    note: [''],
-    active: [true],
-  });
+  protected readonly form = this.fb.group(
+    {
+      kind: ['supply' as ItemKind, Validators.required],
+      name: ['', [requiredText, Validators.maxLength(100)]],
+      unit: [DEFAULT_UNIT, [requiredText, Validators.maxLength(20)]],
+      minStock: [
+        0,
+        [
+          Validators.required,
+          Validators.min(0),
+          Validators.max(ARTICLE_LIMITS.itemMinStock.max),
+          maxDecimals(ARTICLE_DECIMALS.itemQuantity),
+        ],
+      ],
+      perishable: [false],
+      note: [''],
+      active: [true],
+    },
+    { validators: wholeMinimumForWholeUnits },
+  );
+
+  protected minStockError(): string | null {
+    const control = this.form.controls.minStock;
+    const own = rangeMessage(control, OUT_OF_RANGE.itemMinStock);
+    if (own || !control.touched || !this.form.hasError('wholeMinimum')) return own;
+    return `Se cuenta por ${this.form.controls.unit.value.trim()}: el mínimo va entero.`;
+  }
 
   private readonly kindValue = toSignal(this.form.controls.kind.valueChanges);
   protected readonly kind = computed(() => this.kindValue() ?? this.form.controls.kind.value);
@@ -205,8 +231,9 @@ export class ItemForm implements OnDestroy {
   }
 
   protected async submit(): Promise<void> {
+    if (this.busy()) return;
     this.form.markAllAsTouched();
-    if (this.form.invalid || this.busy()) return;
+    if (this.form.invalid) return;
 
     const value = this.form.getRawValue();
     this.busy.set(true);
