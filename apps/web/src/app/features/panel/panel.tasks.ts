@@ -68,6 +68,30 @@ export function owingWording(balance: number): string {
   return `Entregado y debe ${MONEY.format(balance)}.`;
 }
 
+/** What «Hoy» needs of a delivered order that still owes: the columns of `receivables`. */
+export interface OwedOrder {
+  balance: number;
+  /** Computed by the database on the workshop's day, as Por cobrar shows it. */
+  daysOverdue: number;
+  dueDate: string | null;
+}
+
+/**
+ * How a debt reads in «Hoy», by the same rule as Por cobrar (T4-12): late only
+ * once its due date has passed, due today on the day itself, and otherwise on
+ * time. Every unpaid delivery used to read «Atrasado» in red while Por cobrar
+ * said «Al día».
+ */
+export function owedTask(order: OwedOrder, today: string): Pick<TodayTask, 'urgency' | 'detail'> {
+  const owing = owingWording(order.balance);
+  if (order.daysOverdue > 0) {
+    const late = order.daysOverdue === 1 ? 'Venció ayer.' : `Venció hace ${order.daysOverdue} días.`;
+    return { urgency: 'late', detail: `${owing} ${late}` };
+  }
+  if (order.dueDate === today) return { urgency: 'today', detail: `${owing} Vence hoy.` };
+  return { urgency: 'soon', detail: order.dueDate ? owing : `${owing} Sin fecha de vencimiento.` };
+}
+
 export function byUrgency(a: TodayTask, b: TodayTask): number {
   return URGENCY_ORDER[a.urgency] - URGENCY_ORDER[b.urgency];
 }
