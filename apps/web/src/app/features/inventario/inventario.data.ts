@@ -903,14 +903,18 @@ export class InventarioData {
    * out what to write against what there is when it is saved: a count from an
    * old tab, or one with an assembly in between, still leaves the shelf at
    * what was counted.
+   *
+   * `key` names the request: asked again with it (an answer lost on the way
+   * back), the database returns its first answer and moves nothing.
    */
-  async recordItemMovement(input: ItemMovementInput): Promise<ItemMovementResult> {
+  async recordItemMovement(input: ItemMovementInput, key: string): Promise<ItemMovementResult> {
     const { data, error } = await this.supabase.rpc('move_item_stock', {
       p_item_id: input.itemId,
       p_mode: input.mode,
       p_quantity: input.quantity,
       p_reason: input.reason ?? undefined,
       p_note: input.note ?? undefined,
+      p_request_key: key,
     });
     if (error) throw error;
 

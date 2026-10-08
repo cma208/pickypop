@@ -1,10 +1,10 @@
 import { Component, computed, inject, input, output, signal } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
+import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { FormControl, NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Field } from '../../ui';
 import { blankToNull, invalidMessage } from './form-helpers';
 import { InventarioData, type InventoryItemSummary, type ItemMovementResult } from './inventario.data';
-import { describeError } from './inventario.errors';
+import { describeError, noAnswerReason, outcomeUnknown } from './inventario.errors';
 import { countedWhole, MOVEMENT_TYPE_LABELS, quantity, signedQuantity, type MovementType } from './inventario.format';
 import { PURCHASE_LIMITS } from '../../core/pricing';
 import { INVENTORY_STYLES } from './inventario.styles';
@@ -121,6 +121,18 @@ export class ItemMovementForm {
 
   protected readonly values = toSignal(this.form.valueChanges, { initialValue: this.form.getRawValue() });
 
+  /**
+   * Names this movement for the database, which writes it once however many
+   * times it arrives: an entry whose answer is lost and is sent again would
+   * otherwise put the stock in twice. A change to the form is another
+   * movement, with a key of its own.
+   */
+  private requestKey = crypto.randomUUID();
+
+  constructor() {
+    this.form.valueChanges.pipe(takeUntilDestroyed()).subscribe(() => (this.requestKey = crypto.randomUUID()));
+  }
+
   /** The movement quantity with its sign, or null while the form is incomplete or changes nothing. */
   protected readonly signed = computed(() => {
     const { mode, amount } = this.values();
@@ -184,16 +196,24 @@ export class ItemMovementForm {
     this.busy.set(true);
     this.error.set(null);
     try {
-      const result = await this.data.recordItemMovement({
-        itemId: this.item().id,
-        mode,
-        quantity: amount,
-        reason: mode === 'out' ? reason : null,
-        note: blankToNull(note),
-      });
+      const result = await this.data.recordItemMovement(
+        {
+          itemId: this.item().id,
+          mode,
+          quantity: amount,
+          reason: mode === 'out' ? reason : null,
+          note: blankToNull(note),
+        },
+        this.requestKey,
+      );
+      this.requestKey = crypto.randomUUID();
       this.saved.emit(this.resultText(result));
     } catch (error) {
-      this.error.set(describeError(error, 'No pudimos registrar el movimiento. Inténtalo de nuevo.'));
+      this.error.set(
+        outcomeUnknown(error)
+          ? `No sabemos si el movimiento se registró: ${noAnswerReason(error)} Vuelve a pulsar «Registrar movimiento» sin cambiar nada: si ya había entrado, no se registra dos veces.`
+          : describeError(error, 'No pudimos registrar el movimiento. Inténtalo de nuevo.'),
+      );
     } finally {
       this.busy.set(false);
     }

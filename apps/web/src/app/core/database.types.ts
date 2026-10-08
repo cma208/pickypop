@@ -2582,7 +2582,7 @@ isOneToOne: false
 { Args: { "p_name": string,"p_variant_id": string }; Returns: string
                            },
 "move_item_stock":
-{ Args: { "p_item_id": string,"p_mode": string,"p_note"?: string,"p_quantity": number,"p_reason"?: Database["public"]['Enums']["stock_movement_type"] }; Returns: Json
+{ Args: { "p_item_id": string,"p_mode": string,"p_note"?: string,"p_quantity": number,"p_reason"?: Database["public"]['Enums']["stock_movement_type"],"p_request_key"?: string }; Returns: Json
                            },
 "next_document_number":
 { Args: { "p_doc_kind": string,"p_workspace": string }; Returns: string

@@ -166,9 +166,15 @@ describe('InventarioData.recordItemMovement', () => {
   it('sends what was counted, and reads back what the database wrote', async () => {
     const { data, recorded } = dataWith(async () => ({ data: { before: 480, difference: 0, after: 480 }, error: null }));
 
-    const result = await data.recordItemMovement({ itemId: 'sweets', mode: 'count', quantity: 480, reason: null, note: null });
+    const result = await data.recordItemMovement(
+      { itemId: 'sweets', mode: 'count', quantity: 480, reason: null, note: null },
+      'key-1',
+    );
 
-    expect(recorded.rpc[0]).toEqual(['move_item_stock', { p_item_id: 'sweets', p_mode: 'count', p_quantity: 480 }]);
+    expect(recorded.rpc[0]).toEqual([
+      'move_item_stock',
+      { p_item_id: 'sweets', p_mode: 'count', p_quantity: 480, p_request_key: 'key-1' },
+    ]);
     expect(result).toEqual({ before: 480, difference: 0, after: 480 });
   });
 });
