@@ -111,6 +111,28 @@ export interface QuickSalePayload {
   note: string | null;
 }
 
+/** A sale sent to `quick_sale` and not known to be done, with the key that names it. */
+export interface SentSale {
+  key: string;
+  payload: QuickSalePayload;
+}
+
+/**
+ * The key that names this sale in the database. The same sale sent again,
+ * after an answer that never arrived, keeps its key: if the first one was
+ * saved, the database answers with that order instead of making another, and
+ * `reused` says it is worth asking first. Anything changed is another sale,
+ * with a key of its own.
+ */
+export function saleKey(
+  last: SentSale | null,
+  payload: QuickSalePayload,
+  newKey: () => string,
+): { key: string; reused: boolean } {
+  if (last && JSON.stringify(last.payload) === JSON.stringify(payload)) return { key: last.key, reused: true };
+  return { key: newKey(), reused: false };
+}
+
 /** What the screen says once the sale is made. */
 export interface SaleDone {
   orderId: string;
@@ -243,11 +265,23 @@ export function saleProblem(check: {
   if (!customer.customerId && !customer.name.trim() && customer.phone.trim()) {
     return 'Escribe el nombre del cliente para guardar su teléfono.';
   }
+  if (owesWithoutName(totals, customer)) {
+    return `Quedan ${money(totals.owed)} por cobrar. Escribe el nombre de quien te debe, o elige al cliente: una deuda sin nombre no hay a quién cobrársela.`;
+  }
 
   if (payment.soldAt && Date.parse(payment.soldAt) > (check.now ?? new Date()).getTime()) {
     return 'La venta no puede tener fecha futura.';
   }
   return null;
+}
+
+/**
+ * Something stays owed and nobody is named to owe it. The walk-in customer
+ * is everybody: «Por cobrar» would list the debt and nobody could say whom to
+ * ask. The database refuses it too.
+ */
+export function owesWithoutName(totals: Pick<SaleTotals, 'owed'>, customer: SaleCustomer): boolean {
+  return totals.owed > 0 && !customer.customerId && !customer.name.trim();
 }
 
 function lineProblem(line: SaleLineValue, offer: ShelfOffer | undefined): string | null {

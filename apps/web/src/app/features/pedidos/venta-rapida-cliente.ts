@@ -32,7 +32,7 @@ export function createQuickCustomer(): QuickCustomerForm {
   imports: [ReactiveFormsModule, Field],
   template: `
     <div [formGroup]="group()">
-      <pp-field label="Cliente" [hint]="'Opcional. Sin cliente, la venta queda a nombre de «' + walkInName() + '».'">
+      <pp-field label="Cliente" [hint]="customerHint()">
         <select formControlName="customerId">
           <option value="">{{ walkInName() }}</option>
           @for (customer of people(); track customer.id) {
@@ -43,7 +43,7 @@ export function createQuickCustomer(): QuickCustomerForm {
 
       @if (!values().customerId) {
         <div class="contact">
-          <pp-field label="Nombre" hint="Opcional: para no perder el contacto">
+          <pp-field label="Nombre" [required]="owes()" [hint]="owes() ? 'Queda saldo por cobrar: di quién te debe' : 'Opcional: para no perder el contacto'">
             <input type="text" formControlName="name" autocomplete="off" />
           </pp-field>
           <pp-field label="Teléfono" hint="Opcional">
@@ -72,6 +72,8 @@ export class VentaRapidaCliente implements OnInit {
 
   readonly group = input.required<QuickCustomerForm>();
   readonly customers = input.required<CustomerChoice[]>();
+  /** Something stays in «Por cobrar»: then somebody has to owe it, and the name stops being optional. */
+  readonly owes = input(false);
 
   protected readonly values = signal<SaleCustomer>({ customerId: '', name: '', phone: '' });
 
@@ -79,6 +81,11 @@ export class VentaRapidaCliente implements OnInit {
   protected readonly people = computed(() => this.customers().filter((customer) => !customer.walkIn));
   protected readonly walkInName = computed(
     () => this.customers().find((customer) => customer.walkIn)?.name ?? WALK_IN_NAME,
+  );
+  protected readonly customerHint = computed(() =>
+    this.owes()
+      ? `Queda saldo por cobrar: elige quién te debe, o escribe su nombre. A nombre de «${this.walkInName()}» no habría a quién cobrárselo.`
+      : `Opcional. Sin cliente, la venta queda a nombre de «${this.walkInName()}».`,
   );
   protected readonly match = computed(() => {
     const { name, phone } = this.values();

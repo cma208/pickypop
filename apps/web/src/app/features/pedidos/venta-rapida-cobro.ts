@@ -11,7 +11,7 @@ import type { SaleTotals } from './quick-sale';
 
 export type QuickPaymentForm = FormGroup<{
   amount: FormControl<number | null>;
-  /** True until somebody types an amount: then the amount stops following the total. */
+  /** True until somebody types an amount other than the total: then the amount stops following it. */
   followTotal: FormControl<boolean>;
   accountId: FormControl<string>;
   method: FormControl<PaymentMethod | ''>;
@@ -45,7 +45,7 @@ export function createQuickPayment(accountId = ''): QuickPaymentForm {
     <div [formGroup]="group()">
       <div class="amount">
         <pp-field label="Cobrado ahora (S/)" [required]="true">
-          <input type="number" inputmode="decimal" min="0" step="0.01" formControlName="amount" (input)="typed()" />
+          <input type="number" inputmode="decimal" min="0" step="0.01" formControlName="amount" (input)="typed($event)" />
         </pp-field>
         <div class="shortcuts">
           <button type="button" class="secondary" (click)="all()">Todo</button>
@@ -160,6 +160,11 @@ export class VentaRapidaCobro implements OnInit {
     const group = this.group();
     this.values.set(group.getRawValue());
     group.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => this.values.set(group.getRawValue()));
+    // A method picked for one account means nothing for another: Plin into
+    // «Efectivo» would reach Caja as it was sent. Back to the account's own.
+    group.controls.accountId.valueChanges
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => group.controls.method.setValue(''));
   }
 
   /** The latest moment the date field accepts: now, in Lima. */
@@ -167,8 +172,15 @@ export class VentaRapidaCobro implements OnInit {
     return nowForInput();
   }
 
-  protected typed(): void {
-    this.group().controls.followTotal.setValue(false);
+  /**
+   * Typing the total itself is «all of it»: it keeps following, so a product
+   * added afterwards is collected too instead of quietly going to «Por
+   * cobrar». Any other amount is what was paid, and stays.
+   */
+  protected typed(event: Event): void {
+    const typed = (event.target as HTMLInputElement).valueAsNumber;
+    const total = this.totals().total;
+    this.group().controls.followTotal.setValue(total > 0 && typed === total);
   }
 
   protected all(): void {

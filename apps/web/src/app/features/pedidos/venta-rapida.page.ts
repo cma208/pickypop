@@ -10,6 +10,7 @@ import { explainError } from './pedidos.errors';
 import {
   oneMore,
   saleDone,
+  saleKey,
   saleProblem,
   saleTotals,
   sameTotals,
@@ -19,18 +20,22 @@ import {
   type QuickSalePayload,
   type SaleDone,
   type SalePayment,
+  type SentSale,
   type ShelfOffer,
   type VariantInfo,
 } from './quick-sale';
 import { createQuickCustomer, VentaRapidaCliente, WALK_IN_NAME } from './venta-rapida-cliente';
 import { createQuickPayment, VentaRapidaCobro, type QuickPaymentForm } from './venta-rapida-cobro';
-import { QuickSaleData } from './venta-rapida.data';
+import { QuickSaleData, type SoldOrder } from './venta-rapida.data';
 import { VentaRapidaEstante } from './venta-rapida-estante';
 import { VentaRapidaHecha } from './venta-rapida-hecha';
 import { createQuickLine, VentaRapidaLinea, type QuickLineForm } from './venta-rapida-linea';
 
 /** Shown for a line whose product left the shelf before its name could be read. */
 const UNKNOWN_ITEM: Omit<VariantInfo, 'id'> = { productName: 'Producto', variantName: '', imagePath: null, listPrice: null };
+
+/** Pedidos with every status: a quick sale is born delivered, and «En curso» never shows it. */
+const ALL_ORDERS = { estado: 'todos' };
 
 /**
  * «Venta rápida» (ADR-024): what is assembled and free on the shelf, sold,
@@ -57,7 +62,7 @@ const UNKNOWN_ITEM: Omit<VariantInfo, 'id'> = { productName: 'Producto', variant
   ],
   template: `
     <pp-page title="Venta rápida" subtitle="Lo armado del estante: se entrega y se cobra en un solo paso">
-      <a actions class="button secondary" routerLink="/pedidos">Ver pedidos</a>
+      <a actions class="button secondary" routerLink="/pedidos" [queryParams]="allOrders">Ver pedidos</a>
 
       <pp-async [loading]="loading()" [error]="loadError()">
         <div class="layout">
@@ -77,7 +82,8 @@ const UNKNOWN_ITEM: Omit<VariantInfo, 'id'> = { productName: 'Producto', variant
             }
           </section>
 
-          <form class="sale" [formGroup]="form" (ngSubmit)="sell()" novalidate>
+          <!-- Not a <form>: Enter in a field, or «Ir» on a phone's keyboard, would sell. Only the button does. -->
+          <div class="sale" [formGroup]="form">
             @if (done(); as sale) {
               <app-venta-rapida-hecha [sale]="sale" (closed)="done.set(null)" />
             }
@@ -99,7 +105,7 @@ const UNKNOWN_ITEM: Omit<VariantInfo, 'id'> = { productName: 'Producto', variant
             </pp-card>
 
             <pp-card heading="Cliente">
-              <app-venta-rapida-cliente [group]="form.controls.customer" [customers]="customers()" />
+              <app-venta-rapida-cliente [group]="form.controls.customer" [customers]="customers()" [owes]="totals().owed > 0" />
               <pp-field label="Nota" hint="Opcional. Por ejemplo: «Feria de Barranco».">
                 <input type="text" formControlName="note" autocomplete="off" />
               </pp-field>
@@ -111,16 +117,21 @@ const UNKNOWN_ITEM: Omit<VariantInfo, 'id'> = { productName: 'Producto', variant
 
             <div class="go">
               @if (sellError(); as message) {
-                <p class="alert" role="alert">{{ message }}</p>
+                <p class="alert" role="alert">
+                  {{ message }}
+                  @if (unsure()) {
+                    <a routerLink="/pedidos" [queryParams]="allOrders">Ver los últimos pedidos</a>
+                  }
+                </p>
               } @else if (problem(); as text) {
                 <p [class]="lines.length > 0 ? 'alert-warn' : 'muted'" role="status">{{ text }}</p>
               }
               <p class="muted small">Al vender, lo vendido sale del estante y queda entregado: no se deshace.</p>
-              <button type="submit" class="sell" [disabled]="selling() || !!problem()">
+              <button type="button" class="sell" (click)="sell()" [disabled]="selling() || !!problem()">
                 {{ selling() ? 'Vendiendo…' : 'Vender ' + (totals().total | money) }}
               </button>
             </div>
-          </form>
+          </div>
         </div>
       </pp-async>
     </pp-page>
@@ -162,11 +173,16 @@ export class VentaRapidaPage {
   /** Until the plan answers once, an empty shelf would only mean «not read yet». */
   protected readonly shelfRead = signal(false);
   protected readonly shelfError = signal<string | null>(null);
+  protected readonly allOrders = ALL_ORDERS;
   protected readonly selling = signal(false);
   protected readonly sellError = signal<string | null>(null);
+  /** The sale failed in a way that does not say whether it was saved. */
+  protected readonly unsure = signal(false);
   protected readonly done = signal<SaleDone | null>(null);
   /** Every product seen on the shelf, so a line keeps its photo and name if it stops being free. */
   private readonly known = signal(new Map<string, VariantInfo>());
+  /** The last sale sent without an answer that it was made: sent again unchanged, it keeps its key. */
+  private lastSent: SentSale | null = null;
 
   private readonly changes = toSignal(this.form.valueChanges);
   private readonly value = computed(() => {
@@ -187,7 +203,9 @@ export class VentaRapidaPage {
     // A refusal speaks of the sale as it was: once the sale changes, what
     // stops it now is `problem`, and the old message would contradict it.
     this.form.valueChanges.pipe(takeUntilDestroyed()).subscribe(() => {
-      if (!this.selling()) this.sellError.set(null);
+      if (this.selling()) return;
+      this.sellError.set(null);
+      this.unsure.set(false);
     });
     void this.load();
   }
@@ -235,17 +253,22 @@ export class VentaRapidaPage {
     if (this.selling() || this.problem()) return;
     this.selling.set(true);
     this.sellError.set(null);
+    this.unsure.set(false);
+    // The last sale's summary would read as this one's, even if this one fails.
+    this.done.set(null);
+    const value = this.value();
+    const payload = toQuickSale({ ...value, payment: this.payment(value.payment) });
+    const { key, reused } = saleKey(this.lastSent, payload, () => crypto.randomUUID());
+    this.lastSent = { key, payload };
     try {
+      // Sent before without an answer, it may be done already: then the
+      // shelf it emptied would refuse it, so the database is asked first.
+      const made = reused ? await this.data.findSale(key) : null;
+      if (made) return await this.sold(payload, made);
       if (!(await this.stillFree())) return;
-      const value = this.value();
-      const payload = toQuickSale({ ...value, payment: this.payment(value.payment) });
-      await this.sold(payload, await this.data.sell(payload));
+      await this.sold(payload, await this.data.sell(payload, key));
     } catch (error) {
-      // What refused it may have changed under the screen: the shelf, or an
-      // account deactivated meanwhile. Read again first, then say why, so the
-      // reload (which may clear that account) does not wipe the reason.
-      await Promise.allSettled([this.reloadShelf(), this.loadAccounts()]);
-      this.sellError.set(this.sellFailure(error));
+      await this.failed(error, key, payload);
     } finally {
       this.selling.set(false);
     }
@@ -271,7 +294,8 @@ export class VentaRapidaPage {
     return changed === null;
   }
 
-  private async sold(payload: QuickSalePayload, order: { id: string; number: string; total: number }): Promise<void> {
+  private async sold(payload: QuickSalePayload, order: SoldOrder): Promise<void> {
+    this.lastSent = null;
     this.done.set(saleDone(order, payload, this.customerName(payload)));
     this.resetSale();
     afterNextRender(() => this.summary()?.show(), { injector: this.injector });
@@ -279,22 +303,40 @@ export class VentaRapidaPage {
     await Promise.allSettled([this.reloadShelf(), this.loadCustomers()]);
   }
 
-  /** The next sale starts empty, from the same account and dated when it is made. */
+  /**
+   * The next sale starts empty, from the same account and dated when it is
+   * made. The method goes back to the account's: the next customer may pay
+   * another way, and a method left from the last one would go unnoticed.
+   */
   private resetSale(): void {
     this.lines.clear();
     this.form.controls.customer.reset();
     this.form.controls.note.reset();
-    this.form.controls.payment.patchValue({ followTotal: true, amount: 0, reference: '', soldAt: '' });
+    this.form.controls.payment.patchValue({ followTotal: true, amount: 0, method: '', reference: '', soldAt: '' });
   }
 
   /**
    * A refusal of the database (what is short, a payment over the total)
-   * says it all. Anything else may have failed after the sale was saved, so
-   * the person is asked to look before selling it twice.
+   * says it all, and nothing was saved. Anything else may have failed after
+   * the sale was saved: the database is asked by its key before saying so.
    */
+  private async failed(error: unknown, key: string, payload: QuickSalePayload): Promise<void> {
+    const refused = error instanceof UserFacingError;
+    if (!refused) {
+      const made = await this.data.findSale(key).catch(() => null);
+      if (made) return this.sold(payload, made);
+    }
+    // What refused it may have changed under the screen: the shelf, or an
+    // account deactivated meanwhile. Read again first, then say why, so the
+    // reload (which may clear that account) does not wipe the reason.
+    await Promise.allSettled([this.reloadShelf(), this.loadAccounts()]);
+    this.sellError.set(this.sellFailure(error));
+    this.unsure.set(!refused);
+  }
+
   private sellFailure(error: unknown): string {
     if (error instanceof UserFacingError) return error.message;
-    return `${explainError(error, 'No pudimos registrar la venta.')} Antes de repetirla, mira en Pedidos si quedó registrada.`;
+    return `${explainError(error, 'No pudimos registrar la venta.')} Vuelve a tocar «Vender» sin cambiar nada: si llegó a guardarse, no se repite.`;
   }
 
   private customerName(payload: QuickSalePayload): string {

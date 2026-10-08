@@ -2,8 +2,10 @@ import type { PlanItemPosition, PlanRecipe } from '@pickypop/domain';
 import {
   lineTotal,
   oneMore,
+  owesWithoutName,
   sameCustomer,
   saleDone,
+  saleKey,
   saleProblem,
   saleTotals,
   sameTotals,
@@ -11,6 +13,7 @@ import {
   toQuickSale,
   wholeUnits,
   type CustomerChoice,
+  type QuickSalePayload,
   type SaleCustomer,
   type SaleLineValue,
   type SalePayment,
@@ -53,6 +56,7 @@ function line(overrides: Partial<SaleLineValue> = {}): SaleLineValue {
 }
 
 const nobody: SaleCustomer = { customerId: '', name: '', phone: '' };
+const rosa: SaleCustomer = { customerId: '', name: 'Rosa', phone: '' };
 const cash: SalePayment = { amount: 30, accountId: 'cash', method: '', reference: '', soldAt: null };
 
 describe('shelfOffers', () => {
@@ -146,7 +150,7 @@ describe('saleProblem', () => {
 
   it('lets a complete sale go', () => {
     expect(check()).toBeNull();
-    expect(check({ payment: { ...cash, amount: 0, accountId: '' } })).toBeNull();
+    expect(check({ customer: rosa, payment: { ...cash, amount: 0, accountId: '' } })).toBeNull();
   });
 
   it('asks for something to sell', () => {
@@ -211,7 +215,20 @@ describe('saleProblem', () => {
     );
     expect(check({ accounts, payment: { ...cash, accountId: 'yape', method: 'yape' } })).toBeNull();
     // Nothing collected: no account, no method.
-    expect(check({ accounts, payment: { ...cash, amount: 0, accountId: 'yape' } })).toBeNull();
+    expect(check({ accounts, customer: rosa, payment: { ...cash, amount: 0, accountId: 'yape' } })).toBeNull();
+  });
+
+  it('wants somebody to owe what is not collected', () => {
+    const owed = 'Quedan S/\u00a030.00 por cobrar. Escribe el nombre de quien te debe, o elige al cliente: una deuda sin nombre no hay a quién cobrársela.';
+    // «Me paga después» from nobody, or part of it.
+    expect(check({ payment: { ...cash, amount: 0, accountId: '' } })).toBe(owed);
+    expect(check({ payment: { ...cash, amount: 10 } })).toBe(owed.replace('30.00', '20.00'));
+    expect(check({ customer: { ...nobody, name: '   ' }, payment: { ...cash, amount: 0 } })).toBe(owed);
+    // A name to create, or somebody from the list, owes it.
+    expect(check({ customer: rosa, payment: { ...cash, amount: 10 } })).toBeNull();
+    expect(check({ customer: { customerId: 'maria', name: '', phone: '' }, payment: { ...cash, amount: 0 } })).toBeNull();
+    // Paid in full, nobody needs to owe anything.
+    expect(check({ customer: nobody })).toBeNull();
   });
 
   it('wants a name to keep a phone, and no sale in the future', () => {
@@ -300,6 +317,47 @@ describe('sameCustomer', () => {
     expect(sameCustomer(customers, '', '987')).toBeNull();
     expect(sameCustomer(customers, '', '')).toBeNull();
     expect(sameCustomer(customers, 'Pedro', '912345678')).toBeNull();
+  });
+});
+
+describe('owesWithoutName', () => {
+  it('is a balance with nobody named', () => {
+    expect(owesWithoutName({ owed: 5 }, nobody)).toBe(true);
+    expect(owesWithoutName({ owed: 5 }, rosa)).toBe(false);
+    expect(owesWithoutName({ owed: 5 }, { customerId: 'maria', name: '', phone: '' })).toBe(false);
+    expect(owesWithoutName({ owed: 0 }, nobody)).toBe(false);
+  });
+});
+
+describe('saleKey', () => {
+  const payload = (overrides: Partial<QuickSalePayload> = {}): QuickSalePayload => ({
+    ...toQuickSale({ lines: [line()], customer: nobody, payment: cash, note: '' }),
+    ...overrides,
+  });
+  let issued = 0;
+  const fresh = () => `key-${++issued}`;
+
+  it('gives a new sale a key of its own', () => {
+    issued = 0;
+    expect(saleKey(null, payload(), fresh)).toEqual({ key: 'key-1', reused: false });
+  });
+
+  it('keeps the key of the same sale sent again, so the database does not make it twice', () => {
+    issued = 0;
+    const last = { key: 'key-0', payload: payload() };
+    expect(saleKey(last, payload(), fresh)).toEqual({ key: 'key-0', reused: true });
+    expect(issued).toBe(0);
+  });
+
+  it('gives a changed sale a new key: it is another sale', () => {
+    issued = 0;
+    const last = { key: 'key-0', payload: payload() };
+    expect(saleKey(last, payload({ amount: 20 }), fresh)).toEqual({ key: 'key-1', reused: false });
+    expect(saleKey(last, payload({ customerName: 'Rosa' }), fresh).reused).toBe(false);
+    expect(
+      saleKey(last, payload({ lines: [{ variant_id: 'pink', quantity: 3, unit_price: 15, estimated_unit_cost: 6.123456 }] }), fresh)
+        .reused,
+    ).toBe(false);
   });
 });
 

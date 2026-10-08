@@ -1,4 +1,32 @@
-import { cancelBlocker, canStopOrder, lineKind, nextStep, resumeTargets, STATUS_FLOW } from './pedidos.labels';
+import {
+  cancelBlocker,
+  canStopOrder,
+  lineKind,
+  nextStep,
+  resumeTargets,
+  STATUS_FLOW,
+  statusFilterFromLink,
+} from './pedidos.labels';
+
+describe('statusFilterFromLink', () => {
+  it('opens on the orders in progress unless a link asks for another filter', () => {
+    expect(statusFilterFromLink(null)).toBe('open');
+    expect(statusFilterFromLink('en-curso')).toBe('open');
+  });
+
+  // A quick sale is born delivered: the screen that sends people to look for it asks for all of them.
+  it('reads «todos» and a status by its name', () => {
+    expect(statusFilterFromLink('todos')).toBe('all');
+    expect(statusFilterFromLink('delivered')).toBe('delivered');
+    expect(statusFilterFromLink('on_hold')).toBe('on_hold');
+  });
+
+  it('ignores what it does not know, inherited names included', () => {
+    expect(statusFilterFromLink('entregadisimo')).toBe('open');
+    expect(statusFilterFromLink('toString')).toBe('open');
+    expect(statusFilterFromLink('')).toBe('open');
+  });
+});
 
 describe('nextStep', () => {
   it('offers delivering instead of "Entregado" while something is still pending', () => {

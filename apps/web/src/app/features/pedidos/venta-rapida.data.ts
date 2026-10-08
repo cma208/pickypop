@@ -55,9 +55,10 @@ export class QuickSaleData {
    * Sells through the database rule, all or nothing: order, delivery and
    * payment. Its refusals (what is short, a payment over the total) are
    * written for a person and travel as they are. Stock moved, so every
-   * screen computes the plan again.
+   * screen computes the plan again. `key` names the sale: sent again, it
+   * returns the order it already made.
    */
-  async sell(sale: QuickSalePayload): Promise<SoldOrder> {
+  async sell(sale: QuickSalePayload, key: string): Promise<SoldOrder> {
     const { data, error } = await this.supabase.rpc('quick_sale', {
       p_workspace_id: await this.workspace.requireId(),
       p_lines: sale.lines,
@@ -70,9 +71,27 @@ export class QuickSaleData {
       p_sold_at: sale.soldAt ?? undefined,
       p_reference: sale.reference ?? undefined,
       p_note: sale.note ?? undefined,
+      p_sale_key: key,
     });
     if (error?.code === RAISED_BY_DATABASE) throw new UserFacingError(error.message);
     if (error) throw error;
+
+    this.planner.invalidate();
+    return { id: data.id, number: data.number, total: Number(data.total) };
+  }
+
+  /**
+   * The order a sale made, if the database saved it: the answer to «¿quedó
+   * registrada?» when the connection dropped before its reply arrived.
+   */
+  async findSale(key: string): Promise<SoldOrder | null> {
+    const { data, error } = await this.supabase
+      .from('orders')
+      .select('id, number, total')
+      .eq('quick_sale_key', key)
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) return null;
 
     this.planner.invalidate();
     return { id: data.id, number: data.number, total: Number(data.total) };
