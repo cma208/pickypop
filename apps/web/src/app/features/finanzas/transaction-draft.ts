@@ -36,6 +36,17 @@ export interface TransactionFormValue {
   note: string;
 }
 
+/**
+ * What another screen fills in for the person to review and save: the
+ * correction the voiding form proposes when a movement cannot be voided.
+ */
+export interface TransactionPreset {
+  type: TransactionType;
+  accountId: string;
+  amount: number;
+  note: string;
+}
+
 /** What the database is asked to store, already cleaned up. */
 export interface TransactionDraft {
   accountId: string;

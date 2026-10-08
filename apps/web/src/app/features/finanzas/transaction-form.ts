@@ -31,6 +31,7 @@ import {
   STILL_COUNTS,
   workshopChange,
   type BalancePreview,
+  type TransactionPreset,
 } from './transaction-draft';
 
 /** What each type is for, so nobody has to guess between the five. */
@@ -206,6 +207,8 @@ export class TransactionForm {
 
   readonly allAccounts = input.required<AccountSummary[]>();
   readonly allCategories = input.required<CategoryOption[]>();
+  /** Filled in by another form (the correction of a movement that cannot be voided), for the person to review. */
+  readonly preset = input<TransactionPreset | null>(null);
   readonly saved = output<string>();
   /** The database said no: the accounts the form offers may be out of date. */
   readonly refused = output<void>();
@@ -280,7 +283,23 @@ export class TransactionForm {
     TYPE_DIRECTION[this.values().type] === 'income' ? 'De quién lo recibiste' : 'A quién le pagaste',
   );
 
-  protected readonly problem = computed(() => draftProblem(this.values()));
+  protected readonly problem = computed(() => draftProblem(this.values()) ?? this.staleAccountProblem());
+
+  /**
+   * The accounts are read again after a refusal: one chosen from the old list
+   * may have been deactivated meanwhile. The select would show it blank while
+   * the form still held it, and sending it again would be refused again.
+   */
+  private readonly staleAccountProblem = computed(() => {
+    const { type, accountId, counterAccountId } = this.values();
+    if (accountId && !this.origins().some((account) => account.id === accountId)) {
+      return 'La cuenta elegida ya no recibe ni paga movimientos (se desactivó): elige otra.';
+    }
+    if (type === 'transfer' && counterAccountId && !this.destinations().some((account) => account.id === counterAccountId)) {
+      return 'La cuenta de destino ya no recibe transferencias (se desactivó): elige otra.';
+    }
+    return null;
+  });
 
   /** What each account will be worth once this is saved. */
   protected readonly preview = computed<BalancePreview[]>(() =>
@@ -337,6 +356,15 @@ export class TransactionForm {
       this.negativeConfirmed.set(false);
       this.failure.set(null);
     });
+  }
+
+  // Signal inputs are only set after construction, so the preset is applied here.
+  ngOnInit(): void {
+    const preset = this.preset();
+    if (!preset) return;
+    // The type first: changing it clears what does not fit it, then the rest is filled in.
+    this.form.controls.type.setValue(preset.type);
+    this.form.patchValue({ accountId: preset.accountId, amount: preset.amount, note: preset.note });
   }
 
   protected async submit(): Promise<void> {

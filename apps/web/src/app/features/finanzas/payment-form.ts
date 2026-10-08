@@ -123,8 +123,8 @@ export class PaymentForm {
   readonly allAccounts = input.required<AccountSummary[]>();
   readonly allCategories = input.required<CategoryOption[]>();
   readonly saved = output<string>();
-  /** The database said no: what the list showed may be out of date. */
-  readonly refused = output<void>();
+  /** The database said no, in these words: what the list showed may be out of date. */
+  readonly refused = output<string>();
   readonly cancelled = output<void>();
 
   protected readonly methods = PAYMENT_METHODS;
@@ -140,6 +140,8 @@ export class PaymentForm {
 
   /** The same collection sent twice is recorded once (`record_payment`'s key). New when the form changes. */
   private entryKey = crypto.randomUUID();
+  /** The amount is being moved to the debt read again, not by the person: the refusal stays on screen. */
+  private following = false;
 
   protected readonly form = this.fb.group({
     accountId: [''],
@@ -165,6 +167,9 @@ export class PaymentForm {
     this.accounts().find((account) => account.id === this.values().accountId),
   );
 
+  /** What the order owes, as a number: the form follows it only when it changes, not on every reload. */
+  private readonly balance = computed(() => this.receivable().balance);
+
   protected readonly defaultMethodLabel = computed(() => {
     const method = this.chosenAccount()?.defaultPaymentMethod;
     return method ? `El de la cuenta (${this.methodLabels[method]})` : 'El que tenga la cuenta por defecto';
@@ -179,6 +184,8 @@ export class PaymentForm {
   protected readonly problem = computed(() => {
     const { accountId, amount, occurredAt } = this.values();
     if (!accountId) return 'Elige la cuenta donde entra el dinero.';
+    // Read again after a refusal, the chosen account may have been deactivated meanwhile.
+    if (!this.chosenAccount()) return 'La cuenta elegida ya no recibe cobros (se desactivó): elige otra.';
     if (amount === null || !Number.isFinite(amount)) return 'Indica el monto del cobro.';
     if (roundMoney(amount) <= 0) return 'El monto tiene que ser mayor que cero.';
     if (roundMoney(amount) > MAX_LEDGER_AMOUNT) return TOO_LARGE_PROBLEM;
@@ -216,17 +223,22 @@ export class PaymentForm {
       .catch(() => undefined);
 
     // The suggestion follows the debt, so the form already proposes what is
-    // left to collect without anyone typing it.
+    // left to collect without anyone typing it. Read again after a refusal
+    // (another tab collected part of it), it proposes what is left now.
     effect(() => {
-      const balance = this.receivable().balance;
-      untracked(() => this.form.controls.amount.setValue(balance));
+      const balance = this.balance();
+      untracked(() => {
+        this.following = true;
+        this.form.controls.amount.setValue(balance);
+        this.following = false;
+      });
     });
 
     // Another collection once something changes, and the last error goes
     // away when the person corrects what it was about.
     this.form.valueChanges.pipe(takeUntilDestroyed()).subscribe(() => {
       this.entryKey = crypto.randomUUID();
-      this.failure.set(null);
+      if (!this.following) this.failure.set(null);
     });
   }
 
@@ -254,8 +266,9 @@ export class PaymentForm {
     } catch (error) {
       // `record_payment` writes its refusals in Spanish and with the amounts
       // in them; friendlyError passes those through untouched.
-      this.failure.set(friendlyError(error, 'No pudimos registrar el cobro. Inténtalo de nuevo.'));
-      if (isRefusal(error)) this.refused.emit();
+      const message = friendlyError(error, 'No pudimos registrar el cobro. Inténtalo de nuevo.');
+      this.failure.set(message);
+      if (isRefusal(error)) this.refused.emit(message);
     } finally {
       this.saving.set(false);
     }
