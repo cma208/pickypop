@@ -605,15 +605,20 @@ class Allocator {
     quantity: number,
     custom: PlanCustomWork,
   ): LinePlanned {
-    const onShelf = Math.min(quantity, Math.max(0, custom.printedUnits));
+    // What is printed counts as the queue counted it, so a line of two plates
+    // with only its front printed has half a unit begun: nothing to hand
+    // over yet, and nothing anyone has to print again.
+    const printed = Math.max(0, custom.printedUnits);
+    const onShelf = Math.min(quantity, Math.floor(printed + EPSILON));
     const toMake = clean(quantity - onShelf);
+    const begun = Math.min(toMake, clean(printed - onShelf));
     const shortages = new Shortages();
     const ownRuns: Run[] = [];
     let latest = this.now;
 
-    const queued = this.forCustomLines.take(line.id, toMake, claimant);
+    const queued = this.forCustomLines.take(line.id, clean(toMake - begun), claimant);
     if (queued.at !== null) latest = Math.max(latest, queued.at);
-    const left = clean(toMake - queued.units);
+    const left = clean(toMake - begun - queued.units);
     // Typed by hand, with no sliced file behind it: calling what is not in the
     // queue yet ready would be a promise nobody can keep. What its own jobs
     // cover is another matter: the person said how long they take.

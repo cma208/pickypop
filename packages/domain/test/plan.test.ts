@@ -1105,6 +1105,46 @@ describe('plan: a made-to-order line of two plates', () => {
 
     expect(result.proposals).toEqual([]);
   });
+
+  // The front printed and closed «Exitosa», the back still in the queue: the
+  // snapshot counts the closed job as half a unit, as the queue did. Floored
+  // to nothing, «Por lanzar» proposed both plates again.
+  it('keeps the line covered when one plate is printed and the other queued', () => {
+    const result = plan(
+      workshop({
+        jobs: [job('back', { orderLineId: 'l1', lineUnits: 1, estimatedSeconds: 3600 })],
+        demands: [order('o1', 'PED-0001', TUESDAY_1800, [customLine('l1', 1, { ...twoPlates, printedUnits: 0.5 })])],
+      }),
+    );
+    const line = result.demands[0]!.lines[0]!;
+
+    expect(result.proposals).toEqual([]);
+    expect(line).toMatchObject({ onShelf: 0, toMake: 1 });
+    expect(wallClock(line.readyAt)).toBe('mar 19:00');
+  });
+
+  it('hands over only whole units of what is printed', () => {
+    const result = plan(
+      workshop({
+        jobs: [job('back', { orderLineId: 'l1', lineUnits: 1, estimatedSeconds: 3600 })],
+        demands: [order('o1', 'PED-0001', TUESDAY_1800, [customLine('l1', 2, { ...twoPlates, printedUnits: 1.5 })])],
+      }),
+    );
+
+    expect(result.demands[0]!.lines[0]).toMatchObject({ onShelf: 1, toMake: 1 });
+    expect(result.proposals).toEqual([]);
+  });
+
+  it('still asks for the plate that is neither printed nor queued', () => {
+    const result = plan(
+      workshop({
+        demands: [order('o1', 'PED-0001', TUESDAY_1800, [customLine('l1', 1, { ...twoPlates, printedUnits: 0.5 })])],
+      }),
+    );
+
+    expect(result.proposals.map((proposal) => proposal.runs)).toEqual([2]);
+    expect(result.demands[0]!.lines[0]).toMatchObject({ onShelf: 0, toMake: 1 });
+  });
 });
 
 describe('plan: a made-to-order line typed by hand', () => {
@@ -1137,6 +1177,21 @@ describe('plan: a made-to-order line typed by hand', () => {
     expect(line.unknown).toBeNull();
     expect(result.warnings).toEqual([]);
     expect(wallClock(line.readyAt)).toBe('mar 18:20');
+  });
+
+  // The same job closed «Exitosa»: the snapshot now counts it as the queue
+  // did, one unit of the line, and the warning does not come back.
+  it('stays dated and quiet once its job is closed as printed', () => {
+    const result = plan(
+      workshop({
+        demands: [order('o1', 'PED-0001', TUESDAY_1800, [customLine('l1', 1, { printedUnits: 1 })])],
+      }),
+    );
+    const line = result.demands[0]!.lines[0]!;
+
+    expect(line).toMatchObject({ onShelf: 1, toMake: 0, unknown: null });
+    expect(result.warnings).toEqual([]);
+    expect(result.proposals).toEqual([]);
   });
 
   it('still warns about what its jobs do not cover', () => {
