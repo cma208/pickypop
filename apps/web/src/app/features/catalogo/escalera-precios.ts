@@ -186,6 +186,8 @@ export class EscaleraPrecios {
       this.changed.emit();
     } catch (error) {
       this.error.set(messageOf(error, 'No pudimos agregar el escalón.'));
+      // A refusal may come from a tab that is behind: read the ladder again.
+      this.changed.emit();
     } finally {
       this.busy.set(false);
     }

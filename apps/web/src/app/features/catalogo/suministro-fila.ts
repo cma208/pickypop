@@ -240,6 +240,8 @@ export class SuministroFila {
       this.changed.emit();
     } catch (error) {
       this.error.set(messageOf(error, 'No pudimos guardar el insumo.'));
+      // A refusal may come from a tab that is behind: read the recipe again.
+      this.changed.emit();
     } finally {
       this.busy.set(false);
     }

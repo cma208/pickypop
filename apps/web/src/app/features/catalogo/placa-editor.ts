@@ -213,6 +213,8 @@ export class PlacaEditor {
       this.changed.emit();
     } catch (error) {
       this.error.set(messageOf(error, 'No pudimos guardar la placa.'));
+      // A refusal may come from a tab that is behind: read the recipe again.
+      this.changed.emit();
     } finally {
       this.busy.set(false);
     }
