@@ -10,7 +10,7 @@ import { beforeOpening, beforeOpeningNotice } from '../finanzas/opening-balance'
 import { PaymentCategoryNote } from '../finanzas/payment-category-note';
 import { maxDecimals } from './form-helpers';
 import { InventarioData, type PaymentAccount, type PurchaseSummary } from './inventario.data';
-import { describeError } from './inventario.errors';
+import { describeError, noAnswerReason, outcomeUnknown } from './inventario.errors';
 import { INVENTORY_STYLES } from './inventario.styles';
 import { notBefore, notInTheFutureMoment, purchaseDateFloor } from './purchase-dates';
 
@@ -87,7 +87,12 @@ export class CompraPago {
   readonly accounts = input.required<PaymentAccount[]>();
   /** The money is recorded; the list that owns the purchase reloads it. */
   readonly paid = output<void>();
-  /** The database refused it: the purchase may have been paid from another tab. The list reloads behind the message. */
+  /**
+   * It did not go through, or nobody knows: the purchase may have been paid
+   * from another tab, or this very payment may have gone in before the answer
+   * was lost. The list reloads behind the message, without touching the
+   * amount that was typed or the key it was asked with.
+   */
   readonly refused = output<void>();
 
   protected readonly methods = PAYMENT_METHODS;
@@ -116,9 +121,19 @@ export class CompraPago {
   /**
    * Names this payment for the database, which writes it once however many
    * times it arrives: a double click, or an answer lost on the way back
-   * (T1-01). Any change to the form is another payment, with a key of its own.
+   * (T1-01). A change the person makes to the form is another payment, with a
+   * key of its own; the suggestion following what is owed is not (see below).
    */
   private paymentKey = crypto.randomUUID();
+
+  /** True while the screen, not the person, writes the suggested amount. */
+  private suggesting = false;
+
+  /**
+   * What is owed, as a number: the list hands over a new purchase object on
+   * every reload, and only a different amount owed should move the suggestion.
+   */
+  private readonly pending = computed(() => roundMoney(this.purchase().pending));
 
   private readonly chosenAccountId = toSignal(this.form.controls.accountId.valueChanges, {
     initialValue: NO_ACCOUNT,
@@ -150,17 +165,34 @@ export class CompraPago {
   /** More than is owed is refused by the database too; said here, it is said before the click. */
   private readonly overPending = computed(() => {
     const amount = this.chosenAmount();
-    return typeof amount === 'number' && amount > roundMoney(this.purchase().pending);
+    return typeof amount === 'number' && amount > this.pending();
   });
 
   constructor() {
     // The suggestion follows what is owed, so a second partial payment already
-    // proposes the rest.
+    // proposes the rest. Only while the person has not typed an amount: the
+    // list reloads after a refusal, and a reload that put the whole debt where
+    // somebody typed 10 turned the retry into paying everything.
     effect(() => {
-      const pending = this.purchase().pending;
-      untracked(() => this.form.controls.amount.setValue(roundMoney(pending)));
+      const pending = this.pending();
+      untracked(() => this.suggest(pending));
     });
-    this.form.valueChanges.pipe(takeUntilDestroyed()).subscribe(() => (this.paymentKey = crypto.randomUUID()));
+    this.form.valueChanges.pipe(takeUntilDestroyed()).subscribe(() => {
+      // A retry after a lost answer has to go with the same key, or the
+      // database cannot tell it is the same payment and writes it twice.
+      if (!this.suggesting) this.paymentKey = crypto.randomUUID();
+    });
+  }
+
+  private suggest(pending: number): void {
+    const amount = this.form.controls.amount;
+    if (amount.dirty) return;
+    this.suggesting = true;
+    try {
+      amount.setValue(pending);
+    } finally {
+      this.suggesting = false;
+    }
   }
 
   protected accountError(): string | null {
@@ -208,9 +240,15 @@ export class CompraPago {
         this.paymentKey,
       );
       this.paymentKey = crypto.randomUUID();
+      // The next payment starts from what is still owed, not from this one.
+      this.form.controls.amount.markAsPristine();
       this.paid.emit();
     } catch (error) {
-      this.error.set(describeError(error, 'No pudimos registrar el pago. Inténtalo de nuevo.'));
+      this.error.set(
+        outcomeUnknown(error)
+          ? `No sabemos si el pago se registró: ${noAnswerReason(error)} Vuelve a pulsar «Registrar pago» sin cambiar nada: si ya había entrado, no se registra dos veces.`
+          : describeError(error, 'No pudimos registrar el pago. Inténtalo de nuevo.'),
+      );
       this.refused.emit();
     } finally {
       this.saving.set(false);

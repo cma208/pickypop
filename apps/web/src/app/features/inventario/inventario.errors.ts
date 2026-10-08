@@ -1,4 +1,4 @@
-import { friendlyError } from '../../core/friendly-error';
+import { friendlyError, UserFacingError } from '../../core/friendly-error';
 
 /**
  * Same sentence `friendlyError` gives for a unique violation it knows nothing
@@ -6,6 +6,9 @@ import { friendlyError } from '../../core/friendly-error';
  * instead of copying the text here.
  */
 const GENERIC_DUPLICATE = friendlyError({ code: '23505' }, '');
+
+/** What is said when a request got no answer that explains itself. */
+const NO_ANSWER = 'La respuesta del servidor no llegó.';
 
 /**
  * Turns a Supabase / network failure into a sentence a person at the workshop
@@ -23,4 +26,27 @@ export function describeError(error: unknown, fallback: string, duplicate?: stri
 
   const message = friendlyError(error, fallback);
   return duplicate && message === GENERIC_DUPLICATE ? duplicate : message;
+}
+
+/**
+ * Whether a failed request may have been carried out anyway.
+ *
+ * A refusal from the database comes back with a code: a Postgres one (P0001,
+ * 23514, 42501…) or PostgREST's (PGRST…). The transaction was rolled back and
+ * nothing was written, so «No se guardó nada» is true. A request that got no
+ * such answer — no connection, the answer lost on the way back, a gateway page
+ * instead of JSON — comes back with an empty code or none: the database may
+ * well have written it and committed. Saying «No se guardó nada» then is how a
+ * purchase gets registered twice; the screen has to say it does not know, and
+ * ask again with the same key.
+ */
+export function outcomeUnknown(error: unknown): boolean {
+  if (error instanceof UserFacingError) return false;
+  const code = (error as { code?: unknown } | null | undefined)?.code;
+  return typeof code !== 'string' || code.trim() === '';
+}
+
+/** Why the answer did not arrive, in the words `friendlyError` uses for it. */
+export function noAnswerReason(error: unknown): string {
+  return describeError(error, NO_ANSWER);
 }

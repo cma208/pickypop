@@ -71,6 +71,22 @@ const submit = (fixture: ComponentFixture<CompraPago>) => internals(fixture).sub
 const text = (fixture: ComponentFixture<CompraPago>) =>
   (fixture.nativeElement.textContent ?? '').replace(/\s+/g, ' ').trim();
 
+/** Types into the amount the way a person does: the control ends up dirty. */
+function typeAmount(fixture: ComponentFixture<CompraPago>, value: number): void {
+  const input = fixture.nativeElement.querySelector('input[formcontrolname="amount"]') as HTMLInputElement;
+  input.value = String(value);
+  input.dispatchEvent(new Event('input'));
+}
+
+const amountOf = (fixture: ComponentFixture<CompraPago>) =>
+  (internals(fixture).form.controls.amount as unknown as { value: number | null }).value;
+
+/** What the list hands over after reloading: always a new object. */
+function reload(fixture: ComponentFixture<CompraPago>, pending: number): void {
+  fixture.componentRef.setInput('purchase', { ...PURCHASE, paid: PURCHASE.total - pending, pending });
+  fixture.detectChanges();
+}
+
 describe('CompraPago', () => {
   it('pays once when «Registrar pago» is clicked twice in a row (T1-01)', async () => {
     let finish: () => void = () => undefined;
@@ -142,5 +158,67 @@ describe('CompraPago', () => {
 
     expect(calls.length).toBe(0);
     expect(text(fixture)).toContain('No puede pasar de lo que falta');
+  });
+
+  it('keeps the typed amount and its key when the list reloads after a refusal', async () => {
+    const refusal = { code: 'P0001', message: 'La cuenta Yape está desactivada.' };
+    let refuse = true;
+    const opened = open(async () => {
+      if (refuse) throw refusal;
+    });
+    form(opened.fixture).controls.accountId.setValue('cash');
+    typeAmount(opened.fixture, 10);
+
+    await submit(opened.fixture);
+    // compras.page reloads the list: same purchase, new object, same debt.
+    reload(opened.fixture, 170);
+    expect(amountOf(opened.fixture)).toBe(10);
+    expect(opened.fixture.nativeElement.textContent).toContain('La cuenta Yape está desactivada.');
+
+    refuse = false;
+    await submit(opened.fixture);
+
+    expect(opened.calls.map(([input]) => input.amount)).toEqual([10, 10]);
+    expect(opened.calls[1]?.[1]).toBe(opened.calls[0]?.[1]);
+  });
+
+  it('says it does not know when the answer was lost, and retries the same payment with the same key (T1-01)', async () => {
+    let lose = true;
+    const opened = open(async () => {
+      // What postgrest-js returns when fetch throws: an empty code.
+      if (lose) throw { code: '', message: 'TypeError: Failed to fetch' };
+    });
+    form(opened.fixture).controls.accountId.setValue('cash');
+    typeAmount(opened.fixture, 10);
+
+    await submit(opened.fixture);
+    opened.fixture.detectChanges();
+    expect(text(opened.fixture)).toContain('No sabemos si el pago se registró');
+    expect(text(opened.fixture)).not.toContain('No pudimos registrar el pago');
+
+    // The payment had gone in: the reload says 160 are left. The 10 stays.
+    reload(opened.fixture, 160);
+    expect(amountOf(opened.fixture)).toBe(10);
+
+    lose = false;
+    await submit(opened.fixture);
+
+    expect(opened.calls.map(([input]) => input.amount)).toEqual([10, 10]);
+    expect(opened.calls[1]?.[1]).toBe(opened.calls[0]?.[1]);
+  });
+
+  it('follows what is owed while nothing was typed, and again after a payment went through', async () => {
+    const opened = open(async () => undefined);
+    expect(amountOf(opened.fixture)).toBe(170);
+
+    reload(opened.fixture, 150);
+    expect(amountOf(opened.fixture)).toBe(150);
+
+    form(opened.fixture).controls.accountId.setValue('cash');
+    typeAmount(opened.fixture, 50);
+    await submit(opened.fixture);
+    reload(opened.fixture, 100);
+
+    expect(amountOf(opened.fixture)).toBe(100);
   });
 });
