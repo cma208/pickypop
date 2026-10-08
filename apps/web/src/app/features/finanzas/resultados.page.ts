@@ -31,10 +31,15 @@ const ALL_YEARS = '';
     <pp-page title="Resultados" subtitle="Ventas menos costo de ventas y gastos, más otros ingresos, mes a mes">
       <div class="explainer">
         <p>
+          <strong>El costo de ventas es lo que de verdad costó lo vendido.</strong> Lo entregado cuesta lo que
+          salió del estante: piezas, insumos y empaque a lo que valían, más la mano de obra de armar y empacar. Lo
+          que falta entregar de un pedido va a su costo estimado hasta que se entregue. Una venta suelta ya no
+          carga el costo de un lote entero.
+        </p>
+        <p>
           <strong>Las compras de inventario no restan de la utilidad.</strong> Lo comprado llega al costo de
-          ventas cuando se vende lo que se hizo con ello: el costo de ventas es lo que cuesta hacer cada cosa
-          vendida según su receta, y restar además las compras lo contaría dos veces. Mientras tanto sigue en el
-          estante, así que se informa aparte.
+          ventas cuando se vende lo que se hizo con ello, y restar además las compras lo contaría dos veces.
+          Mientras tanto sigue en el estante, así que se informa aparte.
         </p>
         <p>
           <strong>Los aportes y los retiros del dueño son capital, no utilidad.</strong> Meter o sacar
@@ -140,7 +145,7 @@ const ALL_YEARS = '';
                 <ul class="lines">
                   <li><span>Ventas</span><span class="value">{{ row.sales | money }}</span></li>
                   <li>
-                    <span>Costo de ventas <small class="sub">lo que cuesta hacer lo vendido, según su receta: material, insumos, empaque, luz, máquina y mano de obra</small></span>
+                    <span>Costo de ventas <small class="sub">lo que costó lo vendido: lo entregado, a lo que salió del estante (material, insumos, empaque, luz, máquina y mano de obra); lo que falta entregar, a su estimado</small></span>
                     <span class="value" [class.neg]="row.costOfSales > 0">{{ minus(row.costOfSales) }}{{ row.costOfSales | money }}</span>
                   </li>
                   <li class="sum"><span>Utilidad bruta</span><span class="value">{{ row.grossProfit | money }}</span></li>
