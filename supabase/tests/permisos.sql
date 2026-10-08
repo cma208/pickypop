@@ -61,11 +61,14 @@ create function pg_temp.ledgers() returns text[] language sql immutable as $$
 $$;
 
 -- Tables that, like a ledger, are only appended to, without being one: an
--- idempotency key names one payment for good (order_payment_keys, from
--- ventas). The service key keeps its rights on them. A table that is not
--- there yet is simply not in the loop.
+-- idempotency key names one payment or one movement for good
+-- (order_payment_keys, from ventas; purchase_payment_requests and
+-- item_movement_requests, from compras). Whether the service key keeps its
+-- rights on them is up to the area that owns them; here only the API roles
+-- of a person are checked. A table that is not there yet is simply not in
+-- the loop.
 create function pg_temp.append_only() returns text[] language sql immutable as $$
-  select array['order_payment_keys']
+  select array['item_movement_requests', 'order_payment_keys', 'purchase_payment_requests']
 $$;
 
 create function pg_temp.expected(p_table text, p_cmd text, p_who text) returns boolean
