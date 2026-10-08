@@ -3,11 +3,15 @@ import { Badge, Empty, FORMAT_PIPES } from '../../ui';
 import { todayLocal } from '../../core/dates';
 import { friendlyError } from '../../core/friendly-error';
 import { SECTION_STYLES } from '../../core/styles';
+import { CurrentWorkspace } from '../../core/workspace';
 import { ComponentForm } from './component-form';
 import { ImpresorasData } from './impresoras.data';
 import { COMPONENT_LABELS, type ComponentRecord } from './impresoras.models';
 
-/** Parts installed on the printer, and how many hours each one has been running. */
+/**
+ * Parts installed on the printer, and how many hours each one has been
+ * running. The printer's parts are its configuration: the owner's (ADR-025).
+ */
 @Component({
   selector: 'app-components-tab',
   imports: [Badge, Empty, ComponentForm, FORMAT_PIPES],
@@ -15,7 +19,7 @@ import { COMPONENT_LABELS, type ComponentRecord } from './impresoras.models';
   template: `
     <div class="toolbar">
       <span class="grow muted">Boquilla, placa y demás: cuándo entraron y cuánto llevan puestos.</span>
-      @if (!formOpen()) {
+      @if (isOwner() && !formOpen()) {
         <button type="button" (click)="formOpen.set(true)">Instalar componente</button>
       }
     </div>
@@ -57,7 +61,7 @@ import { COMPONENT_LABELS, type ComponentRecord } from './impresoras.models';
             <p class="muted">
               Instalado el {{ component.installedOn | fecha }}, con {{ component.hoursAtInstall }} h en la máquina.
             </p>
-            @if (!component.retiredOn) {
+            @if (isOwner() && !component.retiredOn) {
               <div class="actions">
                 <button type="button" class="secondary" [disabled]="busy()" (click)="retire(component)">
                   Marcar como retirado
@@ -72,6 +76,8 @@ import { COMPONENT_LABELS, type ComponentRecord } from './impresoras.models';
 })
 export class ComponentsTab {
   private readonly data = inject(ImpresorasData);
+  private readonly workspace = inject(CurrentWorkspace);
+  protected readonly isOwner = this.workspace.isOwner;
 
   readonly printerId = input.required<string>();
   readonly currentHours = input.required<number>();
@@ -94,6 +100,7 @@ export class ComponentsTab {
   }
 
   protected async retire(component: ComponentRecord): Promise<void> {
+    if (this.busy()) return;
     const name = COMPONENT_LABELS[component.kind].toLowerCase();
     if (!confirm(`¿Marcar ${name} como retirado? Ya no contará horas puestas.`)) return;
 
@@ -104,6 +111,7 @@ export class ComponentsTab {
       this.changed.emit();
     } catch (error) {
       this.error.set(friendlyError(error, 'No pudimos retirar el componente.'));
+      await this.workspace.afterRefusal(error);
     } finally {
       this.busy.set(false);
     }

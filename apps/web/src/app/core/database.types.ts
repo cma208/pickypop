@@ -2714,6 +2714,9 @@ isOneToOne: false
         isOneToOne: true
         isSetofReturn: false
       } },
+"save_printer":
+{ Args: { "p_asset_cost": number,"p_avg_power_w": number,"p_expected_hours_per_year": number,"p_initial_hours": number,"p_maintenance_budget_per_year": number,"p_model"?: string,"p_name": string,"p_printer_id"?: string,"p_status"?: Database["public"]['Enums']["printer_status"],"p_useful_life_hours": number,"p_workspace_id"?: string }; Returns: string
+                           },
 "set_opportunity_stage":
 { Args: { "p_opportunity": string,"p_reason"?: string,"p_stage": Database["public"]['Enums']["opportunity_stage"] }; Returns: {
               "blocked_at": string | null,

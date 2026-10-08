@@ -1,5 +1,5 @@
 import { Component, inject, signal } from '@angular/core';
-import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { AsyncState, Badge, Card, Empty, Field } from '../../ui';
 import { ConfiguracionData } from './configuracion.data';
 import {
@@ -9,11 +9,16 @@ import {
   type GiftCategoryRecord,
   type GiftTreatment,
 } from './configuracion.models';
-import { errorOf } from '../../core/form-errors';
+import { errorOf, requiredText } from '../../core/form-errors';
 import { friendlyError } from '../../core/friendly-error';
 import { SECTION_STYLES } from '../../core/styles';
+import { isOwnerRole } from '../../core/workspace';
 
-/** Gift categories and how the money of each one is treated. */
+/**
+ * Gift categories and how the money of each one is treated. The treatment
+ * decides where a gift's cost lands in the results (marketing, an owner's
+ * draw), so it is configuration: only the owner changes it (ADR-025).
+ */
 @Component({
   selector: 'app-gift-categories-section',
   imports: [ReactiveFormsModule, Card, Field, Badge, Empty, AsyncState],
@@ -24,12 +29,19 @@ import { SECTION_STYLES } from '../../core/styles';
         <p class="muted">
           Cuando un pedido es un regalo se elige una categoría; el tratamiento define cómo se cuenta ese costo.
         </p>
-        <div class="toolbar">
-          <button type="button" [class.secondary]="formOpen()" (click)="open(null)">+ Nueva categoría</button>
-        </div>
+        @if (canEdit()) {
+          <div class="toolbar">
+            <button type="button" [class.secondary]="formOpen()" (click)="open(null)">+ Nueva categoría</button>
+          </div>
+        } @else {
+          <p class="notice warn">Solo el dueño del taller puede cambiar las categorías de regalo. Aquí las ves en modo lectura.</p>
+        }
 
         @if (notice(); as text) {
           <p class="notice" role="status">{{ text }}</p>
+        }
+        @if (listError(); as message) {
+          <p class="error" role="alert">{{ message }}</p>
         }
 
         @if (formOpen()) {
@@ -66,9 +78,11 @@ import { SECTION_STYLES } from '../../core/styles';
                   <pp-badge tone="info">{{ labels[category.treatment] }}</pp-badge>
                 </header>
                 <p class="muted">{{ help[category.treatment] }}</p>
-                <div class="actions">
-                  <button type="button" class="secondary" (click)="open(category)">Editar</button>
-                </div>
+                @if (canEdit()) {
+                  <div class="actions">
+                    <button type="button" class="secondary" (click)="open(category)">Editar</button>
+                  </div>
+                }
               </li>
             }
           </ul>
@@ -87,14 +101,16 @@ export class GiftCategoriesSection {
   protected readonly categories = signal<GiftCategoryRecord[]>([]);
   protected readonly loading = signal(true);
   protected readonly loadError = signal<string | null>(null);
+  protected readonly canEdit = signal(false);
   protected readonly formOpen = signal(false);
   protected readonly editing = signal<GiftCategoryRecord | null>(null);
   protected readonly saving = signal(false);
   protected readonly error = signal<string | null>(null);
   protected readonly notice = signal<string | null>(null);
+  protected readonly listError = signal<string | null>(null);
 
   protected readonly form = new FormGroup({
-    name: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
+    name: new FormControl('', { nonNullable: true, validators: [requiredText] }),
     treatment: new FormControl<GiftTreatment>('other', { nonNullable: true }),
   });
 
@@ -106,6 +122,7 @@ export class GiftCategoriesSection {
     this.form.reset({ name: category?.name ?? '', treatment: category?.treatment ?? 'other' });
     this.error.set(null);
     this.notice.set(null);
+    this.listError.set(null);
     this.editing.set(category);
     this.formOpen.set(true);
   }
@@ -115,8 +132,9 @@ export class GiftCategoriesSection {
   }
 
   protected async submit(): Promise<void> {
+    if (this.saving()) return;
     this.form.markAllAsTouched();
-    if (this.form.invalid || this.saving()) return;
+    if (this.form.invalid) return;
 
     this.saving.set(true);
     this.error.set(null);
@@ -128,6 +146,11 @@ export class GiftCategoriesSection {
       await this.reload();
     } catch (error) {
       this.error.set(friendlyError(error, 'No pudimos guardar la categoría.'));
+      if (await this.data.afterRefusal(error)) {
+        this.formOpen.set(false);
+        this.listError.set(this.error());
+        await this.reload();
+      }
     } finally {
       this.saving.set(false);
     }
@@ -135,7 +158,9 @@ export class GiftCategoriesSection {
 
   private async reload(): Promise<void> {
     try {
-      this.categories.set(await this.data.giftCategories());
+      const [categories, role] = await Promise.all([this.data.giftCategories(), this.data.currentRole()]);
+      this.categories.set(categories);
+      this.canEdit.set(isOwnerRole(role));
       this.loadError.set(null);
     } catch (error) {
       this.loadError.set(friendlyError(error, 'No pudimos cargar las categorías de regalo.'));

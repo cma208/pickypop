@@ -3,11 +3,13 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { map, startWith } from 'rxjs';
 import { Field, FORMAT_PIPES } from '../../ui';
-import { errorOf, textOrNull } from '../../core/form-errors';
+import { errorOf, maxDecimals, requiredText, textOrNull } from '../../core/form-errors';
 import { friendlyError } from '../../core/friendly-error';
 import { SECTION_STYLES } from '../../core/styles';
+import { CurrentWorkspace } from '../../core/workspace';
 import { ImpresorasData } from './impresoras.data';
 import {
+  PRINTER_LIMITS,
   PRINTER_STATE_LABELS,
   type PrinterRecord,
   type PrinterState,
@@ -15,6 +17,17 @@ import {
 import { previewMachineRate } from './printer-rate';
 
 const STATES = Object.keys(PRINTER_STATE_LABELS) as PrinterState[];
+
+const MAX_POWER_W = PRINTER_LIMITS.powerW;
+const MAX_HOURS = PRINTER_LIMITS.hours;
+const MAX_HOURS_PER_YEAR = PRINTER_LIMITS.hoursPerYear;
+const MAX_MONEY = PRINTER_LIMITS.money;
+
+const POSITIVE_MAX_MESSAGES = {
+  expectedHoursPerYear: 'Un año tiene como mucho 8784 horas.',
+  assetCost: 'No puede pasar de S/ 9,999,999,999.99.',
+  usefulLifeHours: 'No puede pasar de 99,999,999.99 horas.',
+} as const;
 
 /**
  * Register or edit a printer together with its asset. The asset is not an
@@ -138,6 +151,8 @@ const STATES = Object.keys(PRINTER_STATE_LABELS) as PrinterState[];
 })
 export class PrinterForm implements OnInit {
   private readonly data = inject(ImpresorasData);
+  /** A refusal of the role reads it again, so the tabs stop offering what the database denies. */
+  private readonly workspace = inject(CurrentWorkspace);
 
   /** Null to register a new one. */
   readonly printer = input<PrinterRecord | null>(null);
@@ -150,15 +165,45 @@ export class PrinterForm implements OnInit {
   protected readonly error = signal<string | null>(null);
 
   protected readonly form = new FormGroup({
-    name: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
+    name: new FormControl('', { nonNullable: true, validators: [requiredText] }),
     model: new FormControl('', { nonNullable: true }),
     status: new FormControl<PrinterState>('active', { nonNullable: true }),
-    initialHours: new FormControl<number | null>(0, [Validators.required, Validators.min(0)]),
-    avgPowerW: new FormControl<number | null>(null, [Validators.required, Validators.min(0)]),
-    expectedHoursPerYear: new FormControl<number | null>(null, [Validators.required, Validators.min(0.01)]),
-    maintenanceBudgetPerYear: new FormControl<number | null>(null, [Validators.required, Validators.min(0)]),
-    assetCost: new FormControl<number | null>(null, [Validators.required, Validators.min(0.01)]),
-    usefulLifeHours: new FormControl<number | null>(null, [Validators.required, Validators.min(0.01)]),
+    initialHours: new FormControl<number | null>(0, [
+      Validators.required,
+      Validators.min(0),
+      Validators.max(MAX_HOURS),
+      maxDecimals(2),
+    ]),
+    avgPowerW: new FormControl<number | null>(null, [
+      Validators.required,
+      Validators.min(0),
+      Validators.max(MAX_POWER_W),
+      maxDecimals(2),
+    ]),
+    expectedHoursPerYear: new FormControl<number | null>(null, [
+      Validators.required,
+      Validators.min(0.01),
+      Validators.max(MAX_HOURS_PER_YEAR),
+      maxDecimals(2),
+    ]),
+    maintenanceBudgetPerYear: new FormControl<number | null>(null, [
+      Validators.required,
+      Validators.min(0),
+      Validators.max(MAX_MONEY),
+      maxDecimals(2),
+    ]),
+    assetCost: new FormControl<number | null>(null, [
+      Validators.required,
+      Validators.min(0.01),
+      Validators.max(MAX_MONEY),
+      maxDecimals(2),
+    ]),
+    usefulLifeHours: new FormControl<number | null>(null, [
+      Validators.required,
+      Validators.min(0.01),
+      Validators.max(MAX_HOURS),
+      maxDecimals(2),
+    ]),
   });
 
   private readonly values = toSignal(
@@ -206,6 +251,8 @@ export class PrinterForm implements OnInit {
     return errorOf(this.form.controls[control], {
       required: 'Indica las horas iniciales (0 si es nueva).',
       min: 'Las horas no pueden ser negativas.',
+      max: 'No puede pasar de 99,999,999.99 horas.',
+      decimals: 'Usa como mucho 2 decimales.',
     });
   }
 
@@ -213,6 +260,8 @@ export class PrinterForm implements OnInit {
     return errorOf(this.form.controls[control], {
       required: 'Indica un valor (0 si no aplica).',
       min: 'No puede ser negativo.',
+      max: control === 'avgPowerW' ? 'No puede pasar de 999,999.99 W.' : 'No puede pasar de S/ 9,999,999,999.99.',
+      decimals: 'Usa como mucho 2 decimales.',
     });
   }
 
@@ -223,12 +272,15 @@ export class PrinterForm implements OnInit {
     return errorOf(this.form.controls[control], {
       required: requiredMessage,
       min: 'Debe ser mayor que 0.',
+      max: POSITIVE_MAX_MESSAGES[control],
+      decimals: 'Usa como mucho 2 decimales.',
     });
   }
 
   protected async submit(): Promise<void> {
+    if (this.saving()) return;
     this.form.markAllAsTouched();
-    if (this.form.invalid || this.saving()) return;
+    if (this.form.invalid) return;
 
     const value = this.form.getRawValue();
     this.saving.set(true);
@@ -248,7 +300,9 @@ export class PrinterForm implements OnInit {
       });
       this.saved.emit(id);
     } catch (error) {
-      this.error.set(friendlyError(error, 'No pudimos guardar la impresora. Inténtalo de nuevo.'));
+      // Nothing was saved, asset included: save_printer is all or nothing.
+      this.error.set(friendlyError(error, 'No pudimos guardar la impresora. No se guardó nada.'));
+      await this.workspace.afterRefusal(error);
     } finally {
       this.saving.set(false);
     }

@@ -1,13 +1,20 @@
 import { Component, inject, signal } from '@angular/core';
-import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { AsyncState, Badge, Card, Empty, Field } from '../../ui';
 import { ConfiguracionData } from './configuracion.data';
 import type { BrandRecord } from './configuracion.models';
-import { errorOf } from '../../core/form-errors';
+import { errorOf, requiredText } from '../../core/form-errors';
 import { friendlyError } from '../../core/friendly-error';
 import { SECTION_STYLES } from '../../core/styles';
+import { canOperateRole } from '../../core/workspace';
 
-/** Filament brands. They are deactivated, never deleted: a SKU may still point at one. */
+/**
+ * Filament brands. They are deactivated, never deleted: a SKU may still point at one.
+ *
+ * Owner and operator keep them, like the rest of the catalogue: buying a new
+ * filament needs its brand and material, and the purchase screen creates them
+ * on the spot (ADR-025). A viewer only reads.
+ */
 @Component({
   selector: 'app-brands-section',
   imports: [ReactiveFormsModule, Card, Field, Badge, Empty, AsyncState],
@@ -20,7 +27,7 @@ import { SECTION_STYLES } from '../../core/styles';
           sin perder su historial.
         </p>
         @if (!canEdit()) {
-          <p class="notice warn">Solo el dueño del taller puede cambiar las marcas. Aquí las ves en modo lectura.</p>
+          <p class="notice warn">Tu rol es de solo lectura: aquí ves las marcas sin poder cambiarlas.</p>
         }
         <div class="toolbar">
           @if (canEdit()) {
@@ -89,7 +96,7 @@ export class BrandsSection {
   protected readonly listError = signal<string | null>(null);
 
   protected readonly form = new FormGroup({
-    name: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
+    name: new FormControl('', { nonNullable: true, validators: [requiredText] }),
   });
 
   constructor() {
@@ -108,8 +115,9 @@ export class BrandsSection {
   }
 
   protected async submit(): Promise<void> {
+    if (this.saving()) return;
     this.form.markAllAsTouched();
-    if (this.form.invalid || this.saving()) return;
+    if (this.form.invalid) return;
 
     const editing = this.editing();
     this.saving.set(true);
@@ -124,6 +132,11 @@ export class BrandsSection {
       await this.reload();
     } catch (error) {
       this.error.set(friendlyError(error, 'No pudimos guardar la marca.'));
+      if (await this.data.afterRefusal(error)) {
+        this.formOpen.set(false);
+        this.listError.set(this.error());
+        await this.reload();
+      }
     } finally {
       this.saving.set(false);
     }
@@ -140,6 +153,7 @@ export class BrandsSection {
       await this.reload();
     } catch (error) {
       this.listError.set(friendlyError(error, 'No pudimos cambiar el estado de la marca.'));
+      if (await this.data.afterRefusal(error)) await this.reload();
     } finally {
       this.saving.set(false);
     }
@@ -149,7 +163,7 @@ export class BrandsSection {
     try {
       const [brands, role] = await Promise.all([this.data.brands(), this.data.currentRole()]);
       this.brands.set(brands);
-      this.canEdit.set(role === 'owner');
+      this.canEdit.set(canOperateRole(role));
       this.loadError.set(null);
     } catch (error) {
       this.loadError.set(friendlyError(error, 'No pudimos cargar las marcas.'));

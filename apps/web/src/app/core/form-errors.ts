@@ -1,4 +1,5 @@
 import type { AbstractControl, ValidationErrors } from '@angular/forms';
+import { nowForInput, todayLocal } from './dates';
 
 /**
  * Returns the message for the first error of a control, but only once the
@@ -18,6 +19,57 @@ export function errorOf(
 export function textOrNull(value: string | null | undefined): string | null {
   const trimmed = (value ?? '').trim();
   return trimmed === '' ? null : trimmed;
+}
+
+/**
+ * Like Validators.required, but a text of only spaces is empty too: the
+ * database refuses a blank name, and the error would come back without
+ * pointing at the field. It reports `required`, so the messages a form
+ * already has for that key keep working.
+ */
+export function requiredText(control: AbstractControl): ValidationErrors | null {
+  const value: unknown = control.value;
+  if (value === null || value === undefined) return { required: true };
+  return typeof value === 'string' && value.trim() === '' ? { required: true } : null;
+}
+
+/** Pieces, minutes and days are counted whole. Empty is left to `required`. */
+export function wholeNumber(control: AbstractControl): ValidationErrors | null {
+  const value: unknown = control.value;
+  if (value === null || value === undefined || value === '') return null;
+  return Number.isInteger(Number(value)) ? null : { integer: true };
+}
+
+/** 0.07 × 100 is 7.000000000000001 in floating point, and is still two decimals. */
+const ROUNDING_SLACK = 1e-6;
+
+/**
+ * No more decimals than the column keeps. The database rounds the rest
+ * without a word: 15.00499999 became 15.00 and nobody was told (T1-18).
+ */
+export function maxDecimals(decimals: number) {
+  const scale = 10 ** decimals;
+  return (control: AbstractControl): ValidationErrors | null => {
+    const value: unknown = control.value;
+    if (value === null || value === undefined || value === '') return null;
+    const scaled = Number(value) * scale;
+    return Math.abs(Math.round(scaled) - scaled) > ROUNDING_SLACK ? { decimals } : null;
+  };
+}
+
+/** "2026-10-08" is ten characters; a datetime-local value is longer. */
+const DATE_ONLY_LENGTH = 10;
+
+/**
+ * What is being recorded already happened: a date ("2026-10-08") may not be
+ * after the workshop's today, a datetime-local ("2026-10-08T14:30") not after
+ * this minute in Lima. Both formats compare as text.
+ */
+export function notInFuture(control: AbstractControl): ValidationErrors | null {
+  const value: unknown = control.value;
+  if (typeof value !== 'string' || value === '') return null;
+  const limit = value.length <= DATE_ONLY_LENGTH ? todayLocal() : nowForInput();
+  return value > limit ? { future: true } : null;
 }
 
 /** At least one of the two numeric controls must hold a value. */

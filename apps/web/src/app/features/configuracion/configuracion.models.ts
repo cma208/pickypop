@@ -16,10 +16,9 @@ export interface WorkshopRecord {
   legalName: string | null;
 }
 
+/** Currency and time zone are not here: the app only knows soles and Lima time (T1-23). */
 export interface WorkshopDraft {
   name: string;
-  currency: string;
-  timezone: string;
   taxRegime: TaxRegime;
   ruc: string | null;
   legalName: string | null;
@@ -124,10 +123,12 @@ export const ROLE_LABELS: Record<MemberRole, string> = {
   viewer: 'Solo lectura',
 };
 
+/** What each role may do (ADR-025). The database enforces it; this only says it. */
 export const ROLE_HELP: Record<MemberRole, string> = {
-  owner: 'Puede cambiar la configuración y borrar datos.',
-  operator: 'Registra compras, pedidos e impresiones.',
-  viewer: 'Solo consulta.',
+  owner: 'Todo lo del operador, y además cambia la configuración, anula movimientos de dinero y borra lo que se puede borrar.',
+  operator:
+    'El día a día: imprime, arma y cuenta el estante, compra, vende, entrega, cobra y lleva el catálogo. No cambia la configuración ni anula movimientos.',
+  viewer: 'Solo consulta: ve todo y no registra nada.',
 };
 
 export const ROLES = Object.keys(ROLE_LABELS) as MemberRole[];
@@ -160,18 +161,14 @@ export const TREATMENT_HELP: Record<GiftTreatment, string> = {
 
 export const TREATMENTS = Object.keys(TREATMENT_LABELS) as GiftTreatment[];
 
-export const TIMEZONES = [
-  'America/Lima',
-  'America/Bogota',
-  'America/Guayaquil',
-  'America/La_Paz',
-  'America/Santiago',
-  'America/Argentina/Buenos_Aires',
-  'America/Mexico_City',
-  'UTC',
-];
-
-export const CURRENCIES = ['PEN', 'USD'];
+/**
+ * What every screen formats money and dates with (core/format.ts and
+ * core/dates.ts). The workshop row can say otherwise, but nothing would follow
+ * it, so Configuración shows these and does not offer to change them.
+ */
+export const APP_CURRENCY = 'PEN';
+export const APP_CURRENCY_LABEL = 'Soles (PEN)';
+export const APP_TIMEZONE_LABEL = 'Hora de Lima (America/Lima)';
 
 export const RUC_PATTERN = /^[0-9]{11}$/;
 

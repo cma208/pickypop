@@ -22,7 +22,7 @@ const HOURS = new Intl.NumberFormat('es-PE', { maximumFractionDigits: 1 });
   `,
   template: `
     <pp-page title="Impresoras y mantenimiento" subtitle="Horas, hora de máquina, qué toca revisar y qué ha fallado">
-      @if (workshop()) {
+      @if (workshop() && isOwner()) {
         <button actions type="button" [hidden]="formOpen()" (click)="openForm(null)">Nueva impresora</button>
       }
       <pp-async [loading]="loading()" [error]="error()">
@@ -35,9 +35,13 @@ const HOURS = new Intl.NumberFormat('es-PE', { maximumFractionDigits: 1 });
           }
           @if (data.printers.length === 0) {
             @if (!formOpen()) {
-              <pp-empty message="Aún no hay impresoras registradas en el taller. Registra la primera para poder calcular la hora de máquina de las cotizaciones.">
-                <button type="button" (click)="openForm(null)">Registrar la primera impresora</button>
-              </pp-empty>
+              @if (isOwner()) {
+                <pp-empty message="Aún no hay impresoras registradas en el taller. Registra la primera para poder calcular la hora de máquina de las cotizaciones.">
+                  <button type="button" (click)="openForm(null)">Registrar la primera impresora</button>
+                </pp-empty>
+              } @else {
+                <pp-empty message="Aún no hay impresoras registradas en el taller. Las registra el dueño del taller." />
+              }
             }
           } @else {
             @if (data.printers.length > 1) {
@@ -85,6 +89,8 @@ export class ImpresorasPage {
   protected readonly loading = signal(true);
   protected readonly error = signal<string | null>(null);
   protected readonly selectedId = signal<string | null>(null);
+  /** Registering and changing printers is configuration: the owner's (ADR-025). */
+  protected readonly isOwner = this.workspace.isOwner;
 
   protected readonly formOpen = signal(false);
   /** Null inside the list means "a new printer"; a record means editing it. */

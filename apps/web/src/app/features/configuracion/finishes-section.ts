@@ -1,14 +1,19 @@
 import { Component, inject, signal } from '@angular/core';
-import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { AsyncState, Badge, Card, Empty, Field } from '../../ui';
 import { ConfiguracionData } from './configuracion.data';
 import type { FinishRecord } from './configuracion.models';
-import { errorOf } from '../../core/form-errors';
+import { errorOf, requiredText } from '../../core/form-errors';
 import { friendlyError } from '../../core/friendly-error';
 import { SECTION_STYLES } from '../../core/styles';
+import { canOperateRole } from '../../core/workspace';
 
 /**
  * Filament finishes: Basic, Matte, Silk, Glow…
+ *
+ * Owner and operator keep them, like the rest of the catalogue: buying a new
+ * filament needs its brand and material, and the purchase screen creates them
+ * on the spot (ADR-025). A viewer only reads.
  *
  * They were part of the master data milestone and stayed half done: the screen
  * said it managed them, the error messages for a repeated name were already
@@ -31,7 +36,7 @@ import { SECTION_STYLES } from '../../core/styles';
           se desactiva y deja de ofrecerse sin perder su historial.
         </p>
         @if (!canEdit()) {
-          <p class="notice warn">Solo el dueño del taller puede cambiar los acabados. Aquí los ves en modo lectura.</p>
+          <p class="notice warn">Tu rol es de solo lectura: aquí ves los acabados sin poder cambiarlos.</p>
         }
         <div class="toolbar">
           @if (canEdit()) {
@@ -105,7 +110,7 @@ export class FinishesSection {
   protected readonly listError = signal<string | null>(null);
 
   protected readonly form = new FormGroup({
-    name: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
+    name: new FormControl('', { nonNullable: true, validators: [requiredText] }),
     abrasive: new FormControl(false, { nonNullable: true }),
   });
 
@@ -125,8 +130,9 @@ export class FinishesSection {
   }
 
   protected async submit(): Promise<void> {
+    if (this.saving()) return;
     this.form.markAllAsTouched();
-    if (this.form.invalid || this.saving()) return;
+    if (this.form.invalid) return;
 
     const editing = this.editing();
     this.saving.set(true);
@@ -142,6 +148,11 @@ export class FinishesSection {
       await this.reload();
     } catch (error) {
       this.error.set(friendlyError(error, 'No pudimos guardar el acabado.'));
+      if (await this.data.afterRefusal(error)) {
+        this.formOpen.set(false);
+        this.listError.set(this.error());
+        await this.reload();
+      }
     } finally {
       this.saving.set(false);
     }
@@ -158,6 +169,7 @@ export class FinishesSection {
       await this.reload();
     } catch (error) {
       this.listError.set(friendlyError(error, 'No pudimos cambiar el estado del acabado.'));
+      if (await this.data.afterRefusal(error)) await this.reload();
     } finally {
       this.saving.set(false);
     }
@@ -167,7 +179,7 @@ export class FinishesSection {
     try {
       const [finishes, role] = await Promise.all([this.data.finishes(), this.data.currentRole()]);
       this.finishes.set(finishes);
-      this.canEdit.set(role === 'owner');
+      this.canEdit.set(canOperateRole(role));
       this.loadError.set(null);
     } catch (error) {
       this.loadError.set(friendlyError(error, 'No pudimos cargar los acabados.'));

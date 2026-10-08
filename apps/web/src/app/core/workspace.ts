@@ -1,10 +1,25 @@
-import { inject, Injectable, signal } from '@angular/core';
+import { computed, inject, Injectable, signal } from '@angular/core';
 import type { Database } from './database.types';
-import { UserFacingError } from './friendly-error';
+import { isPermissionError, UserFacingError } from './friendly-error';
 import { SUPABASE } from './supabase';
 
 export type MemberRole = Database['public']['Enums']['member_role'];
 export type TaxRegime = Database['public']['Enums']['tax_regime'];
+
+/**
+ * Who may change what (ADR-025). The database enforces it; a screen reads it
+ * only to not offer what would be refused, and to say why.
+ *
+ * Only the owner changes the configuration and voids money.
+ */
+export function isOwnerRole(role: MemberRole | null | undefined): boolean {
+  return role === 'owner';
+}
+
+/** Owner and operator run the day to day; a viewer only reads. */
+export function canOperateRole(role: MemberRole | null | undefined): boolean {
+  return role === 'owner' || role === 'operator';
+}
 
 export interface WorkspaceInfo {
   id: string;
@@ -30,6 +45,10 @@ export class CurrentWorkspace {
   readonly name = signal<string | null>(null);
   readonly taxRegime = signal<TaxRegime | null>(null);
   readonly role = signal<MemberRole | null>(null);
+  /** The configuration and voiding money: owner only. */
+  readonly isOwner = computed(() => isOwnerRole(this.role()));
+  /** The day to day: owner or operator. */
+  readonly canOperate = computed(() => canOperateRole(this.role()));
 
   /** Resolves once and caches; safe to call from anywhere. */
   info(): Promise<WorkspaceInfo> {
@@ -55,6 +74,27 @@ export class CurrentWorkspace {
     this.name.set(null);
     this.taxRegime.set(null);
     this.role.set(null);
+  }
+
+  /**
+   * Reads the role again. After the database refuses something the screen
+   * offered, the role this tab remembers may be stale (the owner changed it
+   * in another tab): the screen asks again and stops offering it.
+   */
+  refresh(): Promise<WorkspaceInfo> {
+    this.pending = null;
+    return this.info();
+  }
+
+  /**
+   * What every screen does with a refusal: when the database said no to who
+   * is asking (not to what was written), the role is read again, so the
+   * screen stops offering it. Answers whether it was that kind of refusal.
+   */
+  async afterRefusal(error: unknown): Promise<boolean> {
+    if (!isPermissionError(error)) return false;
+    await this.refresh().catch(() => undefined);
+    return true;
   }
 
   private async load(): Promise<WorkspaceInfo> {

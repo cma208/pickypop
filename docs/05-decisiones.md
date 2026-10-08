@@ -475,6 +475,57 @@ El mes quedaba igual de rentable con o sin ellas. El costo de ventas era el esti
 
 ---
 
+## ADR-025 · Permisos e inmutabilidad
+
+**Estado:** Aceptada · 2026-10-08 · decisión del dueño sobre qué puede el operador (M9). Que «Solo lectura» solo lea (punto 1) lo pide el nombre que la pantalla de Miembros ya le daba; falta que el dueño lo confirme.
+
+**Contexto.** Los roles eran nombres sin contenido: cualquier miembro escribía en casi todo y el dueño, además, borraba. «Solo el dueño» vivía en unos botones escondidos, y la base dejaba al operador cambiar el horario y los parámetros de costo (T1-13). Por la API, cualquiera del taller podía cambiar el monto de un cobro, desanular un movimiento, reescribir el kardex o reabrir lo cerrado, y el dueño podía borrar movimientos de dinero y de stock (T1-02, T3-03, T5-01). Ocultar un botón no es seguridad, y un libro que se puede reescribir no es un libro (ADR-006, ADR-014).
+
+**Decisión.**
+
+1. **La matriz.**
+
+   | Rol | Puede |
+   |---|---|
+   | **Dueño** (`owner`) | Todo lo del operador; además la configuración, anular un movimiento de dinero y borrar donde ya se podía |
+   | **Operador** (`operator`) | El día a día: producir (trabajos de impresión, iniciarlos, cerrarlos, pesar rollos), armar y contar el estante, comprar (compras y sus pagos), vender (cotizar, pedidos, venta rápida, entregar y cancelar), cobrar, y crear y editar el catálogo |
+   | **Solo lectura** (`viewer`) | Ver todo; no registra nada |
+
+   **La configuración** son los parámetros de costo, el horario y los datos del taller, los canales de venta, las cuentas y sus aperturas, las categorías de dinero y de regalo (el tratamiento de un regalo decide dónde cae su costo en Resultados), los miembros, y las impresoras con sus activos, componentes y planes de mantenimiento. El mantenimiento hecho y los incidentes son del día a día.
+
+2. **La regla vive en la base.** Cada tabla tiene una de tres formas, y una tabla nueva usa la que le toca:
+   - `app.apply_workspace_rls`, **el día a día**: lee cualquier miembro, escriben dueño y operador (`app.can_operate`), borra el dueño.
+   - `app.apply_owner_rls`, **la configuración**: lee cualquier miembro, escribe el dueño.
+   - `app.apply_ledger_rls`, **los libros**: se leen y se agregan, nunca se cambian ni se borran.
+
+   Al actualizar, la política ve la fila con ser miembro y exige el rol en la fila que se escribe. Así, quien no puede recibe un error («new row violates row-level security policy») en vez de un cambio de cero filas que la pantalla creería hecho, y el operador puede bloquear una fila que no va a cambiar: iniciar un trabajo bloquea la impresora (`one_print_at_a_time`), que es configuración.
+
+3. **Los libros no se reescriben, ni siquiera el dueño.** `transactions`, `stock_movements`, `order_deliveries` y `order_delivery_lines` no tienen política de actualización ni de borrado, y `anon`, `authenticated` y `service_role` no tienen el privilegio: la API contesta «permission denied» y no hay forma de editarlos desde fuera. Las funciones que escriben esos libros solo insertan (`record_payment`, `deliver_order`, `complete_print_job`, `count_shelf`…), así que siguen funcionando para el operador. Un rollo o un artículo con movimientos ya no se puede borrar: el borrado en cascada se llevaba su kardex, y el disparador `stock_movements_are_permanent` lo impide. La consola SQL, sin usuario de la app, queda fuera de la regla: es la que arregla datos y borra un taller de prueba.
+
+4. **Cómo se anula el dinero.** Un movimiento se anula una sola vez, con motivo, y solo el dueño: lo hace `void_transaction`, una función `security definer` que exige el dueño y escribe solo la anulación. El movimiento desaparece de los saldos y de los reportes y queda en el registro. No se desanula ni se corrige: si se anuló por error, se registra de nuevo.
+
+5. **Cómo se corrige el stock.** Con otro movimiento: un pesaje del rollo (ajuste) o un conteo del estante (`count_shelf`), que deja por escrito qué cambió y por qué. Lo que ya no se usa se desactiva.
+
+6. **La pantalla no ofrece lo que la base va a negar.** El rol se lee de `CurrentWorkspace` (`isOwner`, `canOperate`, y `isOwnerRole` / `canOperateRole` para quien ya lo tiene): lo que el rol no puede, se oculta o se muestra con el porqué («Solo el dueño del taller puede…»). Si aun así la base lo niega (una pestaña vieja, un rol que cambió), `friendlyError` lo dice, y la pantalla vuelve a leer el rol con `CurrentWorkspace.afterRefusal(error)`, que distingue un «no» a quien pide de un «no» a lo que escribió. Cuando ni el dueño puede, el mensaje no dice «solo el dueño»: dice que el dinero se anula y el stock se corrige.
+
+   Una función que niega por el rol lo hace con el código de un permiso negado, no con `P0001`: `raise exception using errcode = 'insufficient_privilege', message = 'Solo el dueño del taller puede…'` (así `save_printer`). La pantalla reconoce el `42501`, vuelve a leer el rol y muestra la frase tal cual. Un borrado que la política no deja ver vuelve con cero filas, igual que uno de algo que ya no está: la pantalla mira si la fila sigue para saber cuál de los dos fue (`deleteCostProfile`).
+
+7. **El taller nunca se queda sin dueño.** La base rechaza quitarle el rol o sacar del taller al último (`workspace_members_keep_an_owner`).
+
+8. **Las versiones de los parámetros de costo** (ADR-006): una programada, que todavía no empezó, se corrige o se quita; la vigente y las anteriores ya costearon cotizaciones y armados y no se tocan; ninguna empieza antes de hoy. «Hoy» es el día del taller (`app.workspace_day`), no el del servidor.
+
+**Consecuencias.**
+
+- La prueba es `supabase/tests/permisos.sql`: crea su propio taller dentro de `begin … rollback`, evalúa la matriz entera para cada tabla, operación y persona, y prueba con filas reales los casos de los recorridos. Una tabla nueva que no sea del día a día va en su lista; si no, la prueba la marca.
+- La anulación de Caja no puede seguir siendo un `update` desde la pantalla: pasa a `void_transaction`. Tampoco el deshacer de una compra fallida, que borraba sus movimientos: la compra se guarda en una sola función, y si falla no queda nada que deshacer.
+- Marcar una categoría como de ventas ya no está abierto a todos (ADR-024 lo decía): las categorías son configuración.
+- Instalar o retirar un componente de la impresora es del dueño, aunque el cambio de boquilla lo haga el operador: lo registra en el mantenimiento.
+- La llave de servicio tampoco reescribe un libro. Un arreglo de datos se hace desde la consola SQL, con su motivo, y queda en el historial de Git como migración si hace falta repetirlo.
+- Las funciones `security definer` no pasan por estas políticas: cada una exige el rol que corresponde, como `void_transaction` exige el dueño. Las demás funciones del sistema son `security invoker` y heredan la matriz de quien las llama.
+- **Queda abierto:** el estante (ADR-020) todavía acepta un `insert` directo en `stock_movements` de una pieza o un producto, y en `order_deliveries`. `complete_print_job`, `assemble_product`, `count_shelf` y `deliver_order` son `security invoker` y escriben por la misma política que un POST a mano, así que la política no puede distinguirlos. Se cierra cuando esas funciones pasen a `security definer` exigiendo `app.can_operate` (producción y ventas): entonces la política de insert de `stock_movements` se limita a rollos, insumos, empaques y repuestos, y la de las entregas se quita. Mirar la pila de llamadas desde un disparador se probó y se descartó: depende de nombres de funciones de otras áreas y no ve una función `sql` integrada en la consulta.
+
+---
+
 ## Pendientes
 
 | Tema | Opciones | Comentario |

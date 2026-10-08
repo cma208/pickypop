@@ -10,7 +10,11 @@
 --   2. Cambia el correo de la línea de abajo por el tuyo.
 --   3. Pega todo esto en el SQL Editor del panel y ejecútalo.
 --
--- Se puede volver a ejecutar sin romper nada: lo que ya existe se respeta.
+-- Se puede volver a ejecutar sin romper nada: lo que ya existe se respeta,
+-- aunque alguien lo haya renombrado cambiando mayúsculas o espacios («PLIN»,
+-- «krear3d»): para la base es el mismo nombre (T1-11), así que cada insert
+-- usa «on conflict do nothing» sin nombrar la llave, y cada búsqueda compara
+-- sin mayúsculas.
 -- Carga solo configuración y datos de referencia. El stock, el catálogo y los
 -- pedidos los cargas tú desde la aplicación.
 
@@ -80,7 +84,7 @@ begin
     (shop_id, 'Yape', 'wallet', 0, 'yape', 'Pendiente: saldo inicial'),
     (shop_id, 'Plin', 'wallet', 0, 'plin', 'Pendiente: saldo inicial'),
     (shop_id, 'Cuenta bancaria', 'bank', 0, 'transfer', 'Pendiente: banco y saldo inicial')
-  on conflict (workspace_id, name) do nothing;
+  on conflict do nothing;
 
   -- Las dos de ingreso son de ventas: las usan los cobros de pedidos y la
   -- Venta rápida, y un ingreso suelto de Caja no puede usarlas.
@@ -96,18 +100,18 @@ begin
     (shop_id, 'Comisiones de venta', 'expense', false),
     (shop_id, 'Publicidad', 'expense', false),
     (shop_id, 'Luz', 'expense', false)
-  on conflict (workspace_id, direction, name) do nothing;
+  on conflict do nothing;
 
   insert into public.sales_channels (workspace_id, name, commission_rate)
   values (shop_id, 'Directo', 0), (shop_id, 'Instagram', 0)
-  on conflict (workspace_id, name) do nothing;
+  on conflict do nothing;
 
   -- «Directo» es el canal de las ventas directas: la Venta rápida lo trae
   -- elegido. Si el dueño ya eligió otro, se respeta.
   insert into public.workshop_settings (workspace_id, default_channel_id)
   select shop_id, c.id
   from public.sales_channels c
-  where c.workspace_id = shop_id and c.name = 'Directo' and c.active
+  where c.workspace_id = shop_id and lower(btrim(c.name)) = lower('Directo') and c.active
   on conflict (workspace_id) do update
     set default_channel_id = coalesce(public.workshop_settings.default_channel_id, excluded.default_channel_id);
 
@@ -116,7 +120,7 @@ begin
     (shop_id, 'Empresa', 'marketing'),
     (shop_id, 'Personal', 'owner_draw'),
     (shop_id, 'Otros', 'other')
-  on conflict (workspace_id, name) do nothing;
+  on conflict do nothing;
 
   -- --------------------------------------------------- material de siempre
   --
@@ -125,13 +129,15 @@ begin
   -- precio, no configuración.
 
   insert into public.brands (workspace_id, name) values (shop_id, 'Krear3D')
-  on conflict (workspace_id, name) do nothing;
-  select id into brand_id from public.brands where workspace_id = shop_id and name = 'Krear3D';
+  on conflict do nothing;
+  select id into brand_id from public.brands
+   where workspace_id = shop_id and lower(btrim(name)) = lower('Krear3D');
 
   insert into public.materials (workspace_id, code, density_g_cm3, hygroscopic, abrasive)
   values (shop_id, 'PLA', 1.24, false, false)
-  on conflict (workspace_id, code) do nothing;
-  select id into pla_id from public.materials where workspace_id = shop_id and code = 'PLA';
+  on conflict do nothing;
+  select id into pla_id from public.materials
+   where workspace_id = shop_id and lower(btrim(code)) = lower('PLA');
 
   insert into public.filament_finishes (workspace_id, name, abrasive, note) values
     (shop_id, 'Básico', false, null),
@@ -142,9 +148,9 @@ begin
     (shop_id, 'Fibra de carbono', true, 'Muy abrasivo. Boquilla de acero endurecido.'),
     (shop_id, 'Metálico', true, 'Lleva partícula metálica: desgasta la boquilla.'),
     (shop_id, 'Luminoso', true, 'El fósforo que brilla en la oscuridad raya la boquilla.')
-  on conflict (workspace_id, name) do nothing;
+  on conflict do nothing;
   select id into plain_id from public.filament_finishes
-   where workspace_id = shop_id and name = 'Básico';
+   where workspace_id = shop_id and lower(btrim(name)) = lower('Básico');
 
   insert into public.filament_skus (
     workspace_id, brand_id, material_id, finish_id, color_name, color_hex,

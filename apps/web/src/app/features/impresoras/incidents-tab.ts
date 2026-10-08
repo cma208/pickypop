@@ -1,6 +1,7 @@
-import { Component, input, output, signal } from '@angular/core';
+import { Component, inject, input, output, signal } from '@angular/core';
 import { Badge, Empty, FORMAT_PIPES } from '../../ui';
 import { SECTION_STYLES } from '../../core/styles';
+import { CurrentWorkspace } from '../../core/workspace';
 import { IncidentForm } from './incident-form';
 import type { IncidentRecord } from './impresoras.models';
 
@@ -12,7 +13,7 @@ import type { IncidentRecord } from './impresoras.models';
   template: `
     <div class="toolbar">
       <span class="grow muted">Fallas de la máquina: síntoma, causa, solución, parada y costo.</span>
-      @if (!formOpen()) {
+      @if (canOperate() && !formOpen()) {
         <button type="button" (click)="open(null, false)">Registrar incidente</button>
       }
     </div>
@@ -46,12 +47,14 @@ import type { IncidentRecord } from './impresoras.models';
             </p>
             @if (incident.cause) { <p><strong>Causa:</strong> {{ incident.cause }}</p> }
             @if (incident.fix) { <p><strong>Solución:</strong> {{ incident.fix }}</p> }
-            <div class="actions">
-              @if (!incident.resolvedAt) {
-                <button type="button" (click)="open(incident, true)">Cerrar incidente</button>
-              }
-              <button type="button" class="secondary" (click)="open(incident, false)">Editar</button>
-            </div>
+            @if (canOperate()) {
+              <div class="actions">
+                @if (!incident.resolvedAt) {
+                  <button type="button" (click)="open(incident, true)">Cerrar incidente</button>
+                }
+                <button type="button" class="secondary" (click)="open(incident, false)">Editar</button>
+              </div>
+            }
           </li>
         }
       </ul>
@@ -63,6 +66,8 @@ export class IncidentsTab {
   readonly incidents = input.required<IncidentRecord[]>();
   readonly changed = output<void>();
 
+  /** Recording what failed is the day to day: owner and operator. */
+  protected readonly canOperate = inject(CurrentWorkspace).canOperate;
   protected readonly formOpen = signal(false);
   protected readonly editing = signal<IncidentRecord | null>(null);
   protected readonly closing = signal(false);

@@ -2,11 +2,12 @@ import { Component, inject, input, output, signal } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Field } from '../../ui';
 import { inputToIso, nowForInput } from '../../core/dates';
-import { errorOf, textOrNull } from '../../core/form-errors';
+import { errorOf, notInFuture, requiredText, textOrNull, wholeNumber } from '../../core/form-errors';
 import { friendlyError } from '../../core/friendly-error';
 import { SECTION_STYLES } from '../../core/styles';
+import { CurrentWorkspace } from '../../core/workspace';
 import { ImpresorasData } from './impresoras.data';
-import type { IncidentRecord } from './impresoras.models';
+import { PRINTER_LIMITS, type IncidentRecord } from './impresoras.models';
 
 const LIMA_OFFSET_MS = 5 * 3_600_000;
 
@@ -22,7 +23,7 @@ const LIMA_OFFSET_MS = 5 * 3_600_000;
       <pp-field label="Síntoma" [required]="true" [error]="symptomError()" hint="Lo que se vio: atasco, capa desplazada, error en pantalla…">
         <input formControlName="symptom" />
       </pp-field>
-      <pp-field label="Cuándo ocurrió" [required]="true">
+      <pp-field label="Cuándo ocurrió" [required]="true" [error]="dateError()">
         <input type="datetime-local" formControlName="occurredAt" />
       </pp-field>
       <pp-field label="Causa">
@@ -33,10 +34,10 @@ const LIMA_OFFSET_MS = 5 * 3_600_000;
       </pp-field>
 
       <div class="grid two">
-        <pp-field label="Tiempo fuera de servicio (minutos)">
+        <pp-field label="Tiempo fuera de servicio (minutos)" [error]="downtimeError()">
           <input type="number" min="0" step="1" formControlName="downtimeMin" inputmode="numeric" />
         </pp-field>
-        <pp-field label="Costo (S/)" hint="Repuestos o reparación. 0 si no hubo.">
+        <pp-field label="Costo (S/)" hint="Repuestos o reparación. 0 si no hubo." [error]="costError()">
           <input type="number" min="0" step="0.01" formControlName="cost" inputmode="decimal" />
         </pp-field>
       </div>
@@ -57,6 +58,8 @@ const LIMA_OFFSET_MS = 5 * 3_600_000;
 })
 export class IncidentForm {
   private readonly data = inject(ImpresorasData);
+  /** A refusal of the role reads it again, so the tabs stop offering what the database denies. */
+  private readonly workspace = inject(CurrentWorkspace);
 
   readonly printerId = input.required<string>();
   readonly incident = input<IncidentRecord | null>(null);
@@ -69,12 +72,16 @@ export class IncidentForm {
   protected readonly error = signal<string | null>(null);
 
   protected readonly form = new FormGroup({
-    symptom: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
-    occurredAt: new FormControl(nowForInput(), { nonNullable: true, validators: [Validators.required] }),
+    symptom: new FormControl('', { nonNullable: true, validators: [requiredText] }),
+    occurredAt: new FormControl(nowForInput(), { nonNullable: true, validators: [Validators.required, notInFuture] }),
     cause: new FormControl('', { nonNullable: true }),
     fix: new FormControl('', { nonNullable: true }),
-    downtimeMin: new FormControl<number | null>(null, [Validators.min(0)]),
-    cost: new FormControl<number | null>(0, [Validators.min(0)]),
+    downtimeMin: new FormControl<number | null>(null, [
+      Validators.min(0),
+      wholeNumber,
+      Validators.max(PRINTER_LIMITS.downtimeMinutes),
+    ]),
+    cost: new FormControl<number | null>(0, [Validators.min(0), Validators.max(PRINTER_LIMITS.money)]),
     resolved: new FormControl(false, { nonNullable: true }),
   });
 
@@ -100,9 +107,32 @@ export class IncidentForm {
     return errorOf(this.form.controls.symptom, { required: 'Describe qué pasó.' });
   }
 
+  protected dateError(): string | null {
+    return errorOf(this.form.controls.occurredAt, {
+      required: 'Indica cuándo ocurrió.',
+      future: 'Se registra lo que ya pasó: la fecha no puede ser futura.',
+    });
+  }
+
+  protected downtimeError(): string | null {
+    return errorOf(this.form.controls.downtimeMin, {
+      min: 'El tiempo no puede ser negativo.',
+      integer: 'Escribe los minutos sin decimales.',
+      max: 'No puede pasar de un año (525,600 minutos).',
+    });
+  }
+
+  protected costError(): string | null {
+    return errorOf(this.form.controls.cost, {
+      min: 'El costo no puede ser negativo.',
+      max: 'No puede pasar de S/ 9,999,999,999.99.',
+    });
+  }
+
   protected async submit(): Promise<void> {
+    if (this.saving()) return;
     this.form.markAllAsTouched();
-    if (this.form.invalid || this.saving()) return;
+    if (this.form.invalid) return;
 
     const value = this.form.getRawValue();
     const alreadyResolvedAt = this.incident()?.resolvedAt ?? null;
@@ -122,6 +152,7 @@ export class IncidentForm {
       this.saved.emit();
     } catch (error) {
       this.error.set(friendlyError(error, 'No pudimos guardar el incidente. Inténtalo de nuevo.'));
+      await this.workspace.afterRefusal(error);
     } finally {
       this.saving.set(false);
     }

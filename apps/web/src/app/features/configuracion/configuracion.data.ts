@@ -41,6 +41,16 @@ export class ConfiguracionData {
     return this.workspace.info().then((info) => info.role);
   }
 
+  /**
+   * After the database refuses what a screen offered, the role this tab
+   * remembers may be stale (changed in another tab): it is read again, and
+   * the answer says whether the section should reload in the mode that now
+   * matches. A refusal of what was written keeps the form as it is.
+   */
+  afterRefusal(error: unknown): Promise<boolean> {
+    return this.workspace.afterRefusal(error);
+  }
+
   async workshop(): Promise<WorkshopRecord> {
     const id = await this.workspace.requireId();
     const { data, error } = await this.supabase
@@ -64,13 +74,12 @@ export class ConfiguracionData {
     };
   }
 
+  /** Currency and time zone are not sent: the app only knows soles and Lima time (T1-23). */
   async updateWorkshop(draft: WorkshopDraft): Promise<void> {
     const { data, error } = await this.supabase
       .from('workspaces')
       .update({
         name: draft.name.trim(),
-        currency: draft.currency,
-        timezone: draft.timezone,
         tax_regime: draft.taxRegime,
         ruc: draft.ruc,
         legal_name: draft.legalName,
@@ -201,23 +210,42 @@ export class ConfiguracionData {
     }));
   }
 
-  /** Always inserts: a profile in force is never edited, only superseded. */
+  /** A new version: the profile in force is never edited, only superseded. */
   async createCostProfile(draft: CostProfileDraft): Promise<void> {
-    const { error } = await this.supabase.from('cost_profiles').insert({
-      workspace_id: await this.workspace.requireId(),
-      valid_from: draft.validFrom,
-      material_waste_rate: draft.materialWasteRate,
-      failure_rate: draft.failureRate,
-      labor_rate_per_hour: draft.laborRatePerHour,
-      energy_rate_per_kwh: draft.energyRatePerKwh,
-      target_margin: draft.targetMargin,
-      min_order_price: draft.minOrderPrice,
-      rounding_step: draft.roundingStep,
-      igv_rate: draft.igvRate,
-      material_valuation: draft.materialValuation,
-      note: draft.note,
-    });
+    const { error } = await this.supabase
+      .from('cost_profiles')
+      .insert({ workspace_id: await this.workspace.requireId(), ...costProfileColumns(draft) });
     if (error) throw error;
+  }
+
+  /**
+   * Corrects a version that has not started yet. The database refuses one in
+   * force with a sentence of its own; no row back means it is gone.
+   */
+  async updateCostProfile(profileId: string, draft: CostProfileDraft): Promise<void> {
+    const { data, error } = await this.supabase
+      .from('cost_profiles')
+      .update(costProfileColumns(draft))
+      .eq('id', profileId)
+      .select('id');
+    if (error) throw error;
+    if (data.length === 0) throw new UserFacingError(PROFILE_GONE);
+  }
+
+  /**
+   * Takes back a version that has not started yet. A delete the policy
+   * refuses comes back as zero rows, like one of a version already gone; the
+   * version is looked up to tell them apart, because only a refusal of the
+   * role makes the screen read the role again.
+   */
+  async deleteCostProfile(profileId: string): Promise<void> {
+    const { data, error } = await this.supabase.from('cost_profiles').delete().eq('id', profileId).select('id');
+    if (error) throw error;
+    if (data.length > 0) return;
+
+    const left = await this.supabase.from('cost_profiles').select('id').eq('id', profileId).limit(1);
+    if (left.error) throw new UserFacingError(PROFILE_NOT_REMOVED);
+    throw left.data.length > 0 ? permissionError() : new UserFacingError(PROFILE_ALREADY_REMOVED);
   }
 
   async channels(): Promise<ChannelRecord[]> {
@@ -467,6 +495,26 @@ export class ConfiguracionData {
       .insert({ ...values, workspace_id: await this.workspace.requireId() });
     if (error) throw duplicateAware(error, 'materials_workspace_id_code_key', duplicate);
   }
+}
+
+const PROFILE_GONE = 'Esa versión ya no existe: alguien la quitó mientras la corregías. Cierra el formulario para ver el historial al día.';
+const PROFILE_NOT_REMOVED = 'No se quitó nada: esa versión ya no está, o tu rol no permite quitarla.';
+const PROFILE_ALREADY_REMOVED = 'Esa versión ya no estaba: alguien la quitó antes. El historial ya está al día.';
+
+function costProfileColumns(draft: CostProfileDraft) {
+  return {
+    valid_from: draft.validFrom,
+    material_waste_rate: draft.materialWasteRate,
+    failure_rate: draft.failureRate,
+    labor_rate_per_hour: draft.laborRatePerHour,
+    energy_rate_per_kwh: draft.energyRatePerKwh,
+    target_margin: draft.targetMargin,
+    min_order_price: draft.minOrderPrice,
+    rounding_step: draft.roundingStep,
+    igv_rate: draft.igvRate,
+    material_valuation: draft.materialValuation,
+    note: draft.note,
+  };
 }
 
 interface MaterialRow {

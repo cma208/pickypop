@@ -5,7 +5,14 @@ import { AsyncState, Card, Field } from '../../ui';
 import { friendlyError } from '../../core/friendly-error';
 import { SECTION_STYLES } from '../../core/styles';
 import { ConfiguracionData } from './configuracion.data';
-import { MIN_CHANGEOVER_SAMPLES, scheduleProblem, windowExample, type ScheduleDraft } from './schedule.model';
+import { isOwnerRole } from '../../core/workspace';
+import {
+  MAX_CHANGEOVER_MINUTES,
+  MIN_CHANGEOVER_SAMPLES,
+  scheduleProblem,
+  windowExample,
+  type ScheduleDraft,
+} from './schedule.model';
 
 /** When a hold ends by default, in the words the hold itself is shown with. */
 const HOLD_DAY_OPTIONS = [
@@ -47,7 +54,7 @@ const HOLD_DAY_OPTIONS = [
           <p class="notice">{{ example() }}</p>
 
           <pp-field label="Cambio de placa (minutos)" [hint]="changeoverHint()">
-            <input type="number" min="0" step="1" inputmode="numeric" formControlName="changeoverMinutes" />
+            <input type="number" min="0" [max]="maxChangeover" step="1" inputmode="numeric" formControlName="changeoverMinutes" />
           </pp-field>
 
           <div class="grid two">
@@ -82,6 +89,7 @@ export class ScheduleSection {
   private readonly data = inject(ConfiguracionData);
 
   protected readonly holdDayOptions = HOLD_DAY_OPTIONS;
+  protected readonly maxChangeover = MAX_CHANGEOVER_MINUTES;
 
   protected readonly loading = signal(true);
   protected readonly loadError = signal<string | null>(null);
@@ -119,9 +127,15 @@ export class ScheduleSection {
     void this.load();
   }
 
+  /**
+   * Every reason not to save is in `problem()`, shown above the button: the
+   * empty times used to leave the form invalid while the button stayed active
+   * and the click did nothing, with nothing said (T1-20).
+   */
   protected async submit(): Promise<void> {
+    if (this.saving()) return;
     this.saved.set(false);
-    if (this.form.invalid || this.problem() || this.saving()) return;
+    if (this.problem()) return;
     this.saving.set(true);
     this.error.set(null);
     try {
@@ -130,6 +144,7 @@ export class ScheduleSection {
       this.form.markAsPristine();
     } catch (error) {
       this.error.set(friendlyError(error, 'No pudimos guardar el horario.'));
+      if (await this.data.afterRefusal(error)) await this.load();
     } finally {
       this.saving.set(false);
     }
@@ -141,8 +156,9 @@ export class ScheduleSection {
       const { measuredMinutes, samples, ...draft } = schedule;
       this.form.setValue(draft);
       this.measured.set({ minutes: measuredMinutes, samples });
-      this.canEdit.set(role === 'owner');
-      if (role !== 'owner') this.form.disable();
+      this.canEdit.set(isOwnerRole(role));
+      if (isOwnerRole(role)) this.form.enable();
+      else this.form.disable();
     } catch (error) {
       this.loadError.set(friendlyError(error, 'No pudimos cargar el horario.'));
     } finally {
