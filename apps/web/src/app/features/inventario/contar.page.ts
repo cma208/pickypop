@@ -18,7 +18,7 @@ import {
 import { ConteoData } from './conteo.data';
 import { productionProblem } from '../produccion/production-errors';
 import { INVENTORY_STYLES } from './inventario.styles';
-import { CurrentWorkspace } from '../../core/workspace';
+import { CurrentWorkspace, READ_ONLY_NOTE } from '../../core/workspace';
 
 /**
  * Contar el estante: decir cuántas hay de verdad.
@@ -41,10 +41,15 @@ import { CurrentWorkspace } from '../../core/workspace';
         @if (rows().length === 0) {
           <pp-empty message="Todavía no hay piezas impresas ni productos que se armen. Se definen en Catálogo y recetas." />
         } @else {
-          <p class="lead muted">
-            Cada fila ya dice lo que la aplicación cree que hay. Cuenta lo que hay en el estante y cambia solo lo que no
-            coincide: lo que sobra entra, lo que falta sale como ajuste, y queda anotado en el kardex como «Conteo del estante».
-          </p>
+          @if (canOperate()) {
+            <p class="lead muted">
+              Cada fila ya dice lo que la aplicación cree que hay. Cuenta lo que hay en el estante y cambia solo lo que no
+              coincide: lo que sobra entra, lo que falta sale como ajuste, y queda anotado en el kardex como «Conteo del estante».
+            </p>
+          } @else if (roleKnown()) {
+            <!-- A viewer reads what the app believes, without fields to count into (ADR-025): nothing to type and then be refused. -->
+            <p class="lead muted" role="status">{{ readOnlyNote }} Cada fila dice lo que la aplicación cree que hay en el estante.</p>
+          }
 
           @for (group of groups(); track group.title) {
             @if (group.rows.length > 0) {
@@ -64,46 +69,48 @@ import { CurrentWorkspace } from '../../core/workspace';
 
                       <span class="believed muted">La app cree <strong>{{ row.onHand }}</strong></span>
 
-                      <label class="count">
-                        Hay
-                        <input
-                          type="number"
-                          min="0"
-                          step="1"
-                          inputmode="numeric"
-                          [value]="row.counted ?? ''"
-                          (input)="setCounted(row, $event)"
-                          [attr.aria-label]="'Cuántas hay de ' + label(row)"
-                        />
-                      </label>
-
-                      <span class="diff">
-                        @if (changed(row)) {
-                          <pp-badge [tone]="difference(row) > 0 ? 'good' : 'warn'">{{ signed(difference(row)) }}</pp-badge>
-                        }
-                      </span>
-
-                      @if (needsCost(row)) {
-                        <label class="cost">
-                          Costo aproximado por unidad (S/)
+                      @if (canOperate()) {
+                        <label class="count">
+                          Hay
                           <input
                             type="number"
                             min="0"
-                            step="0.01"
-                            inputmode="decimal"
-                            [value]="row.typedCost ?? ''"
-                            (input)="setCost(row, $event)"
-                            [attr.aria-label]="'Costo por unidad de ' + label(row)"
+                            step="1"
+                            inputmode="numeric"
+                            [value]="row.counted ?? ''"
+                            (input)="setCounted(row, $event)"
+                            [attr.aria-label]="'Cuántas hay de ' + label(row)"
                           />
                         </label>
-                      } @else if (changed(row) && difference(row) > 0 && row.knownCost !== null) {
-                        <small class="sub cost">Entran a {{ row.knownCost | money }} cada una.</small>
-                      }
 
-                      @if (rowProblem(row); as problem) {
-                        <p class="error problem">{{ problem }}</p>
-                      } @else if (countHint(row); as hint) {
-                        <p class="muted problem">{{ hint }}</p>
+                        <span class="diff">
+                          @if (changed(row)) {
+                            <pp-badge [tone]="difference(row) > 0 ? 'good' : 'warn'">{{ signed(difference(row)) }}</pp-badge>
+                          }
+                        </span>
+
+                        @if (needsCost(row)) {
+                          <label class="cost">
+                            Costo aproximado por unidad (S/)
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              inputmode="decimal"
+                              [value]="row.typedCost ?? ''"
+                              (input)="setCost(row, $event)"
+                              [attr.aria-label]="'Costo por unidad de ' + label(row)"
+                            />
+                          </label>
+                        } @else if (changed(row) && difference(row) > 0 && row.knownCost !== null) {
+                          <small class="sub cost">Entran a {{ row.knownCost | money }} cada una.</small>
+                        }
+
+                        @if (rowProblem(row); as problem) {
+                          <p class="error problem">{{ problem }}</p>
+                        } @else if (countHint(row); as hint) {
+                          <p class="muted problem">{{ hint }}</p>
+                        }
                       }
                     </li>
                   }
@@ -112,18 +119,16 @@ import { CurrentWorkspace } from '../../core/workspace';
             }
           }
 
-          <div class="save">
-            <label class="note">
-              Nota
-              <input type="text" [value]="note()" (input)="setNote($event)" placeholder="Conteo del estante" autocomplete="off" />
-            </label>
-            <button type="button" (click)="save()" [disabled]="!canSave()">
-              {{ saving() ? 'Guardando…' : buttonLabel() }}
-            </button>
-          </div>
-          @if (!canOperate()) {
-            <!-- Disabled with its reason, not refused after counting a whole shelf (decision of the owner, 2026-10-08). -->
-            <p class="muted" role="status">Tienes acceso de solo lectura: solo el dueño y los operadores pueden corregir el estante.</p>
+          @if (canOperate()) {
+            <div class="save">
+              <label class="note">
+                Nota
+                <input type="text" [value]="note()" (input)="setNote($event)" placeholder="Conteo del estante" autocomplete="off" />
+              </label>
+              <button type="button" (click)="save()" [disabled]="!canSave()">
+                {{ saving() ? 'Guardando…' : buttonLabel() }}
+              </button>
+            </div>
           }
           @if (notice(); as message) { <p class="notice" role="status">{{ message }}</p> }
           @if (saveError(); as message) { <p class="alert" role="alert">{{ message }}</p> }
@@ -159,10 +164,16 @@ import { CurrentWorkspace } from '../../core/workspace';
 export class ContarPage {
   private readonly data = inject(ConteoData);
   private readonly planner = inject(PlanService);
-  /** Counting the shelf is the day to day of an owner or an operator, never of a viewer. */
   private readonly workspace = inject(CurrentWorkspace);
-  /** Owner and operator run production; a viewer only reads (ADR-025). */
+  /**
+   * Counting the shelf is the day to day of an owner or an operator (ADR-025).
+   * A viewer is not shown the fields at all: disabled, they still let a whole
+   * shelf be counted before learning it cannot be saved.
+   */
   protected readonly canOperate = this.workspace.canOperate;
+  /** Until the role is read nothing is explained: «solo lectura» flashing at the owner would read as a fault. */
+  protected readonly roleKnown = this.workspace.roleKnown;
+  protected readonly readOnlyNote = READ_ONLY_NOTE;
 
   protected readonly rows = signal<CountRow[]>([]);
   protected readonly note = signal('');

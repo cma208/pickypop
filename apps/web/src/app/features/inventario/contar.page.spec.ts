@@ -3,7 +3,8 @@ import { TestBed, type ComponentFixture } from '@angular/core/testing';
 import { ArticlePhotos } from '../../core/article-photos';
 import { Media } from '../../core/media';
 import { PlanService } from '../../core/plan';
-import { workspaceAs } from '../../core/workspace.testing';
+import { CurrentWorkspace, READ_ONLY_NOTE } from '../../core/workspace';
+import { fakeWorkspace } from '../../core/workspace.testing';
 import type { CountRow } from './conteo';
 import { ConteoData } from './conteo.data';
 import { ContarPage } from './contar.page';
@@ -21,13 +22,15 @@ const CAP: CountRow = {
   typedCost: null,
 };
 
-function open(canOperate: boolean) {
+function open(canOperate: boolean, roleKnown = true) {
   const save = vi.fn(async () => 1);
+  const workspace = fakeWorkspace(canOperate ? 'operator' : 'viewer');
+  workspace.roleKnown.set(roleKnown);
   TestBed.configureTestingModule({
     providers: [
       { provide: ConteoData, useValue: { rows: async () => [CAP], save } },
       { provide: PlanService, useValue: { invalidate: () => undefined } },
-      workspaceAs(canOperate ? 'operator' : 'viewer'),
+      { provide: CurrentWorkspace, useValue: workspace },
       { provide: Media, useValue: { url: async () => null, version: signal(0) } },
       { provide: ArticlePhotos, useValue: { resolve: async () => ({ path: null, kind: 'part' }) } },
     ],
@@ -64,15 +67,23 @@ describe('ContarPage, who may correct the shelf', () => {
     expect(text(fixture)).not.toContain('solo lectura');
   });
 
-  it('keeps the button disabled for a member who only reads, and says why', async () => {
-    const { fixture, save } = open(false);
+  it('shows a member who only reads what the app believes, without fields to count into nor a button', async () => {
+    const { fixture } = open(false);
     await settle(fixture);
-    count(fixture, '4');
+    const page = fixture.nativeElement as HTMLElement;
 
-    expect(saveButton(fixture).disabled).toBe(true);
-    expect(text(fixture)).toContain('solo el dueño y los operadores pueden corregir el estante');
-    saveButton(fixture).click();
+    expect(text(fixture)).toContain('La app cree 5');
+    expect(page.querySelector('.count input')).toBeNull();
+    expect(page.querySelector('.save')).toBeNull();
+    expect(page.querySelector('button')).toBeNull();
+    expect(text(fixture)).toContain(READ_ONLY_NOTE);
+  });
+
+  it('says nothing about reading only before the role is known', async () => {
+    const { fixture } = open(false, false);
     await settle(fixture);
-    expect(save).not.toHaveBeenCalled();
+
+    expect(text(fixture)).not.toContain('solo lectura');
+    expect((fixture.nativeElement as HTMLElement).querySelector('.count input')).toBeNull();
   });
 });
