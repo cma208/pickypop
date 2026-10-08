@@ -180,6 +180,7 @@ export class CatalogoPage {
   }
 
   private async changeStatus(product: ProductSummary, status: ProductStatus): Promise<void> {
+    if (this.busyId()) return;
     this.busyId.set(product.id);
     this.actionError.set(null);
     try {
@@ -189,6 +190,8 @@ export class CatalogoPage {
       );
     } catch (error) {
       this.actionError.set(messageOf(error));
+      // The product may be gone or changed in another tab: show what there is now.
+      await this.load();
     } finally {
       this.busyId.set(null);
     }

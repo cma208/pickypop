@@ -174,7 +174,8 @@ export class CostoVariante {
   protected setProvisional(itemId: string, raw: string): void {
     this.cost.provisionalCosts.update((costs) => {
       const next = { ...costs };
-      if (raw === '' || Number.isNaN(Number(raw))) delete next[itemId];
+      // A negative cost would lower the total: it is no cost at all.
+      if (raw === '' || Number.isNaN(Number(raw)) || Number(raw) < 0) delete next[itemId];
       else next[itemId] = Number(raw);
       return next;
     });
