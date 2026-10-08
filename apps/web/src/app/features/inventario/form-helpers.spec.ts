@@ -102,8 +102,20 @@ describe('maxDecimals', () => {
   it('refuses more decimals than the column keeps, with its own message', () => {
     const control = new FormControl(10.005, maxDecimals(2));
     control.markAsTouched();
-    expect(control.errors).toEqual({ decimals: { max: 2 } });
+    expect(control.errors).toEqual({ decimals: 2 });
     expect(invalidMessage(control)).toBe('Hasta 2 decimales.');
+  });
+
+  it('reads the limit in either shape, so core/form-errors and this file can be mixed', () => {
+    const withShape = (decimals: unknown) => {
+      const control = new FormControl(1.5);
+      control.setErrors({ decimals });
+      control.markAsTouched();
+      return invalidMessage(control);
+    };
+    expect(withShape(0)).toBe('Va entero, sin decimales.');
+    expect(withShape(3)).toBe('Hasta 3 decimales.');
+    expect(withShape({ max: 2 })).toBe('Hasta 2 decimales.');
   });
 
   it('leaves an empty field to «required»', () => {

@@ -10,12 +10,24 @@ export function invalidMessage(control: AbstractControl): string | null {
   if (errors['required']) return 'Este campo es obligatorio.';
   if (errors['min']) return `El valor mínimo es ${NUMBER.format((errors['min'] as { min: number }).min)}.`;
   if (errors['max']) return `Hasta ${NUMBER.format((errors['max'] as { max: number }).max)}: revisa el número.`;
-  if (errors['decimals']) return decimalsMessage((errors['decimals'] as { max: number }).max);
+  if ('decimals' in errors) return decimalsMessage(decimalsLimit(errors['decimals']));
   if (errors['pattern']) return 'El formato no es válido.';
   if (errors['future']) return 'La fecha no puede ser futura.';
   if (errors['tooOld']) return 'La fecha es de hace más de dos años: revisa el año.';
   if (errors['maxlength']) return 'El texto es demasiado largo.';
   return 'Revisa este dato.';
+}
+
+/**
+ * The limit a `decimals` error carries. This file's validator says it as a
+ * number, like `maxDecimals` in core/form-errors.ts, and an older shape said
+ * `{ max }`: either reads the same, so mixing the two validators cannot print
+ * «Hasta undefined decimales».
+ */
+function decimalsLimit(error: unknown): number {
+  if (typeof error === 'number') return error;
+  const max = (error as { max?: unknown } | null)?.max;
+  return typeof max === 'number' ? max : 0;
 }
 
 function decimalsMessage(max: number): string {
@@ -38,7 +50,7 @@ export function decimalPlaces(value: number): number {
 export function maxDecimals(max: number): ValidatorFn {
   return (control: AbstractControl): ValidationErrors | null => {
     const value = control.value as number | null;
-    return typeof value === 'number' && decimalPlaces(value) > max ? { decimals: { max } } : null;
+    return typeof value === 'number' && decimalPlaces(value) > max ? { decimals: max } : null;
   };
 }
 
