@@ -1,5 +1,6 @@
 import { Component, input } from '@angular/core';
 import { FormArray, FormControl, ReactiveFormsModule, Validators } from '@angular/forms';
+import { borrowedPhoto } from '../../core/article-photos';
 import { Thumb } from '../../ui';
 import type { PlatePart } from './produccion.outputs';
 
@@ -24,7 +25,7 @@ export type OutputControls = FormArray<ReturnType<typeof createOutputControl>>;
       <legend>{{ parts().length > 1 ? 'Piezas que salieron, una por una' : 'Piezas que salieron' }}</legend>
       @for (control of controls().controls; track $index; let i = $index) {
         <div class="part">
-          <pp-thumb kind="part" [path]="parts()[i]!.imagePath" />
+          <pp-thumb kind="part" [path]="parts()[i]!.imagePath" [photo]="borrowedPhoto(parts()[i]!.inventoryItemId, 'part')" />
           <label class="name" [for]="idPrefix() + i">{{ parts()[i]!.name }}</label>
           <span class="count">
             <input type="number" inputmode="numeric" min="0" step="1" [max]="parts()[i]!.unitsPerRun"
@@ -50,6 +51,9 @@ export type OutputControls = FormArray<ReturnType<typeof createOutputControl>>;
   `,
 })
 export class PrintJobOutputs {
+  /** A part with no photo of its own shows the plate that prints it, as on the card right above. */
+  protected readonly borrowedPhoto = borrowedPhoto;
+
   readonly parts = input.required<readonly PlatePart[]>();
   readonly controls = input.required<OutputControls>();
   readonly submitted = input(false);

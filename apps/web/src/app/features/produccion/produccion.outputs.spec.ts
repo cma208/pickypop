@@ -56,7 +56,7 @@ describe('describeCounts', () => {
         { name: 'Tapa calavera', units: 7 },
         { name: 'Cuerpo calavera', units: 6 },
       ]),
-    ).toBe('7 Tapa calavera y 6 Cuerpo calavera');
+    ).toBe('Tapa calavera × 7 y Cuerpo calavera × 6');
   });
 
   it('lists three parts the way it is said', () => {
@@ -66,7 +66,7 @@ describe('describeCounts', () => {
         { name: 'B', units: 2 },
         { name: 'C', units: 3 },
       ]),
-    ).toBe('1 A, 2 B y 3 C');
+    ).toBe('A × 1, B × 2 y C × 3');
   });
 
   it('leaves out a part that did not come out, and says so when none did', () => {
@@ -75,7 +75,7 @@ describe('describeCounts', () => {
         { name: 'Tapa calavera', units: 7 },
         { name: 'Cuerpo calavera', units: 0 },
       ]),
-    ).toBe('7 Tapa calavera');
+    ).toBe('Tapa calavera × 7');
     expect(describeCounts([{ name: 'Tapa calavera', units: 0 }])).toBe('ninguna pieza');
   });
 });

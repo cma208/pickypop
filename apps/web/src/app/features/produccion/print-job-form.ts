@@ -98,7 +98,7 @@ function createFilamentRow(spoolId = '', estimatedG = 0, slot: number | null = n
                   <span class="muted">Una corrida completa deja en el estante:</span>
                   <ul>
                     @for (part of plate.outputs; track part.inventoryItemId) {
-                      <li><pp-thumb size="option" kind="part" [path]="part.imagePath" [photo]="borrowedPhoto(part.inventoryItemId, 'part')" /> {{ part.units }} {{ part.name }}</li>
+                      <li><pp-thumb size="option" kind="part" [path]="part.imagePath" [photo]="borrowedPhoto(part.inventoryItemId, 'part')" /> {{ part.name }} × {{ part.units }}</li>
                     }
                   </ul>
                 } @else {

@@ -126,7 +126,7 @@ describe('«Por lanzar»', () => {
     expect(bottles.runs).toBe(5);
     expect(runsText(bottles, result.runs)).toBe('5 corridas × 43 min · 3 h 35 min en total');
     expect(runsText(caps, result.runs)).toBe('1 corrida de 20 min');
-    expect(yieldText(caps, input)).toBe('Cada corrida deja 9 Tapa');
+    expect(yieldText(caps, input)).toBe('Cada corrida deja Tapa × 9');
     expect(proposalKey(bottles)).toBe('plate:plate-bottle');
   });
 

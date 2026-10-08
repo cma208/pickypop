@@ -76,7 +76,7 @@ export function runsText(proposal: PlanProposal, runs: readonly PlanRun[]): stri
   return each === null ? `${count} · ${total} en total` : `${count} × ${duration(each)} · ${total} en total`;
 }
 
-/** "Cada corrida deja 9 Tapa". Null for made-to-order work, whose pieces are the line itself. */
+/** "Cada corrida deja Tapa × 9". Null for made-to-order work, whose pieces are the line itself. */
 export function yieldText(proposal: PlanProposal, input: PlanInput): string | null {
   const plate = input.plates.find((candidate) => candidate.id === proposal.plateId);
   if (!plate || plate.outputs.length === 0) return null;

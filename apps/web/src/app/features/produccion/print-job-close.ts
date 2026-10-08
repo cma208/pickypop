@@ -254,7 +254,11 @@ export class PrintJobClose implements OnInit {
     if (this.unstartedCancel()) return 'Se cerrará como cancelada, sin tiempo ni costo, y no se moverá el stock.';
     if (result === 'cancelled') return 'Se cerrará como cancelada y no se moverá el stock.';
     const verb = result === 'success' ? 'Se descontarán' : 'Se registrarán como merma';
-    const grams = `${verb} ${Math.round(total * 100) / 100} g de ${this.usage.length} rollo(s).`;
+    const rolls = this.usage.length === 1 ? '1 rollo' : `${this.usage.length} rollos`;
+    const grams =
+      this.usage.length === 0
+        ? 'No se descontará filamento: el trabajo no tiene rollos.'
+        : `${verb} ${Math.round(total * 100) / 100} g de ${rolls}.`;
     if (result !== 'success' || this.job().plateOutputs.length === 0) return grams;
 
     const counts = this.outputs.getRawValue().map((units, index) => ({ name: this.partOf(index).name, units: units ?? 0 }));
