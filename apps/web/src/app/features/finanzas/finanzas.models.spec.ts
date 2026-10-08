@@ -1,6 +1,7 @@
 import {
   agingBucket,
   cashCategoriesFor,
+  cashCategoryHint,
   categoriesFor,
   categoryFitsType,
   dayEnd,
@@ -57,6 +58,28 @@ describe('cashCategoriesFor', () => {
 
   it('leaves the list of a collection whole: categoriesFor still has them', () => {
     expect(categoriesFor('income', WITH_REFUNDS).map((c) => c.id)).toEqual(['in-1', 'in-2']);
+  });
+});
+
+describe('cashCategoryHint', () => {
+  it('says why the categories of sales are missing from a loose income', () => {
+    expect(cashCategoryHint('income', WITH_REFUNDS)).toBe(
+      'Las categorías de ventas no se ofrecen aquí: son de los cobros de pedidos y de la Venta rápida.',
+    );
+  });
+
+  it('says where to make one when the categories of sales were all there was', () => {
+    // A workshop as bootstrap.sql leaves it: its only income category is one of sales.
+    const hint = cashCategoryHint('income', CATEGORIES);
+
+    expect(hint).toContain('Las categorías de ventas no se ofrecen aquí');
+    expect(hint).toContain('Configuración › Categorías de dinero');
+  });
+
+  it('says nothing when the list is whole, and that there are none when there are none', () => {
+    expect(cashCategoryHint('expense', CATEGORIES)).toBeUndefined();
+    expect(cashCategoryHint('owner_contribution', CATEGORIES)).toBeUndefined();
+    expect(cashCategoryHint('expense', [])).toBe('No hay categorías de este tipo todavía.');
   });
 });
 

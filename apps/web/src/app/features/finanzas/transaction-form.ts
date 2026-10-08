@@ -9,7 +9,7 @@ import { Field, FORMAT_PIPES } from '../../ui';
 import { FinanzasData, type AccountSummary } from './finanzas.data';
 import {
   cashCategoriesFor,
-  categoriesFor,
+  cashCategoryHint,
   categoryFitsType,
   PAYMENT_METHODS,
   PAYMENT_METHOD_LABELS,
@@ -230,14 +230,8 @@ export class TransactionForm {
   /** A loose income is not offered the categories of sales: the database would refuse them. */
   protected readonly categories = computed(() => cashCategoriesFor(this.values().type, this.allCategories()));
 
-  /** Says why a category of sales the person knows is not in the list. */
-  protected readonly categoryHint = computed(() => {
-    const hidden = categoriesFor(this.values().type, this.allCategories()).length - this.categories().length;
-    if (hidden > 0) {
-      return 'Las categorías de ventas no se ofrecen aquí: son de los cobros de pedidos y de la Venta rápida.';
-    }
-    return this.categories().length === 0 ? 'No hay categorías de este tipo todavía.' : undefined;
-  });
+  /** Says why a category of sales the person knows is not in the list, and where to make one that fits. */
+  protected readonly categoryHint = computed(() => cashCategoryHint(this.values().type, this.allCategories()));
 
   protected readonly counterpartyLabel = computed(() =>
     TYPE_DIRECTION[this.values().type] === 'income' ? 'De quién lo recibiste' : 'A quién le pagaste',

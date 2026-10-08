@@ -15,6 +15,11 @@
 --   guessing at other names: those are the owner's to mark.
 -- * The category collections are filed under is one of sales by definition.
 --   Choosing it marks it, and it cannot be unmarked while it is chosen.
+-- * Only the owner unmarks one. Every member may edit a category (RLS), and
+--   an operator who unmarked «Venta de productos» could then file a sale in
+--   Caja as a loose income: the rule below would hold for nobody. Marking
+--   stays open to everyone: it only narrows what a loose income can use, and
+--   choosing the category of collections marks it on its own.
 -- * The rule lives here, not in the screen: an income with no order cannot
 --   be written, or moved, under a category of sales. Collections of orders and
 --   the quick sale (an income with its order) keep using them. A movement
@@ -67,7 +72,14 @@ returns trigger
 language plpgsql
 as $$
 begin
-  if old.sales and not new.sales and exists (
+  if not (old.sales and not new.sales) then
+    return new;
+  end if;
+  -- Without a signed-in user the caller is trusted: a migration, the SQL console.
+  if auth.uid() is not null and not app.is_owner(new.workspace_id) then
+    raise exception 'Solo el dueño del taller puede desmarcar una categoría de ventas: desmarcada, una venta podría anotarse en Caja como ingreso suelto, sin salir del estante ni llevar su costo.';
+  end if;
+  if exists (
     select 1 from public.workshop_settings s
     where s.workspace_id = new.workspace_id
       and s.order_payment_category_id = new.id

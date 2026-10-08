@@ -132,6 +132,27 @@ export function cashCategoriesFor(
   return type === 'income' ? offered.filter((category) => !category.sales) : offered;
 }
 
+/** Why the categories of sales are not in Caja's list. */
+const SALES_HIDDEN_HINT = 'Las categorías de ventas no se ofrecen aquí: son de los cobros de pedidos y de la Venta rápida.';
+/** Where a category that does fit is made, when none is left to choose. */
+const CREATE_CATEGORY_HINT = 'Crea una que no sea de ventas (por ejemplo «Reembolsos») en Configuración › Categorías de dinero.';
+
+/**
+ * What Caja's category field says. With the categories of sales hidden it
+ * says why; and when that leaves nothing to choose (a workshop that only has
+ * the two of sales bootstrap.sql creates) also where to make one, or every
+ * loose income would go without a category for want of knowing.
+ */
+export function cashCategoryHint(
+  type: TransactionType,
+  categories: readonly CategoryOption[],
+): string | undefined {
+  const offered = cashCategoriesFor(type, categories).length;
+  const hidden = categoriesFor(type, categories).length - offered;
+  if (hidden > 0) return offered === 0 ? `${SALES_HIDDEN_HINT} ${CREATE_CATEGORY_HINT}` : SALES_HIDDEN_HINT;
+  return offered === 0 ? 'No hay categorías de este tipo todavía.' : undefined;
+}
+
 /** True when the category can still be kept in Caja after the type changed. */
 export function categoryFitsType(
   type: TransactionType,
