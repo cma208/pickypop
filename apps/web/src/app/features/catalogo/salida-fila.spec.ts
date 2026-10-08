@@ -20,7 +20,7 @@ const PARTS: PartOption[] = [
   { id: 'hook', name: 'Gancho', unit: 'unidad', imagePath: null },
 ];
 
-function open(soleSource: boolean) {
+function open(soleSource: boolean, options: { asked?: boolean; owner?: boolean } = {}) {
   const data = {
     deletePlateOutput: vi.fn(async () => undefined),
     updatePlateOutput: vi.fn(async () => undefined),
@@ -28,7 +28,7 @@ function open(soleSource: boolean) {
   TestBed.configureTestingModule({
     providers: [
       { provide: CatalogoData, useValue: data },
-      { provide: CatalogoPermissions, useValue: { isOwner: signal(true) } },
+      { provide: CatalogoPermissions, useValue: { isOwner: signal(options.owner ?? true) } },
       { provide: Media, useValue: { url: async () => null, version: signal(0) } },
       { provide: ArticlePhotos, useValue: { resolve: async () => ({ path: null, kind: 'part' }) } },
     ],
@@ -39,6 +39,7 @@ function open(soleSource: boolean) {
   fixture.componentRef.setInput('parts', PARTS);
   fixture.componentRef.setInput('usedIds', ['back']);
   fixture.componentRef.setInput('soleSource', soleSource);
+  if (options.asked !== undefined) fixture.componentRef.setInput('asked', options.asked);
   fixture.detectChanges();
   const changes: true[] = [];
   fixture.componentInstance.changed.subscribe(() => changes.push(true));
@@ -79,6 +80,39 @@ describe('SalidaFila, the only output that prints a part (T2-07)', () => {
     await row.save();
 
     expect(ask).toHaveBeenCalledWith(expect.stringContaining('¿Cambiar «Trasera de calavera» por «Gancho» en esta placa?'));
+    expect(data.updatePlateOutput).not.toHaveBeenCalled();
+  });
+});
+
+describe('SalidaFila, the only output of a part the recipe does not take', () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it('says only that the part stops coming out of the runs', async () => {
+    const { fixture } = open(true, { asked: false });
+    const ask = vi.spyOn(window, 'confirm').mockReturnValue(false);
+
+    removeButton(fixture.nativeElement).click();
+    await fixture.whenStable();
+
+    expect(ask).toHaveBeenCalledWith(expect.stringContaining('la receta no la pide: ya no saldrá de sus corridas.'));
+    expect(ask).not.toHaveBeenCalledWith(expect.stringContaining('sigue pidiendo'));
+  });
+});
+
+describe('SalidaFila, the operator changes the only output of a part', () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it('is told to ask the owner to take the part off the recipe, which only the owner can do', async () => {
+    const { fixture, data } = open(true, { owner: false });
+    const ask = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    const row = fixture.componentInstance as unknown as { choose(id: string): void; save(): Promise<void> };
+
+    expect(removeButton(fixture.nativeElement)).toBeNull();
+    row.choose('hook');
+    await row.save();
+
+    expect(ask).toHaveBeenCalledWith(expect.stringContaining('pídele al dueño que la quite de «Piezas impresas por unidad»'));
+    expect(ask).not.toHaveBeenCalledWith(expect.stringContaining('quítala también'));
     expect(data.updatePlateOutput).not.toHaveBeenCalled();
   });
 });

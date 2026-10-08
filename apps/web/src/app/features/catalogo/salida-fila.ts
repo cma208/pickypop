@@ -100,6 +100,12 @@ export class SalidaFila {
   readonly nextPosition = input(1);
   /** No other output of the recipe prints this row's part: removing it or changing it leaves the part with no plate. */
   readonly soleSource = input(false);
+  /**
+   * The recipe lists this row's part per unit. A plate may print a part for
+   * another product that this recipe does not take: losing the row then only
+   * stops it coming out of the runs.
+   */
+  readonly asked = input(true);
   readonly changed = output<void>();
 
   protected readonly busy = signal(false);
@@ -184,7 +190,8 @@ export class SalidaFila {
     const saved = this.current();
     if (saved && this.soleSource() && saved.inventoryItemId !== input.inventoryItemId) {
       const newName = this.parts().find((part) => part.id === input.inventoryItemId)?.name ?? 'otra pieza';
-      if (!confirm(swapOutputQuestion(this.partName(saved), newName))) return;
+      const who = { asked: this.asked(), owner: this.permissions.isOwner() };
+      if (!confirm(swapOutputQuestion(this.partName(saved), newName, who))) return;
     }
 
     this.busy.set(true);
@@ -211,7 +218,7 @@ export class SalidaFila {
     const current = this.current();
     if (!current || this.busy()) return;
     // The only plate that prints the part: say what that does before (T2-07).
-    if (this.soleSource() && !confirm(removeOutputQuestion(this.partName(current)))) return;
+    if (this.soleSource() && !confirm(removeOutputQuestion(this.partName(current), this.asked()))) return;
 
     this.busy.set(true);
     this.error.set(null);

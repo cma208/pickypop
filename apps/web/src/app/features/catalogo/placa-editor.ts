@@ -7,7 +7,7 @@ import { CatalogoPermissions } from './catalogo.permissions';
 import { SHARED_STYLES } from './catalogo.styles';
 import { messageOf } from './catalogo.util';
 import { DECIMALS, decimalsText, fieldError, LIMITS, limitText, maxDecimals } from './catalogo.validators';
-import { isOnlySourceOf, partsOnlyThisPlateMakes, removePlateQuestion } from './plate-removal';
+import { isOnlySourceOf, partsOnlyThisPlateMakes, removePlateQuestion, splitByRecipe } from './plate-removal';
 import { FilamentoFila } from './filamento-fila';
 import { describeObjects } from './importacion';
 import { SalidaFila, type PartOption } from './salida-fila';
@@ -110,7 +110,7 @@ const MINUTES_MESSAGES: Record<string, string> = {
             <p class="muted hint">Sin piezas, la placa no deja nada en el estante al cerrar la impresión.</p>
           }
           @for (out of current.outputs; track out.id) {
-            <app-salida-fila [plateId]="current.id" [current]="out" [parts]="parts()" [usedIds]="usedPartIds()" [soleSource]="soleOutputs().has(out.id)" (changed)="changed.emit()" />
+            <app-salida-fila [plateId]="current.id" [current]="out" [parts]="parts()" [usedIds]="usedPartIds()" [soleSource]="soleOutputs().has(out.id)" [asked]="asked().has(out.inventoryItemId)" (changed)="changed.emit()" />
           }
           <app-salida-fila [plateId]="current.id" [parts]="parts()" [usedIds]="usedPartIds()" [nextPosition]="current.outputs.length + 1" (changed)="changed.emit()" />
         </div>
@@ -127,6 +127,12 @@ export class PlacaEditor {
   readonly plate = input<RecipePlate | null>(null);
   /** Every plate of the recipe, to tell which parts only this one prints. */
   readonly plates = input<readonly RecipePlate[]>([]);
+  /**
+   * What the recipe lists per unit. A part this plate prints may be missing on
+   * purpose (the plate also prints it for another product), and then losing
+   * the plate leaves nothing without a plate.
+   */
+  readonly askedIds = input<readonly string[]>([]);
   /** Number for a new plate. */
   readonly nextIndex = input(1);
   readonly lookups = input.required<Lookups>();
@@ -145,6 +151,7 @@ export class PlacaEditor {
       .map((item) => ({ id: item.id, name: item.name, unit: item.unit, imagePath: item.imagePath ?? null })),
   );
   protected readonly usedPartIds = computed(() => this.plate()?.outputs.map((out) => out.inventoryItemId) ?? []);
+  protected readonly asked = computed<ReadonlySet<string>>(() => new Set(this.askedIds()));
   /** This plate's outputs that are the only ones in the recipe printing their part. */
   protected readonly soleOutputs = computed(() => {
     const plate = this.plate();
@@ -235,8 +242,9 @@ export class PlacaEditor {
   protected async remove(): Promise<void> {
     const current = this.plate();
     if (!current || this.busy()) return;
-    const orphans = partsOnlyThisPlateMakes(current, this.plates()).map((id) => this.partName(current, id));
-    if (!confirm(removePlateQuestion(current, orphans))) return;
+    const sole = splitByRecipe(partsOnlyThisPlateMakes(current, this.plates()), this.asked());
+    const names = (ids: string[]) => ids.map((id) => this.partName(current, id));
+    if (!confirm(removePlateQuestion(current, { asked: names(sole.asked), notAsked: names(sole.notAsked) }))) return;
 
     this.busy.set(true);
     this.error.set(null);

@@ -156,7 +156,7 @@ function minutesControl() {
           }
           <div class="stack">
             @for (plate of current.plates; track plate.id) {
-              <app-placa-editor [recipeId]="current.id" [plate]="plate" [plates]="current.plates" [lookups]="lookupData" (changed)="changed.emit()" />
+              <app-placa-editor [recipeId]="current.id" [plate]="plate" [plates]="current.plates" [askedIds]="usedSupplyIds()" [lookups]="lookupData" (changed)="changed.emit()" />
             }
             <app-placa-editor [recipeId]="current.id" [nextIndex]="nextPlateIndex()" [lookups]="lookupData" (changed)="changed.emit()" />
           </div>
