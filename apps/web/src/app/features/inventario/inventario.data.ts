@@ -1,12 +1,12 @@
 import { inject, Injectable } from '@angular/core';
-import { sumMoney } from '../../core/pricing';
+import { UserFacingError } from '../../core/friendly-error';
 import { SUPABASE } from '../../core/supabase';
 import { fetchAll } from '../../core/fetch-all';
-import { spoolCodePrefix, spoolName, type SpoolIdentity } from '../../core/spool-label';
-import { CurrentWorkspace } from '../../core/workspace';
+import { spoolName, type SpoolIdentity } from '../../core/spool-label';
+import { CurrentWorkspace, type MemberRole } from '../../core/workspace';
 import type { PaymentMethod } from '../finanzas/finanzas.models';
-import { dayEnd, dayStart, todayIso, type ItemKind, type MovementType, type SpoolStatus } from './inventario.format';
-import type { AllocationMethod, PurchasePlan } from '../../core/pricing';
+import { dayEnd, dayStart, type ItemKind, type MovementType, type SpoolStatus } from './inventario.format';
+import type { AllocationMethod } from '../../core/pricing';
 
 // ------------------------------------------------------------------ types
 
@@ -105,13 +105,31 @@ export interface SpoolSummary {
   costPerGram: number;
 }
 
+/** What the scale said. The difference is the database's to work out, against what the roll has then. */
 export interface WeighingInput {
   spoolId: string;
-  differenceG: number;
   grossG: number;
   tareG: number;
-  theoreticalG: number;
-  costPerGram: number;
+  /** A discarded roll with filament on the scale goes back into use. Without it, the database refuses it. */
+  reopen?: boolean;
+}
+
+/** What a weighing did: `differenceG` zero means it wrote nothing. */
+export interface WeighingResult {
+  netG: number;
+  /** What the roll had when the weighing was saved, which may differ from what the dialog showed. */
+  beforeG: number;
+  differenceG: number;
+  afterG: number;
+  status: SpoolStatus;
+}
+
+/** What a change of state moved: the grams a roll still had leave the stock when it is marked empty or discarded. */
+export interface SpoolStatusChange {
+  status: SpoolStatus;
+  changed: boolean;
+  removedG: number;
+  removedCost: number;
 }
 
 export interface PurchaseLineView {
@@ -147,17 +165,22 @@ export interface PurchaseSummary {
   lines: PurchaseLineView[];
 }
 
+/**
+ * One line as the plan priced it (`planPurchase`): the stored quantity and
+ * price, its share of shipping and what each unit ends up costing. The
+ * database checks that it adds up before writing it.
+ */
 export interface PurchaseDraftLine {
   kind: 'sku' | 'item';
   targetId: string;
   quantity: number;
   unitPrice: number;
+  extra: number;
+  /** Filament lines: the final cost of each roll. */
+  unitCosts: number[];
+  /** Supply lines: the final cost of one unit. */
+  unitCost: number;
   expiresOn: string | null;
-  /** SKU lines only: what each spool weighs and how to label it. */
-  netWeightG: number | null;
-  colorName: string | null;
-  /** Part of the shelf label, so a PETG black and a PLA black do not share a sequence. */
-  materialCode: string | null;
 }
 
 export interface PurchaseDraft {
@@ -166,9 +189,10 @@ export interface PurchaseDraft {
   documentRef: string | null;
   shippingCost: number;
   otherCosts: number;
+  /** The method the plan really applied: by weight falls back to amount when no line has a weight. */
+  allocation: AllocationMethod;
   note: string | null;
   lines: PurchaseDraftLine[];
-  plan: PurchasePlan;
   /** How it was paid. Null when it is still to be paid. */
   payment: PurchasePayment | null;
 }
@@ -193,14 +217,13 @@ export interface PurchasePaymentInput extends PurchasePayment {
   occurredAt: string;
 }
 
+/** What the database says it registered. */
 export interface RegisteredPurchase {
   id: string;
-  /**
-   * The stock went in but the payment could not be written. The purchase then
-   * shows as still to be paid, where it can be paid from the list.
-   */
-  paymentFailed: boolean;
-  /** The rolls that came in, with the label each one was given. */
+  total: number;
+  /** Paid on the spot. The payment is part of the same transaction: it went in, or nothing did. */
+  paid: number;
+  /** The rolls that came in, with the label the database gave each one. */
   spools: SpoolIdentity[];
 }
 
@@ -230,12 +253,27 @@ export interface InventoryItemInput {
   active: boolean;
 }
 
+export type ItemMovementMode = 'in' | 'out' | 'count';
+
+/**
+ * What the person did: entered, took out, or counted. The movement itself is
+ * worked out by the database against what there is when it is saved.
+ */
 export interface ItemMovementInput {
   itemId: string;
-  type: MovementType;
-  /** Signed: positive adds stock, negative removes it. */
+  mode: ItemMovementMode;
+  /** Always positive; for a count, what was counted. */
   quantity: number;
+  /** Why it went out. Only for `out`. */
+  reason: Extract<MovementType, 'consumption' | 'waste'> | null;
   note: string | null;
+}
+
+/** What a movement did: `difference` zero means it wrote nothing. */
+export interface ItemMovementResult {
+  before: number;
+  difference: number;
+  after: number;
 }
 
 export interface MovementFilter {
@@ -281,34 +319,9 @@ interface SkuDetail {
   abrasiveBecause: string | null;
 }
 
-/**
- * When a purchase dated `purchasedAt` happened: now if it is today, noon in
- * Lima otherwise. A bare date would land at midnight UTC, which in Lima is the
- * evening before, and the movement would show up a day early.
- */
-function purchaseMoment(purchasedAt: string): string {
-  return purchasedAt === todayIso() ? new Date().toISOString() : `${purchasedAt}${NOON_LIMA_OFFSET}`;
-}
-
-/** Thrown when a purchase was saved only in part. Says exactly what exists now. */
-export class PartialPurchaseError extends Error {
-  constructor(
-    readonly purchaseId: string | null,
-    readonly spoolIds: string[],
-    readonly created: string[],
-    readonly failedStep: string,
-    override readonly cause: unknown,
-  ) {
-    super(`Purchase saved partially; failed at: ${failedStep}`);
-  }
-}
-
 // -------------------------------------------------------------- constants
 
 export const MOVEMENTS_LIMIT = 500;
-const SPOOL_CODE_PADDING = 2;
-const COST_DECIMALS = 1_000_000;
-const NOON_LIMA_OFFSET = 'T12:00:00-05:00';
 
 function num(value: number | string | null | undefined): number {
   return Number(value ?? 0);
@@ -320,6 +333,21 @@ function numOrNull(value: number | string | null | undefined): number | null {
 
 function skuLabel(brand: string | null, material: string | null, finish: string | null, color: string): string {
   return [color, material, finish, brand].filter(Boolean).join(' · ');
+}
+
+/**
+ * An update that the access rules or a filter leave without rows comes back
+ * without an error. Saying «guardado» then would be a lie: the row is gone,
+ * or the person may not change it.
+ */
+function requireRows(rows: unknown[] | null, what: string): void {
+  if (!rows || rows.length === 0) {
+    throw new UserFacingError(`No se guardó: ${what} ya no está o no tienes permiso para cambiarlo. Recarga la lista.`);
+  }
+}
+
+function jsonObject(value: unknown): Record<string, unknown> {
+  return value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
 }
 
 /**
@@ -370,6 +398,15 @@ export class InventarioData {
   /** Inserts need the workshop id; RLS guarantees we only ever see our own. */
   private workspaceId(): Promise<string> {
     return this.workspace.requireId();
+  }
+
+  /**
+   * The signed-in person's role, read the way the configuration screens read
+   * it. Only to not offer what the database would refuse (ADR-025): the
+   * database decides either way.
+   */
+  currentRole(): Promise<MemberRole | null> {
+    return this.workspace.info().then((info) => info.role);
   }
 
   // ------------------------------------------------------------ catalogues
@@ -532,8 +569,9 @@ export class InventarioData {
     };
 
     if (id) {
-      const { error } = await this.supabase.from('filament_skus').update(values).eq('id', id);
+      const { data, error } = await this.supabase.from('filament_skus').update(values).eq('id', id).select('id');
       if (error) throw error;
+      requireRows(data, 'el filamento');
       return;
     }
 
@@ -588,33 +626,57 @@ export class InventarioData {
       .sort((a, b) => (a.code ?? '~').localeCompare(b.code ?? '~', 'es', { numeric: true }));
   }
 
-  async changeSpoolStatus(spool: SpoolSummary, status: SpoolStatus): Promise<void> {
-    const startsBeingUsed = status === 'open' || status === 'in_use';
-    const values: { status: SpoolStatus; opened_at?: string } = { status };
-    if (startsBeingUsed && !spool.openedAt) values.opened_at = new Date().toISOString();
-
-    const { error } = await this.supabase.from('spools').update(values).eq('id', spool.id);
+  /**
+   * Changes the state of a roll through the database, which refuses it if the
+   * roll is no longer in the state the screen showed, and takes out of the
+   * stock what an emptied or discarded roll still had.
+   */
+  async changeSpoolStatus(spool: SpoolSummary, status: SpoolStatus): Promise<SpoolStatusChange> {
+    const { data, error } = await this.supabase.rpc('set_spool_status', {
+      p_spool_id: spool.id,
+      p_status: status,
+      p_expected: spool.status,
+    });
     if (error) throw error;
+
+    const result = jsonObject(data);
+    return {
+      status: (result['status'] as SpoolStatus | undefined) ?? status,
+      changed: result['changed'] === true,
+      removedG: num(result['removed_g'] as number | null),
+      removedCost: num(result['removed_cost'] as number | null),
+    };
   }
 
   async updateSpoolLabel(id: string, code: string | null, location: string | null): Promise<void> {
-    const { error } = await this.supabase.from('spools').update({ code, location }).eq('id', id);
+    const { data, error } = await this.supabase.from('spools').update({ code, location }).eq('id', id).select('id');
     if (error) throw error;
+    requireRows(data, 'el rollo');
   }
 
-  /** A weighing becomes an `adjustment` movement for the difference, so stock stays a sum of movements. */
-  async recordWeighing(input: WeighingInput): Promise<void> {
-    const workspace_id = await this.workspaceId();
-    const { error } = await this.supabase.from('stock_movements').insert({
-      workspace_id,
-      type: 'adjustment',
-      spool_id: input.spoolId,
-      quantity: input.differenceG,
-      unit_cost: input.costPerGram,
-      source_type: 'weighing',
-      note: `Pesaje: ${input.grossG} g en balanza, tara ${input.tareG} g, esperado ${input.theoreticalG} g`,
+  /**
+   * A weighing sends what the scale said. The database takes the difference
+   * against what the roll has at that moment and writes it as an
+   * `adjustment`, so stock stays a sum of movements and a second save from an
+   * old tab writes nothing (T3-02).
+   */
+  async recordWeighing(input: WeighingInput): Promise<WeighingResult> {
+    const { data, error } = await this.supabase.rpc('weigh_spool', {
+      p_spool_id: input.spoolId,
+      p_gross_g: input.grossG,
+      p_tare_g: input.tareG,
+      p_reopen: input.reopen ?? false,
     });
     if (error) throw error;
+
+    const result = jsonObject(data);
+    return {
+      netG: num(result['net_g'] as number | null),
+      beforeG: num(result['before_g'] as number | null),
+      differenceG: num(result['difference_g'] as number | null),
+      afterG: num(result['after_g'] as number | null),
+      status: (result['status'] as SpoolStatus | undefined) ?? 'open',
+    };
   }
 
   // -------------------------------------------------------------- purchases
@@ -631,7 +693,7 @@ export class InventarioData {
       this.skuDetails(),
       this.supabase.from('inventory_items').select('id, name'),
       fetchAll((from, to) =>
-        this.supabase.from('purchase_payment_status').select('purchase_id, paid, pending').range(from, to),
+        this.supabase.from('purchase_payment_status').select('purchase_id, total, paid, pending').range(from, to),
       ),
     ]);
     if (purchases.error) throw purchases.error;
@@ -675,11 +737,9 @@ export class InventarioData {
         otherCosts: num(purchase.other_costs),
         allocation: purchase.allocation,
         note: purchase.note,
-        total: sumMoney([
-          ...lines.map((line) => line.quantity * line.unitPrice),
-          num(purchase.shipping_cost),
-          num(purchase.other_costs),
-        ]),
+        // The database's total, the one the purchase is paid by: adding it up
+        // again here could disagree with it by a cent.
+        total: num(paymentOf.get(purchase.id)?.total),
         paid: num(paymentOf.get(purchase.id)?.paid),
         pending: num(paymentOf.get(purchase.id)?.pending),
         spoolCount,
@@ -709,243 +769,78 @@ export class InventarioData {
    * refuses to pay more than is owed. Its refusals are worded for the person,
    * with the exact amounts, so they travel as they are.
    */
-  async recordPurchasePayment(input: PurchasePaymentInput): Promise<void> {
+  async recordPurchasePayment(input: PurchasePaymentInput, key: string): Promise<void> {
     const { error } = await this.supabase.rpc('record_purchase_payment', {
       p_purchase_id: input.purchaseId,
       p_account_id: input.accountId,
       p_amount: input.amount,
       p_payment_method: input.method ?? undefined,
       p_occurred_at: input.occurredAt,
+      p_payment_key: key,
     });
     if (error) throw error;
   }
 
   /**
-   * Saves a purchase in the only order the foreign keys allow: the purchase,
-   * its lines, the spools, and finally the movements that put stock on the
-   * shelf. Ids are generated here so each step is a single bulk insert. If a
-   * step fails, the error says what already exists.
+   * Registers a purchase in one transaction of the database
+   * (`register_purchase`): the purchase, its lines, a roll per filament with
+   * the label the database gives it, the movements that put it all on the
+   * shelf and, when it was paid on the spot, the payment. It all goes in or
+   * nothing does, so there is nothing left to undo.
+   *
+   * `key` names the purchase: asked twice (a double click, an answer lost on
+   * the way back), the database returns the one it already made.
    */
-  async registerPurchase(draft: PurchaseDraft): Promise<RegisteredPurchase> {
+  async registerPurchase(draft: PurchaseDraft, key: string): Promise<RegisteredPurchase> {
     const workspace_id = await this.workspaceId();
-    const spoolCodes = await this.nextSpoolCodes(draft.lines);
-
-    const purchaseId = crypto.randomUUID();
-    const created: string[] = [];
-    const spoolIds: string[] = [];
-    let step = 'la compra';
-
-    try {
-      const purchase = await this.supabase.from('purchases').insert({
-        id: purchaseId,
-        workspace_id,
-        supplier_id: draft.supplierId,
-        purchased_at: draft.purchasedAt,
-        document_ref: draft.documentRef,
-        shipping_cost: draft.shippingCost,
-        other_costs: draft.otherCosts,
-        allocation: draft.plan.method,
-        note: draft.note,
-      });
-      if (purchase.error) throw purchase.error;
-      created.push('la compra');
-
-      step = 'las líneas de la compra';
-      const lineIds = draft.lines.map(() => crypto.randomUUID());
-      const lines = await this.supabase.from('purchase_lines').insert(
-        draft.lines.map((line, index) => ({
-          id: lineIds[index],
-          workspace_id,
-          purchase_id: purchaseId,
-          filament_sku_id: line.kind === 'sku' ? line.targetId : null,
-          inventory_item_id: line.kind === 'item' ? line.targetId : null,
-          quantity: line.quantity,
-          unit_price: line.unitPrice,
-          allocated_extra_cost: draft.plan.lines[index].extra,
-          expires_on: line.expiresOn,
-        })),
-      );
-      if (lines.error) throw lines.error;
-      created.push('las líneas de la compra');
-
-      const spools = this.spoolRows(draft, lineIds, spoolCodes, workspace_id);
-      if (spools.length > 0) {
-        step = 'los rollos';
-        const result = await this.supabase.from('spools').insert(spools);
-        if (result.error) throw result.error;
-        spoolIds.push(...spools.map((spool) => spool.id));
-        created.push(spools.length === 1 ? '1 rollo' : `${spools.length} rollos`);
-      }
-
-      step = 'los movimientos de stock';
-      const movements = await this.supabase
-        .from('stock_movements')
-        .insert(this.movementRows(draft, purchaseId, spools, workspace_id));
-      if (movements.error) throw movements.error;
-    } catch (error) {
-      const exists = created.length > 0;
-      throw new PartialPurchaseError(exists ? purchaseId : null, spoolIds, created, step, error);
-    }
-
-    const newSpools = this.spoolIdentities(draft, spoolCodes);
-    if (draft.payment === null) return { id: purchaseId, paymentFailed: false, spools: newSpools };
-
-    // Last, and outside the undo above: by now the stock is on the shelf and
-    // the purchase is real. If the payment fails it stays "por pagar", which
-    // is true, and can be paid from the list.
-    try {
-      await this.payInFull(purchaseId, draft.payment, purchaseMoment(draft.purchasedAt));
-      return { id: purchaseId, paymentFailed: false, spools: newSpools };
-    } catch (error) {
-      console.error(error);
-      return { id: purchaseId, paymentFailed: true, spools: newSpools };
-    }
-  }
-
-  /**
-   * Pays whatever the database says the purchase costs. The form adds it up in
-   * its own way (each line rounded to cents first), and a single cent between
-   * the two would be refused as an overpayment.
-   */
-  private async payInFull(purchaseId: string, payment: PurchasePayment, occurredAt: string): Promise<void> {
-    const { data, error } = await this.supabase
-      .from('purchase_payment_status')
-      .select('pending')
-      .eq('purchase_id', purchaseId)
-      .single();
-    if (error) throw error;
-
-    const amount = num(data.pending);
-    if (amount <= 0) return;
-    await this.recordPurchasePayment({ purchaseId, ...payment, amount, occurredAt });
-  }
-
-  /** Removes what a failed `registerPurchase` left behind: movements, spools, then the purchase (lines cascade). */
-  async undoPurchase(purchaseId: string, spoolIds: string[]): Promise<void> {
-    const movements = await this.supabase
-      .from('stock_movements')
-      .delete()
-      .eq('source_type', 'purchase')
-      .eq('source_id', purchaseId);
-    if (movements.error) throw movements.error;
-
-    if (spoolIds.length > 0) {
-      const spools = await this.supabase.from('spools').delete().in('id', spoolIds);
-      if (spools.error) throw spools.error;
-    }
-
-    const purchase = await this.supabase.from('purchases').delete().eq('id', purchaseId);
-    if (purchase.error) throw purchase.error;
-  }
-
-  /** Who each new roll is, in the order they were created: what the result of the purchase lists. */
-  private spoolIdentities(draft: PurchaseDraft, codes: Map<number, string[]>): SpoolIdentity[] {
-    return draft.lines.flatMap((line, index) =>
-      line.kind === 'sku' && line.netWeightG !== null
-        ? (codes.get(index) ?? []).map((code) => ({
-            code,
-            materialCode: line.materialCode,
-            colorName: line.colorName,
-          }))
-        : [],
-    );
-  }
-
-  private spoolRows(draft: PurchaseDraft, lineIds: string[], codes: Map<number, string[]>, workspace_id: string) {
-    return draft.lines.flatMap((line, lineIndex) => {
-      if (line.kind !== 'sku' || line.netWeightG === null) return [];
-      const unitCosts = draft.plan.lines[lineIndex].unitCosts;
-
-      return unitCosts.map((unitCost, unitIndex) => ({
-        id: crypto.randomUUID(),
-        workspace_id,
-        filament_sku_id: line.targetId,
-        purchase_line_id: lineIds[lineIndex],
-        code: codes.get(lineIndex)?.[unitIndex] ?? null,
-        initial_weight_g: line.netWeightG as number,
-        unit_cost: unitCost,
-        status: 'sealed' as const,
-      }));
-    });
-  }
-
-  private movementRows(
-    draft: PurchaseDraft,
-    purchaseId: string,
-    spools: ReturnType<InventarioData['spoolRows']>,
-    workspace_id: string,
-  ) {
-    // Always explicit: a bulk insert with `undefined` here is sent as null and rejected.
-    const occurred_at = purchaseMoment(draft.purchasedAt);
-
-    const spoolMovements = spools.map((spool) => ({
-      workspace_id,
-      occurred_at,
-      type: 'purchase' as const,
-      spool_id: spool.id,
-      quantity: spool.initial_weight_g,
-      unit_cost: Math.round((spool.unit_cost / spool.initial_weight_g) * COST_DECIMALS) / COST_DECIMALS,
-      source_type: 'purchase',
-      source_id: purchaseId,
-      note: 'Ingreso del rollo',
-    }));
-
-    const itemMovements = draft.lines.flatMap((line, index) =>
-      line.kind === 'item'
-        ? [
-            {
-              workspace_id,
-              occurred_at,
-              type: 'purchase' as const,
+    const { data, error } = await this.supabase.rpc('register_purchase', {
+      p_workspace_id: workspace_id,
+      p_lines: draft.lines.map((line) =>
+        line.kind === 'sku'
+          ? {
+              filament_sku_id: line.targetId,
+              quantity: line.quantity,
+              unit_price: line.unitPrice,
+              allocated_extra_cost: line.extra,
+              unit_costs: line.unitCosts,
+            }
+          : {
               inventory_item_id: line.targetId,
               quantity: line.quantity,
-              unit_cost: draft.plan.lines[index].effectiveUnitCost,
-              source_type: 'purchase',
-              source_id: purchaseId,
-              note: 'Ingreso por compra',
+              unit_price: line.unitPrice,
+              allocated_extra_cost: line.extra,
+              unit_cost: line.unitCost,
+              expires_on: line.expiresOn,
             },
-          ]
-        : [],
-    );
-
-    return [...spoolMovements, ...itemMovements];
-  }
-
-  /**
-   * Shelf labels like PLA-ROJO-03: the next free number for each material and
-   * colour, per purchase line. The material is part of the label so that the
-   * second black roll is not taken for PLA when it is PETG (H12).
-   */
-  private async nextSpoolCodes(lines: PurchaseDraftLine[]): Promise<Map<number, string[]>> {
-    const result = new Map<number, string[]>();
-    const nextByPrefix = new Map<string, number>();
-
-    for (const [index, line] of lines.entries()) {
-      if (line.kind !== 'sku') continue;
-
-      const prefix = spoolCodePrefix(line.materialCode, line.colorName);
-      if (!nextByPrefix.has(prefix)) nextByPrefix.set(prefix, await this.lastCodeNumber(prefix));
-
-      const codes: string[] = [];
-      for (let unit = 0; unit < Math.round(line.quantity); unit++) {
-        const next = (nextByPrefix.get(prefix) ?? 0) + 1;
-        nextByPrefix.set(prefix, next);
-        codes.push(`${prefix}-${String(next).padStart(SPOOL_CODE_PADDING, '0')}`);
-      }
-      result.set(index, codes);
-    }
-
-    return result;
-  }
-
-  private async lastCodeNumber(prefix: string): Promise<number> {
-    const { data, error } = await this.supabase.from('spools').select('code').ilike('code', `${prefix}-%`);
+      ),
+      p_purchased_at: draft.purchasedAt,
+      p_supplier_id: draft.supplierId ?? undefined,
+      p_document_ref: draft.documentRef ?? undefined,
+      p_shipping_cost: draft.shippingCost,
+      p_other_costs: draft.otherCosts,
+      p_allocation: draft.allocation,
+      p_note: draft.note ?? undefined,
+      p_account_id: draft.payment?.accountId,
+      p_payment_method: draft.payment?.method ?? undefined,
+      p_purchase_key: key,
+    });
     if (error) throw error;
 
-    return data.reduce((highest, row) => {
-      const match = /-(\d+)$/.exec(row.code ?? '');
-      return match ? Math.max(highest, Number(match[1])) : highest;
-    }, 0);
+    const receipt = jsonObject(data);
+    const spools = Array.isArray(receipt['spools']) ? receipt['spools'] : [];
+    return {
+      id: String(receipt['purchase_id'] ?? ''),
+      total: num(receipt['total'] as number | null),
+      paid: num(receipt['paid'] as number | null),
+      spools: spools.map((value) => {
+        const spool = jsonObject(value);
+        return {
+          code: (spool['code'] as string | null) ?? null,
+          materialCode: (spool['material_code'] as string | null) ?? null,
+          colorName: (spool['color_name'] as string | null) ?? null,
+        };
+      }),
+    };
   }
 
   // ------------------------------------------------------------------ items
@@ -983,8 +878,9 @@ export class InventarioData {
 
   /** Switches an article on or off and leaves the rest of it as it is. */
   async setItemActive(id: string, active: boolean): Promise<void> {
-    const { error } = await this.supabase.from('inventory_items').update({ active }).eq('id', id);
+    const { data, error } = await this.supabase.from('inventory_items').update({ active }).eq('id', id).select('id');
     if (error) throw error;
+    requireRows(data, 'el artículo');
   }
 
   async saveItem(id: string | null, input: InventoryItemInput): Promise<void> {
@@ -1000,8 +896,9 @@ export class InventarioData {
     };
 
     if (id) {
-      const { error } = await this.supabase.from('inventory_items').update(values).eq('id', id);
+      const { data, error } = await this.supabase.from('inventory_items').update(values).eq('id', id).select('id');
       if (error) throw error;
+      requireRows(data, 'el artículo');
       return;
     }
 
@@ -1010,17 +907,32 @@ export class InventarioData {
     if (error) throw error;
   }
 
-  async recordItemMovement(input: ItemMovementInput): Promise<void> {
-    const workspace_id = await this.workspaceId();
-    const { error } = await this.supabase.from('stock_movements').insert({
-      workspace_id,
-      type: input.type,
-      inventory_item_id: input.itemId,
-      quantity: input.quantity,
-      source_type: 'manual',
-      note: input.note,
+  /**
+   * A movement by hand of a supply, a bag or a spare part. The database works
+   * out what to write against what there is when it is saved: a count from an
+   * old tab, or one with an assembly in between, still leaves the shelf at
+   * what was counted.
+   *
+   * `key` names the request: asked again with it (an answer lost on the way
+   * back), the database returns its first answer and moves nothing.
+   */
+  async recordItemMovement(input: ItemMovementInput, key: string): Promise<ItemMovementResult> {
+    const { data, error } = await this.supabase.rpc('move_item_stock', {
+      p_item_id: input.itemId,
+      p_mode: input.mode,
+      p_quantity: input.quantity,
+      p_reason: input.reason ?? undefined,
+      p_note: input.note ?? undefined,
+      p_request_key: key,
     });
     if (error) throw error;
+
+    const result = jsonObject(data);
+    return {
+      before: num(result['before'] as number | null),
+      difference: num(result['difference'] as number | null),
+      after: num(result['after'] as number | null),
+    };
   }
 
   // -------------------------------------------------------------- movements

@@ -1,4 +1,14 @@
-import { blankToNull, inactiveSuffix, photosToDelete, selectableOptions } from './form-helpers';
+import { FormControl } from '@angular/forms';
+import {
+  blankToNull,
+  decimalPlaces,
+  inactiveSuffix,
+  invalidMessage,
+  maxDecimals,
+  photosToDelete,
+  requiredText,
+  selectableOptions,
+} from './form-helpers';
 
 describe('photosToDelete', () => {
   it('on cancel deletes only what was uploaded, never the photo the article still has', () => {
@@ -60,5 +70,55 @@ describe('blankToNull', () => {
   it('turns blank text into null and trims the rest', () => {
     expect(blankToNull('   ')).toBeNull();
     expect(blankToNull(' Seda ')).toBe('Seda');
+  });
+});
+
+describe('requiredText', () => {
+  it('takes three spaces for the empty field they are (T1-12)', () => {
+    expect(requiredText(new FormControl('   '))).toEqual({ required: true });
+    expect(requiredText(new FormControl(''))).toEqual({ required: true });
+    expect(requiredText(new FormControl(null))).toEqual({ required: true });
+    expect(requiredText(new FormControl(' Blanco '))).toBeNull();
+  });
+
+  it('reads like an empty field', () => {
+    const control = new FormControl('   ', requiredText);
+    control.markAsTouched();
+    expect(invalidMessage(control)).toBe('Este campo es obligatorio.');
+  });
+});
+
+describe('decimalPlaces', () => {
+  it('counts the decimals as typed, not the float ones', () => {
+    expect(decimalPlaces(0.015005)).toBe(6);
+    expect(decimalPlaces(0.01500499)).toBe(8);
+    expect(decimalPlaces(53.3)).toBe(1);
+    expect(decimalPlaces(1000)).toBe(0);
+    expect(decimalPlaces(1e-7)).toBe(7);
+  });
+});
+
+describe('maxDecimals', () => {
+  it('refuses more decimals than the column keeps, with its own message', () => {
+    const control = new FormControl(10.005, maxDecimals(2));
+    control.markAsTouched();
+    expect(control.errors).toEqual({ decimals: 2 });
+    expect(invalidMessage(control)).toBe('Hasta 2 decimales.');
+  });
+
+  it('reads the limit in either shape, so core/form-errors and this file can be mixed', () => {
+    const withShape = (decimals: unknown) => {
+      const control = new FormControl(1.5);
+      control.setErrors({ decimals });
+      control.markAsTouched();
+      return invalidMessage(control);
+    };
+    expect(withShape(0)).toBe('Va entero, sin decimales.');
+    expect(withShape(3)).toBe('Hasta 3 decimales.');
+    expect(withShape({ max: 2 })).toBe('Hasta 2 decimales.');
+  });
+
+  it('leaves an empty field to «required»', () => {
+    expect(maxDecimals(2)(new FormControl(null))).toBeNull();
   });
 });

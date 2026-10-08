@@ -15,9 +15,6 @@ export interface SpoolIdentity {
 
 const NO_CODE = 'Sin código';
 const SEPARATOR = ' · ';
-const CODE_MATERIAL_MAX = 8;
-const CODE_COLOR_MAX = 6;
-const FALLBACK_PREFIX = 'ROLLO';
 
 /** «PETG Negro». The material comes before the colour: it is what the colour alone hides. */
 export function filamentName(materialCode: string | null | undefined, colorName: string | null | undefined): string {
@@ -37,22 +34,5 @@ export function spoolLabel(spool: SpoolIdentity, remainingG?: number | null): st
   return remainingG === null || remainingG === undefined ? name : name + SEPARATOR + grams(remainingG);
 }
 
-function alphanumeric(text: string | null | undefined): string {
-  return (text ?? '')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toUpperCase()
-    .replace(/[^A-Z0-9]/g, '');
-}
-
-/**
- * The shelf label of a new roll without its number: «PETG-NEGRO». The
- * material is part of it so a PETG black and a PLA black never share a
- * sequence. A «+» becomes PLUS, or PLA+ would be indistinguishable from PLA.
- * Rolls that already exist keep the label that is stuck on them.
- */
-export function spoolCodePrefix(materialCode: string | null | undefined, colorName: string | null | undefined): string {
-  const material = alphanumeric((materialCode ?? '').replace(/\+/g, 'PLUS')).slice(0, CODE_MATERIAL_MAX);
-  const color = alphanumeric(colorName).slice(0, CODE_COLOR_MAX) || FALLBACK_PREFIX;
-  return material ? `${material}-${color}` : color;
-}
+// The label of a new roll («PETG-NEGRO-03») is given by the database when the
+// purchase is registered: `app.spool_code_prefix` and `register_purchase`.

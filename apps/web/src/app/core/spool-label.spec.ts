@@ -1,4 +1,4 @@
-import { spoolCodePrefix, spoolLabel, spoolName } from './spool-label';
+import { spoolLabel, spoolName } from './spool-label';
 
 describe('spoolName', () => {
   it('puts the material before the colour, so a PETG black is not a second PLA black', () => {
@@ -36,32 +36,5 @@ describe('spoolLabel', () => {
   it('leaves the grams out when they are not known', () => {
     expect(spoolLabel({ code: 'ROJO-01', materialCode: 'PLA', colorName: 'Rojo' })).toBe('ROJO-01 · PLA Rojo');
     expect(spoolLabel({ code: 'ROJO-01', materialCode: 'PLA', colorName: 'Rojo' }, null)).toBe('ROJO-01 · PLA Rojo');
-  });
-});
-
-describe('spoolCodePrefix', () => {
-  it('carries the material, so the labels of two materials never share a sequence', () => {
-    expect(spoolCodePrefix('PLA', 'Negro')).toBe('PLA-NEGRO');
-    expect(spoolCodePrefix('PETG', 'Negro')).toBe('PETG-NEGRO');
-  });
-
-  it('drops accents and symbols from the colour and keeps it short', () => {
-    expect(spoolCodePrefix('PLA', 'Azul cielo')).toBe('PLA-AZULCI');
-    expect(spoolCodePrefix('PLA', 'Púrpura')).toBe('PLA-PURPUR');
-  });
-
-  it('tells PLA+ from PLA', () => {
-    expect(spoolCodePrefix('PLA+', 'Negro')).toBe('PLAPLUS-NEGRO');
-    expect(spoolCodePrefix('PLA', 'Negro')).not.toBe(spoolCodePrefix('PLA+', 'Negro'));
-  });
-
-  it('falls back to the colour alone when there is no material', () => {
-    expect(spoolCodePrefix(null, 'Rojo')).toBe('ROJO');
-    expect(spoolCodePrefix('—', 'Rojo')).toBe('ROJO');
-  });
-
-  it('never returns an empty label', () => {
-    expect(spoolCodePrefix('PLA', '')).toBe('PLA-ROLLO');
-    expect(spoolCodePrefix(null, null)).toBe('ROLLO');
   });
 });

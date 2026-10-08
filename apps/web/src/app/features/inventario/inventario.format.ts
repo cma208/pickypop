@@ -60,6 +60,7 @@ const SOURCE_LABELS: Record<string, string> = {
   maintenance: 'Mantenimiento',
   order: 'Pedido',
   weighing: 'Pesaje',
+  spool_status: 'Cambio de estado del rollo',
   manual: 'Registro manual',
 };
 
@@ -73,6 +74,17 @@ export const ITEM_KIND_LABELS: Record<ItemKind, string> = {
 };
 
 export const ITEM_KINDS = Object.keys(ITEM_KIND_LABELS) as ItemKind[];
+
+/**
+ * Units that are counted, not measured: nobody buys 2.5 boxes. A unit typed
+ * by hand («m», «kg») is not judged. The database keeps the same list in
+ * `app.counted_whole`; change them together.
+ */
+const WHOLE_UNITS: ReadonlySet<string> = new Set(['unidad', 'unidades', 'par', 'pares', 'caja', 'cajas']);
+
+export function countedWhole(unit: string | null | undefined): boolean {
+  return WHOLE_UNITS.has((unit ?? '').trim().toLowerCase());
+}
 
 export function sourceLabel(sourceType: string | null): string {
   if (!sourceType) return 'Sin origen';

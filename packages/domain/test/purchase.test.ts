@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { allocateCents, planPurchase, unitPriceFromLineTotal } from '../src/purchase.ts';
+import {
+  allocateCents,
+  lineSubtotalCents,
+  planPurchase,
+  storedQuantity,
+  storedUnitPrice,
+  unitPriceFromLineTotal,
+} from '../src/purchase.ts';
 import type { PlanLineInput } from '../src/purchase.ts';
 
 const sum = (values: number[]) => values.reduce((a, b) => a + b, 0);
@@ -137,5 +144,51 @@ describe('unitPriceFromLineTotal', () => {
         expect(plan.lines[0]!.subtotal, `${quantity} for ${total}`).toBe(total);
       }
     }
+  });
+});
+
+describe('the precision a purchase is stored with', () => {
+  it('keeps six decimals of a supply price and cents of a roll price', () => {
+    expect(storedUnitPrice('item', 0.01500499)).toBe(0.015005);
+    expect(storedUnitPrice('sku', 53.335)).toBe(53.34);
+    expect(storedUnitPrice('item', Number.NaN)).toBe(0);
+  });
+
+  it('keeps three decimals of a quantity', () => {
+    expect(storedQuantity(1.23456)).toBe(1.235);
+    expect(storedQuantity(Number.POSITIVE_INFINITY)).toBe(0);
+  });
+
+  it('multiplies like the database: exact, and half a cent away from zero', () => {
+    expect(lineSubtotalCents(1000, 0.015005)).toBe(1501);
+    expect(lineSubtotalCents(3, 0.005)).toBe(2);
+    expect(lineSubtotalCents(350, 0.042857)).toBe(1500);
+    expect(lineSubtotalCents(1_000_000, 100_000)).toBe(10_000_000_000_000);
+    expect(lineSubtotalCents(-3, 0.005)).toBe(-2);
+  });
+
+  it('previews what the database will charge, not what the raw price would (T1-16)', () => {
+    const plan = planPurchase([{ kind: 'item', quantity: 1000, unitPrice: 0.01500499, unitWeightG: null }], 0, 0, 'by_amount');
+
+    expect(plan.lines[0]?.unitPrice).toBe(0.015005);
+    expect(plan.lines[0]?.subtotal).toBe(15.01);
+    expect(plan.total).toBe(15.01);
+  });
+
+  it('adds a purchase line by line, each to the cent, like purchase_payment_status (T1-16 with two lines)', () => {
+    const line = { kind: 'item' as const, quantity: 1000, unitPrice: 0.015005, unitWeightG: null };
+    const plan = planPurchase([line, line], 0, 0, 'by_amount');
+
+    // 15.005 + 15.005 rounded once would be 30.01. The database adds 15.01 + 15.01.
+    expect(plan.lines.map((planned) => planned.total)).toEqual([15.01, 15.01]);
+    expect(plan.total).toBe(30.02);
+  });
+
+  it('prices every spool from the roll price it stores', () => {
+    const plan = planPurchase([{ kind: 'sku', quantity: 2, unitPrice: 49.999, unitWeightG: 1000 }], 0, 0, 'by_amount');
+
+    expect(plan.lines[0]?.unitPrice).toBe(50);
+    expect(plan.lines[0]?.unitCosts).toEqual([50, 50]);
+    expect(plan.lines[0]?.subtotal).toBe(100);
   });
 });

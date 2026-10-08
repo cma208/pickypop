@@ -3,15 +3,17 @@ import {
   Component,
   computed,
   DestroyRef,
+  effect,
   ElementRef,
   inject,
   Injector,
   input,
   output,
   signal,
+  untracked,
   viewChild,
 } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
+import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import {
   FormControl,
   NonNullableFormBuilder,
@@ -22,10 +24,9 @@ import {
 } from '@angular/forms';
 import { map } from 'rxjs';
 import { Card, Field, FORMAT_PIPES, ItemPicker, type PickerOption } from '../../ui';
-import { blankToNull, invalidMessage } from './form-helpers';
+import { blankToNull, invalidMessage, maxDecimals } from './form-helpers';
 import {
   InventarioData,
-  PartialPurchaseError,
   type InventoryItemSummary,
   type PaymentAccount,
   type PurchaseDraft,
@@ -33,12 +34,12 @@ import {
   type SkuSummary,
   type SupplierOption,
 } from './inventario.data';
-import { describeError } from './inventario.errors';
+import { describeError, noAnswerReason, outcomeUnknown } from './inventario.errors';
 import { INVENTORY_STYLES } from './inventario.styles';
 import { ITEM_KIND_LABELS, todayIso } from './inventario.format';
 import { linkPriceAndTotal } from './compra-line';
 import { borrowedPhoto } from '../../core/article-photos';
-import { planPurchase, type AllocationMethod, type PlanLineInput } from '../../core/pricing';
+import { planPurchase, PURCHASE_LIMITS, type AllocationMethod, type PlanLineInput } from '../../core/pricing';
 import type { SpoolIdentity } from '../../core/spool-label';
 import { PurchasePreview, type PreviewRow } from './purchase-preview';
 import { QuickAdd } from './quick-add';
@@ -46,17 +47,13 @@ import { PAYMENT_METHOD_LABELS, PAYMENT_METHODS, type PaymentMethod } from '../f
 import { PaymentCategoryNote } from '../finanzas/payment-category-note';
 import { beforeOpeningNotice, dayBeforeOpening } from '../finanzas/opening-balance';
 import { purchaseEntries } from './purchase-entries';
+import { purchaseLineProblems, purchaseTotalProblem, type PurchaseLineProblems } from './purchase-line-rules';
+import { notBefore, purchaseDateFloor } from './purchase-dates';
+import { noAccountsText } from './accounts-hint';
 
 interface Target {
   kind: 'sku' | 'item';
   id: string;
-}
-
-interface PartialState {
-  purchaseId: string | null;
-  spoolIds: string[];
-  created: string[];
-  failedStep: string;
 }
 
 /** What the form says once the purchase is in. */
@@ -64,8 +61,8 @@ export interface SavedPurchase {
   rolls: number;
   /** The rolls that came in, with their label: «PETG-NEGRO-01 · PETG Negro». */
   spools: SpoolIdentity[];
-  /** It was meant to be paid, and the payment could not be written. */
-  paymentFailed: boolean;
+  /** What was paid for it on the spot. Zero when it is still to be paid. */
+  paid: number;
 }
 
 const MADE_HERE: ReadonlySet<string> = new Set(['part', 'finished_good']);
@@ -76,6 +73,10 @@ const NOT_PAID = 'not-paid';
 const DEFAULT_UNIT = 'unidad';
 const FRACTIONS_OF_A_CENT_HINT = 'Aquí caben fracciones de centavo: hasta 6 decimales, como 0.015.';
 const ITEM_PREFIX = 'item:';
+/** Money paid is counted in cents. */
+const CENTS = 2;
+/** Shipping and other costs are money paid: cents, and a cap past which it is a typo. */
+const EXTRA_COST_RULES = [Validators.min(0), Validators.max(PURCHASE_LIMITS.extraCost), maxDecimals(CENTS)];
 
 function parseTarget(value: string): Target | null {
   if (value.startsWith(SKU_PREFIX)) return { kind: 'sku', id: value.slice(SKU_PREFIX.length) };
@@ -83,12 +84,8 @@ function parseTarget(value: string): Target | null {
   return null;
 }
 
-/** Spools are bought whole: you cannot buy 1.5 rolls. */
-function wholeRolls(line: AbstractControl): ValidationErrors | null {
-  const target = line.get('target')?.value as string;
-  const quantity = line.get('quantity')?.value as number | null;
-  const isRoll = target?.startsWith(SKU_PREFIX);
-  return isRoll && quantity != null && !Number.isInteger(quantity) ? { wholeRolls: true } : null;
+function numberOrNull(value: number | null | undefined): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
 }
 
 function notInTheFuture(control: AbstractControl): ValidationErrors | null {
@@ -105,6 +102,8 @@ function notInTheFuture(control: AbstractControl): ValidationErrors | null {
   imports: [ReactiveFormsModule, Card, Field, ItemPicker, QuickAdd, PurchasePreview, PaymentCategoryNote, FORMAT_PIPES],
   template: `
     <form [formGroup]="form" (ngSubmit)="askConfirmation()" novalidate class="stack">
+      <!-- Locked while it is on its way and while nobody knows whether it went in: see locked. -->
+      <fieldset class="contents" [disabled]="locked()">
       <pp-card heading="Datos de la compra">
         <div class="form-grid">
           <div>
@@ -119,7 +118,7 @@ function notInTheFuture(control: AbstractControl): ValidationErrors | null {
             <app-quick-add label="Nuevo proveedor" placeholder="Nombre del proveedor" [create]="createSupplier" />
           </div>
           <pp-field label="Fecha" [required]="true" [error]="msg(form.controls.purchasedAt)">
-            <input type="date" formControlName="purchasedAt" [max]="today" />
+            <input type="date" formControlName="purchasedAt" [min]="oldestDay" [max]="today" />
           </pp-field>
           <pp-field label="Referencia del documento" hint="Factura, boleta o guía">
             <input formControlName="documentRef" autocomplete="off" />
@@ -139,14 +138,10 @@ function notInTheFuture(control: AbstractControl): ValidationErrors | null {
               />
             </pp-field>
             <div class="numbers">
-              <pp-field
-                [label]="quantityLabel(i)"
-                [required]="true"
-                [error]="line.hasError('wholeRolls') ? 'Los rollos se compran enteros.' : msg(line.controls.quantity)"
-              >
+              <pp-field [label]="quantityLabel(i)" [required]="true" [error]="quantityError(i)">
                 <input type="number" step="any" formControlName="quantity" inputmode="decimal" />
               </pp-field>
-              <pp-field [label]="priceLabel(i)" [required]="true" [hint]="priceHint(i)" [error]="msg(line.controls.unitPrice)">
+              <pp-field [label]="priceLabel(i)" [required]="true" [hint]="priceHint(i)" [error]="priceError(i)">
                 <input type="number" step="any" formControlName="unitPrice" inputmode="decimal" />
               </pp-field>
               @if (canTypeTotal(i)) {
@@ -206,6 +201,9 @@ function notInTheFuture(control: AbstractControl): ValidationErrors | null {
               }
               <option [value]="notPaid">Todavía no la pagué</option>
             </select>
+            @if (accountOptions().length === 0) {
+              <p class="muted no-accounts">{{ noAccounts() }} Mientras tanto, elige «Todavía no la pagué».</p>
+            }
           </pp-field>
           @if (chosenAccount(); as account) {
             <pp-field label="Medio de pago" [hint]="account.defaultMethod ? undefined : account.name + ' no tiene un medio por defecto: elígelo aquí.'">
@@ -227,32 +225,17 @@ function notInTheFuture(control: AbstractControl): ValidationErrors | null {
           }
         }
       </pp-card>
+      </fieldset>
 
       <pp-card heading="Costo final antes de confirmar">
         <app-purchase-preview [rows]="previewRows()" [plan]="plan()" />
+        @if (totalProblem(); as text) {
+          <p class="alert" role="alert">{{ text }}</p>
+        }
       </pp-card>
 
-      @if (partial(); as problem) {
-        <div class="alert" role="alert">
-          @if (problem.purchaseId) {
-            <p>
-              <strong>La compra quedó a medias.</strong>
-              Se creó: {{ problem.created.join(', ') }}. Falló al guardar {{ problem.failedStep }}.
-            </p>
-            <p>
-              El stock puede estar incompleto. Puedes deshacer lo que se creó y volver a intentar, o revisarlo en
-              Rollos y Movimientos antes de decidir.
-            </p>
-            <div class="row">
-              <button type="button" class="danger" [disabled]="busy()" (click)="undo(problem)">
-                Deshacer lo creado
-              </button>
-              <button type="button" class="secondary" (click)="partial.set(null)">Lo reviso yo</button>
-            </div>
-          } @else {
-            <p><strong>No se guardó nada.</strong> {{ failureText() }}</p>
-          }
-        </div>
+      @if (failure(); as message) {
+        <p class="alert" role="alert"><strong>No se guardó nada.</strong> {{ message }}</p>
       }
       @if (error(); as message) {
         <p class="alert" role="alert">{{ message }}</p>
@@ -265,8 +248,23 @@ function notInTheFuture(control: AbstractControl): ValidationErrors | null {
             {{ entriesText() }} {{ paymentText() }}
             Después no se puede editar.
           </p>
+          @if (uncertain(); as reason) {
+            <div class="alert" role="alert">
+              <p><strong>No sabemos si la compra se guardó.</strong> {{ reason }}</p>
+              <p>
+                Vuelve a pulsar «Confirmar y guardar»: si ya había entrado, no se registra dos veces. Mientras tanto
+                la compra no se puede cambiar, porque cambiada sería otra.
+              </p>
+            </div>
+          }
           <div class="form-actions">
-            <button type="button" class="secondary" [disabled]="busy()" (click)="confirming.set(false)">Volver</button>
+            @if (uncertain()) {
+              <button type="button" class="secondary" [disabled]="busy()" (click)="cancelled.emit()">
+                Salir y revisar la lista
+              </button>
+            } @else {
+              <button type="button" class="secondary" [disabled]="busy()" (click)="confirming.set(false)">Volver</button>
+            }
             <button type="button" [disabled]="busy()" (click)="save()">
               {{ busy() ? 'Guardando…' : 'Confirmar y guardar' }}
             </button>
@@ -288,6 +286,9 @@ function notInTheFuture(control: AbstractControl): ValidationErrors | null {
       .subtotal { display: grid; gap: 0.2rem; margin-bottom: 0.9rem; font-size: 0.9rem; }
       .danger-text { color: var(--danger); justify-self: start; align-self: end; margin-bottom: 0.9rem; }
       textarea { resize: vertical; }
+      /* Only there to lock what it holds: the cards keep the form's spacing. */
+      fieldset.contents { display: contents; }
+      .no-accounts { margin: 0.4rem 0 0; font-size: var(--fs-sm); }
       .confirm { padding: 1rem; border: 2px solid var(--accent); border-radius: var(--radius); background: var(--accent-soft); }
       .confirm p { margin: 0; }
       .alert p { margin: 0 0 0.5rem; }
@@ -305,12 +306,17 @@ export class CompraForm {
   readonly itemOptions = input.required<InventoryItemSummary[]>();
   readonly supplierOptions = input.required<SupplierOption[]>();
   readonly accountOptions = input.required<PaymentAccount[]>();
+  /** Only the owner creates accounts: the operator is told whom to ask. */
+  readonly isOwner = input(false);
   readonly saved = output<SavedPurchase>();
   readonly cancelled = output<void>();
+  /** The database refused it: what the form was built from may be old (a filament switched off, an account closed). */
+  readonly refused = output<void>();
 
   protected readonly skuPrefix = SKU_PREFIX;
   protected readonly itemPrefix = ITEM_PREFIX;
   protected readonly today = todayIso();
+  protected readonly oldestDay = purchaseDateFloor(this.today);
   protected readonly msg = invalidMessage;
   protected readonly notPaid = NOT_PAID;
   protected readonly methods = PAYMENT_METHODS;
@@ -348,10 +354,10 @@ export class CompraForm {
 
   protected readonly form = this.fb.group({
     supplierId: [''],
-    purchasedAt: [todayIso(), [Validators.required, notInTheFuture]],
+    purchasedAt: [todayIso(), [Validators.required, notInTheFuture, notBefore(purchaseDateFloor(todayIso()))]],
     documentRef: [''],
-    shippingCost: new FormControl<number | null>(0, [Validators.required, Validators.min(0)]),
-    otherCosts: new FormControl<number | null>(0, Validators.min(0)),
+    shippingCost: new FormControl<number | null>(0, [Validators.required, ...EXTRA_COST_RULES]),
+    otherCosts: new FormControl<number | null>(0, EXTRA_COST_RULES),
     allocation: ['by_amount' as AllocationMethod],
     note: [''],
     paidFrom: ['', Validators.required],
@@ -391,6 +397,20 @@ export class CompraForm {
     return planPurchase(inputs, Number(shippingCost) || 0, Number(otherCosts) || 0, allocation);
   });
 
+  /** What is wrong with each line, from the domain's limits. Shown next to the field once it is touched. */
+  protected readonly lineProblems = computed<PurchaseLineProblems[]>(() =>
+    this.resolved().map(({ line, target, item }) =>
+      purchaseLineProblems({
+        kind: target?.kind ?? null,
+        quantity: numberOrNull(line.quantity),
+        unitPrice: numberOrNull(line.unitPrice),
+        unit: item?.unit ?? null,
+      }),
+    ),
+  );
+
+  protected readonly totalProblem = computed(() => purchaseTotalProblem(this.plan().total));
+
   protected readonly previewRows = computed(() =>
     this.resolved().flatMap(({ line, sku, item }, index): PreviewRow[] => {
       if (!sku && !item) return [];
@@ -398,9 +418,10 @@ export class CompraForm {
         {
           label: sku ? this.skuName(sku) : (item?.name ?? ''),
           kind: sku ? 'sku' : 'item',
-          quantity: Number(line.quantity) || 0,
+          imagePath: item?.imagePath ?? null,
+          articleKind: sku ? 'spool' : (item?.kind ?? 'supply'),
+          colorHex: sku?.colorHex ?? null,
           unit: sku ? 'rollo' : (item?.unit ?? ''),
-          unitPrice: Number(line.unitPrice) || 0,
           netWeightG: sku?.netWeightG ?? null,
           line: this.plan().lines[index],
         },
@@ -418,6 +439,8 @@ export class CompraForm {
       this.resolved().flatMap(({ item }) => (item ? [item.kind] : [])),
     ),
   );
+
+  protected readonly noAccounts = computed(() => noAccountsText(this.isOwner()));
 
   protected readonly chosenAccount = computed(() =>
     this.accountOptions().find((account) => account.id === this.raw().paidFrom),
@@ -451,8 +474,69 @@ export class CompraForm {
   protected readonly confirming = signal(false);
   protected readonly busy = signal(false);
   protected readonly error = signal<string | null>(null);
-  protected readonly partial = signal<PartialState | null>(null);
-  protected readonly failureText = signal('Inténtalo de nuevo en un momento.');
+  /** Why the database refused the purchase. Nothing of it was written: it is one transaction. */
+  protected readonly failure = signal<string | null>(null);
+  /**
+   * Why there is no answer, when the request may have gone in anyway (the
+   * connection dropped after the database committed). Until a retry with the
+   * same key settles it, the form is locked (a disabled fieldset, which
+   * reaches the item picker and the buttons too): a change would be a new
+   * key, and a second purchase if the first one did go in.
+   */
+  protected readonly uncertain = signal<string | null>(null);
+
+  /**
+   * The form says what was sent until the answer settles it. Edited while
+   * «Guardando…», it would get a new key, and the retry a lost answer asks for
+   * would register a second purchase.
+   */
+  protected readonly locked = computed(() => this.busy() || this.uncertain() !== null);
+
+  /**
+   * Names this purchase for the database, which makes it once however many
+   * times it is asked: a double click, or an answer lost on the way back. A
+   * change to the form is another purchase, with a key of its own.
+   */
+  private purchaseKey = crypto.randomUUID();
+
+  constructor() {
+    this.form.valueChanges.pipe(takeUntilDestroyed()).subscribe(() => {
+      // A change that slips in while it is locked is not the person's: the key stays with what was sent.
+      if (!this.locked()) this.purchaseKey = crypto.randomUUID();
+    });
+    // After a refusal the lists reload. An account closed or a filament
+    // switched off in another tab is gone from them: the form lets go of it
+    // and asks again, instead of showing nothing chosen, saying «Queda por
+    // pagar» in the confirmation and sending it anyway.
+    effect(() => {
+      const accounts = this.accountOptions();
+      const skus = this.skuById();
+      const items = this.itemById();
+      untracked(() => this.dropVanishedChoices(accounts, skus, items));
+    });
+  }
+
+  private dropVanishedChoices(
+    accounts: PaymentAccount[],
+    skus: ReadonlyMap<string, SkuSummary>,
+    items: ReadonlyMap<string, InventoryItemSummary>,
+  ): void {
+    // On its way, or while nobody knows whether it went in, the purchase stays as it was sent.
+    if (this.locked()) return;
+    const paidFrom = this.form.controls.paidFrom;
+    if (paidFrom.value !== '' && paidFrom.value !== NOT_PAID && !accounts.some((account) => account.id === paidFrom.value)) {
+      paidFrom.setValue('');
+      paidFrom.markAsTouched();
+    }
+    for (const line of this.lines.controls) {
+      const target = parseTarget(line.controls.target.value);
+      const gone = target !== null && !(target.kind === 'sku' ? skus.has(target.id) : items.has(target.id));
+      if (gone) {
+        line.controls.target.setValue('');
+        line.controls.target.markAsTouched();
+      }
+    }
+  }
 
   protected readonly createSupplier = async (name: string): Promise<void> => {
     const supplier = await this.data.createSupplier(name);
@@ -487,6 +571,14 @@ export class CompraForm {
     return this.resolved()[index]?.target?.kind === 'item';
   }
 
+  protected quantityError(index: number): string | null {
+    return this.lines.at(index).controls.quantity.touched ? (this.lineProblems()[index]?.quantity ?? null) : null;
+  }
+
+  protected priceError(index: number): string | null {
+    return this.lines.at(index).controls.unitPrice.touched ? (this.lineProblems()[index]?.unitPrice ?? null) : null;
+  }
+
   protected isPerishable(index: number): boolean {
     return this.resolved()[index]?.item?.perishable ?? false;
   }
@@ -500,11 +592,17 @@ export class CompraForm {
   }
 
   protected askConfirmation(): void {
+    if (this.uncertain()) return;
     this.form.markAllAsTouched();
     this.error.set(null);
-    this.partial.set(null);
-    if (this.form.invalid) {
+    this.failure.set(null);
+    const lineProblem = this.lineProblems().some((problems) => problems.quantity || problems.unitPrice);
+    if (this.form.invalid || lineProblem) {
       this.error.set('Revisa los campos marcados antes de guardar.');
+      return;
+    }
+    if (this.totalProblem()) {
+      this.error.set(this.totalProblem());
       return;
     }
     if (this.methodMissing()) {
@@ -522,67 +620,45 @@ export class CompraForm {
 
     this.busy.set(true);
     this.error.set(null);
+    this.failure.set(null);
     try {
-      const registered = await this.data.registerPurchase(this.toDraft());
-      this.saved.emit({
-        rolls: this.rollCount(),
-        spools: registered.spools,
-        paymentFailed: registered.paymentFailed,
-      });
+      const registered = await this.data.registerPurchase(this.toDraft(), this.purchaseKey);
+      this.uncertain.set(null);
+      this.saved.emit({ rolls: registered.spools.length, spools: registered.spools, paid: registered.paid });
     } catch (error) {
+      if (outcomeUnknown(error)) {
+        // It may be in: same key, same purchase, and the form stays as it was sent.
+        this.uncertain.set(noAnswerReason(error));
+        return;
+      }
+      // The database answered no, and a refusal with this key also means the
+      // first try never went in: with it in, the key would have returned it.
+      this.uncertain.set(null);
       this.confirming.set(false);
-      this.reportFailure(error);
+      this.failure.set(describeError(error, 'Inténtalo de nuevo en un momento.'));
+      this.refused.emit();
     } finally {
       this.busy.set(false);
     }
   }
 
-  protected async undo(problem: PartialState): Promise<void> {
-    if (!problem.purchaseId || this.busy()) return;
-
-    this.busy.set(true);
-    try {
-      await this.data.undoPurchase(problem.purchaseId, problem.spoolIds);
-      this.partial.set(null);
-      this.error.set('Se deshizo lo que se había creado. Puedes volver a intentar el guardado.');
-    } catch (error) {
-      this.error.set(
-        describeError(error, 'No pudimos deshacer lo creado. Revísalo en Rollos y Movimientos antes de reintentar.'),
-      );
-    } finally {
-      this.busy.set(false);
-    }
-  }
-
-  private reportFailure(error: unknown): void {
-    if (error instanceof PartialPurchaseError) {
-      console.error(error.cause);
-      this.failureText.set(describeError(error.cause, 'Inténtalo de nuevo en un momento.'));
-      this.partial.set({
-        purchaseId: error.purchaseId,
-        spoolIds: error.spoolIds,
-        created: error.created,
-        failedStep: error.failedStep,
-      });
-      return;
-    }
-
-    this.partial.set({ purchaseId: null, spoolIds: [], created: [], failedStep: '' });
-    this.failureText.set(describeError(error, 'Inténtalo de nuevo en un momento.'));
-  }
-
+  /** The plan's numbers, not the typed ones: they are what the preview showed and what the database checks. */
   private toDraft(): PurchaseDraft {
     const raw = this.form.getRawValue();
-    const lines = this.resolved().map(({ line, target, sku }): PurchaseDraftLine => ({
-      kind: target?.kind ?? 'sku',
-      targetId: target?.id ?? '',
-      quantity: Number(line.quantity),
-      unitPrice: Number(line.unitPrice),
-      expiresOn: target?.kind === 'item' ? blankToNull(line.expiresOn) : null,
-      netWeightG: sku?.netWeightG ?? null,
-      colorName: sku?.colorName ?? null,
-      materialCode: sku?.materialCode ?? null,
-    }));
+    const plan = this.plan();
+    const lines = this.resolved().map(({ line, target }, index): PurchaseDraftLine => {
+      const planned = plan.lines[index];
+      return {
+        kind: target?.kind ?? 'sku',
+        targetId: target?.id ?? '',
+        quantity: planned?.quantity ?? 0,
+        unitPrice: planned?.unitPrice ?? 0,
+        extra: planned?.extra ?? 0,
+        unitCosts: planned?.unitCosts ?? [],
+        unitCost: planned?.effectiveUnitCost ?? 0,
+        expiresOn: target?.kind === 'item' ? blankToNull(line.expiresOn) : null,
+      };
+    });
 
     return {
       supplierId: blankToNull(raw.supplierId),
@@ -590,25 +666,22 @@ export class CompraForm {
       documentRef: blankToNull(raw.documentRef),
       shippingCost: Number(raw.shippingCost) || 0,
       otherCosts: Number(raw.otherCosts) || 0,
+      allocation: plan.method,
       note: blankToNull(raw.note),
       lines,
-      plan: this.plan(),
       payment:
         raw.paidFrom === NOT_PAID ? null : { accountId: raw.paidFrom, method: raw.method === '' ? null : raw.method },
     };
   }
 
   private newLine() {
-    const line = this.fb.group(
-      {
-        target: ['', Validators.required],
-        quantity: new FormControl<number | null>(1, [Validators.required, Validators.min(0.001)]),
-        unitPrice: new FormControl<number | null>(null, [Validators.required, Validators.min(0)]),
-        lineTotal: new FormControl<number | null>(null, Validators.min(0)),
-        expiresOn: [''],
-      },
-      { validators: wholeRolls },
-    );
+    const line = this.fb.group({
+      target: ['', Validators.required],
+      quantity: new FormControl<number | null>(1, Validators.required),
+      unitPrice: new FormControl<number | null>(null, Validators.required),
+      lineTotal: new FormControl<number | null>(null, [Validators.min(0), maxDecimals(CENTS)]),
+      expiresOn: [''],
+    });
     linkPriceAndTotal(line.controls, this.destroyRef);
     return line;
   }

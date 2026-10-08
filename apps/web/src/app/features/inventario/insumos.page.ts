@@ -144,7 +144,8 @@ interface ItemRow {
           <app-modal [heading]="'Movimiento · ' + current.item.name" (closed)="dialog.set(null)">
             <app-item-movement-form
               [item]="current.item"
-              (saved)="onSaved('Movimiento registrado. Lo ves en el kardex.')"
+              (saved)="onSaved($event)"
+              (refused)="onMovementRefused()"
               (cancelled)="dialog.set(null)"
             />
           </app-modal>
@@ -242,6 +243,26 @@ export class InsumosPage {
     // A movement changes what there is, and so who gets what.
     this.planner.changed();
     await this.load();
+  }
+
+  /**
+   * A movement was refused, or its answer was lost: what the list and the
+   * open dialog show may be old (another tab moved the stock, or the movement
+   * went in after all). Both come back up to date, without closing the dialog
+   * and its key. Quietly: if the reload fails too, what is on screen stays.
+   */
+  protected async onMovementRefused(): Promise<void> {
+    try {
+      const items = await this.data.items();
+      this.items.set(items);
+      this.dialog.update((current) => {
+        if (current?.kind !== 'move') return current;
+        const fresh = items.find((item) => item.id === current.item.id);
+        return fresh ? { kind: 'move', item: fresh } : current;
+      });
+    } catch (error) {
+      console.error(error);
+    }
   }
 
   private async load(): Promise<void> {
