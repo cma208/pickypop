@@ -23,6 +23,18 @@ export interface JobRefusal {
   message: string;
 }
 
+/**
+ * What a page says once it read the jobs again after a refusal. While the job
+ * is still where it was, its card already shows the refusal. If it left
+ * (started, closed or cancelled elsewhere), the card it was on is gone, and
+ * the page has to say it or the refusal vanishes with it.
+ */
+export function refusalAfterReload(refusal: JobRefusal | null, jobs: readonly Pick<JobItem, 'id' | 'status'>[]): string | null {
+  if (!refusal) return null;
+  const now = jobs.find((job) => job.id === refusal.jobId);
+  return !now || now.status !== refusal.status ? refusal.message : null;
+}
+
 /** One print job with its actions: start it, close it. */
 @Component({
   selector: 'app-print-job-card',

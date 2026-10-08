@@ -7,7 +7,7 @@ import { AsyncState, Card, Empty, FORMAT_PIPES, Page } from '../../ui';
 import { explainProductionError } from './production-errors';
 import { PorLanzarCard } from './por-lanzar-card';
 import type { QueuedRuns } from './proposal-queue-form';
-import { PrintJobCard, type JobRefusal } from './print-job-card';
+import { PrintJobCard, refusalAfterReload, type JobRefusal } from './print-job-card';
 import { PrintJobForm } from './print-job-form';
 import { ProduccionData, type CloseOutcome, type JobItem } from './produccion.data';
 import { ProductionAccess } from './production-access';
@@ -281,8 +281,8 @@ export class ProduccionPage {
     const pending = this.pendingRefusal;
     if (!pending) return;
     this.pendingRefusal = null;
-    const now = jobs.find((job) => job.id === pending.jobId);
-    if (!now || now.status !== pending.status) this.refusal.set(pending.message);
+    const message = refusalAfterReload(pending, jobs);
+    if (message) this.refusal.set(message);
   }
 
   /** Pictures and colours only dress the proposals: if they fail, the rows still read. */

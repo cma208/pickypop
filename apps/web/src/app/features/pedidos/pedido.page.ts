@@ -5,7 +5,7 @@ import { date } from '../../core/format';
 import { friendlyError } from '../../core/friendly-error';
 import { AsyncState, Badge, Card, Empty, FORMAT_PIPES, Item, Page, ResourceHeader, type HeaderAction } from '../../ui';
 import { documentTitle } from '../../core/document-title';
-import { PrintJobCard } from '../produccion/print-job-card';
+import { PrintJobCard, refusalAfterReload, type JobRefusal } from '../produccion/print-job-card';
 import { PrintJobForm, type FixedOrderLine } from '../produccion/print-job-form';
 import { ProduccionData, type JobItem } from '../produccion/produccion.data';
 import { PedidoCobro } from './pedido-cobro';
@@ -185,6 +185,13 @@ import { isFinal, PURPOSE_LABEL, PURPOSE_TONE, STATUS_LABEL, STATUS_TONE, type O
 
             @if (printsForIt()) {
               <pp-card heading="Impresiones de este pedido">
+                @if (jobRefusal(); as message) {
+                  <!-- The job a stale tab tried to start or close is no longer where it was: said here, now reloaded. -->
+                  <p class="alert refusal" role="alert">
+                    <span>{{ message }}</span>
+                    <button type="button" class="ghost" (click)="jobRefusal.set(null)">Entendido</button>
+                  </p>
+                }
                 @if (jobsError(); as message) {
                   <p class="error">{{ message }}</p>
                 } @else if (jobs().length === 0) {
@@ -192,7 +199,7 @@ import { isFinal, PURPOSE_LABEL, PURPOSE_TONE, STATUS_LABEL, STATUS_TONE, type O
                 } @else {
                   <div class="jobs">
                     @for (job of jobs(); track job.id) {
-                      <app-print-job-card [job]="job" [showOrder]="false" (changed)="reloadProduction()" />
+                      <app-print-job-card [job]="job" [showOrder]="false" (changed)="reloadProduction()" (refused)="onJobRefused($event)" />
                     }
                   </div>
                 }
@@ -226,6 +233,7 @@ import { isFinal, PURPOSE_LABEL, PURPOSE_TONE, STATUS_LABEL, STATUS_TONE, type O
     .jobs { display: grid; gap: 0.6rem; }
     .note { font-size: 0.82rem; margin: 0.75rem 0 0; }
     tfoot th { font-size: 0.85rem; text-transform: none; color: inherit; }
+    .refusal { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; overflow-wrap: anywhere; }
   `,
 })
 export class PedidoPage {
@@ -261,6 +269,10 @@ export class PedidoPage {
   protected readonly paymentError = signal<string | null>(null);
   protected readonly jobsError = signal<string | null>(null);
   protected readonly jobLine = signal<FixedOrderLine | null>(null);
+  /** What the database said when it refused a stale start or close whose job then left its place. */
+  protected readonly jobRefusal = signal<string | null>(null);
+  /** A refusal waiting for the reload that follows it. */
+  private pendingRefusal: JobRefusal | null = null;
 
   /** The most recent time something left: deliveries come newest first. */
   protected readonly lastDelivery = computed(() => this.deliveries()[0]?.deliveredAt ?? null);
@@ -349,6 +361,17 @@ export class PedidoPage {
     await this.loadPayment(this.id());
   }
 
+  /**
+   * A start or a close refused: this tab is stale, as in the queue. The
+   * whole order is read again (it may have been cancelled elsewhere, which
+   * cancels its prints), and if the job left its place the card says nothing
+   * any more, so the page says it.
+   */
+  protected onJobRefused(refusal: JobRefusal): void {
+    this.pendingRefusal = refusal;
+    void this.load(this.id(), false);
+  }
+
   protected async reloadProduction(): Promise<void> {
     await Promise.all([this.loadJobs(this.id()), this.loadSummary(this.id())]);
   }
@@ -383,8 +406,12 @@ export class PedidoPage {
 
   private async loadJobs(id: string): Promise<void> {
     try {
-      this.jobs.set(await this.production.jobsForOrder(id));
+      const jobs = await this.production.jobsForOrder(id);
+      this.jobs.set(jobs);
       this.jobsError.set(null);
+      const refused = refusalAfterReload(this.pendingRefusal, jobs);
+      this.pendingRefusal = null;
+      if (refused) this.jobRefusal.set(refused);
     } catch (error) {
       this.jobsError.set(explainError(error, 'No pudimos leer las impresiones de este pedido.'));
     }
