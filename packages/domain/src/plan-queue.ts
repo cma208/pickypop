@@ -86,7 +86,7 @@ export class PrintQueue {
     let best: { lane: Lane; start: number } | null = null;
     for (const lane of this.lanes) {
       if (!lane.acceptsRuns) continue;
-      const start = this.startOn(lane.busyUntil, durationMs, label);
+      const start = this.startOn(lane.busyUntil, durationMs, `La placa "${label}"`);
       if (best === null || start < best.start) best = { lane, start };
     }
     // The constructor guarantees at least one lane that accepts runs.
@@ -115,17 +115,18 @@ export class PrintQueue {
     return Math.ceil(runs * failureRate - COUNT_EPSILON);
   }
 
-  private startOn(busyUntil: number | null, durationMs: number, label: string): number {
+  /** `subject` opens the warning if it does not fit: «La placa "Tapas"», «El trabajo "Molde"». */
+  private startOn(busyUntil: number | null, durationMs: number, subject: string): number {
     const from = busyUntil === null ? this.now : busyUntil + this.changeoverMs;
     const slot = this.clock.plateStart(from, durationMs);
-    if (!slot.fits) this.warnDoesNotFit(label, durationMs);
+    if (!slot.fits) this.warnDoesNotFit(subject, durationMs);
     return slot.start;
   }
 
-  private warnDoesNotFit(label: string, durationMs: number): void {
+  private warnDoesNotFit(subject: string, durationMs: number): void {
     const { firstStart, endBy } = this.window;
     this.warnings.add(
-      `La placa "${label}" dura ${formatDuration(durationMs)} y no cabe en el horario ` +
+      `${subject} dura ${formatDuration(durationMs)} y no cabe en el horario ` +
         `(${formatMinuteOfDay(firstStart)} a ${formatMinuteOfDay(endBy)}): ` +
         `se programa igual a las ${formatMinuteOfDay(firstStart)}.`,
     );
@@ -165,7 +166,8 @@ export class PrintQueue {
     for (const job of planned) {
       const lane = this.laneOf(job.printerId);
       const durationMs = job.estimatedSeconds * MS_PER_SECOND;
-      const start = this.startOn(lane.busyUntil, durationMs, jobName(job));
+      // A job already in the queue is named as a job: it may have no plate.
+      const start = this.startOn(lane.busyUntil, durationMs, `El trabajo "${jobName(job)}"`);
       lane.busyUntil = start + durationMs;
       this.jobStarts.set(job.id, start);
       this.jobEnds.set(job.id, lane.busyUntil);

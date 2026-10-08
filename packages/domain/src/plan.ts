@@ -43,6 +43,8 @@ const CANDIDATE_ID = 'candidate';
 const CANDIDATE_HOLD_UNTIL = '9999-12-31T23:59:59.999Z';
 const GRAMS = 'g';
 const DEFAULT_UNIT = 'unidad';
+/** Like the queue card of a job with no name at all. */
+const UNNAMED_JOB = 'Impresión sin nombre';
 
 // ------------------------------------------------------------------ public
 
@@ -427,14 +429,21 @@ class Allocator {
     }
   }
 
+  /**
+   * The name its card in the queue shows, so a warning points at a job the
+   * person can find. Never the printer's: «La placa "A1 mini"» named a loose
+   * job after the machine it runs on (T3-12).
+   */
   private jobName(job: PlanJob): string {
+    const label = job.label?.trim();
+    if (label) return label;
     const names = [...new Set(job.outputs.map((o) => this.items.get(o.itemId)?.name ?? o.itemId))];
     if (names.length > 0) return names.join(' + ');
     const line = this.input.demands
       .flatMap((demand) => demand.lines)
       .find((candidate) => candidate.id === job.orderLineId);
     if (line) return line.description;
-    return this.input.printers.find((printer) => printer.id === job.printerId)?.name ?? job.id;
+    return UNNAMED_JOB;
   }
 
   private planLine(claimant: Claimant, line: PlanDemandLine): LinePlanned {

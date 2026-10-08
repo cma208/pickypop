@@ -64,6 +64,12 @@ export interface PlanJob {
   id: string;
   printerId: string;
   status: 'printing' | 'planned';
+  /**
+   * What its card in the queue calls it: its own name, else its order line's,
+   * else its plate's. The plan's warnings name the job by it. Optional so a
+   * snapshot from before it existed still reads.
+   */
+  label?: string | null;
   /** Null while it waits. */
   startedAt: string | null;
   /** When it was put in the queue: planned jobs of one printer run in this order. */
