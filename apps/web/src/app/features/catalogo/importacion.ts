@@ -11,7 +11,7 @@ import type {
   PlateOutputInput,
   SkuOption,
 } from './catalogo.models';
-import { countOf, joinWithAnd } from './catalogo.util';
+import { countOf, sameName } from './catalogo.util';
 
 /**
  * Lo que la importación de un `.gcode.3mf` propone, sin tocar la base: qué
@@ -382,17 +382,7 @@ export function isNewPart(id: string | null | undefined): id is string {
 
 /** The part already called that. «tapa» and «Tapa » are one part to a person. */
 export function partNamed<T extends PartCandidate>(name: string, parts: readonly T[]): T | null {
-  const wanted = comparableName(name);
-  return wanted === '' ? null : (parts.find((part) => comparableName(part.name) === wanted) ?? null);
-}
-
-function comparableName(name: string): string {
-  return name
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .toLowerCase()
-    .replace(/\s+/g, ' ')
-    .trim();
+  return sameName(name, parts);
 }
 
 /**
@@ -407,53 +397,16 @@ export function newPartsUsed(plates: readonly Pick<ImportedPlate, 'outputs' | 'r
   return [...new Set(ids.filter(isNewPart))];
 }
 
-/** The plate with each temporary id swapped for the part created for it. */
-export function withCreatedParts(plate: ImportedPlate, created: ReadonlyMap<string, string>): ImportedPlate {
-  const real = (id: string): string => created.get(id) ?? id;
-  return {
-    ...plate,
-    outputs: plate.outputs.map((output) => ({ ...output, inventoryItemId: real(output.inventoryItemId) })),
-    record: {
-      ...plate.record,
-      objects: plate.record.objects.map((object) => ({
-        ...object,
-        inventoryItemId: object.inventoryItemId === null ? null : real(object.inventoryItemId),
-      })),
-    },
-  };
-}
-
 /**
- * A failed save names the parts it could not take back. Only the owner may
- * delete an article, so for anyone else a part created just before the plates
- * failed stays; said nothing, it sat in the inventory with no plate and no
- * photo while the person believed nothing had been written (E2-03).
+ * The new parts the plates use, with the name each will have. They are sent
+ * with the plates and created in the same call (`import_plates`): a save that
+ * fails leaves none behind, for the owner or for anyone else (E2-03).
  */
-export function failedSaveMessage(cause: string, keptParts: readonly string[]): string {
-  if (keptParts.length === 0) return cause;
-  const names = quotedNames(keptParts);
-  return keptParts.length === 1
-    ? `${cause} La pieza ${names} ya quedó creada en Inventario › Piezas impresas: si vuelves a guardar, se usa esa misma.`
-    : `${cause} Las piezas ${names} ya quedaron creadas en Inventario › Piezas impresas: si vuelves a guardar, se usan esas mismas.`;
-}
-
-/**
- * What the recipe says after a discard that left parts behind, or null when it
- * left nothing. The review is gone by then, so this is the last chance to say
- * where they are and what to do with them.
- */
-export function discardedPartsNote(keptParts: readonly string[]): string | null {
-  if (keptParts.length === 0) return null;
-  const names = quotedNames(keptParts);
-  return keptParts.length === 1
-    ? `Descartaste la importación, pero la pieza ${names} ya se había creado y quedó en Inventario › Piezas impresas. ` +
-        'Si la vuelves a necesitar, elígela en la lista; si no la vas a usar, desactívala ahí.'
-    : `Descartaste la importación, pero las piezas ${names} ya se habían creado y quedaron en Inventario › Piezas impresas. ` +
-        'Si las vuelves a necesitar, elígelas en la lista; si no las vas a usar, desactívalas ahí.';
-}
-
-function quotedNames(names: readonly string[]): string {
-  return joinWithAnd(names.map((name) => `«${name}»`));
+export function newPartsToCreate(
+  plates: readonly Pick<ImportedPlate, 'outputs' | 'record'>[],
+  named: readonly PartCandidate[],
+): { key: string; name: string }[] {
+  return newPartsUsed(plates).map((key) => ({ key, name: named.find((part) => part.id === key)?.name ?? '' }));
 }
 
 // --------------------------------------------------------------- after saving

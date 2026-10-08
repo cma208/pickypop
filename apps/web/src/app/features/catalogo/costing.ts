@@ -186,13 +186,8 @@ export function buildBatch(sources: CostSources, units: number): { batch: BatchI
       // The row knows its own item, even one the options were read before.
       const label = supply.item.name;
       const { cost, known } = supplyCostPerUnit(supply.inventoryItemId, supply.quantityPerUnit, sources);
-      if (!known) {
-        warnings.push(
-          supply.item.kind === 'part'
-            ? `${label}: la imprime otra receta y todavía no se cerró ninguna impresión suya, no suma al costo.`
-            : `${label}: no tiene costo registrado, no suma al costo.`,
-        );
-      }
+      const warning = supplyWarning(supply, known, lookups.printedParts);
+      if (warning) warnings.push(warning);
       return { label, cost, known };
     });
 
@@ -206,6 +201,22 @@ export function buildBatch(sources: CostSources, units: number): { batch: BatchI
     },
     result: { warnings, suppliesPerUnit },
   };
+}
+
+/**
+ * What to say of a component of the recipe that no plate of it prints. A
+ * part that nothing prints used to be «la imprime otra receta» all the same,
+ * and the cost dropped while the screen said something false (T2-07).
+ */
+function supplyWarning(supply: RecipeSupply, known: boolean, printedParts: ReadonlySet<string>): string | null {
+  const label = supply.item.name;
+  if (supply.item.kind !== 'part') return known ? null : `${label}: no tiene costo registrado, no suma al costo.`;
+  if (!printedParts.has(supply.inventoryItemId)) {
+    return known
+      ? `${label}: ninguna placa la imprime ahora; suma lo que costó imprimirla antes, pero el plan no sabe con qué placa hacer más.`
+      : `${label}: ninguna placa la imprime, no suma al costo y el plan no sabe con qué placa hacerla.`;
+  }
+  return known ? null : `${label}: la imprime otra receta y todavía no se cerró ninguna impresión suya, no suma al costo.`;
 }
 
 function filamentWarnings(plate: string, filament: RecipeFilament, cost: GramCost): string[] {
@@ -255,4 +266,13 @@ const MARGIN_TOLERANCE = 1e-9;
 
 export function isBelowTarget(margin: number | null, targetMargin: number): boolean {
   return margin !== null && margin + MARGIN_TOLERANCE < targetMargin;
+}
+
+/**
+ * Whether a price leaves less than the target. A price of zero has no margin
+ * at all (`marginOf` gives null), and it went by as «alcanza el margen
+ * objetivo» while giving the product away (T2-08).
+ */
+export function priceFallsShort(unitPrice: number, margin: number | null, targetMargin: number): boolean {
+  return unitPrice <= 0 || isBelowTarget(margin, targetMargin);
 }

@@ -5,15 +5,33 @@ import { CatalogoData } from './catalogo.data';
 import { readPlateDetails, readSlicedFile, SlicedFileError } from '../../core/sliced-file';
 import type { Lookups, Recipe } from './catalogo.models';
 import { SHARED_STYLES } from './catalogo.styles';
+import { CatalogoPermissions, OWNER_ONLY } from './catalogo.permissions';
 import { messageOf } from './catalogo.util';
+import { DECIMALS, decimalsText, fieldError, LIMITS, limitText, maxDecimals } from './catalogo.validators';
 import { partsMadeByPlates, splitRecipeRows } from './costing';
-import { buildDraft, discardedPartsNote, importSummary, type ImportDraft, type ImportOutcome } from './importacion';
+import { buildDraft, importSummary, type ImportDraft, type ImportOutcome } from './importacion';
 import { ImportarPlacas } from './importar-placas';
 import { PlacaEditor } from './placa-editor';
 import type { PartOption } from './salida-fila';
 import { SuministroFila } from './suministro-fila';
 
 const MINUTES_PER_HOUR = 60;
+
+const MINUTES_MESSAGES: Record<string, string> = {
+  required: 'Escribe los minutos; si no hay, pon 0.',
+  min: 'No puede ser negativo.',
+  max: `Hasta ${limitText(LIMITS.recipeMinutes)} minutos.`,
+  decimals: `Los minutos van con ${decimalsText(DECIMALS.minutes)}.`,
+};
+
+function minutesControl() {
+  return new FormControl<number | null>(0, [
+    Validators.required,
+    Validators.min(0),
+    Validators.max(LIMITS.recipeMinutes),
+    maxDecimals(DECIMALS.minutes),
+  ]);
+}
 
 /** The production recipe of a variant: times, plates with filaments, and supplies per unit. */
 @Component({
@@ -37,7 +55,6 @@ const MINUTES_PER_HOUR = 60;
       .import .pick:hover .as-button { background: var(--accent-soft); }
       .import .ok { color: var(--good); font-size: 0.85rem; margin: 0; }
       .import code { font-size: 0.85em; }
-      .import .notice { margin: 0; }
       .refresh { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.5rem; margin-bottom: 0.9rem; }
     `,
   ],
@@ -47,7 +64,7 @@ const MINUTES_PER_HOUR = 60;
         <p class="error" role="alert">{{ message }}</p>
       } @else if (!recipe()) {
         <p class="muted">Esta variante todavía no tiene receta. Con ella se calcula cuánto cuesta fabricarla.</p>
-        @if (error(); as message) { <p class="error" role="alert">{{ message }}</p> }
+        @if (createError(); as message) { <p class="error" role="alert">{{ message }}</p> }
         <button type="button" [disabled]="busy()" (click)="create()">{{ busy() ? 'Creando…' : 'Crear receta' }}</button>
       } @else if (lookups(); as lookupData) {
         @if (recipe(); as current) {
@@ -78,10 +95,10 @@ const MINUTES_PER_HOUR = 60;
               </label>
             </fieldset>
             <div class="fields">
-              <pp-field label="Preparación por lote (minutos)" [error]="headerInvalid('setupMinutes') ? 'No puede ser negativo.' : null">
+              <pp-field label="Preparación por lote (minutos)" [error]="headerError('setupMinutes')">
                 <input type="number" min="0" step="any" inputmode="decimal" formControlName="setupMinutes" />
               </pp-field>
-              <pp-field label="Minutos por unidad" [error]="headerInvalid('minutesPerUnit') ? 'No puede ser negativo.' : null">
+              <pp-field label="Minutos por unidad" [error]="headerError('minutesPerUnit')">
                 <input type="number" min="0" step="any" inputmode="decimal" formControlName="minutesPerUnit" />
               </pp-field>
             </div>
@@ -100,6 +117,9 @@ const MINUTES_PER_HOUR = 60;
             Un producto puede salir de varias placas (la botella en una, las tapas en otra). Los gramos son los de
             una corrida de la placa, con la purga que reporta el laminador.
           </p>
+          @if (!permissions.isOwner()) {
+            <p class="muted hint owner-only">{{ ownerOnly }}</p>
+          }
 
           @if (importDraft(); as draft) {
             <app-importar-placas
@@ -111,7 +131,7 @@ const MINUTES_PER_HOUR = 60;
               [skus]="lookupData.skus"
               [materials]="lookupData.materials"
               (saved)="onImported($event, draft.fileName)"
-              (cancelled)="onDiscarded($event)"
+              (cancelled)="importDraft.set(null)"
             />
           } @else {
             <div class="import">
@@ -125,7 +145,6 @@ const MINUTES_PER_HOUR = 60;
                 ves cada placa y lo confirmas. Se lee en tu computadora: el archivo no se sube a ningún sitio.
               </span>
               @if (importNote(); as message) { <p class="ok" role="status">{{ message }}</p> }
-              @if (importWarning(); as message) { <p class="notice" role="status">{{ message }}</p> }
               @if (importError(); as message) { <p class="error" role="alert">{{ message }}</p> }
             </div>
           }
@@ -137,7 +156,7 @@ const MINUTES_PER_HOUR = 60;
           }
           <div class="stack">
             @for (plate of current.plates; track plate.id) {
-              <app-placa-editor [recipeId]="current.id" [plate]="plate" [lookups]="lookupData" (changed)="changed.emit()" />
+              <app-placa-editor [recipeId]="current.id" [plate]="plate" [plates]="current.plates" [lookups]="lookupData" (changed)="changed.emit()" />
             }
             <app-placa-editor [recipeId]="current.id" [nextIndex]="nextPlateIndex()" [lookups]="lookupData" (changed)="changed.emit()" />
           </div>
@@ -149,9 +168,9 @@ const MINUTES_PER_HOUR = 60;
             está en las corridas.
           </p>
           @for (supply of partRows(); track supply.id) {
-            <app-suministro-fila mode="part" [recipeId]="current.id" [supply]="supply" [supplies]="partOptions()" [usedIds]="usedSupplyIds()" [madeHere]="madeHere()" (changed)="changed.emit()" />
+            <app-suministro-fila mode="part" [recipeId]="current.id" [supply]="supply" [supplies]="partOptions()" [usedIds]="usedSupplyIds()" [madeHere]="madeHere()" [printed]="lookupData.printedParts" (changed)="changed.emit()" />
           }
-          <app-suministro-fila mode="part" [recipeId]="current.id" [supplies]="partOptions()" [usedIds]="usedSupplyIds()" [madeHere]="madeHere()" (changed)="changed.emit()" />
+          <app-suministro-fila mode="part" [recipeId]="current.id" [supplies]="partOptions()" [usedIds]="usedSupplyIds()" [madeHere]="madeHere()" [printed]="lookupData.printedParts" (changed)="changed.emit()" />
 
           <h3>Insumos por unidad</h3>
           <p class="muted hint">Lo que se compra y se gasta en cada unidad terminada: dulces, empaque, imanes…</p>
@@ -168,6 +187,8 @@ const MINUTES_PER_HOUR = 60;
 })
 export class RecetaEditor {
   private readonly data = inject(CatalogoData);
+  protected readonly permissions = inject(CatalogoPermissions);
+  protected readonly ownerOnly = OWNER_ONLY.recipeRows;
 
   readonly variantId = input.required<string>();
   readonly recipe = input<Recipe | null>(null);
@@ -190,10 +211,9 @@ export class RecetaEditor {
   protected readonly minutesPerHour = MINUTES_PER_HOUR;
   protected readonly busy = signal(false);
   protected readonly error = signal<string | null>(null);
+  protected readonly createError = signal<string | null>(null);
   protected readonly importing = signal(false);
   protected readonly importNote = signal<string | null>(null);
-  /** Parts a discarded import could not take back, said once the review is gone. */
-  protected readonly importWarning = signal<string | null>(null);
   protected readonly importError = signal<string | null>(null);
 
   protected readonly nextPlateIndex = computed(
@@ -236,7 +256,6 @@ export class RecetaEditor {
     this.importing.set(true);
     this.importError.set(null);
     this.importNote.set(null);
-    this.importWarning.set(null);
 
     try {
       const { fileName, info } = await readSlicedFile(file);
@@ -277,19 +296,9 @@ export class RecetaEditor {
     this.itemsChanged.emit();
   }
 
-  protected onDiscarded(keptParts: string[]): void {
-    this.importDraft.set(null);
-    this.importWarning.set(discardedPartsNote(keptParts));
-    if (keptParts.length === 0) return;
-    // What stayed exists now: the plates may hold it if some were saved
-    // before the failure, and the options should offer it.
-    this.changed.emit();
-    this.itemsChanged.emit();
-  }
-
   protected readonly header = new FormGroup({
-    setupMinutes: new FormControl<number | null>(0, [Validators.required, Validators.min(0)]),
-    minutesPerUnit: new FormControl<number | null>(0, [Validators.required, Validators.min(0)]),
+    setupMinutes: minutesControl(),
+    minutesPerUnit: minutesControl(),
     note: new FormControl('', { nonNullable: true }),
     assembled: new FormControl(true, { nonNullable: true }),
   });
@@ -310,32 +319,38 @@ export class RecetaEditor {
     });
   }
 
-  protected headerInvalid(name: 'setupMinutes' | 'minutesPerUnit'): boolean {
-    const control = this.header.controls[name];
-    return control.touched && control.invalid;
+  protected headerError(name: 'setupMinutes' | 'minutesPerUnit'): string | null {
+    return fieldError(this.header.controls[name], MINUTES_MESSAGES);
   }
 
   protected async create(): Promise<void> {
+    // The button is disabled while busy, but a second click can land before
+    // the page redraws it.
+    if (this.busy()) return;
     this.busy.set(true);
-    this.error.set(null);
+    this.createError.set(null);
     try {
       await this.data.createRecipe(this.variantId());
       this.changed.emit();
     } catch (error) {
-      this.error.set(messageOf(error, 'No pudimos crear la receta.'));
+      // Shown only while there is no recipe: when another tab created it a
+      // moment ago, the reload brings it and the message has nothing to say.
+      this.createError.set(messageOf(error, 'No pudimos crear la receta.'));
+      this.changed.emit();
     } finally {
       this.busy.set(false);
     }
   }
 
   protected async saveHeader(): Promise<void> {
+    if (this.busy()) return;
     const recipe = this.recipe();
+    this.error.set(null);
     this.header.markAllAsTouched();
-    if (!recipe || this.header.invalid || this.busy()) return;
+    if (!recipe || this.header.invalid) return;
 
     const value = this.header.getRawValue();
     this.busy.set(true);
-    this.error.set(null);
     try {
       await this.data.updateRecipe(recipe.id, {
         setupMinutes: Number(value.setupMinutes),

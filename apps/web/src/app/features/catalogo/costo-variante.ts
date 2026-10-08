@@ -1,7 +1,7 @@
 import { Component, computed, inject } from '@angular/core';
 import { Card, Badge, FORMAT_PIPES } from '../../ui';
 import { SHARED_STYLES } from './catalogo.styles';
-import { isBelowTarget, itemsWithoutCost, marginOf } from './costing';
+import { itemsWithoutCost, marginOf, priceFallsShort } from './costing';
 import { VariantCostModel } from './variant-cost.model';
 
 /** Current cost of the variant for a number of units, with the full breakdown. */
@@ -164,7 +164,7 @@ export class CostoVariante {
     if (price === null || !result || !profile) return null;
 
     const margin = marginOf(price, result.breakdown.costPerUnit);
-    return { price, margin, below: isBelowTarget(margin, profile.targetMargin) };
+    return { price, margin, below: priceFallsShort(price, margin, profile.targetMargin) };
   });
 
   protected setUnits(raw: string): void {

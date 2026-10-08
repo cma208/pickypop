@@ -1,13 +1,20 @@
 import { Component, effect, inject, input, output, signal, untracked } from '@angular/core';
-import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormControl, FormGroup, ReactiveFormsModule, Validators, type AbstractControl, type ValidationErrors } from '@angular/forms';
 import { Card, Field, ImageField } from '../../ui';
 import { CatalogoData } from './catalogo.data';
 import { STATUS_LABELS, type ProductDetail, type ProductStatus } from './catalogo.models';
 import { SHARED_STYLES } from './catalogo.styles';
-import { messageOf, pairArray, parseTags, readPairs, SLUG_PATTERN } from './catalogo.util';
+import { messageOf, pairArray, parseTags, readPairs, repeatedProductMessage, SLUG_PATTERN } from './catalogo.util';
+import { fieldError, LIMITS, requiredText, wholeNumber } from './catalogo.validators';
 import { PairsEditor } from './pairs-editor';
 
 const STATUSES: ProductStatus[] = ['draft', 'published', 'archived'];
+
+const LEAD_MESSAGES: Record<string, string> = {
+  min: 'No puede ser negativo.',
+  whole: 'Escribe días enteros.',
+  max: `Hasta ${LIMITS.leadTimeDays} días.`,
+};
 
 /** The product's own data and its technical sheet, saved together. */
 @Component({
@@ -26,7 +33,7 @@ const STATUSES: ProductStatus[] = ['draft', 'published', 'archived'];
           />
         </pp-field>
         <div class="fields wide">
-          <pp-field label="Nombre" [required]="true" [error]="invalid('name') ? 'Escribe el nombre.' : null">
+          <pp-field label="Nombre" [required]="true" [error]="nameError()">
             <input formControlName="name" autocomplete="off" />
           </pp-field>
           <pp-field
@@ -48,7 +55,7 @@ const STATUSES: ProductStatus[] = ['draft', 'published', 'archived'];
           <pp-field label="Etiquetas" hint="Separadas por comas.">
             <input formControlName="tags" />
           </pp-field>
-          <pp-field label="Plazo de entrega (días)" [error]="invalid('leadTimeDays') ? 'No puede ser negativo.' : null">
+          <pp-field label="Plazo de entrega (días)" [error]="leadError()">
             <input type="number" min="0" step="1" inputmode="numeric" formControlName="leadTimeDays" />
           </pp-field>
           <pp-field label="Estado">
@@ -110,8 +117,14 @@ export class ProductoDatos {
   protected readonly error = signal<string | null>(null);
   protected readonly imagePath = signal<string | null>(null);
 
+  /** The workshop's products, to say a new name is taken before saving. */
+  private products: { id: string; name: string; status: ProductStatus }[] = [];
+
   protected readonly form = new FormGroup({
-    name: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
+    name: new FormControl('', {
+      nonNullable: true,
+      validators: [requiredText, (control: AbstractControl) => this.repeated(control)],
+    }),
     slug: new FormControl('', {
       nonNullable: true,
       validators: [Validators.required, Validators.pattern(SLUG_PATTERN)],
@@ -119,7 +132,7 @@ export class ProductoDatos {
     description: new FormControl('', { nonNullable: true }),
     category: new FormControl('', { nonNullable: true }),
     tags: new FormControl('', { nonNullable: true }),
-    leadTimeDays: new FormControl<number | null>(null, [Validators.min(0)]),
+    leadTimeDays: new FormControl<number | null>(null, [Validators.min(0), wholeNumber, Validators.max(LIMITS.leadTimeDays)]),
     status: new FormControl<ProductStatus>('draft', { nonNullable: true }),
     botVisible: new FormControl(false, { nonNullable: true }),
     specs: pairArray([]),
@@ -134,6 +147,7 @@ export class ProductoDatos {
         if (!this.form.dirty) this.fill(product);
       });
     });
+    void this.loadNames();
   }
 
   protected async setImage(path: string | null): Promise<void> {
@@ -146,9 +160,37 @@ export class ProductoDatos {
     }
   }
 
-  protected invalid(name: 'name' | 'slug' | 'leadTimeDays'): boolean {
+  protected invalid(name: 'slug'): boolean {
     const control = this.form.controls[name];
     return control.touched && control.invalid;
+  }
+
+  protected nameError(): string | null {
+    const control = this.form.controls.name;
+    if (!control.touched && !control.dirty) return null;
+    if (control.hasError('required')) return 'Escribe el nombre.';
+    return (control.getError('repeated') as string | null) ?? null;
+  }
+
+  protected leadError(): string | null {
+    return fieldError(this.form.controls.leadTimeDays, LEAD_MESSAGES);
+  }
+
+  private repeated(control: AbstractControl): ValidationErrors | null {
+    // Runs once while the form is built, before the product input is there.
+    if (this.products.length === 0) return null;
+    const message = repeatedProductMessage(String(control.value ?? ''), this.products, this.product().id);
+    return message ? { repeated: message } : null;
+  }
+
+  /** Only a warning that comes early: without the list the database still refuses a repeated name. */
+  private async loadNames(): Promise<void> {
+    try {
+      this.products = await this.data.productNames();
+      this.form.controls.name.updateValueAndValidity({ emitEvent: false });
+    } catch {
+      this.products = [];
+    }
   }
 
   protected discard(): void {
@@ -157,12 +199,13 @@ export class ProductoDatos {
   }
 
   protected async save(): Promise<void> {
+    if (this.busy()) return;
+    this.error.set(null);
     this.form.markAllAsTouched();
-    if (this.form.invalid || this.busy()) return;
+    if (this.form.invalid) return;
 
     const value = this.form.getRawValue();
     this.busy.set(true);
-    this.error.set(null);
     try {
       await this.data.updateProduct(this.product().id, {
         name: value.name,

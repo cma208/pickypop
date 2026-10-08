@@ -5,6 +5,7 @@ import { borrowedPhoto } from '../../core/article-photos';
 import { FORMAT_PIPES, ItemPicker, type PickerOption } from '../../ui';
 import type { DraftFilament, ImportedFilament, MaterialOption, PlateOutputInput, SkuOption } from './catalogo.models';
 import { countOf, joinWithAnd } from './catalogo.util';
+import { DECIMALS, LIMITS, maxDecimals, wholeNumber } from './catalogo.validators';
 import { SHARED_STYLES } from './catalogo.styles';
 import {
   describeObjects,
@@ -20,7 +21,8 @@ import type { PartOption } from './salida-fila';
 function objectRow(itemId: string | null, units: number) {
   return new FormGroup({
     inventoryItemId: new FormControl(itemId ?? '', { nonNullable: true }),
-    units: new FormControl<number | null>(units, [Validators.required, Validators.min(1)]),
+    // Pieces come out whole: 1.5 caps per run would put half a cap on the shelf (T2-09).
+    units: new FormControl<number | null>(units, [Validators.required, Validators.min(1), wholeNumber, Validators.max(LIMITS.perRun)]),
   });
 }
 
@@ -42,6 +44,8 @@ export function plateDraftGroup(draft: PlateDraft, perProduct: ReadonlyMap<strin
     unitsPerRun: new FormControl<number | null>(productsPerRun(confirmedOutputs(objects), perProduct), [
       Validators.required,
       Validators.min(0.001),
+      Validators.max(LIMITS.perRun),
+      maxDecimals(DECIMALS.quantity),
     ]),
     objects,
     // The roll proposed for each slot, which the person can change before
@@ -201,7 +205,7 @@ export type PlateDraftGroup = ReturnType<typeof plateDraftGroup>;
           </div>
           <p class="muted hint">{{ productsHint() }}</p>
           @if (group().touched && group().invalid) {
-            <p class="error hint">Cada pieza necesita cuántas salen por corrida, y la placa sus productos por corrida.</p>
+            <p class="error hint">{{ problem() }}</p>
           }
         }
       </div>
@@ -253,6 +257,19 @@ export class ImportarPlaca implements OnInit {
           },
     ),
   );
+
+  /** What is wrong with the plate, in words: which field and why. */
+  protected readonly problem = computed(() => {
+    this.revision();
+    const rows = this.objects().controls;
+    if (rows.some((row) => row.controls.units.hasError('whole'))) {
+      return 'Las piezas salen enteras: escribe cuántas salen por corrida, sin decimales.';
+    }
+    if (rows.some((row) => row.controls.units.invalid)) {
+      return `Cada pieza necesita cuántas salen por corrida: un número entero desde 1 hasta ${LIMITS.perRun}.`;
+    }
+    return `Productos por corrida: más que cero, hasta ${LIMITS.perRun} y con hasta ${DECIMALS.quantity} decimales.`;
+  });
 
   protected readonly productsHint = computed(() => {
     this.revision();

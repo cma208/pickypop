@@ -2556,6 +2556,9 @@ isOneToOne: false
 "count_shelf":
 { Args: { "p_counts": Json,"p_note"?: string }; Returns: number
                            },
+"create_recipe":
+{ Args: { "p_variant_id": string }; Returns: string
+                           },
 "default_channel":
 { Args: { "p_workspace_id": string }; Returns: string
                            },
@@ -2580,6 +2583,9 @@ isOneToOne: false
       } },
 "duplicate_variant":
 { Args: { "p_name": string,"p_variant_id": string }; Returns: string
+                           },
+"import_plates":
+{ Args: { "p_first_index": number,"p_new_parts": Json,"p_plates": Json,"p_recipe_id": string }; Returns: Json
                            },
 "next_document_number":
 { Args: { "p_doc_kind": string,"p_workspace": string }; Returns: string
@@ -2829,7 +2835,10 @@ isOneToOne: false
         to: "quotes"
         isOneToOne: true
         isSetofReturn: false
-      } }
+      } },
+"variant_usage":
+{ Args: { "p_variant_id": string }; Returns: Json
+                           }
           }
           Enums: {
             "account_kind": "cash"|"bank"|"wallet","component_kind": "nozzle"|"hotend"|"plate"|"ptfe"|"cutter"|"fan"|"ams"|"other","cost_allocation": "by_amount"|"by_weight","customer_doc_type": "none"|"dni"|"ruc"|"ce","customer_kind": "person"|"company","gift_treatment": "marketing"|"owner_draw"|"other","inventory_item_kind": "supply"|"packaging"|"spare_part"|"finished_good"|"part","material_valuation": "weighted_avg"|"last_cost"|"replacement","member_role": "owner"|"operator"|"viewer","opportunity_stage": "new"|"quoted"|"negotiating"|"won"|"closed"|"lost","order_payment_status": "not_applicable"|"unpaid"|"partial"|"paid","order_purpose": "sale"|"personal"|"gift","order_status": "confirmed"|"queued"|"printing"|"post_processing"|"ready"|"delivered"|"closed"|"on_hold"|"cancelled","payment_method": "cash"|"yape"|"plin"|"transfer","print_failure_cause": "adhesion"|"clog"|"spaghetti"|"layer_shift"|"filament_runout"|"power_loss"|"wrong_settings"|"warping"|"other","print_job_status": "planned"|"printing"|"success"|"failed"|"cancelled","printer_status": "active"|"maintenance"|"retired","product_status": "draft"|"published"|"archived","quote_line_kind": "catalog"|"custom"|"service","quote_status": "draft"|"sent"|"accepted"|"rejected"|"expired","request_status": "new"|"awaiting_slicing"|"quoted"|"discarded","spool_status": "sealed"|"open"|"in_use"|"empty"|"discarded","stock_movement_type": "purchase"|"consumption"|"waste"|"adjustment"|"maintenance"|"reservation"|"release"|"production"|"delivery","tax_regime": "none"|"nrus"|"rer"|"rmt"|"general","transaction_direction": "income"|"expense","transaction_type": "income"|"expense"|"transfer"|"owner_contribution"|"owner_draw"

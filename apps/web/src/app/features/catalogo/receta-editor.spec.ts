@@ -1,9 +1,10 @@
-import { NO_ERRORS_SCHEMA } from '@angular/core';
+import { NO_ERRORS_SCHEMA, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { ReactiveFormsModule } from '@angular/forms';
 import { describe, expect, it } from 'vitest';
 import { Card, Field, FORMAT_PIPES } from '../../ui';
 import { CatalogoData } from './catalogo.data';
+import { CatalogoPermissions } from './catalogo.permissions';
 import type { Lookups, Recipe } from './catalogo.models';
 import { RecetaEditor } from './receta-editor';
 
@@ -26,10 +27,15 @@ const RECIPE: Recipe = {
   ],
 };
 
-const LOOKUPS: Lookups = { materials: [], skus: [], supplies: [] };
+const LOOKUPS: Lookups = { materials: [], skus: [], supplies: [], printedParts: new Set() };
 
 function open(inputs: { lookupsError?: string; lookupsRefreshError?: string }) {
-  TestBed.configureTestingModule({ providers: [{ provide: CatalogoData, useValue: {} }] });
+  TestBed.configureTestingModule({
+    providers: [
+      { provide: CatalogoData, useValue: {} },
+      { provide: CatalogoPermissions, useValue: { isOwner: signal(true) } },
+    ],
+  });
   // Plates, rows and the import review have their own tests; the card is what matters here.
   TestBed.overrideComponent(RecetaEditor, {
     set: { imports: [ReactiveFormsModule, Card, Field, ...FORMAT_PIPES], schemas: [NO_ERRORS_SCHEMA] },

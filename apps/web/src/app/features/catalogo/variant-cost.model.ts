@@ -1,7 +1,7 @@
 import { computed, Injectable, signal } from '@angular/core';
 import { priceForQuantity } from '../../core/pricing';
 import type { CostContext, Lookups, PriceTierRow, PrinterOption, Recipe, Variant } from './catalogo.models';
-import { computeCost, isBelowTarget, marginOf, targetPriceFor, type CostResult } from './costing';
+import { computeCost, marginOf, priceFallsShort, targetPriceFor, type CostResult } from './costing';
 
 export const DEFAULT_COST_UNITS = 10;
 
@@ -73,7 +73,11 @@ export class VariantCostModel {
     for (const tier of this.tiers()) {
       rows.push(this.ladderRow(tier.id, tier.id, `Desde ${tier.minQuantity}`, tier.minQuantity, tier.unitPrice));
     }
-    return profile ? rows : rows.map((row) => ({ ...row, costPerUnit: null, margin: null, belowTarget: false }));
+    // A price of zero gives the product away whatever it costs, so it is
+    // marked even when there is no profile to compare against.
+    return profile
+      ? rows
+      : rows.map((row) => ({ ...row, costPerUnit: null, margin: null, belowTarget: row.unitPrice <= 0 }));
   });
 
   /** The unit price a customer would pay for the units being costed. */
@@ -118,7 +122,7 @@ export class VariantCostModel {
       costPerUnit,
       margin,
       targetPrice: costPerUnit === null || !profile ? null : targetPriceFor(costPerUnit, profile),
-      belowTarget: profile !== null && isBelowTarget(margin, profile.targetMargin),
+      belowTarget: profile !== null && priceFallsShort(unitPrice, margin, profile.targetMargin),
     };
   }
 }

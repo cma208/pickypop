@@ -4,8 +4,10 @@ import { borrowedPhoto } from '../../core/article-photos';
 import { ItemPicker, type PickerOption } from '../../ui';
 import { CatalogoData } from './catalogo.data';
 import type { PlateOutput } from './catalogo.models';
+import { CatalogoPermissions } from './catalogo.permissions';
 import { SHARED_STYLES } from './catalogo.styles';
 import { messageOf } from './catalogo.util';
+import { fieldError, LIMITS, limitText, wholeNumber } from './catalogo.validators';
 
 export interface PartOption {
   id: string;
@@ -13,6 +15,20 @@ export interface PartOption {
   unit: string;
   imagePath: string | null;
 }
+
+const PART_MESSAGES: Record<string, string> = { required: 'Elige la pieza.' };
+
+const UNITS_MESSAGES: Record<string, string> = {
+  required: 'Escribe cuántas salen por corrida.',
+  min: 'Por corrida sale al menos 1.',
+  whole: 'Las piezas salen enteras: escribe un número sin decimales.',
+  max: `Hasta ${limitText(LIMITS.perRun)} por corrida.`,
+};
+
+/** What the row of a switched-off part says, so nobody takes it for an empty row to delete (T2-13). */
+export const INACTIVE_PART_NOTE =
+  'Está desactivada en Inventario › Piezas impresas: no se ofrece en las recetas ni entra en el conteo del estante. ' +
+  'Si esta placa la sigue imprimiendo, vuelve a activarla ahí.';
 
 /**
  * One part that comes out of a plate: a saved row to edit, or an empty row to
@@ -53,12 +69,15 @@ export interface PartOption {
           [attr.aria-label]="current() ? 'Guardar pieza' : 'Agregar pieza'">
           {{ current() ? 'Guardar' : 'Agregar' }}
         </button>
-        @if (current()) {
+        @if (current() && permissions.isOwner()) {
           <button type="button" class="ghost" [disabled]="busy()" (click)="remove()" aria-label="Quitar pieza">✕</button>
         }
       </div>
-      @if (form.touched && form.invalid) {
-        <p class="err error">Elige la pieza y cuántas salen por corrida.</p>
+      @if (inactive()) {
+        <p class="err muted hint">{{ inactiveNote }}</p>
+      }
+      @if (formError(); as message) {
+        <p class="err error">{{ message }}</p>
       }
       @if (error(); as message) {
         <p class="err error" role="alert">{{ message }}</p>
@@ -68,6 +87,8 @@ export interface PartOption {
 })
 export class SalidaFila {
   private readonly data = inject(CatalogoData);
+  protected readonly permissions = inject(CatalogoPermissions);
+  protected readonly inactiveNote = INACTIVE_PART_NOTE;
 
   readonly plateId = input.required<string>();
   readonly current = input<PlateOutput | null>(null);
@@ -83,13 +104,22 @@ export class SalidaFila {
 
   protected readonly form = new FormGroup({
     inventoryItemId: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
-    unitsPerRun: new FormControl<number | null>(null, [Validators.required, Validators.min(1)]),
+    unitsPerRun: new FormControl<number | null>(null, [
+      Validators.required,
+      Validators.min(1),
+      wholeNumber,
+      Validators.max(LIMITS.perRun),
+    ]),
   });
 
+  /** The saved part is switched off: the page's options only hold active ones. */
+  protected readonly inactive = computed(() => this.current()?.part?.active === false);
+
   protected readonly options = computed<PickerOption[]>(() => {
-    const mine = this.current()?.inventoryItemId;
+    const current = this.current();
+    const mine = current?.inventoryItemId;
     const taken = new Set(this.usedIds().filter((id) => id !== mine));
-    return this.parts()
+    const options: PickerOption[] = this.parts()
       .filter((part) => !taken.has(part.id))
       .map((part) => ({
         value: part.id,
@@ -99,7 +129,27 @@ export class SalidaFila {
         photo: borrowedPhoto(part.id, 'part'),
         kind: 'part' as const,
       }));
+    // The row's own part, when the options do not have it (switched off, or
+    // created after the page read them): with its name and photo, never as
+    // «Elige la pieza…», which read as an empty row to delete (T2-13).
+    if (current && !options.some((option) => option.value === current.inventoryItemId)) {
+      const part = current.part;
+      options.unshift({
+        value: current.inventoryItemId,
+        label: part ? (part.active ? part.name : `${part.name} (desactivada)`) : 'Pieza',
+        hint: part && !part.active ? 'Desactivada en Inventario' : undefined,
+        imagePath: part?.imagePath ?? null,
+        photo: borrowedPhoto(current.inventoryItemId, 'part'),
+        kind: 'part' as const,
+      });
+    }
+    return options;
   });
+
+  protected formError(): string | null {
+    const { inventoryItemId, unitsPerRun } = this.form.controls;
+    return fieldError(inventoryItemId, PART_MESSAGES) ?? fieldError(unitsPerRun, UNITS_MESSAGES);
+  }
 
   constructor() {
     effect(() => {
@@ -107,6 +157,8 @@ export class SalidaFila {
       untracked(() => {
         if (!this.form.dirty) {
           this.form.reset({ inventoryItemId: output?.inventoryItemId ?? '', unitsPerRun: output?.unitsPerRun ?? null });
+          // Saved before pieces had to be whole: said at once, so it gets fixed.
+          if (this.form.controls.unitsPerRun.invalid && output) this.form.controls.unitsPerRun.markAsTouched();
         }
       });
     });
@@ -119,14 +171,15 @@ export class SalidaFila {
   }
 
   protected async save(): Promise<void> {
+    if (this.busy()) return;
+    this.error.set(null);
     this.form.markAllAsTouched();
-    if (this.form.invalid || this.busy()) return;
+    if (this.form.invalid) return;
 
     const value = this.form.getRawValue();
     const input = { inventoryItemId: value.inventoryItemId, unitsPerRun: Number(value.unitsPerRun) };
 
     this.busy.set(true);
-    this.error.set(null);
     try {
       const current = this.current();
       if (current) {
@@ -152,11 +205,12 @@ export class SalidaFila {
     this.error.set(null);
     try {
       await this.data.deletePlateOutput(current.id);
-      this.changed.emit();
     } catch (error) {
       this.error.set(messageOf(error, 'No pudimos quitar la pieza de la placa.'));
     } finally {
       this.busy.set(false);
     }
+    // Removed or refused, what the page shows may be old: read it again.
+    this.changed.emit();
   }
 }

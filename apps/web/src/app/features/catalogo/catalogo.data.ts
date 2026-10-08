@@ -1,5 +1,7 @@
 import { inject, Injectable } from '@angular/core';
 import type { PostgrestError } from '@supabase/supabase-js';
+import { todayLocal } from '../../core/dates';
+import { fetchAll } from '../../core/fetch-all';
 import { SUPABASE } from '../../core/supabase';
 import { CurrentWorkspace } from '../../core/workspace';
 import { Media } from '../../core/media';
@@ -8,6 +10,7 @@ import type { Json } from '../../core/database.types';
 import type {
   CostContext,
   ImportedPlate,
+  ImportResult,
   Lookups,
   Pair,
   PlateOutputInput,
@@ -25,10 +28,12 @@ import type {
   SkuOption,
   Variant,
   VariantInput,
+  VariantUsage,
 } from './catalogo.models';
 import { supplyOptions } from './costing';
 import { learnedParts, recordFromJson, recordToJson } from './importacion';
-import { blankToNull, CatalogoError, todayIso } from './catalogo.util';
+import { OWNER_ONLY } from './catalogo.permissions';
+import { blankToNull, CatalogoError } from './catalogo.util';
 
 const GRAMS_PER_KG = 1000;
 /** Enough past imports to remember every object name the workshop uses. */
@@ -39,13 +44,43 @@ const PG_RAISED = 'P0001';
 const PG_FOREIGN_KEY = '23503';
 const PG_CHECK = '23514';
 const PG_NOT_ALLOWED = '42501';
+/** «2.5» for an integer column, and a number past what the column holds. */
+const PG_BAD_NUMBER = ['22P02', '22003'];
+
+/**
+ * The unique rules of the catalogue whose clash a person can act on, by the
+ * name the database gives them. A product has two (its name and its slug),
+ * and «ya hay uno con ese slug» for a repeated name sent the person to fix
+ * the wrong field.
+ */
+const DUPLICATES: Record<string, string> = {
+  catalog_products_name_key: 'Ya hay un producto con ese nombre.',
+  catalog_products_workspace_id_slug_key: 'Ya hay un producto con ese identificador (slug).',
+  product_variants_name_key: 'Ya hay una variante con ese nombre en este producto.',
+  product_variants_workspace_id_product_id_name_key: 'Ya hay una variante con ese nombre en este producto.',
+  recipes_one_active_per_variant: 'Esta variante ya tiene receta: se creó hace un momento. Recarga la página para verla.',
+};
+
+/**
+ * An update or a delete that finds no row comes back without an error: the
+ * row is gone, or Row Level Security did not let it be touched. Said
+ * nothing, the screen reloaded as if it had worked (T2-10).
+ */
+const GONE = 'Eso ya no está: lo quitaron o lo cambiaron en otra pestaña. Recarga la página.';
 
 /** Turns a database error into a message a person can act on. */
 function fail(error: PostgrestError, fallback: string, duplicate?: string): never {
   // A `raise exception` was written for a person and knows the case better
   // than any rule here: it travels as it is (AGENTS.md).
   if (error.code === PG_RAISED && error.message.trim() !== '') throw new CatalogoError(error.message);
-  if (error.code === PG_UNIQUE && duplicate) throw new CatalogoError(duplicate);
+  if (error.code === PG_UNIQUE) {
+    const known = Object.keys(DUPLICATES).find((name) => error.message.includes(`"${name}"`));
+    if (known) throw new CatalogoError(DUPLICATES[known]!);
+    if (duplicate) throw new CatalogoError(duplicate);
+  }
+  if (PG_BAD_NUMBER.includes(error.code)) {
+    throw new CatalogoError('Alguno de los números no es válido o es demasiado grande.');
+  }
   if (error.code === PG_FOREIGN_KEY) {
     throw new CatalogoError('No se puede hacer porque otra parte del sistema depende de esto.');
   }
@@ -75,6 +110,11 @@ function fromPairs(pairs: Pair[] | undefined): Record<string, string> {
 
 function numberOrNull(value: number | string | null | undefined): number | null {
   return value === null || value === undefined ? null : Number(value);
+}
+
+/** An update that found no row: the row is gone (every member may edit the catalogue). */
+function changed(rows: unknown[] | null): void {
+  if (!rows || rows.length === 0) throw new CatalogoError(GONE);
 }
 
 /** Everything the catalogue screens read and write. Pages never touch Supabase. */
@@ -167,7 +207,7 @@ export class CatalogoData {
   }
 
   async updateProduct(id: string, input: ProductInput): Promise<void> {
-    const { error } = await this.supabase
+    const { data, error } = await this.supabase
       .from('catalog_products')
       .update({
         name: input.name.trim(),
@@ -181,10 +221,19 @@ export class CatalogoData {
         ...(input.botVisible === undefined ? {} : { bot_visible: input.botVisible }),
         specs: fromPairs(input.specs),
       })
-      .eq('id', id);
+      .eq('id', id)
+      .select('id');
     if (error) {
       fail(error, 'No pudimos guardar el producto.', 'Ya hay un producto con ese identificador (slug).');
     }
+    changed(data);
+  }
+
+  /** Names of the workshop's products, archived ones too, to warn about a repeated one before saving. */
+  async productNames(): Promise<{ id: string; name: string; status: ProductStatus }[]> {
+    const { data, error } = await this.supabase.from('catalog_products').select('id, name, status');
+    if (error) fail(error, 'No pudimos leer los productos.');
+    return data;
   }
 
   /**
@@ -193,18 +242,29 @@ export class CatalogoData {
    * uploaded and then lost.
    */
   async setProductImage(id: string, imagePath: string | null): Promise<void> {
-    const { error } = await this.supabase.from('catalog_products').update({ image_path: imagePath }).eq('id', id);
+    const { data, error } = await this.supabase
+      .from('catalog_products')
+      .update({ image_path: imagePath })
+      .eq('id', id)
+      .select('id');
     if (error) fail(error, 'No pudimos guardar la foto.');
+    changed(data);
   }
 
   async setVariantImage(id: string, imagePath: string | null): Promise<void> {
-    const { error } = await this.supabase.from('product_variants').update({ image_path: imagePath }).eq('id', id);
+    const { data, error } = await this.supabase
+      .from('product_variants')
+      .update({ image_path: imagePath })
+      .eq('id', id)
+      .select('id');
     if (error) fail(error, 'No pudimos guardar la foto.');
+    changed(data);
   }
 
   async setProductStatus(id: string, status: ProductStatus): Promise<void> {
-    const { error } = await this.supabase.from('catalog_products').update({ status }).eq('id', id);
+    const { data, error } = await this.supabase.from('catalog_products').update({ status }).eq('id', id).select('id');
     if (error) fail(error, 'No pudimos cambiar el estado del producto.');
+    changed(data);
   }
 
   // ---------------------------------------------------------------- variants
@@ -243,13 +303,37 @@ export class CatalogoData {
   }
 
   async updateVariant(id: string, input: VariantInput): Promise<void> {
-    const { error } = await this.supabase
+    const { data, error } = await this.supabase
       .from('product_variants')
       .update(this.variantRow(input))
-      .eq('id', id);
+      .eq('id', id)
+      .select('id');
     if (error) {
       fail(error, 'No pudimos guardar la variante.', 'Ya hay una variante con ese nombre en este producto.');
     }
+    changed(data);
+  }
+
+  /** Switching a variant off is how one that is already sold leaves the catalogue. */
+  async setVariantActive(id: string, active: boolean): Promise<void> {
+    const { data, error } = await this.supabase.from('product_variants').update({ active }).eq('id', id).select('id');
+    if (error) fail(error, 'No pudimos cambiar la variante.');
+    changed(data);
+  }
+
+  /**
+   * Where the variant is used, as the database counts it: the same function
+   * refuses to delete it while it is in a quote, an order or the inventory.
+   */
+  async variantUsage(id: string): Promise<VariantUsage> {
+    const { data, error } = await this.supabase.rpc('variant_usage', { p_variant_id: id });
+    if (error) fail(error, 'No pudimos ver dónde se usa la variante.');
+    const usage = (data ?? {}) as Record<string, unknown>;
+    return {
+      quotes: Number(usage['quotes'] ?? 0),
+      orders: Number(usage['orders'] ?? 0),
+      shelf: Number(usage['shelf'] ?? 0),
+    };
   }
 
   /**
@@ -263,10 +347,15 @@ export class CatalogoData {
     return data;
   }
 
-  /** Deleting a variant also deletes its recipe and its price tiers. */
+  /**
+   * Deleting a variant also deletes its recipe and its price tiers. The
+   * database refuses one that a quote, an order or the inventory uses, and
+   * says where (T2-01): that one is switched off instead.
+   */
   async deleteVariant(id: string): Promise<void> {
-    const { error } = await this.supabase.from('product_variants').delete().eq('id', id);
+    const { data, error } = await this.supabase.from('product_variants').delete().eq('id', id).select('id');
     if (error) fail(error, 'No pudimos eliminar la variante.');
+    await this.removed(data, OWNER_ONLY.variant);
   }
 
   private variantRow(input: VariantInput) {
@@ -300,12 +389,12 @@ export class CatalogoData {
     const [plates, items] = await Promise.all([
       this.supabase
         .from('recipe_plates')
-        .select('*, recipe_plate_filaments(*), recipe_plate_outputs(*)')
+        .select('*, recipe_plate_filaments(*), recipe_plate_outputs(*, inventory_items(name, image_path, active))')
         .eq('recipe_id', recipe.id)
         .order('plate_index'),
       this.supabase
         .from('recipe_items')
-        .select('id, inventory_item_id, quantity_per_unit, inventory_items(kind, name, unit, image_path)')
+        .select('id, inventory_item_id, quantity_per_unit, inventory_items(kind, name, unit, image_path, active)')
         .eq('recipe_id', recipe.id)
         .order('created_at'),
     ]);
@@ -331,6 +420,15 @@ export class CatalogoData {
             id: output.id,
             inventoryItemId: output.inventory_item_id,
             unitsPerRun: Number(output.units_per_run),
+            ...(output.inventory_items
+              ? {
+                  part: {
+                    name: output.inventory_items.name,
+                    imagePath: output.inventory_items.image_path,
+                    active: output.inventory_items.active,
+                  },
+                }
+              : {}),
           })),
         printTimeS: plate.print_time_s,
         thumbnailPath: plate.thumbnail_path,
@@ -360,31 +458,24 @@ export class CatalogoData {
           name: item.inventory_items?.name ?? 'Artículo',
           unit: item.inventory_items?.unit ?? '',
           imagePath: item.inventory_items?.image_path ?? null,
+          active: item.inventory_items?.active ?? true,
         },
       })),
     };
   }
 
+  /**
+   * The database numbers the version and refuses a variant that already has
+   * a recipe, in one step: reading the last version here and inserting the
+   * next one let two tabs create versions 1 and 2, both active (T2-02).
+   */
   async createRecipe(variantId: string): Promise<void> {
-    const { error } = await this.supabase
-      .from('recipes')
-      .insert({ workspace_id: await this.workspaceId(), variant_id: variantId, version: await this.nextRecipeVersion(variantId) });
+    const { error } = await this.supabase.rpc('create_recipe', { p_variant_id: variantId });
     if (error) fail(error, 'No pudimos crear la receta.');
-  }
-
-  private async nextRecipeVersion(variantId: string): Promise<number> {
-    const { data, error } = await this.supabase
-      .from('recipes')
-      .select('version')
-      .eq('variant_id', variantId)
-      .order('version', { ascending: false })
-      .limit(1);
-    if (error) fail(error, 'No pudimos crear la receta.');
-    return (data[0]?.version ?? 0) + 1;
   }
 
   async updateRecipe(id: string, input: RecipeHeaderInput): Promise<void> {
-    const { error } = await this.supabase
+    const { data, error } = await this.supabase
       .from('recipes')
       .update({
         setup_minutes: input.setupMinutes,
@@ -392,8 +483,10 @@ export class CatalogoData {
         note: blankToNull(input.note),
         assembled: input.assembled,
       })
-      .eq('id', id);
+      .eq('id', id)
+      .select('id');
     if (error) fail(error, 'No pudimos guardar la receta.');
+    changed(data);
   }
 
   /**
@@ -410,41 +503,6 @@ export class CatalogoData {
       .order('name');
     if (error) fail(error, 'No pudimos cargar las piezas.');
     return (data ?? []).map((part) => ({ id: part.id, name: part.name, unit: part.unit, imagePath: part.image_path }));
-  }
-
-  /**
-   * A new printed part, named while reviewing a sliced file: a new workshop has
-   * none yet, and sending the person to Inventory meant losing the review. It
-   * is only called when the import is saved, never while it is reviewed.
-   */
-  async createPart(name: string): Promise<{ id: string; name: string; unit: string; imagePath: string | null }> {
-    const trimmed = name.trim();
-    const { data, error } = await this.supabase
-      .from('inventory_items')
-      .insert({ workspace_id: await this.workspaceId(), kind: 'part', name: trimmed, unit: 'unidad' })
-      .select('id, name, unit, image_path')
-      .single();
-    if (error) {
-      // The review already refuses the name of a part it can see, so a
-      // duplicate here is almost always one that was deactivated and is
-      // listed nowhere.
-      fail(
-        error,
-        `No pudimos crear la pieza «${trimmed}».`,
-        `Ya hay una pieza llamada «${trimmed}» (si no la ves en la lista, está desactivada). Elige otro nombre.`,
-      );
-    }
-    return { id: data.id, name: data.name, unit: data.unit, imagePath: data.image_path };
-  }
-
-  /**
-   * Undoes a part made by an import that then failed, so a discarded import
-   * leaves nothing behind. A part some plate already uses stays, and so does
-   * one this person may not delete: the answer is false and it is kept.
-   */
-  async deleteUnusedPart(id: string): Promise<boolean> {
-    const { data, error } = await this.supabase.from('inventory_items').delete().eq('id', id).eq('kind', 'part').select('id');
-    return !error && data.length > 0;
   }
 
   async addPlate(recipeId: string, plateIndex: number, input: RecipePlateInput): Promise<void> {
@@ -472,16 +530,19 @@ export class CatalogoData {
   }
 
   async updatePlateOutput(id: string, input: PlateOutputInput): Promise<void> {
-    const { error } = await this.supabase
+    const { data, error } = await this.supabase
       .from('recipe_plate_outputs')
       .update({ inventory_item_id: input.inventoryItemId, units_per_run: input.unitsPerRun })
-      .eq('id', id);
+      .eq('id', id)
+      .select('id');
     if (error) fail(error, 'No pudimos guardar la pieza de la placa.', 'Esa pieza ya sale de esta placa.');
+    changed(data);
   }
 
   async deletePlateOutput(id: string): Promise<void> {
-    const { error } = await this.supabase.from('recipe_plate_outputs').delete().eq('id', id);
+    const { data, error } = await this.supabase.from('recipe_plate_outputs').delete().eq('id', id).select('id');
     if (error) fail(error, 'No pudimos quitar la pieza de la placa.');
+    await this.removed(data, OWNER_ONLY.recipeRows);
   }
 
   /**
@@ -502,81 +563,66 @@ export class CatalogoData {
 
   /**
    * Carga placas enteras desde un archivo ya laminado y revisado por la
-   * persona: los minutos y los gramos, la miniatura, lo que dijo el archivo y
-   * las piezas que confirmó.
+   * persona: los minutos y los gramos, la miniatura, lo que dijo el archivo,
+   * las piezas que confirmó y las nuevas que nombró.
    *
    * Es el mismo lector que usa el cotizador, sobre el mismo archivo. Que la
    * receta —que es donde ese dato vive para siempre— lo pidiera escrito a mano
    * era pedirle a una persona que copiara números de una pantalla a otra.
    *
-   * Si algo falla a medio camino, lo ya creado se queda: son placas visibles y
-   * borrables, y deshacerlas a mano desde aquí sería adivinar qué quería la
-   * persona. El error dice en cuál se quedó. Una miniatura que no sube no
-   * detiene nada: la placa sirve igual, y se cuenta para avisarlo.
+   * Todo se guarda en una sola llamada (`import_plates`): si algo falla no
+   * queda ninguna placa ni ninguna pieza, para el dueño ni para el operador
+   * (E2-03). Las miniaturas se suben antes, porque la base no puede subirlas,
+   * y se borran si la llamada falla. Una que no sube no detiene nada: la
+   * placa sirve igual, y se cuenta para avisarlo.
    */
   async importPlates(
     recipeId: string,
     firstIndex: number,
     plates: ImportedPlate[],
-  ): Promise<{ created: number; withoutThumbnail: number }> {
-    const workspaceId = await this.workspaceId();
-    let created = 0;
-    let withoutThumbnail = 0;
-
+    newParts: { key: string; name: string }[],
+  ): Promise<ImportResult> {
+    const thumbnails: (string | null)[] = [];
     for (const [offset, plate] of plates.entries()) {
-      const plateIndex = firstIndex + offset;
-      const thumbnailPath = await this.uploadThumbnail(plate.thumbnail, plateIndex);
-      if (plate.thumbnail && !thumbnailPath) withoutThumbnail += 1;
+      thumbnails.push(await this.uploadThumbnail(plate.thumbnail, firstIndex + offset));
+    }
+    const withoutThumbnail = plates.filter((plate, index) => plate.thumbnail && !thumbnails[index]).length;
 
-      const { data, error } = await this.supabase
-        .from('recipe_plates')
-        .insert({
-          workspace_id: workspaceId,
-          recipe_id: recipeId,
-          plate_index: plateIndex,
-          label: blankToNull(plate.label),
-          units_per_run: plate.unitsPerRun,
-          print_time_s: plate.printTimeS,
-          source_file_name: plate.sourceFileName,
-          thumbnail_path: thumbnailPath,
-          slicer_metadata: recordToJson(plate.record),
-        })
-        .select('id')
-        .single();
-      if (error) fail(error, `No pudimos crear la placa ${plateIndex}.`, 'Ya existe una placa con ese número.');
-
-      if (plate.filaments.length > 0) {
-        const { error: filamentError } = await this.supabase.from('recipe_plate_filaments').insert(
-          plate.filaments.map((filament) => ({
-            workspace_id: workspaceId,
-            recipe_plate_id: data.id,
-            slot: filament.slot,
-            material_id: filament.materialId,
-            color_hex: filament.colorHex,
-            filament_sku_id: filament.skuId,
-            grams: filament.grams,
-          })),
-        );
-        if (filamentError) fail(filamentError, `No pudimos cargar los filamentos de la placa ${plateIndex}.`);
-      }
-
-      if (plate.outputs.length > 0) {
-        const { error: outputError } = await this.supabase.from('recipe_plate_outputs').insert(
-          plate.outputs.map((output, position) => ({
-            workspace_id: workspaceId,
-            recipe_plate_id: data.id,
-            inventory_item_id: output.inventoryItemId,
-            units_per_run: output.unitsPerRun,
-            position: position + 1,
-          })),
-        );
-        if (outputError) fail(outputError, `No pudimos guardar las piezas de la placa ${plateIndex}.`);
-      }
-
-      created += 1;
+    const { data, error } = await this.supabase.rpc('import_plates', {
+      p_recipe_id: recipeId,
+      p_first_index: firstIndex,
+      p_new_parts: newParts,
+      p_plates: plates.map((plate, index) => ({
+        label: blankToNull(plate.label),
+        units_per_run: plate.unitsPerRun,
+        print_time_s: plate.printTimeS,
+        source_file_name: plate.sourceFileName,
+        thumbnail_path: thumbnails[index] ?? null,
+        slicer_metadata: recordToJson(plate.record),
+        filaments: plate.filaments.map((filament) => ({
+          slot: filament.slot,
+          material_id: filament.materialId,
+          color_hex: filament.colorHex,
+          filament_sku_id: filament.skuId,
+          grams: filament.grams,
+        })),
+        outputs: plate.outputs.map((output) => ({
+          inventory_item_id: output.inventoryItemId,
+          units_per_run: output.unitsPerRun,
+        })),
+      })),
+    });
+    if (error) {
+      await Promise.all(thumbnails.map((path) => this.media.remove(path).catch(() => undefined)));
+      fail(error, 'No pudimos guardar las placas.', 'Ya existe una placa con ese número. Recarga la página.');
     }
 
-    return { created, withoutThumbnail };
+    const result = (data ?? {}) as Record<string, unknown>;
+    return {
+      created: Number(result['created'] ?? plates.length),
+      partsCreated: Number(result['parts_created'] ?? 0),
+      withoutThumbnail,
+    };
   }
 
   /** The picture is a convenience: if it does not upload, the plate is saved without it. */
@@ -591,20 +637,24 @@ export class CatalogoData {
   }
 
   async updatePlate(id: string, input: RecipePlateInput): Promise<void> {
-    const { error } = await this.supabase
+    const { data, error } = await this.supabase
       .from('recipe_plates')
       .update({
         label: blankToNull(input.label),
         units_per_run: input.unitsPerRun,
         print_time_s: input.printTimeS,
       })
-      .eq('id', id);
+      .eq('id', id)
+      .select('id');
     if (error) fail(error, 'No pudimos guardar la placa.');
+    changed(data);
   }
 
+  /** The database refuses a plate whose print is still in the queue, and says so. */
   async deletePlate(id: string): Promise<void> {
-    const { error } = await this.supabase.from('recipe_plates').delete().eq('id', id);
+    const { data, error } = await this.supabase.from('recipe_plates').delete().eq('id', id).select('id');
     if (error) fail(error, 'No pudimos quitar la placa.');
+    await this.removed(data, OWNER_ONLY.recipeRows);
   }
 
   async addFilament(plateId: string, input: RecipeFilamentInput): Promise<void> {
@@ -617,16 +667,19 @@ export class CatalogoData {
   }
 
   async updateFilament(id: string, input: RecipeFilamentInput): Promise<void> {
-    const { error } = await this.supabase
+    const { data, error } = await this.supabase
       .from('recipe_plate_filaments')
       .update(this.filamentRow(input))
-      .eq('id', id);
+      .eq('id', id)
+      .select('id');
     if (error) fail(error, 'No pudimos guardar el filamento.', 'Esa ranura ya está usada en esta placa.');
+    changed(data);
   }
 
   async deleteFilament(id: string): Promise<void> {
-    const { error } = await this.supabase.from('recipe_plate_filaments').delete().eq('id', id);
+    const { data, error } = await this.supabase.from('recipe_plate_filaments').delete().eq('id', id).select('id');
     if (error) fail(error, 'No pudimos quitar el filamento.');
+    await this.removed(data, OWNER_ONLY.recipeRows);
   }
 
   private filamentRow(input: RecipeFilamentInput) {
@@ -650,16 +703,19 @@ export class CatalogoData {
   }
 
   async updateSupply(id: string, quantityPerUnit: number): Promise<void> {
-    const { error } = await this.supabase
+    const { data, error } = await this.supabase
       .from('recipe_items')
       .update({ quantity_per_unit: quantityPerUnit })
-      .eq('id', id);
+      .eq('id', id)
+      .select('id');
     if (error) fail(error, 'No pudimos guardar el insumo.');
+    changed(data);
   }
 
   async deleteSupply(id: string): Promise<void> {
-    const { error } = await this.supabase.from('recipe_items').delete().eq('id', id);
+    const { data, error } = await this.supabase.from('recipe_items').delete().eq('id', id).select('id');
     if (error) fail(error, 'No pudimos quitar el insumo.');
+    await this.removed(data, OWNER_ONLY.recipeRows);
   }
 
   // ------------------------------------------------------------- price tiers
@@ -669,7 +725,7 @@ export class CatalogoData {
       .from('price_tiers')
       .select('id, min_quantity, unit_price, valid_from, note')
       .eq('variant_id', variantId)
-      .lte('valid_from', todayIso())
+      .lte('valid_from', todayLocal())
       .order('min_quantity');
     if (error) fail(error, 'No pudimos cargar la escalera de precios.');
 
@@ -682,12 +738,18 @@ export class CatalogoData {
     }));
   }
 
+  /**
+   * A tier starts today in Lima. Left to the database's own date, one added
+   * after 19:00 started tomorrow and vanished from the list until midnight
+   * (T1-15).
+   */
   async addTier(variantId: string, minQuantity: number, unitPrice: number): Promise<void> {
     const { error } = await this.supabase.from('price_tiers').insert({
       workspace_id: await this.workspaceId(),
       variant_id: variantId,
       min_quantity: minQuantity,
       unit_price: unitPrice,
+      valid_from: todayLocal(),
     });
     if (error) {
       fail(error, 'No pudimos agregar el escalón.', 'Ya hay un escalón desde esa cantidad.');
@@ -695,15 +757,26 @@ export class CatalogoData {
   }
 
   async deleteTier(id: string): Promise<void> {
-    const { error } = await this.supabase.from('price_tiers').delete().eq('id', id);
+    const { data, error } = await this.supabase.from('price_tiers').delete().eq('id', id).select('id');
     if (error) fail(error, 'No pudimos quitar el escalón.');
+    await this.removed(data, OWNER_ONLY.tiers);
+  }
+
+  /**
+   * A delete that took nothing. For anyone but the owner that is the policy
+   * saying no; for the owner, the row was already gone.
+   */
+  private async removed(rows: unknown[] | null, ownerOnly: string): Promise<void> {
+    if (rows && rows.length > 0) return;
+    const { role } = await this.workspace.info();
+    throw new CatalogoError(role === 'owner' ? GONE : ownerOnly);
   }
 
   // -------------------------------------------------------- costing sources
 
   /** Materials, spool products and supplies, each with the cost the stock says. */
   async lookups(): Promise<Lookups> {
-    const [materials, skus, stock, items, costs, partCosts] = await Promise.all([
+    const [materials, skus, stock, items, costs, partCosts, printed] = await Promise.all([
       this.supabase.from('materials').select('id, code').order('code'),
       this.supabase
         .from('filament_skus')
@@ -723,6 +796,15 @@ export class CatalogoData {
       this.supabase.from('inventory_item_costs').select('inventory_item_id, cost_per_unit'),
       // A printed part is never bought: what it costs is what printing it cost.
       this.supabase.from('part_stock').select('inventory_item_id, cost_per_unit'),
+      // Which parts some plate of an active recipe prints, to never say «la
+      // imprime otra receta» of one that nothing prints (T2-07).
+      fetchAll((from, to) =>
+        this.supabase
+          .from('recipe_plate_outputs')
+          .select('inventory_item_id, recipe_plates(recipes(active))')
+          .order('id')
+          .range(from, to),
+      ).catch((error: PostgrestError) => fail(error, 'No pudimos ver qué piezas imprime cada receta.')),
     ]);
     if (materials.error) fail(materials.error, 'No pudimos cargar los materiales.');
     if (skus.error) fail(skus.error, 'No pudimos cargar los filamentos.');
@@ -732,6 +814,9 @@ export class CatalogoData {
     if (partCosts.error) fail(partCosts.error, 'No pudimos cargar el costo de las piezas.');
 
     const stockCost = new Map(stock.data.map((row) => [row.filament_sku_id, numberOrNull(row.weighted_cost_per_gram)]));
+    const printedParts = new Set(
+      printed.filter((row) => row.recipe_plates?.recipes?.active).map((row) => row.inventory_item_id),
+    );
     const materialCode = new Map(materials.data.map((row) => [row.id, row.code]));
 
     return {
@@ -754,6 +839,7 @@ export class CatalogoData {
         }),
       ),
       supplies: supplyOptions(items.data, costs.data, partCosts.data),
+      printedParts,
     };
   }
 
@@ -763,7 +849,7 @@ export class CatalogoData {
       this.supabase
         .from('cost_profiles')
         .select('*')
-        .lte('valid_from', todayIso())
+        .lte('valid_from', todayLocal())
         .order('valid_from', { ascending: false })
         .limit(1),
       this.supabase

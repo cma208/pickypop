@@ -14,6 +14,7 @@ import { ProductoPage } from './producto.page';
 class VarianteDetalleStub {
   readonly variant = input<Variant>();
   readonly productSlug = input('');
+  readonly siblings = input<readonly { id: string; name: string }[]>([]);
   readonly lookups = input<Lookups | null>(null);
   readonly lookupsError = input<string | null>(null);
   readonly lookupsRefreshError = input<string | null>(null);
@@ -53,6 +54,7 @@ const lookupsWith = (...parts: string[]): Lookups => ({
   materials: [],
   skus: [],
   supplies: parts.map((name) => ({ id: name, name, unit: 'unidad', costPerUnit: null, kind: 'part' as const })),
+  printedParts: new Set(),
 });
 
 async function open(data: { lookups: ReturnType<typeof vi.fn> }) {

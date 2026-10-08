@@ -3,8 +3,11 @@ import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angula
 import { FORMAT_PIPES, Thumb } from '../../ui';
 import { CatalogoData } from './catalogo.data';
 import type { Lookups, RecipePlate } from './catalogo.models';
+import { CatalogoPermissions } from './catalogo.permissions';
 import { SHARED_STYLES } from './catalogo.styles';
 import { messageOf } from './catalogo.util';
+import { DECIMALS, decimalsText, fieldError, LIMITS, limitText, maxDecimals } from './catalogo.validators';
+import { partsOnlyThisPlateMakes, removePlateQuestion } from './plate-removal';
 import { FilamentoFila } from './filamento-fila';
 import { describeObjects } from './importacion';
 import { SalidaFila, type PartOption } from './salida-fila';
@@ -15,6 +18,20 @@ const SECONDS_PER_MINUTE = 60;
  * a time and still give back the same second on save: they are off by 0.3 s at most.
  */
 const MINUTE_DECIMALS = 100;
+
+const UNITS_MESSAGES: Record<string, string> = {
+  required: 'Productos por corrida: escribe cuántos alcanza a hacer una corrida.',
+  min: 'Productos por corrida: tienen que ser más que cero.',
+  max: `Productos por corrida: hasta ${limitText(LIMITS.perRun)}.`,
+  decimals: `Productos por corrida: ${decimalsText(DECIMALS.quantity)}.`,
+};
+
+const MINUTES_MESSAGES: Record<string, string> = {
+  required: 'Tiempo: escribe cuántos minutos tarda una corrida.',
+  min: 'Tiempo: al menos 1 minuto.',
+  max: `Tiempo: hasta ${limitText(LIMITS.plateMinutes)} minutos (una semana).`,
+  decimals: `Tiempo: ${decimalsText(DECIMALS.minutes)}.`,
+};
 
 /** A plate of the recipe with its filaments, or the form that adds a new plate. */
 @Component({
@@ -57,13 +74,13 @@ const MINUTE_DECIMALS = 100;
           <button type="submit" [disabled]="busy() || (plate() !== null && form.pristine)">
             {{ plate() ? 'Guardar' : 'Agregar' }}
           </button>
-          @if (plate()) {
+          @if (plate() && permissions.isOwner()) {
             <button type="button" class="ghost" [disabled]="busy()" (click)="remove()" aria-label="Quitar placa">✕</button>
           }
         </div>
       </form>
-      @if (form.touched && form.invalid) {
-        <p class="err error">Indica productos por corrida y tiempo, ambos mayores que cero.</p>
+      @if (formError(); as message) {
+        <p class="err error">{{ message }}</p>
       }
       @if (error(); as message) {
         <p class="err error" role="alert">{{ message }}</p>
@@ -104,8 +121,12 @@ const MINUTE_DECIMALS = 100;
 export class PlacaEditor {
   private readonly data = inject(CatalogoData);
 
+  protected readonly permissions = inject(CatalogoPermissions);
+
   readonly recipeId = input.required<string>();
   readonly plate = input<RecipePlate | null>(null);
+  /** Every plate of the recipe, to tell which parts only this one prints. */
+  readonly plates = input<readonly RecipePlate[]>([]);
   /** Number for a new plate. */
   readonly nextIndex = input(1);
   readonly lookups = input.required<Lookups>();
@@ -131,9 +152,28 @@ export class PlacaEditor {
 
   protected readonly form = new FormGroup({
     label: new FormControl('', { nonNullable: true }),
-    unitsPerRun: new FormControl<number | null>(null, [Validators.required, Validators.min(0.001)]),
-    printMinutes: new FormControl<number | null>(null, [Validators.required, Validators.min(1)]),
+    unitsPerRun: new FormControl<number | null>(null, [
+      Validators.required,
+      Validators.min(0.001),
+      Validators.max(LIMITS.perRun),
+      maxDecimals(DECIMALS.quantity),
+    ]),
+    printMinutes: new FormControl<number | null>(null, [
+      Validators.required,
+      Validators.min(1),
+      Validators.max(LIMITS.plateMinutes),
+      maxDecimals(DECIMALS.minutes),
+    ]),
   });
+
+  /**
+   * The first field that is wrong, by name. «Ambos mayores que cero» was
+   * shown for 0.5 minutes, which is greater than zero (T2-20).
+   */
+  protected formError(): string | null {
+    const { unitsPerRun, printMinutes } = this.form.controls;
+    return fieldError(unitsPerRun, UNITS_MESSAGES) ?? fieldError(printMinutes, MINUTES_MESSAGES);
+  }
 
   constructor() {
     effect(() => {
@@ -149,8 +189,10 @@ export class PlacaEditor {
   }
 
   protected async save(): Promise<void> {
+    if (this.busy()) return;
+    this.error.set(null);
     this.form.markAllAsTouched();
-    if (this.form.invalid || this.busy()) return;
+    if (this.form.invalid) return;
 
     const value = this.form.getRawValue();
     const input = {
@@ -160,7 +202,6 @@ export class PlacaEditor {
     };
 
     this.busy.set(true);
-    this.error.set(null);
     try {
       const current = this.plate();
       if (current) {
@@ -177,22 +218,33 @@ export class PlacaEditor {
     }
   }
 
+  /**
+   * Says, before removing, which parts no other plate of the recipe prints:
+   * they stay in the recipe with nothing to print them, so they stop adding
+   * to the cost and the plan cannot make them (T2-07).
+   */
   protected async remove(): Promise<void> {
     const current = this.plate();
-    if (!current) return;
-    const sure = confirm(`¿Quitar la placa ${current.plateIndex}${current.label ? ' (' + current.label + ')' : ''} y sus filamentos?`);
-    if (!sure) return;
+    if (!current || this.busy()) return;
+    const orphans = partsOnlyThisPlateMakes(current, this.plates()).map((id) => this.partName(current, id));
+    if (!confirm(removePlateQuestion(current, orphans))) return;
 
     this.busy.set(true);
     this.error.set(null);
     try {
       await this.data.deletePlate(current.id);
-      this.changed.emit();
     } catch (error) {
       this.error.set(messageOf(error, 'No pudimos quitar la placa.'));
     } finally {
       this.busy.set(false);
     }
+    // Removed or refused, what the page shows may be old: read it again.
+    this.changed.emit();
+  }
+
+  private partName(plate: RecipePlate, id: string): string {
+    const output = plate.outputs.find((candidate) => candidate.inventoryItemId === id);
+    return output?.part?.name ?? this.lookups().supplies.find((item) => item.id === id)?.name ?? 'una pieza';
   }
 
   private fill(plate: RecipePlate | null): void {

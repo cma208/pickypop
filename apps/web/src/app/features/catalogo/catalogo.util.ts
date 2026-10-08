@@ -1,5 +1,5 @@
 import { FormArray, FormControl, FormGroup, Validators, type ValidatorFn } from '@angular/forms';
-import type { Pair } from './catalogo.models';
+import type { Pair, ProductStatus, VariantUsage } from './catalogo.models';
 
 export const SLUG_PATTERN = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 
@@ -103,7 +103,64 @@ export function messageOf(error: unknown, fallback = 'Algo salió mal. Inténtal
   return fallback;
 }
 
-/** Today as YYYY-MM-DD in the browser's own time zone. */
-export function todayIso(): string {
-  return new Date().toLocaleDateString('en-CA');
+// ------------------------------------------------------------------- names
+
+/**
+ * A name the way a person compares it: «Poción» and « pocion » are the same
+ * product, and «tapa» and «Tapa » the same part. The catalogue search, the
+ * import review and the duplicate checks all read names through this, so
+ * they never disagree on what counts as the same (T2-15, T2-21).
+ */
+export function comparableName(name: string): string {
+  return name
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/** The first of `others` that a person would read as `name`, or null. */
+export function sameName<T extends { name: string }>(name: string, others: readonly T[]): T | null {
+  const wanted = comparableName(name);
+  return wanted === '' ? null : (others.find((other) => comparableName(other.name) === wanted) ?? null);
+}
+
+/** A product the name would repeat, said the way the catalogue shows it. */
+export function repeatedProductMessage(
+  name: string,
+  products: readonly { id: string; name: string; status: ProductStatus }[],
+  exceptId?: string,
+): string | null {
+  const twin = sameName(
+    name,
+    products.filter((product) => product.id !== exceptId),
+  );
+  if (!twin) return null;
+  return twin.status === 'archived'
+    ? `Ya hay un producto «${twin.name}», archivado. Restáuralo desde el catálogo o usa otro nombre.`
+    : `Ya hay un producto «${twin.name}». Usa otro nombre, o agrégale una variante a ese.`;
+}
+
+/** A sibling variant the name would repeat. Two «Llavero» in one product cannot be told apart. */
+export function repeatedVariantMessage(name: string, siblings: readonly { id: string; name: string }[], exceptId?: string): string | null {
+  const twin = sameName(
+    name,
+    siblings.filter((variant) => variant.id !== exceptId),
+  );
+  return twin ? `Ya hay una variante «${twin.name}» en este producto. Usa otro nombre.` : null;
+}
+
+/**
+ * Where a variant is used, in words, or null when nowhere. The same counts
+ * make the database refuse to delete it, so the screen says why before the
+ * person tries (T2-01).
+ */
+export function variantUsageText(usage: VariantUsage): string | null {
+  const places = [
+    usage.quotes > 0 ? `en ${countOf(usage.quotes, 'cotización', 'cotizaciones')}` : null,
+    usage.orders > 0 ? `en ${countOf(usage.orders, 'pedido', 'pedidos')}` : null,
+    usage.shelf > 0 ? 'en el inventario como producto armado' : null,
+  ].filter((place): place is string => place !== null);
+  return places.length === 0 ? null : `Está ${joinWithAnd(places)}.`;
 }

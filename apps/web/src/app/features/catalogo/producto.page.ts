@@ -75,6 +75,7 @@ import { VarianteForm } from './variante-form';
             <app-variante-form
               [productId]="current.id"
               [productSlug]="current.slug"
+              [siblings]="variants()"
               (saved)="variantCreated($event)"
               (cancelled)="creating.set(false)"
             />
@@ -83,6 +84,7 @@ import { VarianteForm } from './variante-form';
               <app-variante-detalle
                 [variant]="variant"
                 [productSlug]="current.slug"
+                [siblings]="variants()"
                 [lookups]="lookups()"
                 [lookupsError]="lookupsError()"
                 [lookupsRefreshError]="lookupsRefreshError()"

@@ -9,7 +9,7 @@ import {
   type ProductSummary,
 } from './catalogo.models';
 import { SHARED_STYLES } from './catalogo.styles';
-import { messageOf } from './catalogo.util';
+import { comparableName, messageOf } from './catalogo.util';
 import { ProductoNuevo } from './producto-nuevo';
 
 type StatusFilter = 'current' | 'all' | ProductStatus;
@@ -151,12 +151,13 @@ export class CatalogoPage {
   protected readonly search = signal('');
   protected readonly filter = signal<StatusFilter>('current');
 
+  /** Without accents or case, like every picker of the app: «calavéra» finds «Calavera» (T2-21). */
   protected readonly visible = computed(() => {
-    const term = this.search().trim().toLowerCase();
+    const term = comparableName(this.search());
     const filter = this.filter();
 
     return this.products().filter((product) => {
-      const matchesName = product.name.toLowerCase().includes(term);
+      const matchesName = comparableName(product.name).includes(term);
       const matchesStatus =
         filter === 'all' || (filter === 'current' ? product.status !== 'archived' : product.status === filter);
       return matchesName && matchesStatus;
