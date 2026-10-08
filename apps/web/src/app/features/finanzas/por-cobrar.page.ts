@@ -4,7 +4,7 @@ import { sumMoney } from '../../core/pricing';
 import { SECTION_STYLES } from '../../core/styles';
 import { AsyncState, Badge, Empty, FORMAT_PIPES, Page } from '../../ui';
 import { FinanzasData, type AccountSummary, type ReceivableRow } from './finanzas.data';
-import { agingBucket, AGING_LABELS, AGING_TONES, type CategoryOption } from './finanzas.models';
+import { agingBucket, AGING_LABELS, AGING_TONES, type CategoryOption, type FinanceAccess } from './finanzas.models';
 import { FINANCE_STYLES } from './finanzas.styles';
 import { PaymentForm } from './payment-form';
 
@@ -25,6 +25,12 @@ function normalize(text: string): string {
       @if (notice(); as text) {
         <p class="notice" role="status">{{ text }}</p>
       }
+      @if (refusal(); as text) {
+        <p class="alert alert-warn" role="alert">{{ text }}</p>
+      }
+      @if (canOperate() === false) {
+        <p class="muted">Tu rol en el taller es de consulta: ves lo que falta cobrar, pero cobrar es del dueño y de los operadores.</p>
+      }
 
       <!-- «Cobrar» sits in the list below: the page is brought up to the form. -->
       <div class="form-anchor" #formAnchor>
@@ -35,7 +41,7 @@ function normalize(text: string): string {
               [allAccounts]="accounts()"
               [allCategories]="categories()"
               (saved)="afterPayment($event)"
-              (refused)="reloadAfterRefusal()"
+              (refused)="reloadAfterRefusal($event)"
               (cancelled)="collecting.set(null)"
             />
           }
@@ -119,7 +125,9 @@ function normalize(text: string): string {
                         </small>
                       </td>
                       <td class="right nowrap">
-                        <button type="button" (click)="startPayment(row)">Cobrar</button>
+                        @if (canOperate()) {
+                          <button type="button" (click)="startPayment(row)">Cobrar</button>
+                        }
                       </td>
                     </tr>
                   }
@@ -145,7 +153,12 @@ export class PorCobrarPage {
   protected readonly loading = signal(true);
   protected readonly error = signal<string | null>(null);
   protected readonly notice = signal<string | null>(null);
+  /** A refused collection whose order left the list meanwhile: said here, since its form is gone. */
+  protected readonly refusal = signal<string | null>(null);
   protected readonly collecting = signal<ReceivableRow | null>(null);
+  /** A viewer is not offered «Cobrar», which the database would refuse. Null until it is known. */
+  private readonly access = signal<FinanceAccess | null>(null);
+  protected readonly canOperate = computed(() => this.access()?.canOperate ?? null);
   protected readonly query = signal('');
   protected readonly onlyOverdue = signal(false);
 
@@ -167,6 +180,16 @@ export class PorCobrarPage {
   constructor() {
     void this.loadOptions();
     void this.load();
+    void this.readAccess();
+  }
+
+  /** Read again after a refusal: the role may have changed in another tab. */
+  private async readAccess(): Promise<void> {
+    try {
+      this.access.set(await this.data.access());
+    } catch {
+      this.access.set({ isOwner: false, canOperate: false });
+    }
   }
 
   protected bucket(row: ReceivableRow) {
@@ -180,6 +203,7 @@ export class PorCobrarPage {
 
   protected startPayment(row: ReceivableRow): void {
     this.notice.set(null);
+    this.refusal.set(null);
     this.collecting.set(row);
     afterNextRender(
       () => this.formAnchor()?.nativeElement.scrollIntoView({ behavior: 'smooth', block: 'start' }),
@@ -189,14 +213,30 @@ export class PorCobrarPage {
 
   protected afterPayment(message: string): void {
     this.collecting.set(null);
+    this.refusal.set(null);
     this.notice.set(message);
     void this.load();
   }
 
-  /** The database refused the collection: the debt or the accounts on screen may be out of date. */
-  protected reloadAfterRefusal(): void {
+  /**
+   * The database refused the collection: the debt or the accounts on screen
+   * may be out of date. The list is read again and the open form follows its
+   * order, with what it owes now. An order that no longer owes anything left
+   * the list: its form closes and the refusal is said on the page.
+   */
+  protected async reloadAfterRefusal(message: string): Promise<void> {
     void this.loadOptions();
-    void this.load();
+    void this.readAccess();
+    await this.load();
+    const open = this.collecting();
+    if (!open) return;
+    const fresh = this.rows().find((row) => row.orderId === open.orderId);
+    if (fresh) {
+      this.collecting.set(fresh);
+    } else {
+      this.collecting.set(null);
+      this.refusal.set(`${message} El pedido ${open.number} ya no tiene nada por cobrar: salió de la lista.`);
+    }
   }
 
   private async loadOptions(): Promise<void> {

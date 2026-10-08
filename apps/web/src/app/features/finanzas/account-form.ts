@@ -17,7 +17,7 @@ import {
   type AccountInput,
   type OpeningShift,
 } from './account-edit';
-import { FinanzasData, isRefusal, type AccountSummary } from './finanzas.data';
+import { FinanzasData, isRefusal, StaleAccountError, type AccountSummary } from './finanzas.data';
 import {
   ACCOUNT_KINDS,
   ACCOUNT_KIND_LABELS,
@@ -135,6 +135,12 @@ export class AccountForm {
   readonly saved = output<string>();
   /** The database said no: the account on screen may be out of date. */
   readonly refused = output<void>();
+  /**
+   * The account changed in another tab while this form had it open (T5-09).
+   * Nothing was saved, and the form cannot be: its fields still hold the old
+   * version, and saving them would undo the other change. Cuentas closes it.
+   */
+  readonly outdated = output<string>();
   readonly cancelled = output<void>();
 
   protected readonly kinds = ACCOUNT_KINDS;
@@ -241,6 +247,10 @@ export class AccountForm {
         this.saved.emit('Cuenta creada.');
       }
     } catch (error) {
+      if (error instanceof StaleAccountError) {
+        this.outdated.emit(error.message);
+        return;
+      }
       this.failure.set(friendlyError(error, 'No pudimos guardar la cuenta. Inténtalo de nuevo.'));
       if (isRefusal(error)) this.refused.emit();
     } finally {

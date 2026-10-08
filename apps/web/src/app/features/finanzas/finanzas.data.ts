@@ -8,9 +8,11 @@ import {
   dayEnd,
   dayStart,
   defaultCategory,
+  financeAccess,
   num,
   type AccountKind,
   type CategoryOption,
+  type FinanceAccess,
   type PaymentMethod,
   type TransactionType,
 } from './finanzas.models';
@@ -47,6 +49,13 @@ export type { AccountInput };
 /** Said when an old tab tries to save over an account that changed meanwhile. */
 const STALE_ACCOUNT =
   'La cuenta cambió en otra pestaña, o la cambió otra persona, mientras la editabas: no se guardó nada. Vuelve a abrirla para ver cómo quedó.';
+
+/**
+ * The account moved on while the screen showed an older version of it. The
+ * form open on that version cannot be saved over it: Cuentas closes it and
+ * reads the list again.
+ */
+export class StaleAccountError extends UserFacingError {}
 
 export interface LedgerFilter {
   accountId: string | null;
@@ -151,12 +160,23 @@ export class FinanzasData {
   private readonly workspace = inject(CurrentWorkspace);
 
   /**
-   * The owner sets up the accounts and voids movements (the owner's decision
-   * of 2026-10-08). The database decides it; the screens only use this not to
-   * offer an operator what it would refuse.
+   * What the signed-in person may do here: the owner sets up the accounts and
+   * voids, the owner and the operators register and collect (the owner's
+   * decision of 2026-10-08). Read fresh each time, not from the workshop's
+   * cached role: after a refusal the screens ask again, and a role changed in
+   * another tab counts at once instead of at the next sign-in.
    */
-  async isOwner(): Promise<boolean> {
-    return (await this.workspace.info()).role === 'owner';
+  async access(): Promise<FinanceAccess> {
+    const { id, userId } = await this.workspace.info();
+    if (!userId) return financeAccess(null);
+    const { data, error } = await this.supabase
+      .from('workspace_members')
+      .select('role')
+      .eq('workspace_id', id)
+      .eq('user_id', userId)
+      .maybeSingle();
+    if (error) throw error;
+    return financeAccess(data?.role);
   }
 
   // ---------------------------------------------------------------- accounts
@@ -267,7 +287,7 @@ export class FinanzasData {
     message = STALE_ACCOUNT,
   ): Promise<Error> {
     const { data } = await this.supabase.from('accounts').select('updated_at, active').eq('id', id).maybeSingle();
-    return data && movedOn(data) ? new UserFacingError(message) : permissionError();
+    return data && movedOn(data) ? new StaleAccountError(message) : permissionError();
   }
 
   /** The legs an account has, to say which change side when its opening day moves. */

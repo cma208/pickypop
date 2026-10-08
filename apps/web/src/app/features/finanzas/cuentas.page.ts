@@ -61,6 +61,7 @@ function deactivateQuestion(account: AccountSummary): string {
               [account]="editing()"
               (saved)="afterSave($event)"
               (refused)="reload()"
+              (outdated)="afterOutdated($event)"
               (cancelled)="closeForm()"
             />
           }
@@ -218,16 +219,23 @@ export class CuentasPage {
 
   constructor() {
     void this.load();
-    void this.data
-      .isOwner()
-      .then((owner) => this.isOwner.set(owner))
-      .catch(() => this.isOwner.set(false));
+    void this.readRole();
+  }
+
+  /** Read again after a refusal: the role may have changed in another tab. */
+  private async readRole(): Promise<void> {
+    try {
+      this.isOwner.set((await this.data.access()).isOwner);
+    } catch {
+      this.isOwner.set(false);
+    }
   }
 
   protected openForm(account: AccountSummary | null): void {
     this.editing.set(account);
     this.formOpen.set(true);
     this.notice.set(null);
+    this.actionError.set(null);
     // «Editar» sits in the table below the form: the page is brought up to it.
     afterNextRender(
       () => this.formAnchor()?.nativeElement.scrollIntoView({ behavior: 'smooth', block: 'start' }),
@@ -246,8 +254,17 @@ export class CuentasPage {
     void this.load();
   }
 
-  /** The database refused: what the list shows may be out of date. */
+  /** The database refused: what the list shows, or the role, may be out of date. */
   protected reload(): void {
+    void this.load();
+    void this.readRole();
+  }
+
+  /** The account changed elsewhere while it was being edited: the old form goes, the list is read again. */
+  protected afterOutdated(message: string): void {
+    this.closeForm();
+    this.notice.set(null);
+    this.actionError.set(message);
     void this.load();
   }
 
@@ -264,6 +281,7 @@ export class CuentasPage {
     } catch (error) {
       this.actionError.set(friendlyError(error, 'No pudimos cambiar el estado de la cuenta.'));
       if (!isRefusal(error)) return;
+      void this.readRole();
     } finally {
       this.switching.set(false);
     }

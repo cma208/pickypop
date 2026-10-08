@@ -9,6 +9,7 @@ import {
   dayStart,
   defaultCategory,
   defaultMethodFor,
+  financeAccess,
   monthLabel,
   num,
   numOrNull,
@@ -248,5 +249,21 @@ describe('defaultMethodFor', () => {
   it('leaves a bank or a wallet to the person: they take more than one method', () => {
     expect(defaultMethodFor('bank')).toBeNull();
     expect(defaultMethodFor('wallet')).toBeNull();
+  });
+});
+
+describe('financeAccess', () => {
+  it('lets the owner set up and void, and register and collect', () => {
+    expect(financeAccess('owner')).toEqual({ isOwner: true, canOperate: true });
+  });
+
+  it('lets an operator register and collect, not void', () => {
+    expect(financeAccess('operator')).toEqual({ isOwner: false, canOperate: true });
+  });
+
+  it('lets a viewer or somebody without a role only look', () => {
+    expect(financeAccess('viewer')).toEqual({ isOwner: false, canOperate: false });
+    expect(financeAccess(null)).toEqual({ isOwner: false, canOperate: false });
+    expect(financeAccess(undefined)).toEqual({ isOwner: false, canOperate: false });
   });
 });
