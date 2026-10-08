@@ -110,18 +110,20 @@
 
 | Tabla | Columnas clave |
 |---|---|
-| `accounts` | name, kind (`cash`, `bank`, `wallet`), opening_balance, opening_balance_on, default_payment_method, active |
+| `accounts` | name, kind (`cash`, `bank`, `wallet`), opening_balance, opening_balance_on (por defecto, hoy en Lima), default_payment_method, active |
 | `transaction_categories` | name, direction (`income`, `expense`) |
 | `transactions` | account_id, **counter_account_id**, type (`income`, `expense`, `transfer`, `owner_contribution`, `owner_draw`), category_id, amount (siempre positivo), occurred_at, payment_method, order_id, purchase_id, maintenance_log_id, counterparty, reference, note, **voided_at / void_reason** |
 | `assets` | name, acquired_at, cost, useful_life_hours, printer_id |
 | `documents` | order_id, type (`internal_note`, `boleta`, `factura`, `credit_note`), series, number, issued_at, customer_doc_type, customer_doc_number, taxable_amount, igv_amount, total, sunat_status, pdf_path, xml_path, provider_ref |
-| *vista* `transaction_entries` | El libro, cuenta por cuenta: desdobla la transferencia en sus dos patas |
-| *vista* `account_balances` | Saldo por cuenta |
+| *vista* `transaction_entries` | El libro, cuenta por cuenta: desdobla la transferencia en sus dos patas. `before_opening` marca la pata con fecha (en la hora del taller) anterior a la apertura de su cuenta |
+| *vista* `account_balances` | Saldo por cuenta: el de apertura más lo que se movió desde su fecha. Lo anterior ya está dentro del saldo de apertura: no lo cambia y se cuenta aparte (`movements_before_opening`, `net_before_opening`) |
 | *vista* `order_payment_summary` | Total, cobrado y saldo por pedido de venta |
 | *vista* `receivables` | Órdenes entregadas con saldo pendiente |
 | *vista* `monthly_income_statement` | Ventas, costo de ventas, gastos, producción no vendida y utilidad por mes, en la hora del taller. Aparte, las impresiones fallidas sobre lo impreso para producir (`print_cost`, sin moldes, herramientas ni pruebas) contra la reserva por fallos (ADR-023) |
 
 Construido el 2026-10-04 (migración `20261004130000_finance.sql`). Las reglas de este módulo están en [ADR-014](05-decisiones.md): el saldo se deriva, la transferencia es **una** fila con dos cuentas, nada se borra sino que se anula con motivo, y `orders.payment_status` es una proyección que recalcula un disparador y que la aplicación nunca escribe. Queda fuera `documents` (boletas y facturas): el taller todavía no tiene RUC.
+
+**El saldo empieza en la fecha de apertura** (decisión del dueño, 2026-10-07, migración `20261018110000_balance_starts_at_opening.sql`). El saldo de apertura es lo que había en la cuenta ese día, así que un movimiento con fecha anterior ya está dentro de él. Se puede registrar y sigue contando en Resultados de su mes, pero no cambia el saldo de esa cuenta. El día se compara en la hora del taller, y en una transferencia cada pata se juzga con su propia cuenta. Caja avisa antes de guardar, el libro marca esos movimientos y Cuentas explica por qué no movieron el saldo.
 
 Dos reglas se declaran en el esquema para que la aplicación no pueda saltárselas: un movimiento no puede apuntar a una cuenta de otro taller (clave foránea compuesta contra `accounts (id, workspace_id)`) y un ingreso no puede caer en una categoría de egreso (columna generada `expected_direction` con clave foránea compuesta contra `transaction_categories (id, direction)`).
 

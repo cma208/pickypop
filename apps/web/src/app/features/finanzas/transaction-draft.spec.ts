@@ -2,6 +2,9 @@ import {
   buildTransactionDraft,
   draftProblem,
   effectsOf,
+  previewBalances,
+  workshopChange,
+  type BalanceAccount,
   type TransactionFormValue,
 } from './transaction-draft';
 
@@ -116,5 +119,44 @@ describe('effectsOf', () => {
       { accountId: 'bank', delta: 100 },
     ]);
     expect(effects.reduce((total, effect) => total + effect.delta, 0)).toBe(0);
+  });
+});
+
+describe('previewBalances', () => {
+  const accounts: BalanceAccount[] = [
+    { id: 'cash', name: 'Efectivo', balance: 350, openingBalanceOn: '2026-10-07' },
+    { id: 'bank', name: 'Banco', balance: 1000, openingBalanceOn: '2026-10-01' },
+  ];
+  const draft = (overrides: Partial<TransactionFormValue>) => buildTransactionDraft(form(overrides));
+
+  it('moves the balance of a movement dated after the opening', () => {
+    const [line] = previewBalances(draft({ type: 'expense', amount: 4, occurredAt: '2026-10-07T15:00' }), accounts);
+    expect(line).toMatchObject({ name: 'Efectivo', before: 350, after: 346, beforeOpening: false });
+  });
+
+  it('leaves the balance alone when the movement is dated before the opening (E5-02)', () => {
+    const [line] = previewBalances(draft({ type: 'expense', amount: 4, occurredAt: '2026-09-30T21:00' }), accounts);
+    expect(line).toMatchObject({ name: 'Efectivo', before: 350, after: 350, beforeOpening: true });
+  });
+
+  it('judges each leg of a transfer by its own account', () => {
+    const previews = previewBalances(
+      draft({ type: 'transfer', counterAccountId: 'bank', amount: 30, occurredAt: '2026-10-05T12:00' }),
+      accounts,
+    );
+    expect(previews.map((line) => [line.name, line.after, line.beforeOpening])).toEqual([
+      ['Efectivo', 350, true],
+      ['Banco', 1030, false],
+    ]);
+    // Efectivo already had that money out in its opening balance, so the workshop total does grow.
+    expect(workshopChange(previews)).toBe(30);
+  });
+
+  it('keeps the workshop total when both legs count', () => {
+    const previews = previewBalances(
+      draft({ type: 'transfer', counterAccountId: 'bank', amount: 30, occurredAt: '2026-10-07T12:00' }),
+      accounts,
+    );
+    expect(workshopChange(previews)).toBe(0);
   });
 });

@@ -29,6 +29,7 @@ const NO_FILTER: LedgerFilter = { accountId: null, type: null, from: null, to: n
     `
       .time { color: var(--muted); font-variant-numeric: tabular-nums; }
       .reason { color: var(--danger); }
+      .early { color: var(--warn); }
     `,
   ],
   template: `
@@ -167,6 +168,11 @@ const NO_FILTER: LedgerFilter = { accountId: null, type: null, from: null, to: n
                       @if (row.note) { <small class="sub">{{ row.note }}</small> }
                       @if (row.reference) { <small class="sub">Ref. {{ row.reference }}</small> }
                       @if (row.voidReason) { <small class="sub reason">Motivo: {{ row.voidReason }}</small> }
+                      @if (row.beforeOpening) {
+                        <small class="sub early">
+                          Anterior a la apertura de {{ row.accountName }}: no cambia su saldo, ya está dentro del saldo de apertura
+                        </small>
+                      }
                       <small class="sub only-small">{{ row.accountName }}</small>
                     </td>
                     <td class="hide-small">

@@ -44,6 +44,7 @@ import { PurchasePreview, type PreviewRow } from './purchase-preview';
 import { QuickAdd } from './quick-add';
 import { PAYMENT_METHOD_LABELS, PAYMENT_METHODS, type PaymentMethod } from '../finanzas/finanzas.models';
 import { PaymentCategoryNote } from '../finanzas/payment-category-note';
+import { beforeOpeningNotice, dayBeforeOpening } from '../finanzas/opening-balance';
 import { purchaseEntries } from './purchase-entries';
 
 interface Target {
@@ -221,6 +222,9 @@ function notInTheFuture(control: AbstractControl): ValidationErrors | null {
           <p class="muted">Queda «por pagar» en Compras, y desde ahí registras el pago cuando lo hagas.</p>
         } @else if (chosenAccount()) {
           <app-payment-category-note kind="purchase" />
+          @if (openingNotice(); as text) {
+            <p class="alert-warn">{{ text }}</p>
+          }
         }
       </pp-card>
 
@@ -418,6 +422,15 @@ export class CompraForm {
   protected readonly chosenAccount = computed(() =>
     this.accountOptions().find((account) => account.id === this.raw().paidFrom),
   );
+
+  /** Paid on the purchase's own day: before the account opened, that money is already inside its opening balance (E5-02). */
+  protected readonly openingNotice = computed(() => {
+    const account = this.chosenAccount();
+    const day = this.raw().purchasedAt;
+    return account && day && dayBeforeOpening(day, account.openingBalanceOn)
+      ? beforeOpeningNotice(account, 'el pago cuenta para la compra')
+      : null;
+  });
 
   protected readonly paymentText = computed(() => {
     const account = this.chosenAccount();

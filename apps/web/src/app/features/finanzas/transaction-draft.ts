@@ -1,6 +1,7 @@
 import { inputToIso } from '../../core/dates';
-import { roundMoney } from '../../core/pricing';
+import { roundMoney, sumMoney } from '../../core/pricing';
 import { TYPE_DIRECTION, type PaymentMethod, type TransactionType } from './finanzas.models';
+import { beforeOpening, type OpeningOf } from './opening-balance';
 
 /** Raw values of the movement form, straight from the controls. */
 export interface TransactionFormValue {
@@ -105,3 +106,63 @@ export function effectsOf(draft: TransactionDraft): TransactionEffect[] {
   const direction = TYPE_DIRECTION[draft.type];
   return [{ accountId: draft.accountId, delta: direction === 'income' ? draft.amount : -draft.amount }];
 }
+
+/** An account as the confirmation line needs it. */
+export interface BalanceAccount extends OpeningOf {
+  id: string;
+  balance: number;
+}
+
+export interface BalancePreview extends OpeningOf {
+  accountId: string;
+  before: number;
+  after: number;
+  /** The leg is dated before the account's opening balance, so it leaves the balance as it is. */
+  beforeOpening: boolean;
+}
+
+/**
+ * What each account will be worth once the movement is saved. A leg dated
+ * before its account's opening balance is already inside that balance and
+ * moves nothing (E5-02); each leg of a transfer is judged by its own account.
+ */
+export function previewBalances(draft: TransactionDraft, accounts: readonly BalanceAccount[]): BalancePreview[] {
+  const byId = new Map(accounts.map((account) => [account.id, account]));
+
+  return effectsOf(draft).flatMap((effect) => {
+    const account = byId.get(effect.accountId);
+    if (!account) return [];
+    const early = beforeOpening(draft.occurredAt, account.openingBalanceOn);
+    return [
+      {
+        accountId: account.id,
+        name: account.name,
+        openingBalanceOn: account.openingBalanceOn,
+        before: account.balance,
+        after: early ? account.balance : roundMoney(account.balance + effect.delta),
+        beforeOpening: early,
+      },
+    ];
+  });
+}
+
+/**
+ * How much the workshop's total moves. A transfer nets to zero, except when
+ * only one of its legs is dated before its account's opening.
+ */
+export function workshopChange(previews: readonly BalancePreview[]): number {
+  return sumMoney(previews.map((preview) => preview.after - preview.before));
+}
+
+/**
+ * What a movement dated before its account's opening still does, for the
+ * warning: it leaves the balance alone but not the income statement, which
+ * reads every movement by its own date. A transfer is in neither.
+ */
+export const STILL_COUNTS: Record<TransactionType, string | null> = {
+  income: 'cuenta en Resultados',
+  expense: 'cuenta en Resultados',
+  owner_contribution: 'queda en Resultados como aporte del dueño',
+  owner_draw: 'queda en Resultados como retiro del dueño',
+  transfer: null,
+};

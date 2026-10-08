@@ -27,11 +27,15 @@ export interface AccountSummary {
   openingBalanceOn: string;
   defaultPaymentMethod: PaymentMethod | null;
   note: string | null;
+  /** In and out since the opening balance: opening + in − out is the balance. */
   totalIn: number;
   totalOut: number;
   balance: number;
   movements: number;
   lastMovementAt: string | null;
+  /** Movements dated before the opening balance: already inside it, they move nothing (E5-02). */
+  movementsBeforeOpening: number;
+  netBeforeOpening: number;
 }
 
 export interface AccountInput {
@@ -74,6 +78,8 @@ export interface LedgerRow {
   origin: string | null;
   voided: boolean;
   voidReason: string | null;
+  /** Dated before this leg's account opened: already inside its opening balance, so it does not move it. */
+  beforeOpening: boolean;
 }
 
 export interface ReceivableRow {
@@ -140,7 +146,7 @@ export class FinanzasData {
         .select('id, name, kind, opening_balance, opening_balance_on, default_payment_method, note, active'),
       this.supabase
         .from('account_balances')
-        .select('account_id, total_in, total_out, balance, movements, last_movement_at'),
+        .select('account_id, total_in, total_out, balance, movements, last_movement_at, movements_before_opening, net_before_opening'),
     ]);
     if (accounts.error) throw accounts.error;
     if (balances.error) throw balances.error;
@@ -165,6 +171,8 @@ export class FinanzasData {
           balance: balance ? num(balance.balance) : num(account.opening_balance),
           movements: num(balance?.movements),
           lastMovementAt: balance?.last_movement_at ?? null,
+          movementsBeforeOpening: num(balance?.movements_before_opening),
+          netBeforeOpening: num(balance?.net_before_opening),
         };
       })
       .sort((a, b) => Number(b.active) - Number(a.active) || a.name.localeCompare(b.name, 'es'));
@@ -274,6 +282,7 @@ export class FinanzasData {
         origin: originOf(entry.order_id, entry.purchase_id, entry.maintenance_log_id, detail?.orderNumber),
         voided: false,
         voidReason: null,
+        beforeOpening: entry.before_opening ?? false,
       };
     });
 
@@ -301,6 +310,8 @@ export class FinanzasData {
         origin: originOf(detail.orderId, detail.purchaseId, detail.maintenanceLogId, detail.orderNumber),
         voided: true,
         voidReason: detail.voidReason,
+        // An annulled movement moves no balance at all, before or after the opening.
+        beforeOpening: false,
       }));
 
     return [...rows, ...voided].sort((a, b) => b.occurredAt.localeCompare(a.occurredAt));
@@ -447,7 +458,7 @@ export class FinanzasData {
       let query = this.supabase
         .from('transaction_entries')
         .select(
-          'transaction_id, account_id, is_counter_leg, occurred_at, type, category_id, payment_method, signed_amount, order_id, purchase_id, maintenance_log_id, counterparty, note',
+          'transaction_id, account_id, is_counter_leg, occurred_at, type, category_id, payment_method, signed_amount, order_id, purchase_id, maintenance_log_id, counterparty, note, before_opening',
         )
         .order('occurred_at', { ascending: false })
         .range(from, to);

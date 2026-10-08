@@ -7,11 +7,18 @@ import { AccountForm } from './account-form';
 import { FinanzasData, type AccountSummary } from './finanzas.data';
 import { ACCOUNT_KIND_LABELS, PAYMENT_METHOD_LABELS } from './finanzas.models';
 import { FINANCE_STYLES } from './finanzas.styles';
+import { beforeOpeningSummary } from './opening-balance';
 
 @Component({
   selector: 'app-cuentas',
   imports: [Page, AsyncState, Empty, Badge, AccountForm, FORMAT_PIPES],
-  styles: [SECTION_STYLES, FINANCE_STYLES],
+  styles: [
+    SECTION_STYLES,
+    FINANCE_STYLES,
+    `
+      .early { color: var(--warn); font-weight: 400; white-space: normal; max-width: 14rem; margin-left: auto; }
+    `,
+  ],
   template: `
     <pp-page title="Cuentas" subtitle="Dónde está el dinero del taller y cuánto hay en cada sitio">
       <button actions type="button" (click)="openForm(null)">Nueva cuenta</button>
@@ -46,6 +53,16 @@ import { FINANCE_STYLES } from './finanzas.styles';
               <span class="amount">{{ activeCount() }} de {{ accounts().length }}</span>
             </div>
           </div>
+
+          @if (anyBeforeOpening()) {
+            <div class="explainer">
+              <p>
+                <strong>Lo anterior a la apertura no cambia el saldo.</strong> El saldo de apertura es lo que había
+                en la cuenta ese día, así que un movimiento con fecha anterior ya está dentro de él: contarlo otra
+                vez lo restaría o sumaría dos veces. Sigue contando en Resultados de su mes.
+              </p>
+            </div>
+          }
 
           @if (inactiveWithMoney()) {
             <p class="alert alert-warn">
@@ -94,6 +111,9 @@ import { FINANCE_STYLES } from './finanzas.styles';
                     <td class="num hide-small neg">{{ account.totalOut | money }}</td>
                     <td class="num amount-cell" [class.neg]="account.balance < 0">
                       {{ account.balance | money }}
+                      @if (earlyText(account); as text) {
+                        <small class="sub early">{{ text }}</small>
+                      }
                     </td>
                     <td class="num hide-small">
                       {{ account.movements }}
@@ -137,6 +157,14 @@ export class CuentasPage {
   protected readonly inactiveWithMoney = computed(() =>
     this.accounts().some((account) => !account.active && account.balance !== 0),
   );
+  protected readonly anyBeforeOpening = computed(() =>
+    this.accounts().some((account) => account.movementsBeforeOpening > 0),
+  );
+
+  /** Why the balance is not the opening plus everything Caja lists for this account. */
+  protected earlyText(account: AccountSummary): string | null {
+    return beforeOpeningSummary(account);
+  }
 
   constructor() {
     void this.load();
