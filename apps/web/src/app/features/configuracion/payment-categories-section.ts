@@ -3,6 +3,7 @@ import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { AsyncState, Card, Field } from '../../ui';
 import { friendlyError } from '../../core/friendly-error';
 import { SECTION_STYLES } from '../../core/styles';
+import { isOwnerRole } from '../../core/workspace';
 import { ConfiguracionData } from './configuracion.data';
 import type { CategoryRecord } from './configuracion.models';
 
@@ -101,8 +102,8 @@ export class PaymentCategoriesSection {
         orderCategoryId: this.stillOffered(choice.orderCategoryId, this.incomeCategories()),
         purchaseCategoryId: this.stillOffered(choice.purchaseCategoryId, this.expenseCategories()),
       });
-      this.canEdit.set(role === 'owner');
-      if (role === 'owner') this.form.enable();
+      this.canEdit.set(isOwnerRole(role));
+      if (isOwnerRole(role)) this.form.enable();
       else this.form.disable();
       this.loadError.set(null);
     } catch (error) {
@@ -128,6 +129,7 @@ export class PaymentCategoriesSection {
       this.defaultsSaved.emit();
     } catch (error) {
       this.error.set(friendlyError(error, 'No pudimos guardar las categorías por defecto.'));
+      if (await this.data.afterRefusal(error)) await this.reload();
     } finally {
       this.saving.set(false);
     }

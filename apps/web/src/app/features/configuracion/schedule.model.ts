@@ -28,6 +28,9 @@ export interface ScheduleRecord extends ScheduleDraft {
 /** Below this many measured changeovers the plan keeps using the default. */
 export const MIN_CHANGEOVER_SAMPLES = 5;
 
+/** A plate change that takes longer than a day is a typo; the database refuses it too. */
+export const MAX_CHANGEOVER_MINUTES = 1440;
+
 const MIDNIGHT_IN_DB = '24:00';
 const MIDNIGHT_IN_FORM = '00:00';
 
@@ -51,15 +54,30 @@ function endByMinutes(time: string): number {
   return time === MIDNIGHT_IN_FORM ? 24 * 60 : minutes(time);
 }
 
+/** An empty time input, which would otherwise read as 00:00 and pass every check. */
+const MISSING_TIME: [keyof ScheduleDraft, string][] = [
+  ['firstStart', 'Indica desde qué hora puede empezar la primera placa.'],
+  ['lastStart', 'Indica hasta qué hora puede empezar la última placa.'],
+  ['endBy', 'Indica a qué hora tiene que haber terminado todo.'],
+  ['holdTime', 'Indica a qué hora vence un separo.'],
+];
+
 /** Why the window cannot be saved, in words for the person; null when it can. */
 export function scheduleProblem(draft: ScheduleDraft): string | null {
+  for (const [field, message] of MISSING_TIME) {
+    if (!draft[field]) return message;
+  }
+
   const first = minutes(draft.firstStart);
   const last = minutes(draft.lastStart);
   const end = endByMinutes(draft.endBy);
   if (first >= last) return 'La última placa tiene que poder empezar después de la primera.';
   if (last > end) return 'La última placa no puede empezar después de la hora en que todo tiene que haber terminado.';
   if (!Number.isInteger(draft.changeoverMinutes) || draft.changeoverMinutes < 0) {
-    return 'El cambio de placa es un número de minutos, cero o más.';
+    return 'El cambio de placa es un número entero de minutos, cero o más.';
+  }
+  if (draft.changeoverMinutes > MAX_CHANGEOVER_MINUTES) {
+    return `El cambio de placa no puede pasar de 24 horas (${MAX_CHANGEOVER_MINUTES} minutos).`;
   }
   if (!Number.isInteger(draft.holdDays) || draft.holdDays < 0) return 'Elige cuándo vence un separo.';
   return null;

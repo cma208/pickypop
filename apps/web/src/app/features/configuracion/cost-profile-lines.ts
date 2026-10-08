@@ -68,3 +68,19 @@ export function pickCurrent(profiles: CostProfileRecord[], today: string): CostP
       .sort((a, b) => b.validFrom.localeCompare(a.validFrom))[0] ?? null
   );
 }
+
+export type ProfileState = 'current' | 'scheduled' | 'past';
+
+/**
+ * Where a version stands today. Only a scheduled one may still be corrected
+ * or taken back: nothing has been priced with it yet. The database applies the
+ * same rule with the workshop's day.
+ */
+export function profileState(
+  profile: CostProfileRecord,
+  current: CostProfileRecord | null,
+  today: string,
+): ProfileState {
+  if (profile.id === current?.id) return 'current';
+  return profile.validFrom > today ? 'scheduled' : 'past';
+}

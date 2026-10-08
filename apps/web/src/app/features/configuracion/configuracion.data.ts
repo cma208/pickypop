@@ -20,7 +20,7 @@ import type {
   WorkshopDraft,
   WorkshopRecord,
 } from './configuracion.models';
-import { permissionError, UserFacingError } from '../../core/friendly-error';
+import { isPermissionError, permissionError, UserFacingError } from '../../core/friendly-error';
 import { CurrentWorkspace } from '../../core/workspace';
 import { endByToDb, timeFromDb, type ScheduleDraft, type ScheduleRecord } from './schedule.model';
 
@@ -39,6 +39,18 @@ export class ConfiguracionData {
 
   currentRole() {
     return this.workspace.info().then((info) => info.role);
+  }
+
+  /**
+   * After the database refuses what a screen offered, the role this tab
+   * remembers may be stale (changed in another tab): it is read again, and
+   * the answer says whether the section should reload in the mode that now
+   * matches. A refusal of what was written keeps the form as it is.
+   */
+  async afterRefusal(error: unknown): Promise<boolean> {
+    if (!isPermissionError(error)) return false;
+    await this.workspace.refresh().catch(() => undefined);
+    return true;
   }
 
   async workshop(): Promise<WorkshopRecord> {
@@ -64,13 +76,12 @@ export class ConfiguracionData {
     };
   }
 
+  /** Currency and time zone are not sent: the app only knows soles and Lima time (T1-23). */
   async updateWorkshop(draft: WorkshopDraft): Promise<void> {
     const { data, error } = await this.supabase
       .from('workspaces')
       .update({
         name: draft.name.trim(),
-        currency: draft.currency,
-        timezone: draft.timezone,
         tax_regime: draft.taxRegime,
         ruc: draft.ruc,
         legal_name: draft.legalName,
@@ -201,23 +212,33 @@ export class ConfiguracionData {
     }));
   }
 
-  /** Always inserts: a profile in force is never edited, only superseded. */
+  /** A new version: the profile in force is never edited, only superseded. */
   async createCostProfile(draft: CostProfileDraft): Promise<void> {
-    const { error } = await this.supabase.from('cost_profiles').insert({
-      workspace_id: await this.workspace.requireId(),
-      valid_from: draft.validFrom,
-      material_waste_rate: draft.materialWasteRate,
-      failure_rate: draft.failureRate,
-      labor_rate_per_hour: draft.laborRatePerHour,
-      energy_rate_per_kwh: draft.energyRatePerKwh,
-      target_margin: draft.targetMargin,
-      min_order_price: draft.minOrderPrice,
-      rounding_step: draft.roundingStep,
-      igv_rate: draft.igvRate,
-      material_valuation: draft.materialValuation,
-      note: draft.note,
-    });
+    const { error } = await this.supabase
+      .from('cost_profiles')
+      .insert({ workspace_id: await this.workspace.requireId(), ...costProfileColumns(draft) });
     if (error) throw error;
+  }
+
+  /**
+   * Corrects a version that has not started yet. The database refuses one in
+   * force with a sentence of its own; no row back means it is gone.
+   */
+  async updateCostProfile(profileId: string, draft: CostProfileDraft): Promise<void> {
+    const { data, error } = await this.supabase
+      .from('cost_profiles')
+      .update(costProfileColumns(draft))
+      .eq('id', profileId)
+      .select('id');
+    if (error) throw error;
+    if (data.length === 0) throw new UserFacingError(PROFILE_GONE);
+  }
+
+  /** Takes back a version that has not started yet. Zero rows: gone, or not the owner. */
+  async deleteCostProfile(profileId: string): Promise<void> {
+    const { data, error } = await this.supabase.from('cost_profiles').delete().eq('id', profileId).select('id');
+    if (error) throw error;
+    if (data.length === 0) throw new UserFacingError(PROFILE_NOT_REMOVED);
   }
 
   async channels(): Promise<ChannelRecord[]> {
@@ -467,6 +488,26 @@ export class ConfiguracionData {
       .insert({ ...values, workspace_id: await this.workspace.requireId() });
     if (error) throw duplicateAware(error, 'materials_workspace_id_code_key', duplicate);
   }
+}
+
+const PROFILE_GONE = 'Esa versión ya no existe: alguien la quitó mientras la corregías. El historial se volvió a cargar.';
+const PROFILE_NOT_REMOVED =
+  'No se quitó nada: esa versión ya no está, o tu rol no permite quitarla. El historial se volvió a cargar.';
+
+function costProfileColumns(draft: CostProfileDraft) {
+  return {
+    valid_from: draft.validFrom,
+    material_waste_rate: draft.materialWasteRate,
+    failure_rate: draft.failureRate,
+    labor_rate_per_hour: draft.laborRatePerHour,
+    energy_rate_per_kwh: draft.energyRatePerKwh,
+    target_margin: draft.targetMargin,
+    min_order_price: draft.minOrderPrice,
+    rounding_step: draft.roundingStep,
+    igv_rate: draft.igvRate,
+    material_valuation: draft.materialValuation,
+    note: draft.note,
+  };
 }
 
 interface MaterialRow {

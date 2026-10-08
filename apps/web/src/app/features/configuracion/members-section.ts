@@ -10,11 +10,18 @@ import {
   type MemberRecord,
   type MemberRole,
 } from './configuracion.models';
-import { errorOf, textOrNull } from '../../core/form-errors';
+import { errorOf, requiredText, textOrNull } from '../../core/form-errors';
 import { friendlyError } from '../../core/friendly-error';
 import { SECTION_STYLES } from '../../core/styles';
+import { isOwnerRole } from '../../core/workspace';
 
-/** Who works in the workshop, their role and what their hour costs. */
+/** numeric(12, 2), the column of the rate. */
+const MAX_RATE = 9_999_999_999.99;
+
+/**
+ * Who works in the workshop, their role and what their hour costs. Only the
+ * owner changes it, and the database keeps at least one owner.
+ */
 @Component({
   selector: 'app-members-section',
   imports: [ReactiveFormsModule, Card, Field, Badge, Empty, AsyncState, FORMAT_PIPES],
@@ -30,6 +37,9 @@ import { SECTION_STYLES } from '../../core/styles';
 
         @if (!canEdit()) {
           <p class="notice warn">Solo el dueño del taller puede cambiar los miembros.</p>
+        }
+        @if (listError(); as message) {
+          <p class="error" role="alert">{{ message }}</p>
         }
 
         @if (editing(); as member) {
@@ -105,13 +115,14 @@ export class MembersSection {
   protected readonly editing = signal<MemberRecord | null>(null);
   protected readonly saving = signal(false);
   protected readonly error = signal<string | null>(null);
+  protected readonly listError = signal<string | null>(null);
 
   protected readonly owners = computed(() => this.members().filter((member) => member.role === 'owner').length);
 
   protected readonly form = new FormGroup({
-    displayName: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
+    displayName: new FormControl('', { nonNullable: true, validators: [requiredText] }),
     role: new FormControl<MemberRole>('operator', { nonNullable: true }),
-    rate: new FormControl<number | null>(null, [Validators.min(0)]),
+    rate: new FormControl<number | null>(null, [Validators.min(0), Validators.max(MAX_RATE)]),
   });
 
   constructor() {
@@ -125,6 +136,7 @@ export class MembersSection {
       rate: member.laborRatePerHour,
     });
     this.error.set(null);
+    this.listError.set(null);
     this.editing.set(member);
   }
 
@@ -133,12 +145,16 @@ export class MembersSection {
   }
 
   protected rateError(): string | null {
-    return errorOf(this.form.controls.rate, { min: 'La tarifa no puede ser negativa.' });
+    return errorOf(this.form.controls.rate, {
+      min: 'La tarifa no puede ser negativa.',
+      max: 'La tarifa no puede pasar de S/ 9,999,999,999.99 por hora.',
+    });
   }
 
   protected async submit(member: MemberRecord): Promise<void> {
+    if (this.saving()) return;
     this.form.markAllAsTouched();
-    if (this.form.invalid || this.saving()) return;
+    if (this.form.invalid) return;
 
     const value = this.form.getRawValue();
     if (member.role === 'owner' && value.role !== 'owner' && this.owners() <= 1) {
@@ -159,6 +175,11 @@ export class MembersSection {
       await this.load();
     } catch (error) {
       this.error.set(friendlyError(error, 'No pudimos guardar los cambios del miembro.'));
+      if (await this.data.afterRefusal(error)) {
+        this.listError.set(this.error());
+        this.editing.set(null);
+        await this.load();
+      }
     } finally {
       this.saving.set(false);
     }
@@ -168,7 +189,7 @@ export class MembersSection {
     try {
       const [members, role] = await Promise.all([this.data.members(), this.data.currentRole()]);
       this.members.set(members);
-      this.canEdit.set(role === 'owner');
+      this.canEdit.set(isOwnerRole(role));
       this.loadError.set(null);
     } catch (error) {
       this.loadError.set(friendlyError(error, 'No pudimos cargar los miembros.'));

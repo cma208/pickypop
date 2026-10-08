@@ -29,6 +29,19 @@ describe('printing window', () => {
     expect(scheduleProblem(draft({ changeoverMinutes: -1 }))).toContain('minutos');
   });
 
+  it('says which time is missing instead of reading an empty one as midnight', () => {
+    expect(scheduleProblem(draft({ firstStart: '' }))).toContain('primera placa');
+    expect(scheduleProblem(draft({ lastStart: '' }))).toContain('última placa');
+    expect(scheduleProblem(draft({ endBy: '' }))).toContain('terminado todo');
+    expect(scheduleProblem(draft({ holdTime: '' }))).toContain('vence un separo');
+  });
+
+  it('refuses a plate change longer than a day, or one with decimals', () => {
+    expect(scheduleProblem(draft({ changeoverMinutes: 99_999_999_999 }))).toContain('1440');
+    expect(scheduleProblem(draft({ changeoverMinutes: 1440 }))).toBeNull();
+    expect(scheduleProblem(draft({ changeoverMinutes: 12.5 }))).toContain('entero');
+  });
+
   it('says the window with an example a person can check', () => {
     expect(windowExample(draft())).toBe('Por ejemplo, una placa de 3 h puede empezar hasta las 21:00.');
     expect(windowExample(draft({ lastStart: '20:00' }))).toContain('20:00');

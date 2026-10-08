@@ -1,12 +1,13 @@
 import { Component, computed, inject, output, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
-import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { AsyncState, Badge, Card, Empty, Field } from '../../ui';
 import { ConfiguracionData } from './configuracion.data';
 import type { CategoryRecord, MovementDirection } from './configuracion.models';
-import { errorOf } from '../../core/form-errors';
+import { errorOf, requiredText } from '../../core/form-errors';
 import { friendlyError } from '../../core/friendly-error';
 import { SECTION_STYLES } from '../../core/styles';
+import { isOwnerRole } from '../../core/workspace';
 
 const DIRECTION_LABEL: Record<MovementDirection, string> = {
   income: 'Ingreso',
@@ -145,7 +146,7 @@ export class CategoriesSection {
   }));
 
   protected readonly form = new FormGroup({
-    name: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
+    name: new FormControl('', { nonNullable: true, validators: [requiredText] }),
     direction: new FormControl<MovementDirection>('expense', { nonNullable: true }),
     sales: new FormControl(false, { nonNullable: true }),
   });
@@ -176,8 +177,9 @@ export class CategoriesSection {
   }
 
   protected async submit(): Promise<void> {
+    if (this.saving()) return;
     this.form.markAllAsTouched();
-    if (this.form.invalid || this.saving()) return;
+    if (this.form.invalid) return;
 
     const editing = this.editing();
     // Cambiar el tipo movería de lado todos los movimientos que ya la usan.
@@ -197,6 +199,11 @@ export class CategoriesSection {
       this.changed.emit();
     } catch (error) {
       this.error.set(friendlyError(error, 'No pudimos guardar la categoría.'));
+      if (await this.data.afterRefusal(error)) {
+        this.formOpen.set(false);
+        this.listError.set(this.error());
+        await this.reload();
+      }
     } finally {
       this.saving.set(false);
     }
@@ -219,6 +226,7 @@ export class CategoriesSection {
       this.changed.emit();
     } catch (error) {
       this.listError.set(friendlyError(error, 'No pudimos cambiar el estado de la categoría.'));
+      if (await this.data.afterRefusal(error)) await this.reload();
     } finally {
       this.saving.set(false);
     }
@@ -229,7 +237,7 @@ export class CategoriesSection {
     try {
       const [categories, role] = await Promise.all([this.data.categories(), this.data.currentRole()]);
       this.categories.set(categories);
-      this.canEdit.set(role === 'owner');
+      this.canEdit.set(isOwnerRole(role));
       this.loadError.set(null);
     } catch (error) {
       this.loadError.set(friendlyError(error, 'No pudimos cargar las categorías.'));

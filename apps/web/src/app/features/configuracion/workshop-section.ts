@@ -1,22 +1,30 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
-import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { AsyncState, Card, Field } from '../../ui';
 import { ConfiguracionData } from './configuracion.data';
 import {
-  CURRENCIES,
+  APP_CURRENCY,
+  APP_CURRENCY_LABEL,
+  APP_TIMEZONE_LABEL,
   RUC_PATTERN,
   TAX_REGIMES,
   TAX_REGIME_HELP,
   TAX_REGIME_LABELS,
-  TIMEZONES,
   type TaxRegime,
 } from './configuracion.models';
-import { errorOf, textOrNull } from '../../core/form-errors';
+import { DEFAULT_TIMEZONE } from '../../core/dates';
+import { errorOf, requiredText, textOrNull } from '../../core/form-errors';
 import { friendlyError } from '../../core/friendly-error';
 import { SECTION_STYLES } from '../../core/styles';
+import { isOwnerRole } from '../../core/workspace';
 
-/** Workshop data: name, currency, time zone, tax regime and RUC. */
+/**
+ * Workshop data: name, tax regime and RUC. Currency and time zone are shown,
+ * not offered: every screen formats money in soles and dates in Lima time, so
+ * choosing another one would only make the database and the screens disagree
+ * (T1-23).
+ */
 @Component({
   selector: 'app-workshop-section',
   imports: [ReactiveFormsModule, Card, Field, AsyncState],
@@ -37,20 +45,21 @@ import { SECTION_STYLES } from '../../core/styles';
               <input formControlName="legalName" />
             </pp-field>
             <pp-field label="Moneda">
-              <select formControlName="currency">
-                @for (currency of currencies; track currency) {
-                  <option [value]="currency">{{ currency }}</option>
-                }
-              </select>
+              <input [value]="currencyLabel" readonly />
             </pp-field>
             <pp-field label="Zona horaria">
-              <select formControlName="timezone">
-                @for (zone of timezones(); track zone) {
-                  <option [value]="zone">{{ zone }}</option>
-                }
-              </select>
+              <input [value]="timezoneLabel" readonly />
             </pp-field>
           </div>
+          <p class="muted">
+            La aplicación calcula todos los montos en soles y todas las fechas en hora de Lima, así que la moneda y la
+            zona horaria no se cambian aquí.
+          </p>
+          @if (storedElsewhere(); as stored) {
+            <p class="notice warn" role="status">
+              Este taller tiene guardado {{ stored }}, pero las pantallas usan soles y hora de Lima.
+            </p>
+          }
 
           <pp-field label="Régimen tributario" [required]="true">
             <select formControlName="taxRegime">
@@ -89,10 +98,11 @@ import { SECTION_STYLES } from '../../core/styles';
 export class WorkshopSection {
   private readonly data = inject(ConfiguracionData);
 
-  protected readonly currencies = CURRENCIES;
   protected readonly regimes = TAX_REGIMES;
   protected readonly regimeLabels = TAX_REGIME_LABELS;
   protected readonly regimeHelp = TAX_REGIME_HELP;
+  protected readonly currencyLabel = APP_CURRENCY_LABEL;
+  protected readonly timezoneLabel = APP_TIMEZONE_LABEL;
 
   protected readonly loading = signal(true);
   protected readonly loadError = signal<string | null>(null);
@@ -100,12 +110,11 @@ export class WorkshopSection {
   protected readonly saved = signal(false);
   protected readonly error = signal<string | null>(null);
   protected readonly canEdit = signal(false);
+  private readonly stored = signal<{ currency: string; timezone: string } | null>(null);
 
   protected readonly form = new FormGroup({
-    name: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
+    name: new FormControl('', { nonNullable: true, validators: [requiredText] }),
     legalName: new FormControl('', { nonNullable: true }),
-    currency: new FormControl('PEN', { nonNullable: true }),
-    timezone: new FormControl('America/Lima', { nonNullable: true }),
     taxRegime: new FormControl<TaxRegime>('none', { nonNullable: true }),
     ruc: new FormControl('', { nonNullable: true }),
   });
@@ -113,11 +122,17 @@ export class WorkshopSection {
   protected readonly regime = toSignal(this.form.controls.taxRegime.valueChanges, {
     initialValue: 'none' as TaxRegime,
   });
-  private readonly currentZone = signal('America/Lima');
-  /** The standard list plus whatever zone the workshop already has. */
-  protected readonly timezones = computed(() =>
-    TIMEZONES.includes(this.currentZone()) ? TIMEZONES : [this.currentZone(), ...TIMEZONES],
-  );
+
+  /** What the workshop row says when it is not what the screens use. */
+  protected readonly storedElsewhere = computed(() => {
+    const stored = this.stored();
+    if (!stored) return null;
+    const odd = [
+      stored.currency !== APP_CURRENCY ? `la moneda ${stored.currency}` : null,
+      stored.timezone !== DEFAULT_TIMEZONE ? `la zona ${stored.timezone}` : null,
+    ].filter((part): part is string => part !== null);
+    return odd.length > 0 ? odd.join(' y ') : null;
+  });
 
   constructor() {
     void this.load();
@@ -138,9 +153,10 @@ export class WorkshopSection {
   }
 
   protected async submit(): Promise<void> {
+    if (this.saving()) return;
     this.form.markAllAsTouched();
     this.saved.set(false);
-    if (this.form.invalid || this.rucError() || this.saving()) return;
+    if (this.form.invalid || this.rucError()) return;
 
     const value = this.form.getRawValue();
     this.saving.set(true);
@@ -150,14 +166,13 @@ export class WorkshopSection {
       await this.data.updateWorkshop({
         name: value.name,
         legalName: textOrNull(value.legalName),
-        currency: value.currency,
-        timezone: value.timezone,
         taxRegime: value.taxRegime,
         ruc: textOrNull(value.ruc),
       });
       this.saved.set(true);
     } catch (error) {
       this.error.set(friendlyError(error, 'No pudimos guardar los datos del taller.'));
+      if (await this.data.afterRefusal(error)) await this.load();
     } finally {
       this.saving.set(false);
     }
@@ -166,18 +181,18 @@ export class WorkshopSection {
   private async load(): Promise<void> {
     try {
       const [workshop, role] = await Promise.all([this.data.workshop(), this.data.currentRole()]);
-      this.currentZone.set(workshop.timezone);
-      this.form.setValue({
+      this.stored.set({ currency: workshop.currency, timezone: workshop.timezone });
+      this.form.reset({
         name: workshop.name,
         legalName: workshop.legalName ?? '',
-        currency: workshop.currency,
-        timezone: workshop.timezone,
         taxRegime: workshop.taxRegime,
         ruc: workshop.ruc ?? '',
       });
 
-      this.canEdit.set(role === 'owner');
-      if (role !== 'owner') this.form.disable();
+      this.canEdit.set(isOwnerRole(role));
+      if (isOwnerRole(role)) this.form.enable();
+      else this.form.disable();
+      this.loadError.set(null);
     } catch (error) {
       this.loadError.set(friendlyError(error, 'No pudimos cargar los datos del taller.'));
     } finally {

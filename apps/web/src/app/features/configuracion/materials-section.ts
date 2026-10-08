@@ -3,11 +3,18 @@ import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angula
 import { AsyncState, Badge, Card, Empty, Field } from '../../ui';
 import { ConfiguracionData } from './configuracion.data';
 import { ABRASIVE_HELP, HYGROSCOPIC_HELP, MAX_DENSITY, type MaterialRecord } from './configuracion.models';
-import { errorOf } from '../../core/form-errors';
+import { errorOf, requiredText } from '../../core/form-errors';
 import { friendlyError } from '../../core/friendly-error';
 import { SECTION_STYLES } from '../../core/styles';
+import { canOperateRole } from '../../core/workspace';
 
-/** Filament materials and the two properties that drive the drying and nozzle warnings. */
+/**
+ * Filament materials and the two properties that drive the drying and nozzle warnings.
+ *
+ * Owner and operator keep them, like the rest of the catalogue: buying a new
+ * filament needs its brand and material, and the purchase screen creates them
+ * on the spot (ADR-025). A viewer only reads.
+ */
 @Component({
   selector: 'app-materials-section',
   imports: [ReactiveFormsModule, Card, Field, Badge, Empty, AsyncState],
@@ -20,7 +27,7 @@ import { SECTION_STYLES } from '../../core/styles';
           desactiva, y deja de ofrecerse sin perder su historial.
         </p>
         @if (!canEdit()) {
-          <p class="notice warn">Solo el dueño del taller puede cambiar los materiales. Aquí los ves en modo lectura.</p>
+          <p class="notice warn">Tu rol es de solo lectura: aquí ves los materiales sin poder cambiarlos.</p>
         }
         <div class="toolbar">
           @if (canEdit()) {
@@ -110,7 +117,7 @@ export class MaterialsSection {
   protected readonly listError = signal<string | null>(null);
 
   protected readonly form = new FormGroup({
-    code: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
+    code: new FormControl('', { nonNullable: true, validators: [requiredText] }),
     density: new FormControl<number | null>(null, [Validators.min(0.001), Validators.max(MAX_DENSITY)]),
     hygroscopic: new FormControl(false, { nonNullable: true }),
     abrasive: new FormControl(false, { nonNullable: true }),
@@ -144,8 +151,9 @@ export class MaterialsSection {
   }
 
   protected async submit(): Promise<void> {
+    if (this.saving()) return;
     this.form.markAllAsTouched();
-    if (this.form.invalid || this.saving()) return;
+    if (this.form.invalid) return;
 
     const value = this.form.getRawValue();
     const editing = this.editing();
@@ -164,6 +172,11 @@ export class MaterialsSection {
       await this.reload();
     } catch (error) {
       this.error.set(friendlyError(error, 'No pudimos guardar el material.'));
+      if (await this.data.afterRefusal(error)) {
+        this.formOpen.set(false);
+        this.listError.set(this.error());
+        await this.reload();
+      }
     } finally {
       this.saving.set(false);
     }
@@ -186,6 +199,7 @@ export class MaterialsSection {
       await this.reload();
     } catch (error) {
       this.listError.set(friendlyError(error, 'No pudimos cambiar el estado del material.'));
+      if (await this.data.afterRefusal(error)) await this.reload();
     } finally {
       this.saving.set(false);
     }
@@ -195,7 +209,7 @@ export class MaterialsSection {
     try {
       const [materials, role] = await Promise.all([this.data.materials(), this.data.currentRole()]);
       this.materials.set(materials);
-      this.canEdit.set(role === 'owner');
+      this.canEdit.set(canOperateRole(role));
       this.loadError.set(null);
     } catch (error) {
       this.loadError.set(friendlyError(error, 'No pudimos cargar los materiales.'));

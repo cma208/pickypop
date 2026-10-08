@@ -3,9 +3,10 @@ import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angula
 import { AsyncState, Badge, Card, Empty, Field, FORMAT_PIPES } from '../../ui';
 import { ConfiguracionData } from './configuracion.data';
 import type { ChannelRecord } from './configuracion.models';
-import { errorOf } from '../../core/form-errors';
+import { errorOf, requiredText } from '../../core/form-errors';
 import { friendlyError } from '../../core/friendly-error';
 import { SECTION_STYLES } from '../../core/styles';
+import { isOwnerRole } from '../../core/workspace';
 
 const PERCENT_SCALE = 100;
 const MAX_PERCENT = 99.99;
@@ -19,6 +20,9 @@ const RATE_DECIMALS = 10_000;
  * The commission only grosses up the price of made-to-order work in the
  * quote calculator; a catalogue sale is at its list price, so for the quick
  * sale the channel is only recorded.
+ *
+ * Only the owner changes channels and the default (ADR-025); the operator sees
+ * them, because the quick sale offers them.
  */
 @Component({
   selector: 'app-channels-section',
@@ -32,15 +36,21 @@ const RATE_DECIMALS = 10_000;
           cotizador la suma al precio de lo hecho a medida; lo del catálogo se vende a su precio de lista. El canal
           «Por defecto» es el de las ventas directas: la Venta rápida lo trae elegido.
         </p>
-        <div class="toolbar">
-          <!-- Always there: when it vanished while the form was open, the form's own title took its place and looked like the button. -->
-          <button type="button" [class.secondary]="formOpen()" (click)="open(null)">+ Nuevo canal</button>
-        </div>
+        @if (!canEdit()) {
+          <p class="notice warn">Solo el dueño del taller puede cambiar los canales de venta. Aquí los ves en modo lectura.</p>
+        }
+        @if (canEdit()) {
+          <div class="toolbar">
+            <!-- Always there: when it vanished while the form was open, the form's own title took its place and looked like the button. -->
+            <button type="button" [class.secondary]="formOpen()" (click)="open(null)">+ Nuevo canal</button>
+          </div>
+        }
 
         @if (missingDefault()) {
           <p class="notice warn" role="status">
             Ningún canal es el de las ventas directas: la Venta rápida no trae ninguno elegido, y lo que se venda sin
-            cambiarlo queda sin canal. Elige el que corresponda con «Usar por defecto».
+            cambiarlo queda sin canal.
+            {{ canEdit() ? 'Elige el que corresponda con «Usar por defecto».' : 'Pídele al dueño del taller que elija uno.' }}
           </p>
         }
         @if (notice(); as text) {
@@ -88,14 +98,16 @@ const RATE_DECIMALS = 10_000;
                 <p class="muted">
                   {{ channel.commissionRate === 0 ? 'Sin comisión' : 'Comisión de ' + (channel.commissionRate | percent1) }}
                 </p>
-                <div class="actions">
-                  <button type="button" class="secondary" (click)="open(channel)">Editar</button>
-                  @if (channel.active && channel.id !== defaultId()) {
-                    <button type="button" class="secondary" [disabled]="saving()" (click)="makeDefault(channel)">
-                      Usar por defecto
-                    </button>
-                  }
-                </div>
+                @if (canEdit()) {
+                  <div class="actions">
+                    <button type="button" class="secondary" (click)="open(channel)">Editar</button>
+                    @if (channel.active && channel.id !== defaultId()) {
+                      <button type="button" class="secondary" [disabled]="saving()" (click)="makeDefault(channel)">
+                        Usar por defecto
+                      </button>
+                    }
+                  </div>
+                }
               </li>
             }
           </ul>
@@ -116,6 +128,7 @@ export class ChannelsSection {
   );
   protected readonly loading = signal(true);
   protected readonly loadError = signal<string | null>(null);
+  protected readonly canEdit = signal(false);
   protected readonly formOpen = signal(false);
   protected readonly editing = signal<ChannelRecord | null>(null);
   protected readonly saving = signal(false);
@@ -124,7 +137,7 @@ export class ChannelsSection {
   protected readonly listError = signal<string | null>(null);
 
   protected readonly form = new FormGroup({
-    name: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
+    name: new FormControl('', { nonNullable: true, validators: [requiredText] }),
     commissionPct: new FormControl<number | null>(0, [
       Validators.required,
       Validators.min(0),
@@ -162,8 +175,9 @@ export class ChannelsSection {
   }
 
   protected async submit(): Promise<void> {
+    if (this.saving()) return;
     this.form.markAllAsTouched();
-    if (this.form.invalid || this.saving()) return;
+    if (this.form.invalid) return;
 
     const value = this.form.getRawValue();
     this.saving.set(true);
@@ -180,6 +194,11 @@ export class ChannelsSection {
       await this.reload();
     } catch (error) {
       this.error.set(friendlyError(error, 'No pudimos guardar el canal.'));
+      if (await this.data.afterRefusal(error)) {
+        this.formOpen.set(false);
+        this.listError.set(this.error());
+        await this.reload();
+      }
     } finally {
       this.saving.set(false);
     }
@@ -197,6 +216,7 @@ export class ChannelsSection {
       await this.reload();
     } catch (error) {
       this.listError.set(friendlyError(error, 'No pudimos cambiar el canal por defecto.'));
+      if (await this.data.afterRefusal(error)) await this.reload();
     } finally {
       this.saving.set(false);
     }
@@ -204,9 +224,14 @@ export class ChannelsSection {
 
   private async reload(): Promise<void> {
     try {
-      const [channels, defaultId] = await Promise.all([this.data.channels(), this.data.defaultChannel()]);
+      const [channels, defaultId, role] = await Promise.all([
+        this.data.channels(),
+        this.data.defaultChannel(),
+        this.data.currentRole(),
+      ]);
       this.channels.set(channels);
       this.defaultId.set(defaultId);
+      this.canEdit.set(isOwnerRole(role));
       this.loadError.set(null);
     } catch (error) {
       this.loadError.set(friendlyError(error, 'No pudimos cargar los canales de venta.'));
