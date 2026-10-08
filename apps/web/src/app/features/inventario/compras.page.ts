@@ -45,7 +45,7 @@ const DEFAULT_UNIT = 'unidad';
             [accountOptions]="accounts()"
             (saved)="onSaved($event)"
             (refused)="refresh()"
-            (cancelled)="creating.set(false)"
+            (cancelled)="onCancelled()"
           />
         } @else if (purchases().length === 0) {
           <pp-empty message="Todavía no registraste ninguna compra.">
@@ -223,9 +223,24 @@ export class ComprasPage {
    * The database refused something: what this screen shows may be old (a
    * filament switched off, a purchase paid from another tab). The form or the
    * payment keeps its message; the lists behind it come back up to date.
+   *
+   * Quietly: if the reload fails too (the same lost connection, usually), the
+   * page error would replace everything, and with it the open form, what was
+   * typed in it and the key a retry needs to not register it twice. What is
+   * on screen stays until a reload succeeds.
    */
   protected async refresh(): Promise<void> {
-    await this.load();
+    try {
+      await this.fetchLists();
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
+  /** Leaving the form: the list shows what is there now, in case what was being saved went in after all. */
+  protected onCancelled(): void {
+    this.creating.set(false);
+    void this.refresh();
   }
 
   protected async onPaid(): Promise<void> {
@@ -236,22 +251,26 @@ export class ComprasPage {
   private async load(): Promise<void> {
     this.error.set(null);
     try {
-      const [purchases, skus, items, suppliers, accounts] = await Promise.all([
-        this.data.purchases(),
-        this.data.skus(),
-        this.data.items(),
-        this.data.suppliers(),
-        this.data.paymentAccounts(),
-      ]);
-      this.purchases.set(purchases);
-      this.accounts.set(accounts);
-      this.skus.set(skus);
-      this.items.set(items);
-      this.suppliers.set(suppliers);
+      await this.fetchLists();
     } catch (error) {
       this.error.set(describeError(error, 'No pudimos cargar las compras. Inténtalo de nuevo.'));
     } finally {
       this.loading.set(false);
     }
+  }
+
+  private async fetchLists(): Promise<void> {
+    const [purchases, skus, items, suppliers, accounts] = await Promise.all([
+      this.data.purchases(),
+      this.data.skus(),
+      this.data.items(),
+      this.data.suppliers(),
+      this.data.paymentAccounts(),
+    ]);
+    this.purchases.set(purchases);
+    this.accounts.set(accounts);
+    this.skus.set(skus);
+    this.items.set(items);
+    this.suppliers.set(suppliers);
   }
 }

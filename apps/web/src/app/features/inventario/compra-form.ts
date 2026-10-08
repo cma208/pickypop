@@ -32,7 +32,7 @@ import {
   type SkuSummary,
   type SupplierOption,
 } from './inventario.data';
-import { describeError } from './inventario.errors';
+import { describeError, noAnswerReason, outcomeUnknown } from './inventario.errors';
 import { INVENTORY_STYLES } from './inventario.styles';
 import { ITEM_KIND_LABELS, todayIso } from './inventario.format';
 import { linkPriceAndTotal } from './compra-line';
@@ -99,6 +99,8 @@ function notInTheFuture(control: AbstractControl): ValidationErrors | null {
   imports: [ReactiveFormsModule, Card, Field, ItemPicker, QuickAdd, PurchasePreview, PaymentCategoryNote, FORMAT_PIPES],
   template: `
     <form [formGroup]="form" (ngSubmit)="askConfirmation()" novalidate class="stack">
+      <!-- Locked while nobody knows whether the purchase went in: see uncertain. -->
+      <fieldset class="contents" [disabled]="!!uncertain()">
       <pp-card heading="Datos de la compra">
         <div class="form-grid">
           <div>
@@ -217,6 +219,7 @@ function notInTheFuture(control: AbstractControl): ValidationErrors | null {
           }
         }
       </pp-card>
+      </fieldset>
 
       <pp-card heading="Costo final antes de confirmar">
         <app-purchase-preview [rows]="previewRows()" [plan]="plan()" />
@@ -239,8 +242,23 @@ function notInTheFuture(control: AbstractControl): ValidationErrors | null {
             {{ entriesText() }} {{ paymentText() }}
             Después no se puede editar.
           </p>
+          @if (uncertain(); as reason) {
+            <div class="alert" role="alert">
+              <p><strong>No sabemos si la compra se guardó.</strong> {{ reason }}</p>
+              <p>
+                Vuelve a pulsar «Confirmar y guardar»: si ya había entrado, no se registra dos veces. Mientras tanto
+                la compra no se puede cambiar, porque cambiada sería otra.
+              </p>
+            </div>
+          }
           <div class="form-actions">
-            <button type="button" class="secondary" [disabled]="busy()" (click)="confirming.set(false)">Volver</button>
+            @if (uncertain()) {
+              <button type="button" class="secondary" [disabled]="busy()" (click)="cancelled.emit()">
+                Salir y revisar la lista
+              </button>
+            } @else {
+              <button type="button" class="secondary" [disabled]="busy()" (click)="confirming.set(false)">Volver</button>
+            }
             <button type="button" [disabled]="busy()" (click)="save()">
               {{ busy() ? 'Guardando…' : 'Confirmar y guardar' }}
             </button>
@@ -262,6 +280,8 @@ function notInTheFuture(control: AbstractControl): ValidationErrors | null {
       .subtotal { display: grid; gap: 0.2rem; margin-bottom: 0.9rem; font-size: 0.9rem; }
       .danger-text { color: var(--danger); justify-self: start; align-self: end; margin-bottom: 0.9rem; }
       textarea { resize: vertical; }
+      /* Only there to lock what it holds: the cards keep the form's spacing. */
+      fieldset.contents { display: contents; }
       .confirm { padding: 1rem; border: 2px solid var(--accent); border-radius: var(--radius); background: var(--accent-soft); }
       .confirm p { margin: 0; }
       .alert p { margin: 0 0 0.5rem; }
@@ -442,6 +462,14 @@ export class CompraForm {
   protected readonly error = signal<string | null>(null);
   /** Why the database refused the purchase. Nothing of it was written: it is one transaction. */
   protected readonly failure = signal<string | null>(null);
+  /**
+   * Why there is no answer, when the request may have gone in anyway (the
+   * connection dropped after the database committed). Until a retry with the
+   * same key settles it, the form is locked (a disabled fieldset, which
+   * reaches the item picker and the buttons too): a change would be a new
+   * key, and a second purchase if the first one did go in.
+   */
+  protected readonly uncertain = signal<string | null>(null);
 
   /**
    * Names this purchase for the database, which makes it once however many
@@ -508,6 +536,7 @@ export class CompraForm {
   }
 
   protected askConfirmation(): void {
+    if (this.uncertain()) return;
     this.form.markAllAsTouched();
     this.error.set(null);
     this.failure.set(null);
@@ -538,8 +567,17 @@ export class CompraForm {
     this.failure.set(null);
     try {
       const registered = await this.data.registerPurchase(this.toDraft(), this.purchaseKey);
+      this.uncertain.set(null);
       this.saved.emit({ rolls: registered.spools.length, spools: registered.spools, paid: registered.paid });
     } catch (error) {
+      if (outcomeUnknown(error)) {
+        // It may be in: same key, same purchase, and the form stays as it was sent.
+        this.uncertain.set(noAnswerReason(error));
+        return;
+      }
+      // The database answered no, and a refusal with this key also means the
+      // first try never went in: with it in, the key would have returned it.
+      this.uncertain.set(null);
       this.confirming.set(false);
       this.failure.set(describeError(error, 'Inténtalo de nuevo en un momento.'));
       this.refused.emit();
