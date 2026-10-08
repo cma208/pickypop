@@ -5,7 +5,7 @@ import { FORMAT_PIPES, ItemPicker, type PickerOption } from '../../ui';
 import { CatalogoData } from './catalogo.data';
 import type { RecipeSupply, SupplyOption } from './catalogo.models';
 import { SHARED_STYLES } from './catalogo.styles';
-import { messageOf } from './catalogo.util';
+import { emptyPickerText, messageOf } from './catalogo.util';
 
 /**
  * One per-unit component of the recipe (66 g of sweets, 1 bag, 1 printed
@@ -30,7 +30,7 @@ import { messageOf } from './catalogo.util';
   template: `
     <form [formGroup]="form" (ngSubmit)="save()" novalidate>
       <label class="item">{{ isPart() ? 'Pieza' : 'Insumo' }}
-        <pp-item-picker formControlName="itemId" [options]="pickerOptions()" [placeholder]="isPart() ? 'Elige la pieza…' : 'Elige un insumo…'" />
+        <pp-item-picker formControlName="itemId" [options]="pickerOptions()" [placeholder]="isPart() ? 'Elige la pieza…' : 'Elige un insumo…'" [emptyText]="emptyText()" />
       </label>
       <label>Cantidad por unidad{{ unit() ? ' (' + unit() + ')' : '' }}
         <input type="number" min="0.001" step="any" inputmode="decimal" formControlName="quantity" />
@@ -44,21 +44,24 @@ import { messageOf } from './catalogo.util';
         }
       </div>
       @if (selected(); as item) {
-        <p class="note muted hint">
-          @if (isPart()) {
-            @if (madeHere().has(item.id)) {
-              Sale de las placas de esta receta: su costo ya está en las corridas.
+        @if (isPart() && madeHere().has(item.id)) {
+          <p class="note muted hint">Sale de las placas de esta receta: su costo ya está en las corridas.</p>
+        } @else if (!onlyInRow()) {
+          <!-- An item not among the options yet has no known cost: better silent than «sin costo». -->
+          <p class="note muted hint">
+            @if (isPart()) {
+              @if (item.costPerUnit === null) {
+                La imprime otra receta y todavía no se cerró ninguna impresión suya: no suma al costo.
+              } @else {
+                La imprime otra receta: cuesta {{ item.costPerUnit | money:3 }} por unidad, lo que costó imprimirla.
+              }
             } @else if (item.costPerUnit === null) {
-              La imprime otra receta y todavía no se cerró ninguna impresión suya: no suma al costo.
+              Sin costo registrado: no se ha comprado este insumo. Se puede probar un costo provisional en el cálculo.
             } @else {
-              La imprime otra receta: cuesta {{ item.costPerUnit | money:3 }} por unidad, lo que costó imprimirla.
+              Costo registrado: {{ item.costPerUnit | money:3 }} por {{ item.unit }}.
             }
-          } @else if (item.costPerUnit === null) {
-            Sin costo registrado: no se ha comprado este insumo. Se puede probar un costo provisional en el cálculo.
-          } @else {
-            Costo registrado: {{ item.costPerUnit | money:3 }} por {{ item.unit }}.
-          }
-        </p>
+          </p>
+        }
       }
       @if (error(); as message) {
         <p class="note error" role="alert">{{ message }}</p>
@@ -86,10 +89,30 @@ export class SuministroFila {
   protected readonly error = signal<string | null>(null);
   private readonly chosenId = signal('');
 
+  /**
+   * The options, plus the row's own item when they do not have it yet. A
+   * saved row always says what it holds: drawn as «Elige un insumo…», a part
+   * an import had just created looked like an empty row to delete (E2-01).
+   */
+  private readonly known = computed<SupplyOption[]>(() => {
+    const supply = this.supply();
+    const list = this.supplies();
+    if (!supply || !this.onlyInRow()) return list;
+    return [{ id: supply.inventoryItemId, costPerUnit: null, ...supply.item }, ...list];
+  });
+
+  /** The saved row's item is not among the options yet, so its cost is not known here. */
+  protected readonly onlyInRow = computed(() => {
+    const supply = this.supply();
+    return supply !== null && !this.supplies().some((item) => item.id === supply.inventoryItemId);
+  });
+
   protected readonly options = computed(() => {
     const own = this.supply()?.inventoryItemId;
-    return this.supplies().filter((item) => item.id === own || !this.usedIds().includes(item.id));
+    return this.known().filter((item) => item.id === own || !this.usedIds().includes(item.id));
   });
+
+  protected readonly emptyText = computed(() => emptyPickerText(this.mode(), this.supplies().length));
 
   /** The same options, with the photo that tells two bags apart. */
   protected readonly pickerOptions = computed<PickerOption[]>(() =>
@@ -104,7 +127,7 @@ export class SuministroFila {
     })),
   );
 
-  protected readonly selected = computed(() => this.supplies().find((item) => item.id === this.chosenId()) ?? null);
+  protected readonly selected = computed(() => this.known().find((item) => item.id === this.chosenId()) ?? null);
   protected readonly unit = computed(() => this.selected()?.unit ?? '');
 
   protected readonly form = new FormGroup({

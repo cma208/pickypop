@@ -1,7 +1,7 @@
 import { Component, computed, inject } from '@angular/core';
 import { Card, Badge, FORMAT_PIPES } from '../../ui';
 import { SHARED_STYLES } from './catalogo.styles';
-import { isBelowTarget, marginOf } from './costing';
+import { isBelowTarget, itemsWithoutCost, marginOf } from './costing';
 import { VariantCostModel } from './variant-cost.model';
 
 /** Current cost of the variant for a number of units, with the full breakdown. */
@@ -19,7 +19,7 @@ import { VariantCostModel } from './variant-cost.model';
       .chips button { padding: 0.25rem 0.6rem; }
       .chips button[aria-pressed='true'] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
       table { min-width: 20rem; }
-      tr.sub td { font-weight: 600; }
+      tr.subtotal td { font-weight: 600; }
       tr.total td { font-weight: 700; border-top: 2px solid var(--line); }
       td.indent { padding-left: 1.5rem; color: var(--muted); }
       .summary { display: flex; flex-wrap: wrap; gap: 0.5rem 1.5rem; margin: 1rem 0 0; font-size: 0.9rem; }
@@ -77,7 +77,7 @@ import { VariantCostModel } from './variant-cost.model';
                 <tr><td>Energía ({{ b.printHours * 3600 | duration }} de impresión)</td><td class="num">{{ b.energy | money }}</td><td class="num">{{ b.energy / b.units | money:3 }}</td></tr>
                 <tr><td>Máquina ({{ b.machineRatePerHour | money }} la hora)</td><td class="num">{{ b.machine | money }}</td><td class="num">{{ b.machine / b.units | money:3 }}</td></tr>
                 <tr><td>Reserva por fallos ({{ profile()!.failureRate | percent1 }})</td><td class="num">{{ b.failureAllowance | money }}</td><td class="num">{{ b.failureAllowance / b.units | money:3 }}</td></tr>
-                <tr class="sub"><td>Producción</td><td class="num">{{ b.production | money }}</td><td class="num">{{ b.production / b.units | money:3 }}</td></tr>
+                <tr class="subtotal"><td>Producción</td><td class="num">{{ b.production | money }}</td><td class="num">{{ b.production / b.units | money:3 }}</td></tr>
                 <tr><td>Preparación del lote (se paga una vez)</td><td class="num">{{ b.laborSetup | money }}</td><td class="num">{{ b.laborSetup / b.units | money:3 }}</td></tr>
                 <tr><td>Trabajo por unidad (no baja con el lote)</td><td class="num">{{ b.laborPerUnits | money }}</td><td class="num">{{ b.laborPerUnits / b.units | money:3 }}</td></tr>
                 @for (supply of result.suppliesPerUnit; track $index) {
@@ -124,8 +124,11 @@ import { VariantCostModel } from './variant-cost.model';
         }
 
         @if (missingSupplies().length > 0) {
-          <h3>Probar un costo para insumos sin registro</h3>
-          <p class="muted hint">Solo para este cálculo en pantalla: no se guarda. El costo real se registra al comprar el insumo.</p>
+          <h3>Probar un costo para lo que no tiene registro</h3>
+          <p class="muted hint">
+            Solo para este cálculo en pantalla: no se guarda. El costo real de un insumo se registra al comprarlo; el de
+            una pieza que imprime otra receta, al cerrar su impresión.
+          </p>
           @for (item of missingSupplies(); track item.id) {
             <label class="prov">
               <span>{{ item.name }} (S/ por {{ item.unit }})</span>
@@ -150,12 +153,8 @@ export class CostoVariante {
   });
 
   protected readonly missingSupplies = computed(() => {
-    const supplies = this.cost.lookups()?.supplies ?? [];
-    const used = this.cost.recipe()?.supplies ?? [];
-    return used.flatMap((row) => {
-      const item = supplies.find((candidate) => candidate.id === row.inventoryItemId);
-      return item && item.costPerUnit === null ? [item] : [];
-    });
+    const recipe = this.cost.recipe();
+    return recipe ? itemsWithoutCost(recipe, this.cost.lookups()?.supplies ?? []) : [];
   });
 
   protected readonly priceCheck = computed(() => {

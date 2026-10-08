@@ -1,6 +1,15 @@
 import { DRAFT_COST_PROFILE_PE, DRAFT_PRINTER_A1_MINI } from '@pickypop/domain';
-import type { Lookups, Recipe, RecipeFilament } from './catalogo.models';
-import { computeCost, gramCost, isBelowTarget, marginOf, supplyOptions, targetPriceFor } from './costing';
+import type { Lookups, Recipe, RecipeFilament, RecipeSupply, SupplyOption } from './catalogo.models';
+import {
+  computeCost,
+  gramCost,
+  isBelowTarget,
+  itemsWithoutCost,
+  marginOf,
+  splitRecipeRows,
+  supplyOptions,
+  targetPriceFor,
+} from './costing';
 import { parseTags, slugify } from './catalogo.util';
 
 const filament = (overrides: Partial<RecipeFilament> = {}): RecipeFilament => ({
@@ -34,6 +43,19 @@ const recipe = (overrides: Partial<Recipe> = {}): Recipe => ({
   plates: [{ id: 'p1', label: 'Tapas', plateIndex: 1, unitsPerRun: 9, printTimeS: 3600, filaments: [filament()], outputs: [], thumbnailPath: null, sourceFileName: null, fileRecord: null }],
   supplies: [],
   ...overrides,
+});
+
+/** A recipe row, carrying the item it points at as `getRecipe` reads it. */
+const row = (
+  id: string,
+  inventoryItemId: string,
+  quantityPerUnit: number,
+  item: Partial<RecipeSupply['item']> = {},
+): RecipeSupply => ({
+  id,
+  inventoryItemId,
+  quantityPerUnit,
+  item: { kind: 'supply', name: inventoryItemId, unit: 'unidad', imagePath: null, ...item },
 });
 
 const sources = (r = recipe()) => ({
@@ -86,15 +108,23 @@ describe('computeCost', () => {
   });
 
   it('warns about supplies without a recorded cost and counts them as zero', () => {
-    const withBag = recipe({ supplies: [{ id: 's1', inventoryItemId: 'bag', quantityPerUnit: 1 }] });
+    const withBag = recipe({ supplies: [row('s1', 'bag', 1, { name: 'Bolsa' })] });
     const result = computeCost(sources(withBag), 5);
 
     expect(result?.breakdown.supplies).toBe(0);
     expect(result?.warnings.some((warning) => warning.includes('Bolsa'))).toBe(true);
   });
 
+  it('names a part by its own row even when the options were read before it existed', () => {
+    const withNewPart = recipe({ supplies: [row('s1', 'cap', 1, { kind: 'part', name: 'Tapa de calavera' })] });
+    const result = computeCost(sources(withNewPart), 1);
+
+    expect(result?.suppliesPerUnit).toEqual([{ label: 'Tapa de calavera', cost: 0, known: false }]);
+    expect(result?.warnings.some((warning) => warning.startsWith('Tapa de calavera: la imprime otra receta'))).toBe(true);
+  });
+
   it('uses a provisional cost when one is typed in', () => {
-    const withBag = recipe({ supplies: [{ id: 's1', inventoryItemId: 'bag', quantityPerUnit: 1 }] });
+    const withBag = recipe({ supplies: [row('s1', 'bag', 1)] });
     const result = computeCost({ ...sources(withBag), provisionalSupplyCosts: { bag: 0.5 } }, 4);
 
     expect(result?.breakdown.supplies).toBe(2);
@@ -129,8 +159,8 @@ describe('supplyOptions', () => {
   it('costs the seeded potion bottle at S/ 1.49 per unit, where it used to read zero', () => {
     const potion = recipe({
       supplies: [
-        { id: 's1', inventoryItemId: 'sweets', quantityPerUnit: 66 },
-        { id: 's2', inventoryItemId: 'bag', quantityPerUnit: 1 },
+        row('s1', 'sweets', 66),
+        row('s2', 'bag', 1),
       ],
     });
     const fromView = { ...sources(potion), lookups: { ...lookups(), supplies: supplyOptions(items, costs) } };
@@ -139,6 +169,55 @@ describe('supplyOptions', () => {
     expect(computeCost(fromView, 1)?.breakdown.supplies).toBe(1.49);
     expect(computeCost(fromView, 10)?.breakdown.supplies).toBe(14.9);
     expect(computeCost(beforeTheFix, 1)?.breakdown.supplies).toBe(0);
+  });
+});
+
+describe('splitRecipeRows', () => {
+  it('tells parts from supplies by the row, not by the options', () => {
+    // The import just created the cap: no option list knows it yet.
+    const rows = [row('s1', 'cap', 1, { kind: 'part' }), row('s2', 'bag', 1, { kind: 'packaging' }), row('s3', 'sweets', 66)];
+
+    const { parts, supplies } = splitRecipeRows(rows);
+
+    expect(parts.map((part) => part.inventoryItemId)).toEqual(['cap']);
+    expect(supplies.map((supply) => supply.inventoryItemId)).toEqual(['bag', 'sweets']);
+  });
+});
+
+describe('itemsWithoutCost', () => {
+  const options: SupplyOption[] = [
+    { id: 'cap', name: 'Tapa de calavera', unit: 'unidad', costPerUnit: null, kind: 'part' },
+    { id: 'hook', name: 'Gancho', unit: 'unidad', costPerUnit: null, kind: 'part' },
+    { id: 'bag', name: 'Bolsa', unit: 'unidad', costPerUnit: null, kind: 'packaging' },
+    { id: 'sweets', name: 'Dulces', unit: 'g', costPerUnit: 0.015, kind: 'supply' },
+  ];
+  const skull = recipe({
+    plates: [
+      {
+        id: 'p1', label: 'Tapas', plateIndex: 1, unitsPerRun: 7, printTimeS: 3600, filaments: [filament()],
+        outputs: [{ id: 'o1', inventoryItemId: 'cap', unitsPerRun: 7 }],
+        thumbnailPath: null, sourceFileName: null, fileRecord: null,
+      },
+    ],
+    supplies: [row('s1', 'cap', 1, { kind: 'part' }), row('s2', 'hook', 1, { kind: 'part' }), row('s3', 'bag', 1), row('s4', 'sweets', 66)],
+  });
+
+  it('leaves out the parts the recipe prints itself: their cost is in the runs', () => {
+    expect(itemsWithoutCost(skull, options).map((item) => item.id)).not.toContain('cap');
+  });
+
+  it('keeps what really lacks a cost, a part printed by another recipe among them', () => {
+    expect(itemsWithoutCost(skull, options).map((item) => item.id)).toEqual(['hook', 'bag']);
+  });
+
+  it('is consistent with the cost: a provisional cost for what it offers does change the total', () => {
+    const before = computeCost({ ...sources(skull), lookups: { ...lookups(), supplies: options } }, 1)!;
+    const after = computeCost(
+      { ...sources(skull), lookups: { ...lookups(), supplies: options }, provisionalSupplyCosts: { cap: 1, hook: 1 } },
+      1,
+    )!;
+    // Only the hook moves it: the cap is made by the recipe's own plate.
+    expect(after.breakdown.supplies - before.breakdown.supplies).toBeCloseTo(1, 6);
   });
 });
 

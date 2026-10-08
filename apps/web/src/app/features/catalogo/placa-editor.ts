@@ -113,8 +113,16 @@ export class PlacaEditor {
 
   protected readonly busy = signal(false);
   protected readonly error = signal<string | null>(null);
-  /** Las piezas que puede producir una placa. Se cargan una vez. */
-  protected readonly parts = signal<PartOption[]>([]);
+  /**
+   * The parts a plate can make, from the page's options. Each plate used to
+   * read them once on its own, so a part an import had just created was
+   * missing from the plate added next until the page was reloaded (E2-01).
+   */
+  protected readonly parts = computed<PartOption[]>(() =>
+    this.lookups()
+      .supplies.filter((item) => item.kind === 'part')
+      .map((item) => ({ id: item.id, name: item.name, unit: item.unit, imagePath: item.imagePath ?? null })),
+  );
   protected readonly usedPartIds = computed(() => this.plate()?.outputs.map((out) => out.inventoryItemId) ?? []);
 
   protected readonly nextSlot = computed(
@@ -128,8 +136,6 @@ export class PlacaEditor {
   });
 
   constructor() {
-    void this.data.parts().then((parts) => this.parts.set(parts));
-
     effect(() => {
       const plate = this.plate();
       untracked(() => {

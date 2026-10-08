@@ -2,7 +2,16 @@ import type { Json } from '../../core/database.types';
 import { suggestFilamentSku } from '../../core/filament-match';
 import type { PlateDetails } from '../../core/sliced-file';
 import type { SliceInfo } from '../../core/pricing';
-import type { ImportedFilament, PlateFileObject, PlateFileRecord, PlateOutputInput, SkuOption } from './catalogo.models';
+import type {
+  DraftFilament,
+  ImportedPlate,
+  MaterialOption,
+  PlateFileObject,
+  PlateFileRecord,
+  PlateOutputInput,
+  SkuOption,
+} from './catalogo.models';
+import { countOf, joinWithAnd } from './catalogo.util';
 
 /**
  * Lo que la importación de un `.gcode.3mf` propone, sin tocar la base: qué
@@ -272,7 +281,7 @@ export interface PlateDraft {
   printTimeS: number;
   /** Gramos de una corrida, purga incluida. Solo para mostrar. */
   grams: number;
-  filaments: ImportedFilament[];
+  filaments: DraftFilament[];
   objects: DraftObject[];
   thumbnail: Blob | null;
 }
@@ -291,19 +300,29 @@ export function buildDraft(
   fileName: string,
   info: SliceInfo,
   details: readonly PlateDetails[],
-  sources: { skus: readonly SkuOption[]; parts: readonly PartCandidate[]; learned: ReadonlyMap<string, string> },
+  sources: {
+    skus: readonly SkuOption[];
+    materials: readonly MaterialOption[];
+    parts: readonly PartCandidate[];
+    learned: ReadonlyMap<string, string>;
+  },
 ): ImportDraft {
   const plates = info.plates.flatMap((plate, offset): PlateDraft[] => {
     const filaments = plate.filaments
       .filter((filament) => (filament.usedGrams ?? 0) > 0)
-      .map((filament): ImportedFilament => {
+      .map((filament): DraftFilament => {
         const skuId = suggestFilamentSku(filament, sources.skus);
         return {
           slot: filament.id,
           grams: filament.usedGrams ?? 0,
           colorHex: filament.colorHex,
-          materialId: sources.skus.find((sku) => sku.id === skuId)?.materialId ?? null,
+          // The roll decides the material; without one, the file still says
+          // what it is. A red PETG mould with only black PETG on the shelf
+          // used to lose its «PETG», and the PETG rolls stopped coming first.
+          materialId:
+            sources.skus.find((sku) => sku.id === skuId)?.materialId ?? materialForType(filament.type, sources.materials),
           skuId,
+          fileType: filament.type?.trim() || null,
         };
       });
     if (filaments.length === 0) return [];
@@ -330,4 +349,140 @@ export function buildDraft(
   });
 
   return { fileName, plates };
+}
+
+/** The workshop's material for the type the file names, by its code: «petg» is PETG. */
+export function materialForType(type: string | null, materials: readonly MaterialOption[]): string | null {
+  const wanted = type?.trim().toLowerCase();
+  if (!wanted) return null;
+  return materials.find((material) => material.code.trim().toLowerCase() === wanted)?.id ?? null;
+}
+
+// ------------------------------------------------- parts named during review
+
+/**
+ * A part named while reviewing a file does not exist until the import is
+ * saved. The review promises that nothing is written before «Guardar», and a
+ * part created on the spot stayed behind, with no plate to borrow a photo
+ * from, when the import was discarded (E2-03). Until then it goes by a
+ * temporary id that no table would accept.
+ */
+const NEW_PART_PREFIX = 'nueva:';
+let newPartCount = 0;
+
+/** Unique across every plate of every review on the page, so two plates never share one by accident. */
+export function newPartId(): string {
+  newPartCount += 1;
+  return `${NEW_PART_PREFIX}${newPartCount}`;
+}
+
+export function isNewPart(id: string | null | undefined): id is string {
+  return typeof id === 'string' && id.startsWith(NEW_PART_PREFIX);
+}
+
+/** The part already called that. «tapa» and «Tapa » are one part to a person. */
+export function partNamed<T extends PartCandidate>(name: string, parts: readonly T[]): T | null {
+  const wanted = comparableName(name);
+  return wanted === '' ? null : (parts.find((part) => comparableName(part.name) === wanted) ?? null);
+}
+
+function comparableName(name: string): string {
+  return name
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
+ * The new parts the plates being saved really use. One the person named and
+ * then took off every object is never created.
+ */
+export function newPartsUsed(plates: readonly Pick<ImportedPlate, 'outputs' | 'record'>[]): string[] {
+  const ids = plates.flatMap((plate) => [
+    ...plate.outputs.map((output) => output.inventoryItemId),
+    ...plate.record.objects.map((object) => object.inventoryItemId),
+  ]);
+  return [...new Set(ids.filter(isNewPart))];
+}
+
+/** The plate with each temporary id swapped for the part created for it. */
+export function withCreatedParts(plate: ImportedPlate, created: ReadonlyMap<string, string>): ImportedPlate {
+  const real = (id: string): string => created.get(id) ?? id;
+  return {
+    ...plate,
+    outputs: plate.outputs.map((output) => ({ ...output, inventoryItemId: real(output.inventoryItemId) })),
+    record: {
+      ...plate.record,
+      objects: plate.record.objects.map((object) => ({
+        ...object,
+        inventoryItemId: object.inventoryItemId === null ? null : real(object.inventoryItemId),
+      })),
+    },
+  };
+}
+
+/**
+ * A failed save names the parts it could not take back. Only the owner may
+ * delete an article, so for anyone else a part created just before the plates
+ * failed stays; said nothing, it sat in the inventory with no plate and no
+ * photo while the person believed nothing had been written (E2-03).
+ */
+export function failedSaveMessage(cause: string, keptParts: readonly string[]): string {
+  if (keptParts.length === 0) return cause;
+  const names = quotedNames(keptParts);
+  return keptParts.length === 1
+    ? `${cause} La pieza ${names} ya quedó creada en Inventario › Piezas impresas: si vuelves a guardar, se usa esa misma.`
+    : `${cause} Las piezas ${names} ya quedaron creadas en Inventario › Piezas impresas: si vuelves a guardar, se usan esas mismas.`;
+}
+
+/**
+ * What the recipe says after a discard that left parts behind, or null when it
+ * left nothing. The review is gone by then, so this is the last chance to say
+ * where they are and what to do with them.
+ */
+export function discardedPartsNote(keptParts: readonly string[]): string | null {
+  if (keptParts.length === 0) return null;
+  const names = quotedNames(keptParts);
+  return keptParts.length === 1
+    ? `Descartaste la importación, pero la pieza ${names} ya se había creado y quedó en Inventario › Piezas impresas. ` +
+        'Si la vuelves a necesitar, elígela en la lista; si no la vas a usar, desactívala ahí.'
+    : `Descartaste la importación, pero las piezas ${names} ya se habían creado y quedaron en Inventario › Piezas impresas. ` +
+        'Si las vuelves a necesitar, elígelas en la lista; si no las vas a usar, desactívalas ahí.';
+}
+
+function quotedNames(names: readonly string[]): string {
+  return joinWithAnd(names.map((name) => `«${name}»`));
+}
+
+// --------------------------------------------------------------- after saving
+
+export interface ImportOutcome {
+  created: number;
+  withoutThumbnail: number;
+  /** Filaments no roll of the workshop looked like, left for the person to pick. */
+  unmatchedFilaments: number;
+  /** Parts named during the review and created on saving. */
+  partsCreated: number;
+}
+
+/** What the recipe says once the plates are in, with every noun agreeing with its number. */
+export function importSummary(outcome: ImportOutcome, fileName: string): string {
+  const loaded = `${outcome.created === 1 ? 'Se cargó' : 'Se cargaron'} ${countOf(outcome.created, 'placa', 'placas')} de «${fileName}»`;
+  const parts =
+    outcome.partsCreated === 0
+      ? ''
+      : ` y ${outcome.partsCreated === 1 ? 'se creó' : 'se crearon'} ${countOf(outcome.partsCreated, 'pieza nueva', 'piezas nuevas')}`;
+
+  const pending = [
+    outcome.unmatchedFilaments > 0
+      ? `elige el rollo de ${countOf(outcome.unmatchedFilaments, 'filamento', 'filamentos')} que no reconocimos`
+      : null,
+    outcome.withoutThumbnail > 0
+      ? `${countOf(outcome.withoutThumbnail, 'vista', 'vistas')} no se ${outcome.withoutThumbnail === 1 ? 'pudo' : 'pudieron'} guardar`
+      : null,
+  ].filter((text): text is string => text !== null);
+
+  return `${loaded}${parts}.` + (pending.length > 0 ? ` Falta: ${pending.join('; ')}.` : '');
 }

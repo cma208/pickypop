@@ -21,6 +21,36 @@ export function parseTags(text: string): string[] {
   return [...new Set(tags)];
 }
 
+/**
+ * "1 placa", "3 placas", "3.5 productos": a number with its noun in agreement.
+ * «placa(s)» reads like a form, not like a person talking.
+ */
+export function countOf(count: number, singular: string, plural: string): string {
+  return `${count} ${count === 1 ? singular : plural}`;
+}
+
+/** "Tapa ×7 y Cuerpo ×7", como se dice. */
+export function joinWithAnd(items: readonly string[]): string {
+  if (items.length <= 1) return items.join('');
+  return `${items.slice(0, -1).join(', ')} y ${items[items.length - 1]}`;
+}
+
+/**
+ * What the picker of a recipe row says when it has nothing left to offer.
+ * With every part already in the recipe, «Todavía no hay nada para elegir»
+ * read as if the workshop had no parts at all (E2-10).
+ */
+export function emptyPickerText(mode: 'part' | 'supply', existing: number): string {
+  if (mode === 'part') {
+    return existing > 0
+      ? 'Todas tus piezas ya están en la receta. Para otra, créala en Inventario › Piezas impresas o al cargar un archivo laminado.'
+      : 'Todavía no hay piezas impresas. Se crean al cargar un archivo laminado, o en Inventario › Piezas impresas.';
+  }
+  return existing > 0
+    ? 'Todos tus insumos y empaques ya están en la receta. Para otro, créalo en Inventario › Insumos o Empaque.'
+    : 'Todavía no hay insumos ni empaques. Créalos en Inventario › Insumos o Empaque.';
+}
+
 /** Empty or blank text is stored as null, not as an empty string. */
 export function blankToNull(text: string | null | undefined): string | null {
   const trimmed = text?.trim() ?? '';

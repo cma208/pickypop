@@ -171,10 +171,36 @@ export interface ImportedFilament {
   skuId: string | null;
 }
 
+/**
+ * A filament of a plate under review: what will be saved, plus the type the
+ * file names («PETG»), which is shown even when no roll of the workshop looks
+ * like it.
+ */
+export interface DraftFilament extends ImportedFilament {
+  fileType: string | null;
+}
+
+export type InventoryItemKind = Database['public']['Enums']['inventory_item_kind'];
+
+/** What a recipe row points at, read together with the row. */
+export interface RecipeSupplyItem {
+  kind: InventoryItemKind;
+  name: string;
+  unit: string;
+  imagePath: string | null;
+}
+
 export interface RecipeSupply {
   id: string;
   inventoryItemId: string;
   quantityPerUnit: number;
+  /**
+   * Whether the row is a printed part or a bought supply comes from the row
+   * itself, not from the list of options: that list is loaded once per page,
+   * and a part made a moment ago in an import was not in it, so its row was
+   * drawn as an empty supply that looked safe to delete (E2-01).
+   */
+  item: RecipeSupplyItem;
 }
 
 export interface Recipe {
@@ -232,7 +258,7 @@ export interface SupplyOption {
   costPerUnit: number | null;
   /** So the recipe shows which bag or which sweets, not only their name. */
   imagePath?: string | null;
-  kind?: Database['public']['Enums']['inventory_item_kind'] | null;
+  kind?: InventoryItemKind | null;
 }
 
 export interface Lookups {

@@ -3,7 +3,7 @@ import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angula
 import { Card, Badge, FORMAT_PIPES } from '../../ui';
 import { CatalogoData } from './catalogo.data';
 import { SHARED_STYLES } from './catalogo.styles';
-import { messageOf } from './catalogo.util';
+import { countOf, messageOf } from './catalogo.util';
 import { VariantCostModel } from './variant-cost.model';
 
 /** Quantity discounts of a variant, each with the margin it leaves after costs. */
@@ -146,7 +146,7 @@ export class EscaleraPrecios {
   }
 
   protected async remove(id: string, quantity: number): Promise<void> {
-    if (!confirm(`¿Quitar el escalón desde ${quantity} unidades?`)) return;
+    if (!confirm(`¿Quitar el escalón desde ${countOf(quantity, 'unidad', 'unidades')}?`)) return;
 
     this.busy.set(true);
     this.error.set(null);
