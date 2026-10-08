@@ -10,6 +10,7 @@ import {
   roundMoney,
   roundUpToStep,
   sumMoney,
+  totalFor,
   unitPriceFromLineTotal,
   unitShare,
 } from '@pickypop/domain';
@@ -32,6 +33,7 @@ export {
   roundMoney,
   roundUpToStep,
   sumMoney,
+  totalFor,
   unitPriceFromLineTotal,
   unitShare,
   parseSliceInfo,

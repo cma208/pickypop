@@ -328,7 +328,7 @@
                     </select>
                   </td>
                   <td class="num">
-                    {{ supply.quantity * supply.unitCost | money }}
+                    {{ supplyCost(supply) | money }}
                     @if (lacksCost(supply)) {
                       <small class="error">sin costo registrado: escríbelo a mano</small>
                     }
@@ -457,7 +457,7 @@
                   <td class="num">{{ line.cost.units }}</td>
                   <td class="num">{{ line.cost.costPerUnit | money }}</td>
                   <td class="num">{{ line.price.total | money }}</td>
-                  <td class="num">{{ line.price.total * line.cost.units | money }}</td>
+                  <td class="num">{{ lineTotal(line) | money }}</td>
                   <td class="row">
                     <button type="button" class="ghost" (click)="editLine(line.key)">Editar</button>
                     <button type="button" class="ghost danger-text" (click)="removeLine(line.key)">

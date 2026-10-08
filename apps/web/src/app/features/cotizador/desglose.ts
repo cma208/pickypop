@@ -1,6 +1,7 @@
 import { Component, computed, input } from '@angular/core';
 import { FORMAT_PIPES } from '../../ui';
-import type { BatchCostBreakdown, CostProfile, PriceBreakdown } from '../../core/pricing';
+import { totalFor, type BatchCostBreakdown, type CostProfile, type PriceBreakdown } from '../../core/pricing';
+import { unitsText } from './quantity-text';
 import type { MaterialLineRow } from './quote-model';
 
 const REGIME_LABELS: Record<CostProfile['taxRegime'], string> = {
@@ -85,7 +86,7 @@ const REGIME_LABELS: Record<CostProfile['taxRegime'], string> = {
         </tr>
         <tr>
           <th scope="row">
-            Trabajo por unidad <small class="muted">{{ cost().units }} unidades</small>
+            Trabajo por unidad <small class="muted">{{ units() }}</small>
           </th>
           <td class="num">{{ cost().laborPerUnits | money }}</td>
         </tr>
@@ -163,8 +164,8 @@ const REGIME_LABELS: Record<CostProfile['taxRegime'], string> = {
             <td class="num">{{ p.total | money }}</td>
           </tr>
           <tr class="total">
-            <th scope="row">Total por {{ cost().units }} unidades</th>
-            <td class="num">{{ p.total * cost().units | money }}</td>
+            <th scope="row">Total por {{ units() }}</th>
+            <td class="num">{{ batchTotal() | money }}</td>
           </tr>
           <tr>
             <th scope="row">Margen que queda</th>
@@ -217,4 +218,10 @@ export class Desglose {
   readonly fromCatalog = input(false);
 
   protected readonly regime = computed(() => REGIME_LABELS[this.profile().taxRegime]);
+  protected readonly units = computed(() => unitsText(this.cost().units));
+  /** What the customer pays for the batch, by the same rule as the quote's own total. */
+  protected readonly batchTotal = computed(() => {
+    const price = this.price();
+    return price === null ? null : totalFor(price.total, this.cost().units);
+  });
 }

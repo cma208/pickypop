@@ -13,7 +13,16 @@ import {
   type QuoteStatus,
   type StoredLine,
 } from '../cotizador/cotizador.data';
-import { calculateLine, materialLines, VALUATION_LABELS, type LineResult, type MaterialLineRow } from '../cotizador/quote-model';
+import { totalFor } from '../../core/pricing';
+import { supplyQuantityText } from '../cotizador/quantity-text';
+import {
+  calculateLine,
+  materialLines,
+  VALUATION_LABELS,
+  type LineResult,
+  type MaterialLineRow,
+  type SupplyDraft,
+} from '../cotizador/quote-model';
 import { CurrentWorkspace } from '../../core/workspace';
 import { PlanService } from '../../core/plan';
 import { CotizacionAceptar } from './cotizacion-aceptar';
@@ -197,6 +206,17 @@ export class CotizacionPage {
     const snapshot = this.quote()?.snapshot;
     return snapshot === undefined || snapshot === null ? '' : VALUATION_LABELS[snapshot.valuation];
   });
+
+  /** «50 g», not a bare «50»: the quote keeps the quantity, the stock item its unit. */
+  protected supplyQuantity(supply: SupplyDraft): string {
+    const unit = supply.inventoryItemId === null ? null : this.quote()?.supplyUnits[supply.inventoryItemId];
+    return supplyQuantityText(supply.quantity, unit);
+  }
+
+  /** What the supply adds, by the domain's rule rather than a product in the template. */
+  protected supplyCost(supply: SupplyDraft): number {
+    return totalFor(supply.unitCost, supply.quantity);
+  }
 
   protected readonly canSend = computed(() => this.quote()?.status === 'draft');
   protected readonly canClose = computed(() => this.quote()?.status === 'sent');

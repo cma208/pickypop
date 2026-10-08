@@ -5,7 +5,7 @@ import type { Observable } from 'rxjs';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 // core/pricing does not re-export these yet, and rewriting rounding here would
 // be exactly what docs/06-frontend.md 6.3 forbids. See the report.
-import { chargesIgv, roundMoney, sumMoney, unitShare } from '../../core/pricing';
+import { chargesIgv, roundMoney, sumMoney, totalFor, unitShare } from '../../core/pricing';
 import { localDate } from '../../core/dates';
 import { AsyncState, Badge, Card, Empty, Field, FORMAT_PIPES, Item, ItemPicker, Page, type PickerOption } from '../../ui';
 import {
@@ -418,7 +418,7 @@ export class CotizadorPage {
     const igvRate = context.profile.igvRate;
 
     const perLine = lines.map((line) => {
-      const total = roundMoney(line.price.total * line.cost.units);
+      const total = totalFor(line.price.total, line.cost.units);
       const igv = withTax ? roundMoney(total - total / (1 + igvRate)) : 0;
       const discount = roundMoney(
         Math.max(0, line.price.basePrice - line.price.adjustedPrice) * line.cost.units,
@@ -626,6 +626,16 @@ export class CotizadorPage {
   /** Flags a stock item counted at zero because it has no cost on record. */
   protected lacksCost(supply: LineDraft['supplies'][number]): boolean {
     return lacksRecordedCost(supply, this.context()?.supplies ?? []);
+  }
+
+  /** What the supply adds, by the domain's rule rather than a product in the template. */
+  protected supplyCost(supply: LineDraft['supplies'][number]): number {
+    return totalFor(supply.unitCost, supply.quantity);
+  }
+
+  /** What the customer pays for a line: the same figure the totals add up. */
+  protected lineTotal(line: { price: { total: number }; cost: { units: number } }): number {
+    return totalFor(line.price.total, line.cost.units);
   }
 
   protected addSupply(): void {

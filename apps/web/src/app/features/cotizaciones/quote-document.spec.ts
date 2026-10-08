@@ -48,6 +48,7 @@ function quote(partial: Partial<QuoteDetail> = {}): QuoteDetail {
     heldAt: null,
     holdUntil: null,
     order: null,
+    supplyUnits: {},
     ...partial,
   };
 }

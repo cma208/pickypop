@@ -33,3 +33,13 @@ export function unitShare(total: number, units: number): number {
   if (!(units > 0)) throw new RangeError('units must be greater than 0');
   return Math.round((total / units) * UNIT_SHARE_SCALE) / UNIT_SHARE_SCALE;
 }
+
+/**
+ * What `quantity` of something at `unitAmount` each comes to, rounded to
+ * cents once: a quote line's total, a supply's cost on a quote. Multiplied
+ * in a template, those skipped the rounding every other figure of the
+ * breakdown goes through, and could disagree with the total by a cent.
+ */
+export function totalFor(unitAmount: number, quantity: number): number {
+  return roundMoney(unitAmount * quantity);
+}
