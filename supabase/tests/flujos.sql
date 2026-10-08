@@ -16,6 +16,9 @@
 --   al costo con que salió: rollos agotados o descartados con gramos,
 --   pesajes, y mermas, consumos y conteos de insumos a mano. Una entrada a
 --   mano no suma (ADR-023, `stock_written_off`).
+-- * No se imprime con un rollo agotado o descartado (T3-07): ni al crear el
+--   trabajo, ni al iniciarlo (eligiéndolo o con el que tenía de la cola), ni
+--   al cerrarlo con gramos. Con cero gramos sí cierra.
 --
 -- Los rechazos escritos para una persona son P0001.
 
@@ -194,6 +197,84 @@ select pg_temp.expect('Un rollo descartado el mes pasado resta en su mes', 'oper
       raise exception 'el mes pasado da % y no 8.00', v_written;
     end if;
   end $x$$q$, 1, 415), 'ok:');
+
+-- ================================================ no se imprime con un rollo gastado
+
+-- F is empty and G discarded, with nothing left. H waits in a planned job,
+-- I is in the printer.
+insert into public.spools (id, workspace_id, filament_sku_id, code, initial_weight_g, unit_cost, status) values
+  (pg_temp.id(416), pg_temp.id(1), pg_temp.id(403), 'FLUJOS-F', 1000, 50, 'empty'),
+  (pg_temp.id(417), pg_temp.id(1), pg_temp.id(403), 'FLUJOS-G', 1000, 50, 'discarded'),
+  (pg_temp.id(418), pg_temp.id(1), pg_temp.id(403), 'FLUJOS-H', 1000, 50, 'open'),
+  (pg_temp.id(419), pg_temp.id(1), pg_temp.id(403), 'FLUJOS-I', 1000, 50, 'in_use');
+
+insert into public.stock_movements (workspace_id, occurred_at, type, spool_id, quantity, unit_cost, source_type, note) values
+  (pg_temp.id(1), now() - interval '70 days', 'purchase', pg_temp.id(418), 1000, 0.05, 'purchase', 'Prueba de flujos'),
+  (pg_temp.id(1), now() - interval '70 days', 'purchase', pg_temp.id(419), 1000, 0.05, 'purchase', 'Prueba de flujos');
+
+-- A second printer: the first one is busy, and one prints at a time.
+insert into public.printers (id, workspace_id, name) values (pg_temp.id(602), pg_temp.id(1), 'Segunda de prueba');
+
+insert into public.print_jobs (id, workspace_id, printer_id, label, status, started_at) values
+  (pg_temp.id(611), pg_temp.id(1), pg_temp.id(602), 'Encolado con su rollo', 'planned', null),
+  (pg_temp.id(612), pg_temp.id(1), pg_temp.id(602), 'Encolado sin rollo', 'planned', null),
+  (pg_temp.id(613), pg_temp.id(1), pg_temp.id(601), 'En la impresora', 'printing', now() - interval '1 hour');
+
+insert into public.print_job_filaments (workspace_id, print_job_id, spool_id, estimated_g) values
+  (pg_temp.id(1), pg_temp.id(611), pg_temp.id(418), 20),
+  (pg_temp.id(1), pg_temp.id(613), pg_temp.id(419), 20);
+
+select pg_temp.expect('Crear un trabajo con un rollo agotado', 'operator', pg_temp.q($q$
+  select public.create_print_job(#1, 'Llaveros', null, null, null, null, ('[{"spool_id": "' || #2 || '", "estimated_g": 10}]')::jsonb)
+  $q$, 601, 416), 'error:P0001:No se imprime con el rollo FLUJOS-F: está «Agotado»');
+
+select pg_temp.expect('Crear un trabajo con un rollo descartado', 'operator', pg_temp.q($q$
+  select public.create_print_job(#1, 'Llaveros', null, null, null, null, ('[{"spool_id": "' || #2 || '", "estimated_g": 10}]')::jsonb)
+  $q$, 601, 417), 'error:P0001:No se imprime con el rollo FLUJOS-G: está «Descartado»');
+
+select pg_temp.expect('Crear un trabajo con un rollo en uso', 'operator', pg_temp.q($q$
+  select public.create_print_job(#1, 'Llaveros', null, null, null, null, ('[{"spool_id": "' || #2 || '", "estimated_g": 10}]')::jsonb)
+  $q$, 601, 418), 'ok:1');
+
+select pg_temp.expect('Iniciar eligiendo un rollo agotado', 'operator', pg_temp.q($q$
+  select public.start_print_job(#1, ('[{"spool_id": "' || #2 || '", "estimated_g": 10}]')::jsonb)
+  $q$, 612, 416), 'error:P0001:No se imprime con el rollo FLUJOS-F');
+
+select pg_temp.expect('Iniciar un trabajo cuyo rollo se agotó en la cola', 'operator', pg_temp.q($q$do $x$
+  begin
+    perform public.set_spool_status(#2, 'empty');
+    perform public.start_print_job(#1);
+  end $x$$q$, 611, 418), 'error:P0001:Este trabajo tiene un rollo que ya no se usa: FLUJOS-H («Agotado»)');
+
+select pg_temp.expect('Iniciar un trabajo con su rollo en uso', 'operator', pg_temp.q($q$
+  select public.start_print_job(#1)
+  $q$, 611), 'ok:1');
+
+select pg_temp.expect('Cerrar con gramos en un rollo que se descartó', 'operator', pg_temp.q($q$do $x$
+  begin
+    perform public.set_spool_status(#2, 'discarded');
+    perform public.complete_print_job(p_job_id => #1, p_result => 'success', p_expected_status => 'printing',
+      p_actual_time_s => 3600, p_filament_usage => ('[{"spool_id": "' || #2 || '", "actual_g": 15}]')::jsonb);
+  end $x$$q$, 613, 419), 'error:P0001:El rollo FLUJOS-I está «Descartado»');
+
+select pg_temp.expect('Cerrar con cero gramos en un rollo que se descartó', 'operator', pg_temp.q($q$do $x$
+  declare n integer;
+  begin
+    perform public.set_spool_status(#2, 'discarded');
+    perform public.complete_print_job(p_job_id => #1, p_result => 'success', p_expected_status => 'printing',
+      p_actual_time_s => 3600, p_filament_usage => ('[{"spool_id": "' || #2 || '", "actual_g": 0}]')::jsonb);
+    select count(*) into n from public.stock_movements where source_type = 'print_job' and source_id = #1;
+    if n <> 0 then raise exception 'el cierre movió % filas del rollo', n; end if;
+  end $x$$q$, 613, 419), 'ok:');
+
+select pg_temp.expect('Cerrar con gramos en un rollo en uso', 'operator', pg_temp.q($q$
+  select public.complete_print_job(p_job_id => #1, p_result => 'success', p_expected_status => 'printing',
+    p_actual_time_s => 3600, p_filament_usage => ('[{"spool_id": "' || #2 || '", "actual_g": 15}]')::jsonb)
+  $q$, 613, 419), 'ok:1');
+
+select pg_temp.expect('Atar a mano un rollo agotado a un trabajo de la cola', 'operator', pg_temp.q($q$
+  insert into public.print_job_filaments (workspace_id, print_job_id, spool_id, estimated_g) values (#1, #2, #3, 10)
+  $q$, 1, 612, 416), 'error:P0001:No se imprime con el rollo FLUJOS-F');
 
 -- --------------------------------------------------------------- resultado
 
