@@ -84,6 +84,11 @@ describe('cancelBlocker', () => {
     expect(cancelBlocker(0)).toBeNull();
     expect(cancelBlocker(null)).toBeNull();
   });
+
+  it('tells the operator that voiding is the owner\u2019s to do', () => {
+    expect(cancelBlocker(20, false)).toContain('anular es solo del dueño: pídeselo');
+    expect(cancelBlocker(20, false)).not.toContain('primero anula');
+  });
 });
 
 describe('lineKind', () => {

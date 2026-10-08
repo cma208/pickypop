@@ -12,6 +12,13 @@ import { PedidosData, type NewOrderLine, type VariantOption } from './pedidos.da
 const TYPING_DELAY_MS = 300;
 /** Something has to be written, not just spaces. */
 const NOT_BLANK = /\S/;
+/**
+ * Reasonable ceilings, said next to the field. Past them the database would
+ * refuse anyway (a quantity of 3 000 000 000 broke the lines, T4-02), but
+ * with a message about the whole order instead of this field.
+ */
+export const MAX_LINE_UNITS = 100_000;
+export const MAX_UNIT_AMOUNT = 1_000_000;
 
 /**
  * A line is either a variant of the catalogue, whose cost comes from its
@@ -38,10 +45,13 @@ export function createOrderLineForm(): OrderLineForm {
     description: new FormControl('', { nonNullable: true }),
     quantity: new FormControl(1, {
       nonNullable: true,
-      validators: [Validators.required, Validators.min(1), Validators.pattern(/^\d+$/)],
+      validators: [Validators.required, Validators.min(1), Validators.max(MAX_LINE_UNITS), Validators.pattern(/^\d+$/)],
     }),
-    unitPrice: new FormControl(0, { nonNullable: true, validators: [Validators.min(0)] }),
-    estimatedUnitCost: new FormControl<number | null>(null),
+    unitPrice: new FormControl(0, {
+      nonNullable: true,
+      validators: [Validators.required, Validators.min(0), Validators.max(MAX_UNIT_AMOUNT)],
+    }),
+    estimatedUnitCost: new FormControl<number | null>(null, [Validators.max(MAX_UNIT_AMOUNT)]),
   });
 }
 
@@ -56,7 +66,7 @@ export function applyLineKind(group: OrderLineForm, kind: OrderLineKind): void {
 
   variantId.setValidators(custom ? [] : [Validators.required]);
   description.setValidators(custom ? [Validators.required, Validators.pattern(NOT_BLANK)] : []);
-  estimatedUnitCost.setValidators(custom ? [Validators.min(0)] : []);
+  estimatedUnitCost.setValidators(custom ? [Validators.min(0), Validators.max(MAX_UNIT_AMOUNT)] : []);
 
   group.patchValue({
     kind,
@@ -65,6 +75,26 @@ export function applyLineKind(group: OrderLineForm, kind: OrderLineKind): void {
     estimatedUnitCost: null,
   });
   for (const control of [variantId, description, estimatedUnitCost]) control.updateValueAndValidity();
+}
+
+const AMOUNT_TEXT = new Intl.NumberFormat('es-PE').format(MAX_UNIT_AMOUNT);
+const UNITS_TEXT = new Intl.NumberFormat('es-PE').format(MAX_LINE_UNITS);
+
+/** What is wrong with one field of a line, in the words shown under it. */
+export function lineFieldError(
+  name: 'variantId' | 'description' | 'quantity' | 'unitPrice' | 'estimatedUnitCost',
+  errors: Record<string, unknown>,
+): string | null {
+  if (Object.keys(errors).length === 0) return null;
+  if (name === 'variantId') return 'Elige una variante del catálogo.';
+  if (name === 'description') return 'Escribe qué es: así se reconoce en el pedido y al entregarlo.';
+  if (name === 'quantity') return `La cantidad debe ser un número entero entre 1 y ${UNITS_TEXT}.`;
+  if (name === 'estimatedUnitCost') {
+    return errors['max'] ? `El costo por unidad no puede pasar de S/ ${AMOUNT_TEXT}.` : 'El costo no puede ser negativo.';
+  }
+  if (errors['required']) return 'Escribe el precio por unidad (0 si esta línea va sin costo).';
+  if (errors['max']) return `El precio por unidad no puede pasar de S/ ${AMOUNT_TEXT}.`;
+  return 'El precio no puede ser negativo.';
 }
 
 /** What the database receives for one line of the form. */
@@ -269,11 +299,7 @@ export class PedidoLinea implements OnInit {
   protected fieldError(name: 'variantId' | 'description' | 'quantity' | 'unitPrice' | 'estimatedUnitCost'): string | null {
     const control = this.group().controls[name];
     if (!control.invalid || !(control.touched || this.showErrors())) return null;
-    if (name === 'variantId') return 'Elige una variante del catálogo.';
-    if (name === 'description') return 'Escribe qué es: así se reconoce en el pedido y al entregarlo.';
-    if (name === 'quantity') return 'La cantidad debe ser un número entero de 1 o más.';
-    if (name === 'estimatedUnitCost') return 'El costo no puede ser negativo.';
-    return 'El precio no puede ser negativo.';
+    return lineFieldError(name, control.errors ?? {});
   }
 
   private key(): string {

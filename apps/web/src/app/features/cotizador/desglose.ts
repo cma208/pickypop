@@ -157,7 +157,8 @@ const REGIME_LABELS: Record<CostProfile['taxRegime'], string> = {
           <tr class="total">
             <th scope="row">
               Precio por unidad
-              @if (!fromCatalog()) {
+              <!-- A step of zero rounds nothing: «redondeado a S/ 0.00» said otherwise (T4-21). -->
+              @if (!fromCatalog() && profile().roundingStep > 0) {
                 <small class="muted">redondeado a {{ profile().roundingStep | money }}</small>
               }
             </th>

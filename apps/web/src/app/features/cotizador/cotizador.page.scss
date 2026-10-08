@@ -89,3 +89,6 @@ button.danger-text { color: var(--danger); }
 
 /* The new customer's form takes the whole row under the picker. */
 .quick-customer { grid-column: 1 / -1; }
+
+/* Why «Agregar a la cotización» is still disabled, right under it. */
+.blockers { margin: 0 0 0.75rem; font-size: 0.85rem; }

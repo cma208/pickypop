@@ -28,6 +28,7 @@ import { PlanService } from '../../core/plan';
 import { CotizacionAceptar } from './cotizacion-aceptar';
 import { CotizacionSeparo } from './cotizacion-separo';
 import { CotizacionSituacion } from './cotizacion-situacion';
+import { quoteActions } from './quote-actions';
 import { buildQuoteDocument } from './quote-document';
 
 /** A stored line, read back exactly as it was calculated. */
@@ -99,6 +100,8 @@ export class CotizacionPage {
   protected readonly loading = signal(true);
   protected readonly error = signal<string | null>(null);
   protected readonly busy = signal(false);
+  /** A refused step, shown over the quote: `error` would replace the whole page. */
+  protected readonly actionError = signal<string | null>(null);
   protected readonly quote = signal<QuoteDetail | null>(null);
   /** Rejecting closes the quote for good, so it is asked twice. */
   protected readonly confirmingReject = signal(false);
@@ -218,8 +221,23 @@ export class CotizacionPage {
     return totalFor(supply.unitCost, supply.quantity);
   }
 
-  protected readonly canSend = computed(() => this.quote()?.status === 'draft');
-  protected readonly canClose = computed(() => this.quote()?.status === 'sent');
+  /** What the page offers, by the database's own rules (T4-03, T4-09). */
+  private readonly actions = computed(() => {
+    const quote = this.quote();
+    return quote === null ? null : quoteActions(quote);
+  });
+  protected readonly canSend = computed(() => this.actions()?.canSend ?? false);
+  protected readonly canAccept = computed(() => this.actions()?.canAccept ?? false);
+  protected readonly canReject = computed(() => this.actions()?.canReject ?? false);
+  protected readonly canVersion = computed(() => this.actions()?.canVersion ?? false);
+  protected readonly holdCard = computed(() => this.actions()?.hold ?? null);
+
+  /** The order another version of this document became: this one is history. */
+  protected readonly orderElsewhere = computed(() => {
+    const quote = this.quote();
+    const order = quote?.documentOrder ?? null;
+    return order !== null && order.version !== quote?.version ? order : null;
+  });
 
   /** Who it is for and what it is: "Colegio San Martín · 30 × Botella de poción". */
   protected readonly heading = computed(() => {
@@ -241,7 +259,7 @@ export class CotizacionPage {
    */
   protected readonly mainAction = computed<HeaderAction | null>(() => {
     if (this.canSend()) return { label: 'Marcar como enviada', busy: this.busy() };
-    if (this.canClose()) return this.accepting() ? null : { label: 'El cliente aceptó', busy: this.busy() };
+    if (this.canAccept()) return this.accepting() ? null : { label: 'El cliente aceptó', busy: this.busy() };
     if (this.quote()?.order) return { label: 'Ver el pedido' };
     return null;
   });
@@ -249,7 +267,7 @@ export class CotizacionPage {
   protected onMainAction(): void {
     const quote = this.quote();
     if (this.canSend()) void this.apply('sent');
-    else if (this.canClose()) this.openAccept();
+    else if (this.canAccept()) this.openAccept();
     else if (quote?.order) void this.router.navigate(['/pedidos', quote.order.id]);
   }
 
@@ -263,9 +281,29 @@ export class CotizacionPage {
     this.quote.update((quote) => (quote === null ? quote : { ...quote, ...hold }));
   }
 
+  /**
+   * The quote changed elsewhere (another tab accepted it, a newer version
+   * appeared): read it again so the page says what is true now.
+   */
+  protected async onStale(message: string): Promise<void> {
+    this.actionError.set(message);
+    await this.reload();
+  }
+
+  protected async reload(): Promise<void> {
+    const quote = this.quote();
+    if (quote === null) return;
+    try {
+      this.quote.set(await this.data.quote(quote.id));
+    } catch (cause) {
+      this.actionError.set(cause instanceof DataError ? cause.message : 'No pudimos volver a leer la cotización.');
+    }
+  }
+
   private async load(id: string): Promise<void> {
     this.loading.set(true);
     this.error.set(null);
+    this.actionError.set(null);
     this.quote.set(null);
     // A panel left open belongs to the quote it was opened on.
     this.accepting.set(false);
@@ -319,22 +357,26 @@ export class CotizacionPage {
    * starts the hold and rejecting ends it, and the database decides both.
    */
   protected async apply(status: QuoteStatus): Promise<void> {
+    if (this.busy()) return;
     const quote = this.quote();
-    if (quote === null || this.busy()) return;
+    if (quote === null) return;
 
     this.busy.set(true);
-    this.error.set(null);
+    this.actionError.set(null);
 
     try {
-      await this.data.setStatus(quote.id, status);
+      // From the status this page shows: if another tab moved it, nothing changes.
+      await this.data.setStatus(quote.id, quote.status, status);
       // Sending starts a hold and rejecting ends it: everybody's plan moved.
       this.planner.invalidate();
       this.quote.set(await this.data.quote(quote.id));
       this.confirmingReject.set(false);
     } catch (cause) {
-      this.error.set(
+      this.actionError.set(
         cause instanceof DataError ? cause.message : 'No pudimos cambiar el estado.',
       );
+      this.confirmingReject.set(false);
+      await this.reload();
     } finally {
       this.busy.set(false);
     }

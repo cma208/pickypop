@@ -35,7 +35,7 @@ function normalize(text: string): string {
       @if (formOpen()) {
         <!-- Keyed by customer so the form restarts when another one is picked. -->
         @for (key of [editing()?.id ?? 'new']; track key) {
-          <app-customer-form [customer]="editing()" (saved)="afterSave()" (cancelled)="closeForm()" />
+          <app-customer-form [customer]="editing()" [existing]="customers()" (saved)="afterSave()" (cancelled)="closeForm()" />
         }
       }
 

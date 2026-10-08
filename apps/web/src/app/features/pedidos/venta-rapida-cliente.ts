@@ -2,6 +2,7 @@ import { Component, computed, DestroyRef, inject, input, OnInit, signal } from '
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { Field } from '../../ui';
+import { nameKey } from '../clientes/customer-match';
 import { isWalkInName, sameCustomer, WALK_IN_NAME, type CustomerChoice, type SaleCustomer } from './quick-sale';
 
 export type QuickCustomerForm = FormGroup<{
@@ -50,7 +51,11 @@ export function createQuickCustomer(): QuickCustomerForm {
         @if (namesWalkIn()) {
           <!-- Typed by hand it is the walk-in customer, not a new one: it says so before the database refuses a debt. -->
           <p class="match" role="status">
-            «{{ walkInName() }}» es el cliente de las ventas sin nombre, no uno nuevo.
+            @if (typesItsName()) {
+              «{{ walkInName() }}» es el cliente de las ventas sin nombre, no uno nuevo.
+            } @else {
+              «{{ typedName() }}» es como se llama al cliente de las ventas sin nombre, «{{ walkInName() }}»: no es uno nuevo.
+            }
             {{ owes() ? 'Con saldo por cobrar, escribe el nombre de la persona que te debe.' : 'Si no sabes el nombre, deja el campo vacío.' }}
           </p>
         } @else if (match(); as found) {
@@ -91,6 +96,9 @@ export class VentaRapidaCliente implements OnInit {
       : `Opcional. Sin cliente, la venta queda a nombre de «${this.walkInName()}».`,
   );
   protected readonly namesWalkIn = computed(() => isWalkInName(this.values().name, this.walkInName()));
+  protected readonly typedName = computed(() => this.values().name.trim());
+  /** Its name of today, in any case: said plainly. Another of its names («cliente al paso») is told whom it means. */
+  protected readonly typesItsName = computed(() => nameKey(this.values().name) === nameKey(this.walkInName()));
   protected readonly match = computed(() => {
     const { name, phone } = this.values();
     return sameCustomer(this.customers(), name, phone);

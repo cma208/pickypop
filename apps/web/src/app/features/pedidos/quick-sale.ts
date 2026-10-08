@@ -3,6 +3,11 @@ import { textOrNull } from '../../core/form-errors';
 import { money } from '../../core/format';
 import { roundMoney, sumMoney, totalFor } from '../../core/pricing';
 import type { PaymentMethod } from './pedidos.labels';
+import { isWalkInName, nameKey, WALK_IN_NAME } from '../clientes/customer-match';
+
+// Shared with every screen that creates a customer; re-exported for the
+// quick sale's own components and specs.
+export { isWalkInName, WALK_IN_NAME };
 
 /**
  * The rules of «Venta rápida» (ADR-024), apart from the screen so they can be
@@ -12,13 +17,6 @@ import type { PaymentMethod } from './pedidos.labels';
  * Nothing here decides what is free. That is the plan's answer (ADR-021),
  * read as it is; this only turns it into whole units a person can sell.
  */
-
-/**
- * The name the walk-in customer has until the workshop creates or renames
- * it: the people who buy on the way past (the owner's decision). The
- * database names it the same in `app.walk_in_customer`.
- */
-export const WALK_IN_NAME = 'Clientes varios';
 
 /** Dust of the plan's numeric columns: 2.9999999 assembled baskets are 3. */
 const UNIT_EPSILON = 1e-6;
@@ -334,18 +332,6 @@ export function owesWithoutName(
   );
 }
 
-/**
- * Whether a typed name is the walk-in customer's: what it is called in the
- * workshop, or the name it is created with, written in any case or with any
- * accent. The database takes such a name as the walk-in customer
- * (`app.is_walk_in_name`) and lets nobody else be called that: a second
- * «Clientes varios» could owe, and nobody would know whom to ask.
- */
-export function isWalkInName(name: string, walkInName: string = WALK_IN_NAME): boolean {
-  const typed = nameKey(name);
-  return typed !== null && (typed === nameKey(walkInName) || typed === nameKey(WALK_IN_NAME));
-}
-
 function lineProblem(line: SaleLineValue, offer: ShelfOffer | undefined): string | null {
   if (!offer) return 'Uno de los productos ya no está libre en el estante: quítalo de la venta.';
   if (!validQuantity(line.quantity)) {
@@ -355,7 +341,8 @@ function lineProblem(line: SaleLineValue, offer: ShelfOffer | undefined): string
     return `De «${offer.label}» hay ${freeUnits(offer.free)} en el estante: no alcanza para ${line.quantity}.`;
   }
   const price = salePrice(line.unitPrice);
-  if (price === null || price < 0) return `Escribe el precio de «${offer.label}».`;
+  if (price === null) return `Escribe el precio de «${offer.label}».`;
+  if (price < 0) return `El precio de «${offer.label}» no puede ser negativo.`;
   // The ladder may lower the price for this quantity: selling before it answers would sell at the old one.
   if (line.priceStatus === 'pending') return `Un momento: estamos leyendo el precio de «${offer.label}» para esa cantidad.`;
   return null;
@@ -442,14 +429,4 @@ export function saleDone(
 function phoneKey(phone: string): string | null {
   const digits = phone.replace(/\D/g, '');
   return digits.length >= MIN_PHONE_DIGITS ? digits.slice(-PHONE_DIGITS) : null;
-}
-
-function nameKey(name: string): string | null {
-  const key = name
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .toLowerCase()
-    .replace(/\s+/g, ' ')
-    .trim();
-  return key === '' ? null : key;
 }

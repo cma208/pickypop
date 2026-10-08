@@ -1,6 +1,7 @@
 import { Component, computed, inject, input, output, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { friendlyError } from '../../core/friendly-error';
+import { CurrentWorkspace } from '../../core/workspace';
 import { Badge, Item } from '../../ui';
 import { cancelNotice, cancelQuestion, type QueuedPrint } from './order-prints';
 import { PedidosData } from './pedidos.data';
@@ -26,7 +27,7 @@ import { cancelBlocker } from './pedidos.labels';
       <div class="box warn" role="alert">
         <p>{{ reason }}</p>
         <div class="row">
-          <a class="button secondary" routerLink="/finanzas/movimientos">Ir a Caja</a>
+          @if (isOwner()) { <a class="button secondary" routerLink="/finanzas/movimientos">Ir a Caja</a> }
           <button type="button" class="ghost" (click)="back.emit()">Entendido</button>
         </div>
       </div>
@@ -84,6 +85,7 @@ import { cancelBlocker } from './pedidos.labels';
 })
 export class PedidoCancelar {
   private readonly orders = inject(PedidosData);
+  private readonly workspace = inject(CurrentWorkspace);
 
   readonly orderId = input.required<string>();
   /** Collected and not voided; null when the order is not a sale. */
@@ -94,13 +96,20 @@ export class PedidoCancelar {
   readonly cancelled = output<string | null>();
   /** The person changed their mind. */
   readonly back = output<void>();
-  /** The database refused: the list may be out of date and is to be read again. */
-  readonly stale = output<void>();
+  /** The database refused, with its words: the order and its list may be out of date and are read again. */
+  readonly stale = output<string>();
 
   protected readonly busy = signal(false);
   protected readonly error = signal<string | null>(null);
 
-  protected readonly blocker = computed(() => cancelBlocker(this.paid()));
+  /** Voiding a payment is the owner's alone: the operator is told whom to ask. */
+  protected readonly isOwner = computed(() => this.workspace.role() === 'owner');
+  protected readonly blocker = computed(() => cancelBlocker(this.paid(), this.isOwner()));
+
+  constructor() {
+    // The role is read once per session; this makes sure it is there.
+    void this.workspace.info().catch(() => undefined);
+  }
   private readonly plannedIds = computed(() =>
     this.prints()
       .filter((print) => !print.printing)
@@ -112,14 +121,16 @@ export class PedidoCancelar {
 
   /** `cancelPrints` is the person's answer, null when nothing was asked. */
   protected async cancel(cancelPrints: boolean | null): Promise<void> {
+    if (this.busy()) return;
     this.busy.set(true);
     this.error.set(null);
     try {
       await this.orders.cancelOrder(this.orderId(), this.plannedIds(), cancelPrints);
       this.cancelled.emit(cancelNotice(this.planned(), cancelPrints));
     } catch (error) {
-      this.error.set(friendlyError(error, 'No pudimos cancelar el pedido. Inténtalo de nuevo.'));
-      this.stale.emit();
+      const message = friendlyError(error, 'No pudimos cancelar el pedido. Inténtalo de nuevo.');
+      this.error.set(message);
+      this.stale.emit(message);
     } finally {
       this.busy.set(false);
     }

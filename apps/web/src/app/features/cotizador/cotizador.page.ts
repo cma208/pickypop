@@ -1,12 +1,12 @@
 import { Component, computed, effect, inject, signal, untracked } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormBuilder, ReactiveFormsModule, Validators, type AbstractControl } from '@angular/forms';
 import type { Observable } from 'rxjs';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 // core/pricing does not re-export these yet, and rewriting rounding here would
 // be exactly what docs/06-frontend.md 6.3 forbids. See the report.
 import { chargesIgv, roundMoney, sumMoney, totalFor, unitShare } from '../../core/pricing';
-import { localDate } from '../../core/dates';
+import { todayLocal } from '../../core/dates';
 import { AsyncState, Badge, Card, Empty, Field, FORMAT_PIPES, Item, ItemPicker, Page, type PickerOption } from '../../ui';
 import {
   CotizadorData,
@@ -39,22 +39,28 @@ import { candidateLine, sameCandidates } from './plan-candidate';
 import { Promesa } from './promesa';
 import { readyLine } from './promise-text';
 import { watchSalePromise } from './sale-promise.watch';
-import { ClienteRapido, NEW_CUSTOMER, watchNewCustomerOption } from './cliente-rapido';
+import { ClienteRapido, NEW_CUSTOMER, watchNewCustomerOption, type QuickCustomer } from './cliente-rapido';
 import { draftOwner, type QuoteDraft, type QuoteLineDraft } from './quote-draft';
 import { QuoteDraftStore } from './quote-draft.store';
+import {
+  addLineBlockers,
+  clampPercent,
+  DEFAULT_VALIDITY_DAYS,
+  losingLines,
+  MAX_DISCOUNT_PERCENT,
+  MAX_MINUTES,
+  MAX_QUOTE_UNITS,
+  MAX_SURCHARGE_PERCENT,
+  MAX_VALIDITY_DAYS,
+  QUOTE_FIELD_ERRORS,
+  validUntilFor,
+  WHOLE_NUMBER,
+} from './quote-form';
+import { errorOf } from '../../core/form-errors';
+import { requestKey, type SentRequest } from '../pedidos/request-key';
+import type { NewQuote } from './cotizador.data';
 
 const PERCENT = 100;
-
-/** El mismo tope que valida el formulario, aplicado también al calcular. */
-const MAX_DISCOUNT_PERCENT = 90;
-const MAX_SURCHARGE_PERCENT = 100;
-
-function clampPercent(value: number, max: number): number {
-  if (!Number.isFinite(value)) return 0;
-  return Math.min(Math.max(value, 0), max);
-}
-const DEFAULT_VALIDITY_DAYS = 15;
-const MS_PER_DAY = 86_400_000;
 
 @Component({
   selector: 'app-cotizador',
@@ -132,26 +138,38 @@ export class CotizadorPage {
   // ------------------------------------------------------------- forms
 
   protected readonly lineForm = this.fb.nonNullable.group({
-    description: ['', [Validators.required, Validators.maxLength(180)]],
+    description: ['', [Validators.required, Validators.pattern(/\S/), Validators.maxLength(180)]],
     variantId: [''],
-    quantity: [1, [Validators.required, Validators.min(1)]],
-    setupMinutes: [0, [Validators.min(0)]],
-    minutesPerUnit: [0, [Validators.min(0)]],
+    // Whole units: 2.5 was quoted as 3 without a word (T4-13).
+    quantity: [1, [Validators.required, Validators.min(1), Validators.max(MAX_QUOTE_UNITS), Validators.pattern(WHOLE_NUMBER)]],
+    setupMinutes: [0, [Validators.required, Validators.min(0), Validators.max(MAX_MINUTES)]],
+    minutesPerUnit: [0, [Validators.required, Validators.min(0), Validators.max(MAX_MINUTES)]],
   });
 
   protected readonly priceForm = this.fb.nonNullable.group({
     printerId: [''],
     channelId: [''],
-    volumeDiscountPercent: [0, [Validators.min(0), Validators.max(90)]],
-    urgencySurchargePercent: [0, [Validators.min(0), Validators.max(200)]],
+    volumeDiscountPercent: [0, [Validators.required, Validators.min(0), Validators.max(MAX_DISCOUNT_PERCENT)]],
+    urgencySurchargePercent: [0, [Validators.required, Validators.min(0), Validators.max(MAX_SURCHARGE_PERCENT)]],
   });
 
   protected readonly quoteForm = this.fb.nonNullable.group({
-    customerId: [''],
+    // A quote always has a name: the owner's rule (2026-10-08).
+    customerId: ['', [Validators.required]],
     requestId: [''],
-    validityDays: [DEFAULT_VALIDITY_DAYS, [Validators.min(0), Validators.max(365)]],
+    validityDays: [
+      DEFAULT_VALIDITY_DAYS,
+      [Validators.required, Validators.min(0), Validators.max(MAX_VALIDITY_DAYS), Validators.pattern(WHOLE_NUMBER)],
+    ],
     note: [''],
   });
+
+  protected readonly maxDiscount = MAX_DISCOUNT_PERCENT;
+  protected readonly maxSurcharge = MAX_SURCHARGE_PERCENT;
+  protected readonly maxValidity = MAX_VALIDITY_DAYS;
+
+  /** The last quote sent and its key: sent again unchanged, it keeps the key. */
+  private lastSent: SentRequest<NewQuote> | null = null;
 
   /** Reactive forms are not signals yet, so one tick republishes their value. */
   private readonly formTick = signal(0);
@@ -214,6 +232,12 @@ export class CotizadorPage {
   /** Brings a sent quote back into the calculator so it can be re-priced. */
   private async loadPreviousVersion(quoteId: string, context: QuotingContext): Promise<void> {
     const quote = await this.data.quote(quoteId);
+    // Said before the person rebuilds every line: saving would be refused.
+    if (quote.documentOrder !== null) {
+      throw new DataError(
+        `La cotización ${quote.number} ya tiene el pedido ${quote.documentOrder.number}: una versión nueva no se podría enviar ni aceptar. Si el cliente pide algo más, cotízalo aparte.`,
+      );
+    }
 
     this.previousVersion.set({
       quoteId: quote.id,
@@ -305,7 +329,7 @@ export class CotizadorPage {
   }
 
   /** The customer created from the quote is the one it is for. */
-  protected onCustomerCreated(customer: { id: string; name: string }): void {
+  protected onCustomerCreated(customer: QuickCustomer): void {
     this.context.update((context) =>
       context === null
         ? context
@@ -314,8 +338,20 @@ export class CotizadorPage {
             customers: [...context.customers, customer].sort((a, b) => a.name.localeCompare(b.name, 'es')),
           },
     );
+    this.onCustomerChosen(customer);
+  }
+
+  /** It was somebody already in the list. */
+  protected onCustomerChosen(customer: QuickCustomer): void {
     this.quoteForm.controls.customerId.setValue(customer.id);
     this.creatingCustomer.set(false);
+  }
+
+  /** The message under a field, once it was touched. */
+  protected fieldError(form: 'line' | 'price' | 'quote', name: string): string | null {
+    const group: AbstractControl = form === 'line' ? this.lineForm : form === 'price' ? this.priceForm : this.quoteForm;
+    this.formTick();
+    return errorOf(group.get(name), QUOTE_FIELD_ERRORS[name] ?? {});
   }
 
   // ------------------------------------------------------- derived state
@@ -398,16 +434,33 @@ export class CotizadorPage {
     () => this.context()?.filaments.filter((sku) => sku.costPerKg === null) ?? [],
   );
 
-  protected readonly canAddLine = computed(() => {
-    // Every signal is read before the first condition on purpose: `&&` would
-    // short-circuit past them, and a computed that never read a signal never
-    // recomputes, so the button would stay disabled for good.
+  /**
+   * Why «Agregar a la cotización» cannot be pressed yet, said next to it: a
+   * disabled button with no reason (a quantity of 0, a discount of 150 %)
+   * read as broken (T4-13, T4-14).
+   */
+  protected readonly addBlockers = computed(() => {
+    // Every signal is read before the first condition on purpose: a computed
+    // that never read a signal never recomputes.
     this.formTick();
     const result = this.result();
-    const hasPlates = this.plates().length > 0;
-
-    return this.lineForm.valid && hasPlates && result !== null && result.missingSkus === 0;
+    return addLineBlockers({
+      lineErrors: {
+        description: this.lineForm.controls.description.invalid,
+        quantity: this.lineForm.controls.quantity.invalid,
+        minutes: this.lineForm.controls.setupMinutes.invalid || this.lineForm.controls.minutesPerUnit.invalid,
+      },
+      priceInvalid: this.priceForm.invalid,
+      plates: this.plates().length,
+      calculated: result !== null,
+      missingSkus: result?.missingSkus ?? 0,
+    });
   });
+
+  protected readonly canAddLine = computed(() => this.addBlockers().length === 0);
+
+  /** Lines that would sell below their cost: said before the quote is saved, not after. */
+  protected readonly losing = computed(() => losingLines(this.lines()));
 
   protected readonly totals = computed(() => {
     const context = this.context();
@@ -744,13 +797,25 @@ export class CotizadorPage {
 
   // ---------------------------------------------------------- saving
 
+  protected readonly saveError = signal<string | null>(null);
+
   protected async save(): Promise<void> {
+    // First: a second click arrives before the button is drawn disabled.
+    if (this.saving()) return;
     const context = this.context();
     const printer = this.printer();
     const totals = this.totals();
-    if (context === null || printer === null || totals === null || this.saving()) return;
+    if (context === null || printer === null || totals === null) return;
 
-    this.saving.set(true);
+    this.saveError.set(null);
+    this.quoteForm.markAllAsTouched();
+    this.priceForm.markAllAsTouched();
+    this.formTick.update((tick) => tick + 1);
+    if (this.quoteForm.invalid || this.priceForm.invalid) {
+      this.saveError.set('Revisa los campos marcados en rojo antes de guardar.');
+      return;
+    }
+
     this.error.set(null);
 
     const { customerId, requestId, validityDays, note } = this.quoteForm.getRawValue();
@@ -768,32 +833,34 @@ export class CotizadorPage {
       promise: this.quotedPromise(),
     };
 
+    const quote: NewQuote = {
+      workspaceId: context.workspaceId,
+      customerId,
+      channelId: channelId === '' ? null : channelId,
+      requestId: requestId === '' ? null : requestId,
+      validUntil: validUntilFor(validityDays, todayLocal()),
+      note: note.trim() === '' ? null : note.trim(),
+      snapshot,
+      subtotal: totals.subtotal,
+      discount: totals.discount,
+      igv: totals.igv,
+      total: totals.total,
+      lines: this.lines().map((line) => this.toStoredLine(line, context)),
+      previousVersionOf: this.previousVersion(),
+    };
+    // The moment it was calculated is not what makes it another quote.
+    this.lastSent = requestKey(this.lastSent, { ...quote, snapshot: { ...snapshot, calculatedAt: '' } });
+
+    this.saving.set(true);
     try {
-      const saved = await this.data.saveQuote({
-        workspaceId: context.workspaceId,
-        customerId: customerId === '' ? null : customerId,
-        channelId: channelId === '' ? null : channelId,
-        requestId: requestId === '' ? null : requestId,
-        validUntil:
-          validityDays > 0
-            ? localDate(new Date(Date.now() + validityDays * MS_PER_DAY))
-            : null,
-        note: note.trim() === '' ? null : note.trim(),
-        snapshot,
-        subtotal: totals.subtotal,
-        discount: totals.discount,
-        igv: totals.igv,
-        total: totals.total,
-        lines: this.lines().map((line) => this.toStoredLine(line, context)),
-        previousVersionOf: this.previousVersion(),
-      });
+      const saved = await this.data.saveQuote(quote, this.lastSent.key);
 
       // Saved: from here on it lives in Cotizaciones, not in the calculator.
       this.restored.set(false);
       this.drafts.clear();
       await this.router.navigate(['/cotizaciones', saved.id]);
     } catch (cause) {
-      this.error.set(
+      this.saveError.set(
         cause instanceof DataError ? cause.message : 'No pudimos guardar la cotización.',
       );
     } finally {

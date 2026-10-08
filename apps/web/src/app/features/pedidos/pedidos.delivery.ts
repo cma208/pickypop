@@ -1,5 +1,5 @@
 import type { PlanDemandPlan } from '@pickypop/domain';
-import { inputToIso } from '../../core/dates';
+import { inputToIso, todayLocal } from '../../core/dates';
 import { roundMoney, sumMoney } from '../../core/pricing';
 import type { LineKind } from './pedidos.labels';
 
@@ -68,12 +68,19 @@ export function deliverableToday(lines: readonly { id: string; pending: number }
   return lines.map((line) => Math.max(0, Math.min(line.pending, ready?.get(line.id) ?? 0)));
 }
 
-/** «Van a salir N unidades del estante», as the confirmation says it before anything moves. */
-export function deliveryConfirmation(rows: readonly { quantity: number | null; kind: LineKind }[]): string {
-  const count = (kind: (value: LineKind) => boolean) =>
-    rows.filter((row) => kind(row.kind)).reduce((total, row) => total + Math.max(row.quantity ?? 0, 0), 0);
-  const fromShelf = count((kind) => kind === 'catalog');
-  const madeForIt = count((kind) => kind !== 'catalog');
+/**
+ * «Van a salir N unidades del estante», as the confirmation says it before
+ * anything moves. A made-to-order line with `printed: false` has no print
+ * closed for it: it is not called «hecha» (T4-08).
+ */
+export function deliveryConfirmation(
+  rows: readonly { quantity: number | null; kind: LineKind; printed?: boolean }[],
+): string {
+  const count = (which: (row: { kind: LineKind; printed?: boolean }) => boolean) =>
+    rows.filter(which).reduce((total, row) => total + Math.max(row.quantity ?? 0, 0), 0);
+  const fromShelf = count((row) => row.kind === 'catalog');
+  const madeForIt = count((row) => row.kind !== 'catalog' && row.printed !== false);
+  const notPrinted = count((row) => row.kind !== 'catalog' && row.printed === false);
 
   const parts: string[] = [];
   if (fromShelf > 0) {
@@ -86,7 +93,56 @@ export function deliveryConfirmation(rows: readonly { quantity: number | null; k
         : `Se entregan ${madeForIt} unidades hechas para este pedido.`,
     );
   }
+  if (notPrinted > 0) {
+    parts.push(
+      notPrinted === 1
+        ? 'Se entrega 1 unidad a medida sin ninguna impresión cerrada para ella.'
+        : `Se entregan ${notPrinted} unidades a medida sin ninguna impresión cerrada para ellas.`,
+    );
+  }
   return [...parts, 'Esto no se puede deshacer.'].join(' ');
+}
+
+/**
+ * A delivery takes stock out, and stock does not move on a day that has not
+ * come: «Entregado el» accepts today or before. The database refuses the
+ * same. Compared as "YYYY-MM-DD" in the workshop's day.
+ */
+export function notAfterToday(control: { value: string }, today: string = todayLocal()): { future: true } | null {
+  return control.value && control.value > today ? { future: true } : null;
+}
+
+/**
+ * What is wrong with how many of a line go out today, in the words shown
+ * under the field, or null. Whole units, never more than is pending: «Entregar
+ * 5» of 3, or «1.5», reached the confirmation before the database said no (T4-17).
+ */
+export function quantityProblem(quantity: number | null, pending: number): string | null {
+  if (quantity === null) return null;
+  if (!Number.isInteger(quantity) || quantity < 0) return `Escribe un número entero de 0 a ${pending}.`;
+  if (quantity > pending) return pending === 1 ? 'Queda 1 por entregar.' : `Quedan ${pending} por entregar.`;
+  return null;
+}
+
+/**
+ * Why the last units of a made-to-order line cannot go out yet: a print of
+ * it is still in the queue, and whether it was printed is said by closing it
+ * in Producción, not by delivering (T4-08). Null when nothing stops it. The
+ * database refuses the same.
+ */
+export function waitingPrints(
+  line: { kind: LineKind; pending: number; prints: { planned: number; printing: number } },
+  quantity: number | null,
+): string | null {
+  if (line.kind !== 'custom' || quantity !== line.pending) return null;
+  if (line.prints.printing > 0) {
+    return 'Se está imprimiendo: ciérrala en Producción con lo que salió, y después entrega lo último.';
+  }
+  if (line.prints.planned > 0) {
+    const what = line.prints.planned === 1 ? 'Su impresión sigue' : `Sus ${line.prints.planned} impresiones siguen`;
+    return `${what} en la cola. Si ya se imprimió, ciérrala como exitosa en Producción; si no hace falta, cancélala allí. Después entrega lo último.`;
+  }
+  return null;
 }
 
 /** Units leaving today, for the button and the confirmation. */

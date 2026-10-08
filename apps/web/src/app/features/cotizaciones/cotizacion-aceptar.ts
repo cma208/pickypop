@@ -78,7 +78,13 @@ interface AcceptWhen extends ReadyComparison {
             </select>
           </pp-field>
           @if (creatingCustomer()) {
-            <app-cliente-rapido class="quick-customer" (created)="onCustomerCreated($event)" (cancelled)="creatingCustomer.set(false)" />
+            <app-cliente-rapido
+              class="quick-customer"
+              [customers]="customers()"
+              (created)="onCustomerCreated($event)"
+              (chosen)="onCustomerChosen($event)"
+              (cancelled)="creatingCustomer.set(false)"
+            />
           }
         }
         <div class="grid two">
@@ -120,6 +126,8 @@ export class CotizacionAceptar implements OnInit {
 
   readonly quote = input.required<QuoteDetail>();
   readonly cancelled = output<void>();
+  /** The database refused (accepted in another tab, a newer version): the page shows why and reads the quote again. */
+  readonly stale = output<string>();
 
   protected readonly today = todayLocal();
   protected readonly customers = signal<CustomerOption[]>([]);
@@ -146,6 +154,11 @@ export class CotizacionAceptar implements OnInit {
 
   protected onCustomerCreated(customer: CustomerOption): void {
     this.customers.update((list) => [...list, customer].sort((a, b) => a.name.localeCompare(b.name, 'es')));
+    this.onCustomerChosen(customer);
+  }
+
+  /** It was somebody already in the list. */
+  protected onCustomerChosen(customer: CustomerOption): void {
     this.form.controls.customerId.setValue(customer.id);
     this.creatingCustomer.set(false);
   }
@@ -190,9 +203,10 @@ export class CotizacionAceptar implements OnInit {
   }
 
   protected async accept(): Promise<void> {
+    if (this.busy()) return;
     this.submitted.set(true);
     this.form.markAllAsTouched();
-    if (this.form.invalid || this.busy()) return;
+    if (this.form.invalid) return;
 
     const { customerId, dueDate, note } = this.form.getRawValue();
     this.busy.set(true);
@@ -208,8 +222,9 @@ export class CotizacionAceptar implements OnInit {
       this.planner.invalidate();
       await this.router.navigate(['/pedidos', order.id]);
     } catch (cause) {
-      this.error.set(cause instanceof DataError ? cause.message : 'No pudimos crear el pedido.');
+      // Said by the page, over the quote it reads again: this panel may be gone by then.
       this.busy.set(false);
+      this.stale.emit(cause instanceof DataError ? cause.message : 'No pudimos crear el pedido.');
     }
   }
 }

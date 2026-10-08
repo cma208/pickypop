@@ -43,7 +43,12 @@ import {
         </div>
       } @else if (status() === 'cancelled') {
         <p class="muted">Este pedido fue cancelado.</p>
-        @if (notice(); as message) { <p class="notice" role="status">{{ message }}</p> }
+        @if (notice(); as message) {
+          <p class="notice" role="status">{{ message }}</p>
+        } @else if (refusal(); as message) {
+          <!-- Cancelled from another tab: the refusal that found it so says how (T4-21). -->
+          <p class="notice" role="status">{{ message }}</p>
+        }
       } @else if (status() === 'closed') {
         <p class="muted">Este pedido está cerrado.</p>
       }
@@ -71,7 +76,7 @@ import {
             [prints]="prints()"
             (cancelled)="onCancelled($event)"
             (back)="confirmingCancel.set(false)"
-            (stale)="printsStale.emit()"
+            (stale)="onStale($event)"
           />
         }
       }
@@ -104,8 +109,6 @@ export class PedidoAvance {
 
   /** The status changed: the page reads the order again. */
   readonly changed = output<void>();
-  /** What the order has in the print queue may have changed: the page reads it again. */
-  readonly printsStale = output<void>();
   /** «Entregar» is the next step: the page brings the delivery form up. */
   readonly deliver = output<void>();
 
@@ -118,6 +121,8 @@ export class PedidoAvance {
   protected readonly resumeAt = signal<OrderStatus>('queued');
   /** Where the prints went, said once the order is cancelled. */
   protected readonly notice = signal<string | null>(null);
+  /** The last refusal to cancel, for when the order turns out cancelled already. */
+  protected readonly refusal = signal<string | null>(null);
 
   protected readonly final = computed(() => isFinal(this.status()));
   protected readonly next = computed(() => nextStep(this.status(), this.hasPending()));
@@ -132,6 +137,15 @@ export class PedidoAvance {
     return (event.target as HTMLSelectElement).value as OrderStatus;
   }
 
+  /**
+   * The database refused to cancel: the order is read again. If it turns
+   * out cancelled already, its words say why, once the panel is gone.
+   */
+  protected onStale(message: string): void {
+    this.refusal.set(message);
+    this.changed.emit();
+  }
+
   protected onCancelled(notice: string | null): void {
     this.confirmingCancel.set(false);
     this.notice.set(notice);
@@ -139,6 +153,7 @@ export class PedidoAvance {
   }
 
   protected async change(status: OrderStatus): Promise<void> {
+    if (this.changing()) return;
     this.changing.set(true);
     this.error.set(null);
     try {
@@ -146,8 +161,10 @@ export class PedidoAvance {
       this.changed.emit();
     } catch (error) {
       // The database's refusals (putting on hold what already left) are
-      // written for a person: they travel as they come.
+      // written for a person: they travel as they come. The order may have
+      // moved elsewhere, so it is read again.
       this.error.set(friendlyError(error, 'No pudimos cambiar el estado. Inténtalo de nuevo.'));
+      this.changed.emit();
     } finally {
       this.changing.set(false);
     }

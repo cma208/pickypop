@@ -6,6 +6,7 @@ import { errorOf, textOrNull } from '../../core/form-errors';
 import { friendlyError } from '../../core/friendly-error';
 import { SECTION_STYLES } from '../../core/styles';
 import { ClientesData } from './clientes.data';
+import { isWalkInName, NOT_BLANK, sameName, type KnownCustomer } from './customer-match';
 import {
   DOC_FORMAT_HINTS,
   DOC_TYPE_LABELS,
@@ -20,7 +21,13 @@ import {
 @Component({
   selector: 'app-customer-form',
   imports: [ReactiveFormsModule, Field],
-  styles: SECTION_STYLES,
+  styles: [
+    SECTION_STYLES,
+    `
+      .match { margin: -0.4rem 0 0.9rem; padding: 0.5rem 0.7rem; border-radius: var(--radius-sm); background: var(--info-soft); font-size: var(--fs-sm); }
+      .wide { grid-column: 1 / -1; }
+    `,
+  ],
   template: `
     <form class="form-box" [formGroup]="form" (ngSubmit)="submit()">
       <h3>{{ customer() ? 'Editar cliente' : 'Nuevo cliente' }}</h3>
@@ -36,6 +43,17 @@ import {
         <pp-field label="Nombre o razón social" [required]="true" [error]="nameError()">
           <input formControlName="name" autocomplete="off" />
         </pp-field>
+        @if (namesWalkIn()) {
+          <p class="match wide" role="status">
+            «{{ typedName() }}» es el nombre del cliente de las ventas al paso, y no puede haber otro: a su nombre no se le
+            puede cobrar a nadie. Escribe el nombre de la persona.
+          </p>
+        } @else if (duplicate(); as found) {
+          <p class="match wide" role="status">
+            Ya tienes a <strong>{{ found.name }}</strong> en la lista. Si es la misma persona, edítala en lugar de crear
+            otra: sus pedidos quedarían repartidos entre las dos.
+          </p>
+        }
         <pp-field label="Tipo de documento">
           <select formControlName="docType">
             @for (type of docTypes; track type) {
@@ -86,6 +104,8 @@ export class CustomerForm {
   private readonly data = inject(ClientesData);
 
   readonly customer = input<CustomerRecord | null>(null);
+  /** The customers already in the list, to recognise the name being typed (T4-10). */
+  readonly existing = input<readonly KnownCustomer[]>([]);
   readonly saved = output<void>();
   readonly cancelled = output<void>();
 
@@ -99,7 +119,7 @@ export class CustomerForm {
   protected readonly form = new FormGroup(
     {
       kind: new FormControl<CustomerKind>('person', { nonNullable: true }),
-      name: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
+      name: new FormControl('', { nonNullable: true, validators: [Validators.required, Validators.pattern(NOT_BLANK)] }),
       docType: new FormControl<DocType>('none', { nonNullable: true }),
       docNumber: new FormControl('', { nonNullable: true }),
       phone: new FormControl('', { nonNullable: true }),
@@ -109,6 +129,22 @@ export class CustomerForm {
     },
     { validators: [documentValidator] },
   );
+
+  private readonly nameValue = toSignal(this.form.controls.name.valueChanges, { initialValue: '' });
+  protected readonly typedName = computed(() => this.nameValue().trim());
+
+  /** Somebody else in the list with the same name, written any way. Two people may share one: it only warns. */
+  protected readonly duplicate = computed(() => {
+    const self = this.customer();
+    if (self && self.name === this.nameValue()) return null;
+    return sameName(
+      this.existing().filter((other) => other.id !== self?.id),
+      this.nameValue(),
+    );
+  });
+
+  /** The walk-in customer's name typed for anybody else: the database refuses it. */
+  protected readonly namesWalkIn = computed(() => !this.customer()?.walkIn && isWalkInName(this.nameValue()));
 
   protected readonly docType = toSignal(this.form.controls.docType.valueChanges, { initialValue: 'none' as DocType });
   protected readonly docHint = computed(() => DOC_FORMAT_HINTS[this.docType()]);
@@ -130,7 +166,10 @@ export class CustomerForm {
   }
 
   protected nameError(): string | null {
-    return errorOf(this.form.controls.name, { required: 'Escribe el nombre del cliente.' });
+    return errorOf(this.form.controls.name, {
+      required: 'Escribe el nombre del cliente.',
+      pattern: 'Escribe el nombre del cliente: solo espacios no cuenta.',
+    });
   }
 
   protected emailError(): string | null {
@@ -145,8 +184,9 @@ export class CustomerForm {
   }
 
   protected async submit(): Promise<void> {
+    if (this.saving()) return;
     this.form.markAllAsTouched();
-    if (this.form.invalid || this.saving()) return;
+    if (this.form.invalid) return;
 
     const value = this.form.getRawValue();
     this.saving.set(true);

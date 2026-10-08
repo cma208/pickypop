@@ -126,6 +126,8 @@ export class PedidoSeparo {
 
   /** `null` lets go of the hold now. */
   protected async save(until: string | null): Promise<void> {
+    // A second click arrives before the button is drawn disabled.
+    if (this.busy()) return;
     this.busy.set(true);
     this.error.set(null);
     try {

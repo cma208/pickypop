@@ -151,10 +151,14 @@ const MONEY = new Intl.NumberFormat('es-PE', { style: 'currency', currency: 'PEN
  * Por qué todavía no se puede cancelar, o null si se puede. Lo cobrado sigue
  * en las cuentas mientras no se anule, y anular un cobro es de Caja: deja
  * rastro y pide motivo, que es justo lo que un cambio de estado no hace.
+ * Desde el 2026-10-08 anular es solo del dueño (ADR-025): al operador se le
+ * dice a quién pedírselo, no que lo haga.
  */
-export function cancelBlocker(paid: number | null): string | null {
+export function cancelBlocker(paid: number | null, isOwner = true): string | null {
   if (paid === null || paid <= 0) return null;
-  return `Este pedido tiene ${MONEY.format(paid)} cobrados. Para cancelarlo, primero anula esos cobros en Caja.`;
+  return isOwner
+    ? `Este pedido tiene ${MONEY.format(paid)} cobrados. Para cancelarlo, primero anula esos cobros en Caja.`
+    : `Este pedido tiene ${MONEY.format(paid)} cobrados. Para cancelarlo hay que anular esos cobros, y anular es solo del dueño: pídeselo, y después cancélalo.`;
 }
 
 /** Dónde se puede retomar un pedido en espera, por la misma regla. */

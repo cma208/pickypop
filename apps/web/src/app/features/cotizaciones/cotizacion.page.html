@@ -17,11 +17,11 @@
         {{ downloading() ? 'Generando…' : 'Descargar PDF' }}
       </button>
     }
-    @if (canClose()) {
+    @if (canReject()) {
       <button more type="button" class="ghost" [disabled]="busy()" (click)="askReject()">El cliente la rechazó</button>
     }
-    @if (quote(); as q) {
-      <a more class="button ghost" [routerLink]="['/cotizador']" [queryParams]="{ nuevaVersionDe: q.id }">Crear versión nueva</a>
+    @if (canVersion()) {
+      <a more class="button ghost" [routerLink]="['/cotizador']" [queryParams]="{ nuevaVersionDe: quote()!.id }">Crear versión nueva</a>
     }
   </pp-resource-header>
 
@@ -29,6 +29,9 @@
     @if (quote(); as q) {
       @if (pdfError(); as message) {
         <p class="banner bad">{{ message }}</p>
+      }
+      @if (actionError(); as message) {
+        <p class="banner bad" role="alert">{{ message }}</p>
       }
 
       @if (confirmingReject()) {
@@ -45,9 +48,17 @@
           crea una versión nueva con los precios de hoy.
         </p>
       }
-      @if (q.hasNewerVersion) {
+      @if (orderElsewhere(); as order) {
         <p class="banner info">
-          Hay una versión más nueva de {{ q.number }}. Esta quedó como historial.
+          La versión {{ order.version }} de {{ q.number }} ya es el pedido
+          <a [routerLink]="['/pedidos', order.id]">{{ order.number }}</a>. Esta quedó como historial: no se envía, no se
+          acepta ni separa, y no se hace otra versión del documento.
+        </p>
+      } @else if (q.hasNewerVersion) {
+        <p class="banner info">
+          Hay una versión más nueva de {{ q.number }}:
+          <a [routerLink]="['/cotizaciones', q.latest.id]">la versión {{ q.latest.version }}</a>. Esta quedó como
+          historial: no se envía, no se acepta ni vuelve a separar.
         </p>
       }
       @if (q.snapshot === null) {
@@ -57,14 +68,16 @@
         </p>
       }
 
-      @if (accepting() && q.status === 'sent') {
-        <app-cotizacion-aceptar [quote]="q" (cancelled)="accepting.set(false)" />
-      } @else if (q.status === 'draft' || q.status === 'sent') {
+      @if (accepting() && canAccept()) {
+        <app-cotizacion-aceptar [quote]="q" (cancelled)="accepting.set(false)" (stale)="onStale($event)" />
+      } @else if (holdCard(); as card) {
         <app-cotizacion-separo
           [quoteId]="q.id"
           [status]="q.status"
           [holdUntil]="q.holdUntil"
+          [releaseOnly]="card === 'release'"
           (changed)="onHoldChanged($event)"
+          (stale)="onStale($event)"
         />
       }
 
@@ -120,8 +133,9 @@
             {{ snapshot.profile.materialWasteRate | percent1 }}, fallos
             {{ snapshot.profile.failureRate | percent1 }}, mano de obra
             {{ snapshot.profile.laborRatePerHour | money }} la hora, margen
-            {{ snapshot.profile.targetMargin | percent1 }}, redondeo a
-            {{ snapshot.profile.roundingStep | money }}. El filamento se valorizó al
+            {{ snapshot.profile.targetMargin | percent1 }},
+            @if (snapshot.profile.roundingStep > 0) { redondeo a {{ snapshot.profile.roundingStep | money }}. } @else { sin redondeo. }
+            El filamento se valorizó al
             {{ valuationLabel() }}.
           </p>
         </pp-card>

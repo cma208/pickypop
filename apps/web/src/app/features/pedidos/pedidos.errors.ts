@@ -49,3 +49,15 @@ function isRaisedByDatabase(error: unknown): boolean {
   const { code, message } = error as { code?: unknown; message?: unknown };
   return code === RAISED_BY_DATABASE && typeof message === 'string' && message.trim() !== '';
 }
+
+/**
+ * Whether the database answered and said no: then nothing was saved. A
+ * network failure has no code, and the write may have been saved before the
+ * answer got lost: the screen asks by its key before saying it failed.
+ */
+export function refusedByDatabase(error: unknown): boolean {
+  if (error instanceof UserFacingError) return true;
+  if (typeof error !== 'object' || error === null) return false;
+  const { code } = error as { code?: unknown };
+  return typeof code === 'string' && code.trim() !== '';
+}

@@ -77,7 +77,8 @@ const FINISHED: OrderStatus[] = ['delivered', 'closed', 'cancelled'];
                   <div class="total num">
                     @if (order.purpose === 'sale') {
                       {{ order.total | money }}
-                      @if (order.paymentStatus !== 'not_applicable' && order.status !== 'cancelled') {
+                      <!-- A sale of S/ 0 has nothing to collect: «Sin cobrar» would read as owed (T4-16). -->
+                      @if (order.paymentStatus !== 'not_applicable' && order.status !== 'cancelled' && order.total > 0) {
                         <small class="pay" [class.owed]="order.paymentStatus !== 'paid'">{{ paymentLabel[order.paymentStatus] }}</small>
                       }
                     } @else {

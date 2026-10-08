@@ -1,15 +1,12 @@
 import { inject, Injectable } from '@angular/core';
-import { todayLocal } from '../../core/dates';
 import { fetchAll } from '../../core/fetch-all';
 import { UserFacingError } from '../../core/friendly-error';
 import { roundMoney } from '../../core/pricing';
 import { SUPABASE } from '../../core/supabase';
-import { Workshop } from '../../core/workshop';
 import { partialDeliveries, type DeliveryLinePayload, type PartialDelivery } from './pedidos.delivery';
 import { lineKind, type LineKind, type OrderPaymentStatus, type OrderPurpose, type OrderStatus, type PaymentMethod } from './pedidos.labels';
 import { CurrentWorkspace } from '../../core/workspace';
 
-const DOCUMENT_KIND_ORDER = 'order';
 /** SQLSTATE of a `raise exception` in plpgsql: the database speaking on purpose. */
 const RAISED_BY_DATABASE = 'P0001';
 
@@ -47,7 +44,18 @@ export interface OrderLine {
   delivered: number;
   /** Still to deliver. Zero on a cancelled order: nothing more goes out. */
   pending: number;
+  /** Its prints by state. Only a made-to-order line is printed for the order itself. */
+  prints: LinePrints;
 }
+
+/** How many prints of a line are waiting, on the printer, or came out well. */
+export interface LinePrints {
+  planned: number;
+  printing: number;
+  printed: number;
+}
+
+const NO_PRINTS: LinePrints = { planned: 0, printing: 0, printed: 0 };
 
 /** One time something of the order left the workshop. */
 export interface OrderDelivery {
@@ -169,7 +177,6 @@ export function parseDateOnly(value: string): Date {
 export class PedidosData {
   private readonly supabase = inject(SUPABASE);
   private readonly workspace = inject(CurrentWorkspace);
-  private readonly workshop = inject(Workshop);
 
   async listOrders(): Promise<OrderListItem[]> {
     const [{ data, error }, deliveryRows] = await Promise.all([
@@ -215,7 +222,7 @@ export class PedidosData {
   }
 
   async getOrder(id: string): Promise<OrderDetail | null> {
-    const [order, lines, progress] = await Promise.all([
+    const [order, lines, progress, prints] = await Promise.all([
       this.supabase
         .from('orders')
         .select(
@@ -229,13 +236,16 @@ export class PedidosData {
         .eq('order_id', id)
         .order('position'),
       this.supabase.from('order_line_delivery_status').select('order_line_id, delivered, pending').eq('order_id', id),
+      this.supabase.from('print_jobs').select('order_line_id, status, order_lines!inner(order_id)').eq('order_lines.order_id', id),
     ]);
     if (order.error) throw order.error;
     if (lines.error) throw lines.error;
     if (progress.error) throw progress.error;
+    if (prints.error) throw prints.error;
     if (!order.data) return null;
 
     const progressOf = new Map(progress.data.map((row) => [row.order_line_id, row]));
+    const printsOf = linePrints(prints.data);
 
     const row = order.data;
     return {
@@ -267,6 +277,7 @@ export class PedidosData {
         // A line the view does not know about is not offered: the database
         // would have nothing to take off the shelf for it.
         pending: Number(progressOf.get(line.id)?.pending ?? 0),
+        prints: printsOf.get(line.id) ?? NO_PRINTS,
       })),
     };
   }
@@ -292,16 +303,33 @@ export class PedidosData {
    * Delivers through the database rule, which takes the things off the shelf,
    * records their cost and marks the order delivered once nothing is left. Its
    * refusals say what is missing and how much, so they travel as they are.
+   * `key` names this delivery: sent twice (a double click, an answer the
+   * browser sent again on its own) it is recorded once.
    */
-  async deliver(delivery: NewDelivery): Promise<void> {
+  async deliver(delivery: NewDelivery, key: string): Promise<void> {
     const { error } = await this.supabase.rpc('deliver_order', {
       p_order_id: delivery.orderId,
       p_lines: delivery.lines,
       p_delivered_at: delivery.deliveredAt ?? undefined,
       p_note: delivery.note ?? undefined,
+      p_delivery_key: key,
     });
     if (error?.code === RAISED_BY_DATABASE) throw new UserFacingError(error.message);
     if (error) throw error;
+  }
+
+  /**
+   * Whether the delivery sent with this key was recorded: the answer to
+   * «¿salió?» when the connection dropped before the reply arrived.
+   */
+  async deliveryRecorded(key: string): Promise<boolean> {
+    const { data, error } = await this.supabase
+      .from('order_deliveries')
+      .select('id')
+      .eq('delivery_key', key)
+      .maybeSingle();
+    if (error) throw error;
+    return data !== null;
   }
 
   /** Estimated against real, as computed by the database. */
@@ -366,20 +394,37 @@ export class PedidosData {
 
   /**
    * Collects through the database rule, which records the money and refuses an
-   * overpayment. Its refusals are already worded for the person, with the exact
-   * amounts, so they travel as they are instead of becoming a generic message.
+   * overpayment or a future date. `key` names this payment: sent twice (a
+   * double click, an answer that never arrived) it is recorded once (T4-01).
+   * Its refusals are already worded for the person, with the exact amounts,
+   * so they travel as they are instead of becoming a generic message.
    */
-  async recordPayment(payment: NewPayment): Promise<void> {
-    const { error } = await this.supabase.rpc('record_payment', {
+  async recordPayment(payment: NewPayment, key: string): Promise<void> {
+    const { error } = await this.supabase.rpc('collect_order_payment', {
       p_order_id: payment.orderId,
       p_account_id: payment.accountId,
       p_amount: roundMoney(payment.amount),
       p_payment_method: payment.method ?? undefined,
       p_occurred_at: payment.occurredAt ?? undefined,
       p_reference: payment.reference ?? undefined,
+      p_payment_key: key,
     });
     if (error?.code === RAISED_BY_DATABASE) throw new UserFacingError(error.message);
     if (error) throw error;
+  }
+
+  /**
+   * Whether the payment sent with this key was recorded: the answer to
+   * «¿quedó registrado?» when the connection dropped before the reply arrived.
+   */
+  async paymentRecorded(key: string): Promise<boolean> {
+    const { data, error } = await this.supabase
+      .from('order_payment_keys')
+      .select('transaction_id')
+      .eq('payment_key', key)
+      .maybeSingle();
+    if (error) throw error;
+    return data !== null;
   }
 
   /**
@@ -457,36 +502,27 @@ export class PedidosData {
     return data;
   }
 
-  async createCustomer(name: string, phone: string | null): Promise<CustomerOption> {
-    const { data, error } = await this.supabase
-      .from('customers')
-      .insert({ workspace_id: await this.workspace.requireId(), name: name.trim(), phone })
-      .select('id, name')
-      .single();
-    if (error) throw error;
-    return data;
-  }
-
   async giftCategories(): Promise<GiftCategoryOption[]> {
     const { data, error } = await this.supabase.from('gift_categories').select('id, name').order('name');
     if (error) throw error;
     return data;
   }
 
-  /** Sellable variants, named "Product — variant". Archived products are left out. */
+  /**
+   * What can be sold, named "Product — variant": active variants of products
+   * that are not archived. An inactive one (a workshop tool like «Molde de
+   * calavera», ADR-023) is not offered, and the database refuses it too.
+   */
   async variants(): Promise<VariantOption[]> {
-    const products = await this.workshop.catalog();
+    const [products, variants] = await Promise.all([
+      this.supabase.from('catalog_products').select('id, name').neq('status', 'archived'),
+      this.supabase.from('product_variants').select('id, product_id, name, list_price').eq('active', true),
+    ]);
+    if (products.error) throw products.error;
+    if (variants.error) throw variants.error;
 
-    return products
-      .filter((product) => product.status !== 'archived')
-      .flatMap((product) =>
-        product.variants.map((variant) => ({
-          id: variant.id,
-          label: `${product.name} — ${variant.name}`,
-          listPrice: variant.listPrice,
-        })),
-      )
-      .sort((a, b) => a.label.localeCompare(b.label, 'es'));
+    const productName = new Map(products.data.map((row) => [row.id, row.name]));
+    return sellableVariants(productName, variants.data);
   }
 
   /** The price the tier ladder gives for this quantity, through the database rule. */
@@ -500,60 +536,60 @@ export class PedidosData {
   }
 
   /**
-   * Creates the order with its lines. There is no multi-table transaction from
-   * the browser, so if the lines fail the empty order is removed again.
+   * Creates the order with its lines through the database, all or nothing:
+   * the number, the header and the lines (T4-02). `key` names this order:
+   * sent twice, it is created once (T4-04). Its refusals name the line and
+   * the problem, so they travel as they are.
    */
-  async createOrder(input: NewOrder): Promise<{ id: string; number: string }> {
-    const workspaceId = await this.workspace.requireId();
-    const isSale = input.purpose === 'sale';
-
-    const { data: number, error: numberError } = await this.supabase.rpc('next_document_number', {
-      p_workspace: workspaceId,
-      p_doc_kind: DOCUMENT_KIND_ORDER,
-    });
-    if (numberError) throw numberError;
-
-    const total = isSale
-      ? roundMoney(input.lines.reduce((sum, line) => sum + line.unitPrice * line.quantity, 0))
-      : 0;
-
-    const { data: order, error } = await this.supabase
-      .from('orders')
-      .insert({
-        workspace_id: workspaceId,
-        number,
-        purpose: input.purpose,
-        customer_id: isSale ? input.customerId : null,
-        gift_category_id: input.purpose === 'gift' ? input.giftCategoryId : null,
-        recipient: input.recipient,
-        // The column defaults to the UTC day, which after 19:00 in Lima is
-        // already tomorrow. An accepted quote dates its order the same way.
-        ordered_on: todayLocal(),
-        due_date: input.dueDate,
-        note: input.note,
-        total,
-      })
-      .select('id, number')
-      .single();
-    if (error) throw error;
-
-    const { error: linesError } = await this.supabase.from('order_lines').insert(
-      input.lines.map((line, index) => ({
-        workspace_id: workspaceId,
-        order_id: order.id,
-        position: index + 1,
+  async createOrder(input: NewOrder, key: string): Promise<{ id: string; number: string }> {
+    const { data, error } = await this.supabase.rpc('create_order', {
+      p_workspace_id: await this.workspace.requireId(),
+      p_purpose: input.purpose,
+      p_lines: input.lines.map((line) => ({
         variant_id: line.variantId,
         description: line.description,
         quantity: line.quantity,
-        unit_price: isSale ? line.unitPrice : 0,
+        unit_price: line.unitPrice,
         estimated_unit_cost: line.estimatedUnitCost,
       })),
-    );
-
-    if (linesError) {
-      await this.supabase.from('orders').delete().eq('id', order.id);
-      throw linesError;
-    }
-    return order;
+      p_customer_id: input.customerId ?? undefined,
+      p_gift_category_id: input.giftCategoryId ?? undefined,
+      p_recipient: input.recipient ?? undefined,
+      p_due_date: input.dueDate ?? undefined,
+      p_note: input.note ?? undefined,
+      p_create_key: key,
+    });
+    if (error?.code === RAISED_BY_DATABASE) throw new UserFacingError(error.message);
+    if (error) throw error;
+    return { id: data.id, number: data.number };
   }
+}
+
+/** "Product — variant" for each variant whose product is still sold, in alphabetical order. */
+export function sellableVariants(
+  productName: ReadonlyMap<string, string>,
+  variants: readonly { id: string; product_id: string; name: string; list_price: number | null }[],
+): VariantOption[] {
+  return variants
+    .filter((variant) => productName.has(variant.product_id))
+    .map((variant) => ({
+      id: variant.id,
+      label: `${productName.get(variant.product_id)} — ${variant.name}`,
+      listPrice: variant.list_price == null ? null : Number(variant.list_price),
+    }))
+    .sort((a, b) => a.label.localeCompare(b.label, 'es'));
+}
+
+/** Prints by state, line by line. */
+export function linePrints(rows: readonly { order_line_id: string | null; status: string }[]): Map<string, LinePrints> {
+  const byLine = new Map<string, LinePrints>();
+  for (const row of rows) {
+    if (!row.order_line_id) continue;
+    const counts = byLine.get(row.order_line_id) ?? { ...NO_PRINTS };
+    if (row.status === 'planned') counts.planned++;
+    else if (row.status === 'printing') counts.printing++;
+    else if (row.status === 'success') counts.printed++;
+    byLine.set(row.order_line_id, counts);
+  }
+  return byLine;
 }

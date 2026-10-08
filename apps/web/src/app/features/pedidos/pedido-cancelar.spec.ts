@@ -4,6 +4,7 @@ import { provideRouter } from '@angular/router';
 import { ArticlePhotos } from '../../core/article-photos';
 import { UserFacingError } from '../../core/friendly-error';
 import { Media } from '../../core/media';
+import { CurrentWorkspace, type MemberRole } from '../../core/workspace';
 import type { QueuedPrint } from './order-prints';
 import { PedidoCancelar } from './pedido-cancelar';
 import { PedidosData } from './pedidos.data';
@@ -26,11 +27,17 @@ interface Opened {
   stale: number;
 }
 
-function open(prints: QueuedPrint[], cancelOrder?: () => Promise<void>, paid: number | null = 0): Opened {
+function open(
+  prints: QueuedPrint[],
+  cancelOrder?: () => Promise<void>,
+  paid: number | null = 0,
+  role: MemberRole = 'owner',
+): Opened {
   const calls: Call[] = [];
   TestBed.configureTestingModule({
     providers: [
       provideRouter([]),
+      { provide: CurrentWorkspace, useValue: { role: signal(role), info: async () => ({ role }) } },
       // The pictures are not what is being tested: nothing is signed or looked up.
       { provide: Media, useValue: { url: async () => null, version: signal(0) } },
       { provide: ArticlePhotos, useValue: { resolve: async () => ({ path: null, kind: 'part' }) } },
@@ -171,5 +178,12 @@ describe('PedidoCancelar', () => {
     expect(text(fixture)).toContain('Este pedido tiene S/ 15.00 cobrados.');
     expect(fixture.nativeElement.querySelector('a[href="/finanzas/movimientos"]')).not.toBeNull();
     expect(text(fixture)).not.toContain('¿Cancelas también');
+  });
+
+  it('tells the operator that voiding is for the owner, instead of sending them to do it', () => {
+    const { fixture } = open([KEYCHAIN], undefined, 15, 'operator');
+
+    expect(text(fixture)).toContain('anular es solo del dueño');
+    expect(fixture.nativeElement.querySelector('a[href="/finanzas/movimientos"]')).toBeNull();
   });
 });

@@ -1,14 +1,17 @@
 import { Component, computed, effect, ElementRef, inject, input, output, signal, untracked } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
-import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormControl, FormGroup, ReactiveFormsModule, Validators, type AbstractControl, type ValidationErrors } from '@angular/forms';
 import { inputToIso, nowForInput } from '../../core/dates';
 import { errorOf, textOrNull } from '../../core/form-errors';
 import { friendlyError } from '../../core/friendly-error';
+import { money } from '../../core/format';
 import { roundMoney } from '../../core/pricing';
 import { Badge, Card, Field, FORMAT_PIPES } from '../../ui';
 import { beforeOpening, beforeOpeningNotice } from '../finanzas/opening-balance';
 import { PaymentCategoryNote } from '../finanzas/payment-category-note';
-import { PedidosData, type AccountOption, type PaymentSummary } from './pedidos.data';
+import { PedidosData, type AccountOption, type NewPayment, type PaymentSummary } from './pedidos.data';
+import { refusedByDatabase } from './pedidos.errors';
+import { requestKey, type SentRequest } from './request-key';
 import {
   PAYMENT_METHOD_LABEL,
   PAYMENT_METHODS,
@@ -20,6 +23,19 @@ import {
 const NO_ACCOUNT = '';
 const NO_METHOD = '';
 
+/**
+ * A payment dated after now would be in the balance today and open a month
+ * that has not come yet in Resultados (T4-06). The database refuses it too,
+ * with the same slack for a clock a little ahead.
+ */
+const FUTURE_SLACK_MS = 5 * 60_000;
+
+export function notInTheFuture(control: AbstractControl<string>): ValidationErrors | null {
+  const value = control.value;
+  if (!value) return null;
+  return Date.parse(inputToIso(value)) > Date.now() + FUTURE_SLACK_MS ? { future: true } : null;
+}
+
 /** What was collected on a sale, and the form to collect the rest. */
 @Component({
   selector: 'app-pedido-cobro',
@@ -28,7 +44,7 @@ const NO_METHOD = '';
     <pp-card heading="Cobro">
       <div class="row badge-row">
         <!-- «Sin cobrar» on a cancelled order read as money still owed: the list leaves it out too. -->
-        @if (!cancelled()) {
+        @if (!cancelled() && !nothingToCollect()) {
           <pp-badge [tone]="statusTone[summary().paymentStatus]">{{ statusLabel[summary().paymentStatus] }}</pp-badge>
         }
         @if (summary().lastPaymentAt; as last) {
@@ -51,6 +67,9 @@ const NO_METHOD = '';
 
       @if (cancelled()) {
         <p class="muted">Un pedido cancelado no admite cobros.</p>
+      } @else if (nothingToCollect()) {
+        <!-- «Sin cobrar» and «cobrado por completo» at once, on a sale of S/ 0 (T4-16). -->
+        <p class="muted">Esta venta suma {{ 0 | money }}: no hay nada que cobrar.</p>
       } @else if (summary().balance <= 0) {
         <p class="muted">Este pedido está cobrado por completo.</p>
       } @else if (accountsError(); as message) {
@@ -76,7 +95,7 @@ const NO_METHOD = '';
               <input type="number" min="0.01" step="0.01" formControlName="amount" inputmode="decimal" />
             </pp-field>
             <pp-field label="Fecha y hora" [required]="true" [error]="dateError()">
-              <input type="datetime-local" formControlName="occurredAt" />
+              <input type="datetime-local" formControlName="occurredAt" [max]="latest()" />
             </pp-field>
             @if (openingWarning(); as text) {
               <p class="alert alert-warn wide" role="status">{{ text }}</p>
@@ -127,6 +146,8 @@ export class PedidoCobro {
   readonly cancelled = input(false);
   /** The money is recorded; the screen that owns the summary reloads it. */
   readonly collected = output<void>();
+  /** The database refused: what the card shows may be out of date, and is read again. */
+  readonly stale = output<void>();
 
   protected readonly statusLabel = PAYMENT_STATUS_LABEL;
   protected readonly statusTone = PAYMENT_STATUS_TONE;
@@ -142,10 +163,20 @@ export class PedidoCobro {
   protected readonly error = signal<string | null>(null);
   protected readonly notice = signal<string | null>(null);
 
+  /** A sale of S/ 0 has nothing to collect: it is neither unpaid nor paid. */
+  protected readonly nothingToCollect = computed(() => this.summary().total <= 0);
+
+  /** The last payment sent and its key: sent again unchanged, it keeps the key. */
+  private lastSent: SentRequest<NewPayment> | null = null;
+
   protected readonly form = new FormGroup({
     accountId: new FormControl(NO_ACCOUNT, { nonNullable: true, validators: [Validators.required] }),
-    amount: new FormControl<number | null>(null, [Validators.required, Validators.min(0.01)]),
-    occurredAt: new FormControl(nowForInput(), { nonNullable: true, validators: [Validators.required] }),
+    amount: new FormControl<number | null>(null, [
+      Validators.required,
+      Validators.min(0.01),
+      (control: AbstractControl<number | null>) => this.withinBalance(control),
+    ]),
+    occurredAt: new FormControl(nowForInput(), { nonNullable: true, validators: [Validators.required, notInTheFuture] }),
     method: new FormControl<PaymentMethod | typeof NO_METHOD>(NO_METHOD, { nonNullable: true }),
     reference: new FormControl('', { nonNullable: true }),
   });
@@ -191,10 +222,17 @@ export class PedidoCobro {
 
   constructor() {
     // The suggestion follows the balance, so the second part of a split
-    // payment already proposes what is left.
+    // payment already proposes what is left. Only while the person has not
+    // typed an amount: the card is read again after a refusal or a lost
+    // answer, and putting the whole balance over the 5 they received would
+    // change the payment (and its key) without them noticing.
     effect(() => {
       const balance = this.summary().balance;
-      untracked(() => this.form.controls.amount.setValue(roundMoney(balance)));
+      untracked(() => {
+        const amount = this.form.controls.amount;
+        if (amount.dirty) amount.updateValueAndValidity();
+        else amount.setValue(roundMoney(balance));
+      });
     });
     void this.loadAccounts();
   }
@@ -217,48 +255,114 @@ export class PedidoCobro {
     return errorOf(this.form.controls.amount, {
       required: 'Indica cuánto se cobró.',
       min: 'El monto tiene que ser mayor que cero.',
+      beyondBalance: `No puede pasar del saldo pendiente, ${money(this.summary().balance)}.`,
     });
   }
 
   protected dateError(): string | null {
-    return errorOf(this.form.controls.occurredAt, { required: 'Indica cuándo se cobró.' });
+    return errorOf(this.form.controls.occurredAt, {
+      required: 'Indica cuándo se cobró.',
+      future: 'El cobro no puede tener fecha futura: anótalo con la fecha en que entró el dinero.',
+    });
+  }
+
+  /** The latest moment the date picker offers: now, in Lima. */
+  protected latest(): string {
+    return nowForInput();
+  }
+
+  private withinBalance(control: AbstractControl<number | null>): ValidationErrors | null {
+    const amount = control.value;
+    // Empty while the form is built, before the summary arrives: nothing to compare yet.
+    if (amount == null) return null;
+    return roundMoney(amount) > roundMoney(this.summary().balance) ? { beyondBalance: true } : null;
   }
 
   protected async submit(): Promise<void> {
+    // First, before anything else: a second click arrives before the button
+    // is drawn disabled, and it must not send the payment again (T4-01).
+    if (this.saving()) return;
     this.form.markAllAsTouched();
     this.error.set(null);
     this.notice.set(null);
     if (this.form.invalid) return;
 
     const { accountId, amount, occurredAt, method, reference } = this.form.getRawValue();
+    const payment: NewPayment = {
+      orderId: this.orderId(),
+      accountId,
+      amount: roundMoney(amount ?? 0),
+      method: method === NO_METHOD ? null : method,
+      occurredAt: inputToIso(occurredAt),
+      reference: textOrNull(reference),
+    };
+    // The same payment sent again keeps its key, and the database records it once.
+    this.lastSent = requestKey(this.lastSent, payment);
+    const { key } = this.lastSent;
     this.saving.set(true);
     try {
-      await this.data.recordPayment({
-        orderId: this.orderId(),
-        accountId,
-        amount: amount ?? 0,
-        method: method === NO_METHOD ? null : method,
-        occurredAt: inputToIso(occurredAt),
-        reference: textOrNull(reference),
-      });
+      await this.data.recordPayment(payment, key);
     } catch (error) {
-      this.error.set(friendlyError(error, 'No pudimos registrar el cobro. Inténtalo de nuevo.'));
-      return;
+      // Saving stays on while it asks: a click meanwhile must not send it again.
+      if (!(await this.recordedAnyway(error, key))) {
+        await this.failed(error);
+        return;
+      }
     } finally {
       this.saving.set(false);
     }
 
+    this.lastSent = null;
     this.notice.set('Cobro registrado.');
     this.form.patchValue({ reference: '', occurredAt: nowForInput() });
     this.form.controls.reference.markAsUntouched();
+    // The next payment starts from what is left again.
+    this.form.controls.amount.markAsPristine();
     this.collected.emit();
   }
 
+  /**
+   * A refusal says nothing was saved. A lost answer does not: the payment may
+   * be in the database already, and its key says so.
+   */
+  private async recordedAnyway(error: unknown, key: string): Promise<boolean> {
+    if (refusedByDatabase(error)) return false;
+    return this.data.paymentRecorded(key).catch(() => false);
+  }
+
+  /**
+   * Says why, and reads the order and the accounts again: somebody may have
+   * collected, voided or closed an account meanwhile. What the person typed
+   * stays as it was, and so does its key.
+   */
+  private async failed(error: unknown): Promise<void> {
+    this.error.set(
+      refusedByDatabase(error)
+        ? friendlyError(error, 'No pudimos registrar el cobro. Inténtalo de nuevo.')
+        : `${friendlyError(error, 'No pudimos registrar el cobro.')} Vuelve a tocar «Registrar cobro» sin cambiar nada: si llegó a guardarse, no se cobra dos veces.`,
+    );
+    this.stale.emit();
+    await this.loadAccounts();
+  }
+
+  /**
+   * The accounts money can go into. Read again after a refusal: an account
+   * closed meanwhile leaves the list, and the choice with it, so the
+   * person picks another instead of sending the same refusal again.
+   */
   private async loadAccounts(): Promise<void> {
     try {
-      this.accounts.set(await this.data.paymentAccounts());
+      const accounts = await this.data.paymentAccounts();
+      this.accounts.set(accounts);
+      const chosen = this.form.controls.accountId;
+      if (chosen.value !== NO_ACCOUNT && !accounts.some((account) => account.id === chosen.value)) {
+        chosen.setValue(NO_ACCOUNT);
+      }
     } catch (error) {
-      this.accountsError.set(friendlyError(error, 'No pudimos leer las cuentas. Recarga la pantalla.'));
+      // Read again after a failure, the list already on screen still serves.
+      if (this.accounts().length === 0) {
+        this.accountsError.set(friendlyError(error, 'No pudimos leer las cuentas. Recarga la pantalla.'));
+      }
     } finally {
       this.accountsLoading.set(false);
     }
