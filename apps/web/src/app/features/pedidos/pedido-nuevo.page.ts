@@ -4,7 +4,9 @@ import { FormArray, FormControl, FormGroup, ReactiveFormsModule, Validators } fr
 import { Router, RouterLink } from '@angular/router';
 import { roundMoney } from '../../core/pricing';
 import { AsyncState, Card, Field, FORMAT_PIPES, Page } from '../../ui';
+import { ClienteRapido, type QuickCustomer } from '../cotizador/cliente-rapido';
 import { createOrderLineForm, PedidoLinea, toNewOrderLine } from './pedido-linea';
+import { requestKey, type SentRequest } from './request-key';
 import {
   PedidosData,
   type CustomerOption,
@@ -22,7 +24,7 @@ import { watchSalePromise } from '../cotizador/sale-promise.watch';
 
 @Component({
   selector: 'app-pedido-nuevo',
-  imports: [ReactiveFormsModule, RouterLink, Page, Card, Field, AsyncState, PedidoLinea, ...FORMAT_PIPES],
+  imports: [ReactiveFormsModule, RouterLink, Page, Card, Field, AsyncState, PedidoLinea, ClienteRapido, ...FORMAT_PIPES],
   template: `
     <pp-page title="Nuevo pedido" subtitle="El número se asigna al guardar">
       <a actions class="button secondary" routerLink="/pedidos">Volver</a>
@@ -53,20 +55,13 @@ import { watchSalePromise } from '../cotizador/sale-promise.watch';
                 </select>
               </pp-field>
               @if (quickOpen()) {
-                <div class="quick" [formGroup]="quickCustomer">
-                  <pp-field label="Nombre del cliente" [required]="true" [error]="quickError()">
-                    <input type="text" formControlName="name" autocomplete="off" />
-                  </pp-field>
-                  <pp-field label="Teléfono" hint="Opcional">
-                    <input type="tel" formControlName="phone" autocomplete="off" />
-                  </pp-field>
-                  <div class="row">
-                    <button type="button" (click)="createCustomer()" [disabled]="quickBusy()">
-                      {{ quickBusy() ? 'Creando…' : 'Crear y elegir' }}
-                    </button>
-                    <button type="button" class="secondary" (click)="quickOpen.set(false)">Cancelar</button>
-                  </div>
-                </div>
+                <app-cliente-rapido
+                  class="quick"
+                  [customers]="customers()"
+                  (created)="onCustomerCreated($event)"
+                  (chosen)="onCustomerChosen($event)"
+                  (cancelled)="quickOpen.set(false)"
+                />
               } @else {
                 <button type="button" class="secondary" (click)="quickOpen.set(true)">+ Crear cliente rápido</button>
               }
@@ -123,6 +118,9 @@ import { watchSalePromise } from '../cotizador/sale-promise.watch';
           <pp-card heading="Resumen">
             @if (purpose() === 'sale') {
               <p class="sum"><span>Total de la venta</span><strong>{{ saleTotal() | money }}</strong></p>
+              @if (submitted() && saleTotal() <= 0) {
+                <p class="error" role="alert">{{ zeroSale }}</p>
+              }
               <p class="sum muted"><span>Costo estimado</span><span>{{ estimatedTotal() | money }}</span></p>
               @if (saleTotal() > 0 && estimatedTotal() > 0) {
                 <p class="sum muted"><span>Ganancia estimada</span><span>{{ saleTotal() - estimatedTotal() | money }}</span></p>
@@ -155,7 +153,7 @@ import { watchSalePromise } from '../cotizador/sale-promise.watch';
     .purpose.chosen { border-color: var(--accent); background: var(--accent-soft); }
     .purpose input { width: auto; margin-top: 0.25rem; }
     .purpose span { display: grid; gap: 0.1rem; }
-    .quick { padding: 0.9rem; margin-bottom: 0.9rem; border: 1px dashed var(--line); border-radius: var(--radius); }
+    .quick { display: block; margin-bottom: 0.9rem; }
     .lines { display: grid; gap: 0.75rem; margin-bottom: 0.75rem; }
     .sum { display: flex; justify-content: space-between; gap: 1rem; margin: 0 0 0.4rem; }
     .note { font-size: 0.85rem; margin: 0.5rem 0 1rem; }
@@ -180,10 +178,12 @@ export class PedidoNuevoPage {
     lines: new FormArray([createOrderLineForm()]),
   });
 
-  protected readonly quickCustomer = new FormGroup({
-    name: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
-    phone: new FormControl('', { nonNullable: true }),
-  });
+  /** The same words the quick sale and the database use for a sale of S/ 0 (T4-16). */
+  protected readonly zeroSale =
+    'La venta suma S/ 0.00. Escribe el precio, o si lo regalas, regístralo como un pedido de regalo.';
+
+  /** The last order sent and its key: sent again unchanged, it keeps the key (T4-04). */
+  private lastSent: SentRequest<NewOrder> | null = null;
 
   protected readonly customers = signal<CustomerOption[]>([]);
   protected readonly categories = signal<GiftCategoryOption[]>([]);
@@ -194,8 +194,6 @@ export class PedidoNuevoPage {
   protected readonly saveError = signal<string | null>(null);
   protected readonly submitted = signal(false);
   protected readonly quickOpen = signal(false);
-  protected readonly quickBusy = signal(false);
-  protected readonly quickFailed = signal<string | null>(null);
 
   private readonly changes = toSignal(this.form.valueChanges);
   protected readonly purpose = computed(() => {
@@ -254,32 +252,23 @@ export class PedidoNuevoPage {
     return control.invalid && (control.touched || this.submitted()) ? message : null;
   }
 
-  protected quickError(): string | null {
-    const name = this.quickCustomer.controls.name;
-    return this.quickFailed() ?? (name.invalid && name.touched ? 'Escribe el nombre del cliente.' : null);
+  /** The customer just created is the one the sale is for. */
+  protected onCustomerCreated(customer: QuickCustomer): void {
+    this.customers.update((list) => [...list, customer].sort((a, b) => a.name.localeCompare(b.name, 'es')));
+    this.onCustomerChosen(customer);
   }
 
-  protected async createCustomer(): Promise<void> {
-    this.quickCustomer.markAllAsTouched();
-    this.quickFailed.set(null);
-    if (this.quickCustomer.invalid) return;
-
-    this.quickBusy.set(true);
-    try {
-      const { name, phone } = this.quickCustomer.getRawValue();
-      const customer = await this.data.createCustomer(name, phone.trim() || null);
-      this.customers.update((list) => [...list, customer].sort((a, b) => a.name.localeCompare(b.name, 'es')));
-      this.form.controls.customerId.setValue(customer.id);
-      this.quickCustomer.reset();
-      this.quickOpen.set(false);
-    } catch (error) {
-      this.quickFailed.set(explainError(error, 'No pudimos crear el cliente. Inténtalo de nuevo.'));
-    } finally {
-      this.quickBusy.set(false);
-    }
+  /** It was somebody already in the list. */
+  protected onCustomerChosen(customer: QuickCustomer): void {
+    this.form.controls.customerId.setValue(customer.id);
+    this.form.controls.customerId.markAsTouched();
+    this.quickOpen.set(false);
   }
 
   protected async save(): Promise<void> {
+    // First, before anything else: a second click arrives before the button
+    // is drawn disabled, and it must not create a second order (T4-04).
+    if (this.saving()) return;
     this.submitted.set(true);
     this.saveError.set(null);
     this.form.markAllAsTouched();
@@ -287,11 +276,18 @@ export class PedidoNuevoPage {
       this.saveError.set('Revisa los campos marcados en rojo antes de guardar.');
       return;
     }
+    if (this.purpose() === 'sale' && this.saleTotal() <= 0) {
+      this.saveError.set(this.zeroSale);
+      return;
+    }
 
+    const order = this.toNewOrder();
+    this.lastSent = requestKey(this.lastSent, order);
     this.saving.set(true);
     let created: { id: string };
     try {
-      created = await this.data.createOrder(this.toNewOrder());
+      // The key stays: pressed again after this, the same order comes back instead of a second one.
+      created = await this.data.createOrder(order, this.lastSent.key);
       this.planner.invalidate();
     } catch (error) {
       this.saveError.set(explainError(error, 'No pudimos guardar el pedido. Inténtalo de nuevo.'));
