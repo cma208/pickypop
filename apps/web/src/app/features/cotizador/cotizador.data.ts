@@ -474,8 +474,9 @@ export class CotizadorData {
     const row = profiles.data?.[0];
 
     if (row === undefined) {
+      // Said to anyone who quotes: the parameters are configuration, the owner's (ADR-025).
       throw new DataError(
-        'Todavía no hay parámetros de costo vigentes. Créalos en Configuración antes de cotizar.',
+        'Todavía no hay parámetros de costo vigentes, y sin ellos no se puede cotizar. Los crea el dueño del taller en Configuración.',
       );
     }
 
