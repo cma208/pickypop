@@ -97,6 +97,8 @@ export interface AccountOption {
   name: string;
   /** What the collection form fills in when the person leaves the method blank. */
   defaultMethod: PaymentMethod | null;
+  /** "2026-10-07": a collection dated before it does not move the balance (E5-02). */
+  openingBalanceOn: string;
 }
 
 export interface NewPayment {
@@ -350,11 +352,16 @@ export class PedidosData {
   async paymentAccounts(): Promise<AccountOption[]> {
     const { data, error } = await this.supabase
       .from('accounts')
-      .select('id, name, default_payment_method')
+      .select('id, name, default_payment_method, opening_balance_on')
       .eq('active', true)
       .order('name');
     if (error) throw error;
-    return data.map((row) => ({ id: row.id, name: row.name, defaultMethod: row.default_payment_method }));
+    return data.map((row) => ({
+      id: row.id,
+      name: row.name,
+      defaultMethod: row.default_payment_method,
+      openingBalanceOn: row.opening_balance_on,
+    }));
   }
 
   /**

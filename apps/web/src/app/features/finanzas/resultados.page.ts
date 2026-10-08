@@ -144,7 +144,7 @@ const ALL_YEARS = '';
                       <span>
                         Producción no vendida
                         <small class="sub">
-                          moldes, herramientas y pruebas, con sus intentos fallidos: {{ row.toolsAndTests | money }} · conteo del estante:
+                          moldes, herramientas, pruebas e impresiones de pedidos cancelados: {{ row.toolsAndTests | money }} · conteo del estante:
                           {{ row.shelfCountLosses | money }}{{ row.shelfCountLosses < 0 ? ' (sobró más de lo que faltó)' : '' }}
                         </small>
                       </span>

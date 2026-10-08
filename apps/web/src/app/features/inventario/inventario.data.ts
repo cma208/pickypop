@@ -774,7 +774,7 @@ export class InventarioData {
         const result = await this.supabase.from('spools').insert(spools);
         if (result.error) throw result.error;
         spoolIds.push(...spools.map((spool) => spool.id));
-        created.push(`${spools.length} rollo(s)`);
+        created.push(spools.length === 1 ? '1 rollo' : `${spools.length} rollos`);
       }
 
       step = 'los movimientos de stock';

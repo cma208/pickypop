@@ -6,6 +6,7 @@ import { errorOf, textOrNull } from '../../core/form-errors';
 import { friendlyError } from '../../core/friendly-error';
 import { roundMoney } from '../../core/pricing';
 import { Badge, Card, Field, FORMAT_PIPES } from '../../ui';
+import { beforeOpening, beforeOpeningNotice } from '../finanzas/opening-balance';
 import { PaymentCategoryNote } from '../finanzas/payment-category-note';
 import { PedidosData, type AccountOption, type PaymentSummary } from './pedidos.data';
 import {
@@ -77,6 +78,9 @@ const NO_METHOD = '';
             <pp-field label="Fecha y hora" [required]="true" [error]="dateError()">
               <input type="datetime-local" formControlName="occurredAt" />
             </pp-field>
+            @if (openingWarning(); as text) {
+              <p class="alert alert-warn wide" role="status">{{ text }}</p>
+            }
             <pp-field label="Medio de pago" [hint]="methodHint()">
               <select formControlName="method">
                 <option [value]="noMethod">{{ defaultMethodOption() }}</option>
@@ -107,6 +111,7 @@ const NO_METHOD = '';
     dd { margin: 0; }
     .balance { font-weight: 600; }
     .balance.owed { color: var(--warn); }
+    .wide { grid-column: 1 / -1; margin: 0; }
     .notice { margin: 0 0 1rem; padding: 0.6rem 0.8rem; border-radius: var(--radius-sm); background: var(--good-soft); color: var(--good); font-size: 0.85rem; }
     .form-box { padding: 1rem; border: 1px solid var(--line); border-radius: var(--radius); background: var(--bg); }
     .form-box h3 { margin: 0 0 0.75rem; font-size: 0.95rem; }
@@ -152,6 +157,24 @@ export class PedidoCobro {
   private readonly chosenAccount = computed(() =>
     this.accounts().find((account) => account.id === this.chosenAccountId()),
   );
+
+  private readonly chosenOccurredAt = toSignal(this.form.controls.occurredAt.valueChanges, {
+    initialValue: this.form.controls.occurredAt.value,
+  });
+
+  /**
+   * The same warning Caja gives (E5-02): money collected before the account
+   * opened is already inside its opening balance, so the database leaves it
+   * out of the balance while it still pays the order.
+   */
+  protected readonly openingWarning = computed(() => {
+    const account = this.chosenAccount();
+    const when = this.chosenOccurredAt();
+    if (!account || !when) return null;
+    return beforeOpening(inputToIso(when), account.openingBalanceOn)
+      ? beforeOpeningNotice(account, 'el cobro cuenta para el pedido')
+      : null;
+  });
 
   protected readonly defaultMethodOption = computed(() => {
     const method = this.chosenAccount()?.defaultMethod;
