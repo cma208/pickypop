@@ -12,6 +12,7 @@ import { maxDecimals } from './form-helpers';
 import { InventarioData, type PaymentAccount, type PurchaseSummary } from './inventario.data';
 import { describeError, noAnswerReason, outcomeUnknown } from './inventario.errors';
 import { INVENTORY_STYLES } from './inventario.styles';
+import { noAccountsText } from './accounts-hint';
 import { notBefore, notInTheFutureMoment, purchaseDateFloor } from './purchase-dates';
 
 const NO_ACCOUNT = '';
@@ -42,7 +43,7 @@ const MONEY = new Intl.NumberFormat('es-PE', { minimumFractionDigits: 2, maximum
     <form class="box" [formGroup]="form" (ngSubmit)="submit()" novalidate>
       <h4>Registrar el pago · falta {{ purchase().pending | money }}</h4>
       @if (accounts().length === 0) {
-        <p class="muted">No hay cuentas activas desde donde pagar. Crea una en Finanzas › Cuentas.</p>
+        <p class="muted">{{ noAccounts() }}</p>
       } @else {
         <!-- Locked while it is on its way and while nobody knows whether it went in: see locked. -->
         <fieldset class="contents" [disabled]="locked()">
@@ -96,6 +97,8 @@ export class CompraPago {
 
   readonly purchase = input.required<PurchaseSummary>();
   readonly accounts = input.required<PaymentAccount[]>();
+  /** Only the owner creates accounts: the operator is told whom to ask. */
+  readonly isOwner = input(false);
   /** The money is recorded; the list that owns the purchase reloads it. */
   readonly paid = output<void>();
   /**
@@ -112,6 +115,7 @@ export class CompraPago {
   protected readonly noMethod = NO_METHOD;
   protected readonly oldestMoment = `${purchaseDateFloor(todayLocal())}T00:00`;
   protected readonly latestMoment = nowForInput();
+  protected readonly noAccounts = computed(() => noAccountsText(this.isOwner()));
   protected readonly saving = signal(false);
   protected readonly error = signal<string | null>(null);
   /** Why there is no answer, when the payment may have gone in anyway. Cleared by the answer to a retry. */

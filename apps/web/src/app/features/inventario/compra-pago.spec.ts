@@ -31,7 +31,7 @@ interface Opened {
   refused: number;
 }
 
-function open(record: () => Promise<void>): Opened {
+function open(record: () => Promise<void>, options: { accounts?: PaymentAccount[]; isOwner?: boolean } = {}): Opened {
   const calls: Call[] = [];
   TestBed.configureTestingModule({
     providers: [
@@ -50,7 +50,8 @@ function open(record: () => Promise<void>): Opened {
   });
   const fixture = TestBed.createComponent(CompraPago);
   fixture.componentRef.setInput('purchase', PURCHASE);
-  fixture.componentRef.setInput('accounts', [CASH]);
+  fixture.componentRef.setInput('accounts', options.accounts ?? [CASH]);
+  fixture.componentRef.setInput('isOwner', options.isOwner ?? false);
   const opened: Opened = { fixture, calls, paid: 0, refused: 0 };
   fixture.componentInstance.paid.subscribe(() => opened.paid++);
   fixture.componentInstance.refused.subscribe(() => opened.refused++);
@@ -267,5 +268,14 @@ describe('CompraPago', () => {
 
     expect(opened.calls.length).toBe(2);
     expect(opened.calls[1]?.[1]).toBe(opened.calls[0]?.[1]);
+  });
+
+  it('tells an operator with no account to ask the owner, and the owner to create one', () => {
+    const operator = open(async () => undefined, { accounts: [], isOwner: false });
+    expect(text(operator.fixture)).toContain('Solo el dueño crea cuentas');
+    expect(text(operator.fixture)).not.toContain('Crea una');
+    TestBed.resetTestingModule();
+    const owner = open(async () => undefined, { accounts: [], isOwner: true });
+    expect(text(owner.fixture)).toContain('Crea una en Finanzas › Cuentas.');
   });
 });

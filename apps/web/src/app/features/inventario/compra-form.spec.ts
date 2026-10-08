@@ -68,7 +68,7 @@ function later(): { answer: Promise<object | null>; arrive(value: object | null)
   return { answer, arrive };
 }
 
-function open(answers: Array<object | null | Promise<object | null>>) {
+function open(answers: Array<object | null | Promise<object | null>>, options: { accounts?: PaymentAccount[]; isOwner?: boolean } = {}) {
   const calls: Array<[PurchaseDraft, string]> = [];
   TestBed.configureTestingModule({
     providers: [
@@ -93,7 +93,8 @@ function open(answers: Array<object | null | Promise<object | null>>) {
   fixture.componentRef.setInput('skuOptions', [SKU]);
   fixture.componentRef.setInput('itemOptions', []);
   fixture.componentRef.setInput('supplierOptions', []);
-  fixture.componentRef.setInput('accountOptions', [CASH]);
+  fixture.componentRef.setInput('accountOptions', options.accounts ?? [CASH]);
+  fixture.componentRef.setInput('isOwner', options.isOwner ?? false);
   const outcome = { saved: 0, refused: 0 };
   fixture.componentInstance.saved.subscribe(() => outcome.saved++);
   fixture.componentInstance.refused.subscribe(() => outcome.refused++);
@@ -104,7 +105,7 @@ function open(answers: Array<object | null | Promise<object | null>>) {
   line.target.setValue(`sku:${SKU.id}`);
   line.quantity.setValue(2);
   line.unitPrice.setValue(60);
-  internals.form.controls.paidFrom.setValue(CASH.id);
+  internals.form.controls.paidFrom.setValue(options.accounts?.length === 0 ? 'not-paid' : CASH.id);
   internals.askConfirmation();
   fixture.detectChanges();
 
@@ -188,5 +189,13 @@ describe('CompraForm', () => {
     expect(calls.length).toBe(2);
     expect(calls[1]?.[1]).toBe(calls[0]?.[1]);
     expect(outcome.saved).toBe(1);
+  });
+
+  it('tells an operator with no account to ask the owner, and the owner to create one', () => {
+    const operator = open([], { accounts: [], isOwner: false });
+    expect(text(operator.fixture)).toContain('Solo el dueño crea cuentas');
+    TestBed.resetTestingModule();
+    const owner = open([], { accounts: [], isOwner: true });
+    expect(text(owner.fixture)).toContain('Crea una en Finanzas › Cuentas.');
   });
 });

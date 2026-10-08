@@ -43,6 +43,7 @@ const DEFAULT_UNIT = 'unidad';
             [itemOptions]="items()"
             [supplierOptions]="suppliers()"
             [accountOptions]="accounts()"
+            [isOwner]="isOwner()"
             (saved)="onSaved($event)"
             (refused)="refresh()"
             (cancelled)="onCancelled()"
@@ -137,6 +138,7 @@ const DEFAULT_UNIT = 'unidad';
                           <app-compra-pago
                             [purchase]="purchase"
                             [accounts]="accounts()"
+                            [isOwner]="isOwner()"
                             (paid)="onPaid()"
                             (refused)="refresh()"
                           />
@@ -173,6 +175,8 @@ export class ComprasPage {
   protected readonly items = signal<InventoryItemSummary[]>([]);
   protected readonly suppliers = signal<SupplierOption[]>([]);
   protected readonly accounts = signal<PaymentAccount[]>([]);
+  /** Only to word what the operator cannot do (create an account); the database decides. */
+  protected readonly isOwner = signal(false);
   protected readonly loading = signal(true);
   protected readonly error = signal<string | null>(null);
   protected readonly notice = signal<string | null>(null);
@@ -250,12 +254,22 @@ export class ComprasPage {
 
   private async load(): Promise<void> {
     this.error.set(null);
+    void this.readRole();
     try {
       await this.fetchLists();
     } catch (error) {
       this.error.set(describeError(error, 'No pudimos cargar las compras. Inténtalo de nuevo.'));
     } finally {
       this.loading.set(false);
+    }
+  }
+
+  /** Without it the page still works: the wording falls back to the operator's, which is true for anyone. */
+  private async readRole(): Promise<void> {
+    try {
+      this.isOwner.set((await this.data.currentRole()) === 'owner');
+    } catch (error) {
+      console.error(error);
     }
   }
 

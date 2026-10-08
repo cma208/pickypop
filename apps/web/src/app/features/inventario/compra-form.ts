@@ -49,6 +49,7 @@ import { beforeOpeningNotice, dayBeforeOpening } from '../finanzas/opening-balan
 import { purchaseEntries } from './purchase-entries';
 import { purchaseLineProblems, purchaseTotalProblem, type PurchaseLineProblems } from './purchase-line-rules';
 import { notBefore, purchaseDateFloor } from './purchase-dates';
+import { noAccountsText } from './accounts-hint';
 
 interface Target {
   kind: 'sku' | 'item';
@@ -200,6 +201,9 @@ function notInTheFuture(control: AbstractControl): ValidationErrors | null {
               }
               <option [value]="notPaid">Todavía no la pagué</option>
             </select>
+            @if (accountOptions().length === 0) {
+              <p class="muted no-accounts">{{ noAccounts() }} Mientras tanto, elige «Todavía no la pagué».</p>
+            }
           </pp-field>
           @if (chosenAccount(); as account) {
             <pp-field label="Medio de pago" [hint]="account.defaultMethod ? undefined : account.name + ' no tiene un medio por defecto: elígelo aquí.'">
@@ -284,6 +288,7 @@ function notInTheFuture(control: AbstractControl): ValidationErrors | null {
       textarea { resize: vertical; }
       /* Only there to lock what it holds: the cards keep the form's spacing. */
       fieldset.contents { display: contents; }
+      .no-accounts { margin: 0.4rem 0 0; font-size: var(--fs-sm); }
       .confirm { padding: 1rem; border: 2px solid var(--accent); border-radius: var(--radius); background: var(--accent-soft); }
       .confirm p { margin: 0; }
       .alert p { margin: 0 0 0.5rem; }
@@ -301,6 +306,8 @@ export class CompraForm {
   readonly itemOptions = input.required<InventoryItemSummary[]>();
   readonly supplierOptions = input.required<SupplierOption[]>();
   readonly accountOptions = input.required<PaymentAccount[]>();
+  /** Only the owner creates accounts: the operator is told whom to ask. */
+  readonly isOwner = input(false);
   readonly saved = output<SavedPurchase>();
   readonly cancelled = output<void>();
   /** The database refused it: what the form was built from may be old (a filament switched off, an account closed). */
@@ -429,6 +436,8 @@ export class CompraForm {
       this.resolved().flatMap(({ item }) => (item ? [item.kind] : [])),
     ),
   );
+
+  protected readonly noAccounts = computed(() => noAccountsText(this.isOwner()));
 
   protected readonly chosenAccount = computed(() =>
     this.accountOptions().find((account) => account.id === this.raw().paidFrom),

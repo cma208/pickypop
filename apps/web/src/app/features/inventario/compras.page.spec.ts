@@ -39,6 +39,7 @@ describe('ComprasPage', () => {
             items: () => answer([]),
             suppliers: () => answer([]),
             paymentAccounts: () => answer([]),
+            currentRole: async () => 'operator',
           },
         },
       ],
