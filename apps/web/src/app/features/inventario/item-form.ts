@@ -4,7 +4,7 @@ import { NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angula
 import { ArticlePhotos } from '../../core/article-photos';
 import { Media } from '../../core/media';
 import { Field, ImageField, Thumb } from '../../ui';
-import { blankToNull, invalidMessage, photosToDelete } from './form-helpers';
+import { blankToNull, invalidMessage, photosToDelete, requiredText } from './form-helpers';
 import { InventarioData, type InventoryItemSummary } from './inventario.data';
 import { describeError } from './inventario.errors';
 import { ITEM_KINDS, ITEM_KIND_LABELS, type ItemKind } from './inventario.format';
@@ -152,8 +152,8 @@ export class ItemForm implements OnDestroy {
 
   protected readonly form = this.fb.group({
     kind: ['supply' as ItemKind, Validators.required],
-    name: ['', [Validators.required, Validators.maxLength(100)]],
-    unit: [DEFAULT_UNIT, [Validators.required, Validators.maxLength(20)]],
+    name: ['', [requiredText, Validators.maxLength(100)]],
+    unit: [DEFAULT_UNIT, [requiredText, Validators.maxLength(20)]],
     minStock: [0, [Validators.required, Validators.min(0)]],
     perishable: [false],
     note: [''],

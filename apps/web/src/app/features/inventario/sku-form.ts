@@ -2,7 +2,7 @@ import { Component, computed, inject, input, output, signal } from '@angular/cor
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormControl, NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Field } from '../../ui';
-import { blankToNull, inactiveSuffix, invalidMessage, selectableOptions } from './form-helpers';
+import { blankToNull, inactiveSuffix, invalidMessage, requiredText, selectableOptions } from './form-helpers';
 import {
   InventarioData,
   type BrandOption,
@@ -166,7 +166,7 @@ export class SkuForm {
     brandId: ['', Validators.required],
     materialId: ['', Validators.required],
     finishId: [''],
-    colorName: ['', [Validators.required, Validators.maxLength(60)]],
+    colorName: ['', [requiredText, Validators.maxLength(60)]],
     colorHex: ['', Validators.pattern(HEX_PATTERN)],
     diameterMm: [DEFAULT_DIAMETER_MM, [Validators.required, Validators.min(0.01)]],
     netWeightG: [DEFAULT_NET_WEIGHT_G, [Validators.required, Validators.min(1)]],
