@@ -191,6 +191,12 @@ describe('CompraForm', () => {
     expect(outcome.saved).toBe(1);
   });
 
+  it('shows every article of the preview with its picture: a filament with its colour', () => {
+    const { fixture } = open([]);
+    const thumbs = (fixture.nativeElement as HTMLElement).querySelectorAll('app-purchase-preview pp-item pp-thumb');
+    expect(thumbs.length).toBe(1);
+  });
+
   it('tells an operator with no account to ask the owner, and the owner to create one', () => {
     const operator = open([], { accounts: [], isOwner: false });
     expect(text(operator.fixture)).toContain('Solo el dueño crea cuentas');

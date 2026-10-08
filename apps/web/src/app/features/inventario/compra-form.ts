@@ -418,6 +418,9 @@ export class CompraForm {
         {
           label: sku ? this.skuName(sku) : (item?.name ?? ''),
           kind: sku ? 'sku' : 'item',
+          imagePath: item?.imagePath ?? null,
+          articleKind: sku ? 'spool' : (item?.kind ?? 'supply'),
+          colorHex: sku?.colorHex ?? null,
           unit: sku ? 'rollo' : (item?.unit ?? ''),
           netWeightG: sku?.netWeightG ?? null,
           line: this.plan().lines[index],

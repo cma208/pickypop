@@ -1,5 +1,5 @@
 import { Component, computed, input } from '@angular/core';
-import { FORMAT_PIPES } from '../../ui';
+import { FORMAT_PIPES, Item, type ArticleKind } from '../../ui';
 import { unitFor } from './inventario.format';
 import { INVENTORY_STYLES } from './inventario.styles';
 import type { PlanLine, PurchasePlan } from '../../core/pricing';
@@ -14,6 +14,14 @@ const COST_PER_GRAM_DIGITS = 3;
 export interface PreviewRow {
   label: string;
   kind: 'sku' | 'item';
+  /**
+   * What the article is recognised by, before the purchase is confirmed: its
+   * photo, or a filament's colour. «Tapa chica» and «Tapa chica roja» read
+   * almost the same; their pictures do not.
+   */
+  imagePath: string | null;
+  articleKind: ArticleKind;
+  colorHex: string | null;
   /** The unit as it is counted, singular: «rollo», «g», «unidad». */
   unit: string;
   netWeightG: number | null;
@@ -32,7 +40,7 @@ interface CostGroup {
  */
 @Component({
   selector: 'app-purchase-preview',
-  imports: [FORMAT_PIPES],
+  imports: [FORMAT_PIPES, Item],
   template: `
     <p class="muted intro">{{ methodText() }}</p>
 
@@ -44,7 +52,7 @@ interface CostGroup {
 
     @for (row of rows(); track $index) {
       <article class="row-card">
-        <h3>{{ row.label }}</h3>
+        <h3><pp-item [path]="row.imagePath" [kind]="row.articleKind" [color]="row.colorHex" [name]="row.label" /></h3>
         <dl>
           <div><dt>Compra</dt><dd>{{ quantityText(row) }} × {{ row.line.unitPrice | unitPrice }} = {{ row.line.subtotal | money }}</dd></div>
           <div><dt>Parte del envío y otros costos</dt><dd>{{ row.line.extra | money }}</dd></div>
@@ -81,7 +89,7 @@ interface CostGroup {
     `
       .intro { margin: 0 0 0.75rem; font-size: 0.85rem; }
       .row-card { padding: 0.75rem 0; border-bottom: 1px solid var(--line); }
-      h3 { margin: 0 0 0.4rem; font-size: 0.95rem; }
+      h3 { margin: 0 0 0.5rem; font-size: 0.95rem; font-weight: inherit; }
       dl { margin: 0; display: grid; gap: 0.25rem; }
       dl > div { display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
       dt { color: var(--muted); font-size: 0.85rem; }
