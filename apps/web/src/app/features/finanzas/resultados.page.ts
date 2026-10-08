@@ -62,6 +62,13 @@ const ALL_YEARS = '';
           del catálogo que aún no sale del estante), porque la paga la reserva por fallos de ese estimado.
         </p>
         <p>
+          <strong>Lo que sale del inventario sin venderse también resta.</strong> Un rollo que se marca agotado
+          o descartado con filamento, lo que falta al pesar un rollo, una merma y lo que falta al contar un
+          insumo, un empaque o un repuesto se pagaron y no se vendieron; lo que sobra al pesar o al contar lo
+          compensa. No cuentan una entrada a mano, el primer conteo de un artículo (es lo que ya había) ni un
+          consumo a mano, que ya está en el estimado de un pedido a medida o en el costo de máquina.
+        </p>
+        <p>
           <strong>Las fallas se miden en costo, no en cantidad de impresiones.</strong> Se comparan con lo que
           se imprimió para producir, que es lo que lleva la reserva: un molde o una prueba no la llevan y no
           cuentan, ni cuando salen ni cuando fallan. Por eso no es la misma cifra que «fallos» en Hoy, que cuenta impresiones: fallar una placa
@@ -164,6 +171,10 @@ const ALL_YEARS = '';
                           {{ row.shelfCountLosses | money }}{{ row.shelfCountLosses < 0 ? ' (sobró más de lo que faltó)' : '' }}
                           @if (row.uncoveredFailedPrints !== 0) {
                             · impresiones fallidas que ningún precio paga (estante, regalos, pedidos cancelados): {{ row.uncoveredFailedPrints | money }}
+                          }
+                          @if (row.stockWrittenOff !== 0) {
+                            · lo que salió del inventario sin venderse (rollos agotados o descartados, pesajes, mermas y conteos a mano):
+                            {{ row.stockWrittenOff | money }}{{ row.stockWrittenOff < 0 ? ' (sobró más de lo que faltó)' : '' }}
                           }
                         </small>
                       </span>

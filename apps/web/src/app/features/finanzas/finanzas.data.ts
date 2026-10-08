@@ -143,8 +143,10 @@ function withRaisedMessage(error: unknown): unknown {
 }
 
 /**
- * Whether the database refused, with a sentence of its own or for the role
- * (a 42501 from a row policy): the screen then reloads what it showed.
+ * Whether the database refused with a sentence of its own, or refused who is
+ * asking: the screen then reloads what it showed, and the role with it. A
+ * refusal by role comes as 42501 with its sentence (`void_transaction`, ADR-025),
+ * not as `P0001`, so it has to count here too or the screen keeps offering it.
  */
 export function isRefusal(error: unknown): boolean {
   return (
@@ -542,7 +544,7 @@ export class FinanzasData {
       this.supabase
         .from('monthly_income_statement')
         .select(
-          'month, sales, cost_of_sales, gross_profit, operating_expenses, net_profit, other_income, inventory_purchases, owner_contributions, owner_draws, unsold_production, tools_and_tests, shelf_count_losses, failed_prints, print_cost, failure_reserve_rate, uncovered_failed_prints',
+          'month, sales, cost_of_sales, gross_profit, operating_expenses, net_profit, other_income, inventory_purchases, owner_contributions, owner_draws, unsold_production, tools_and_tests, shelf_count_losses, failed_prints, print_cost, failure_reserve_rate, uncovered_failed_prints, stock_written_off',
         )
         .order('month', { ascending: false })
         .range(from, to),
@@ -566,6 +568,7 @@ export class FinanzasData {
         shelfCountLosses: num(row.shelf_count_losses),
         failedPrints: num(row.failed_prints),
         uncoveredFailedPrints: num(row.uncovered_failed_prints),
+        stockWrittenOff: num(row.stock_written_off),
         printCost: num(row.print_cost),
         failureReserveRate: row.failure_reserve_rate === null ? null : Number(row.failure_reserve_rate),
       }));

@@ -20,8 +20,8 @@ export interface MonthResult {
   ownerContributions: number;
   ownerDraws: number;
   /**
-   * Printed and never sold: `toolsAndTests`, `shelfCountLosses` and
-   * `uncoveredFailedPrints`. Subtracted (ADR-023).
+   * Printed or bought and never sold: `toolsAndTests`, `shelfCountLosses`,
+   * `uncoveredFailedPrints` and `stockWrittenOff`. Subtracted (ADR-023).
    */
   unsoldProduction: number;
   /**
@@ -45,6 +45,15 @@ export interface MonthResult {
    * order's. Part of `unsoldProduction`, so subtracted.
    */
   uncoveredFailedPrints: number;
+  /**
+   * What left the inventory without being sold, outside the shelf and the
+   * prints: rolls marked empty or discarded with grams, weighings, and
+   * supplies lost or counted by hand, less what weighings and counts found
+   * over. A manual entry, an opening count and a manual consumption are not
+   * here: the consumption is already in an estimate or the machine cost.
+   * Part of `unsoldProduction`, so subtracted (ADR-023, point 7).
+   */
+  stockWrittenOff: number;
   /**
    * What was printed to produce that month, failures included: what the
    * failures are measured against. Moulds and tests do not carry the
@@ -73,6 +82,7 @@ const EMPTY: ResultTotals = {
   shelfCountLosses: 0,
   failedPrints: 0,
   uncoveredFailedPrints: 0,
+  stockWrittenOff: 0,
   printCost: 0,
 };
 
@@ -97,6 +107,7 @@ export function addUpMonths(rows: readonly MonthResult[]): ResultTotals {
     shelfCountLosses: total((row) => row.shelfCountLosses),
     failedPrints: total((row) => row.failedPrints),
     uncoveredFailedPrints: total((row) => row.uncoveredFailedPrints),
+    stockWrittenOff: total((row) => row.stockWrittenOff),
     printCost: total((row) => row.printCost),
   };
 }
