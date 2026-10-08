@@ -103,6 +103,7 @@ describe('cancelQuestion', () => {
 describe('cancelNotice', () => {
   it('says nothing when there was nothing in the queue', () => {
     expect(cancelNotice(0, true)).toBeNull();
+    expect(cancelNotice(0, null)).toBeNull();
   });
 
   it('says where the prints went', () => {

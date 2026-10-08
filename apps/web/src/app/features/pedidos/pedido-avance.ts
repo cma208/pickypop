@@ -71,6 +71,7 @@ import {
             [prints]="prints()"
             (cancelled)="onCancelled($event)"
             (back)="confirmingCancel.set(false)"
+            (stale)="printsStale.emit()"
           />
         }
       }
@@ -103,6 +104,8 @@ export class PedidoAvance {
 
   /** The status changed: the page reads the order again. */
   readonly changed = output<void>();
+  /** What the order has in the print queue may have changed: the page reads it again. */
+  readonly printsStale = output<void>();
   /** «Entregar» is the next step: the page brings the delivery form up. */
   readonly deliver = output<void>();
 

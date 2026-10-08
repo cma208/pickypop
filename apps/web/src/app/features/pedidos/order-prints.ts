@@ -56,8 +56,8 @@ export function cancelQuestion(planned: number): string {
  * What the order page says once the order is cancelled, so the person knows
  * where the prints went: gone with the order, or loose in the queue.
  */
-export function cancelNotice(planned: number, cancelPrints: boolean): string | null {
-  if (planned === 0) return null;
+export function cancelNotice(planned: number, cancelPrints: boolean | null): string | null {
+  if (planned === 0 || cancelPrints === null) return null;
   const what = plannedCount(planned);
   if (cancelPrints) return `También se ${planned === 1 ? 'canceló' : 'cancelaron'} ${what}, sin tiempo ni costo.`;
   return planned === 1

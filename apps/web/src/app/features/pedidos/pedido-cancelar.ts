@@ -12,6 +12,11 @@ import { cancelBlocker } from './pedidos.labels';
  * prints go with the order, without time or cost, or stay in the queue as
  * loose jobs. One already on the printer is the database's to refuse, and
  * its words are shown as they come.
+ *
+ * The answer travels with the prints it was given for. If the queue holds
+ * others by now (queued from Producción meanwhile, or not read yet), the
+ * database cancels nothing and says so, and the list is read again so the
+ * question can be asked about what is really there.
  */
 @Component({
   selector: 'app-pedido-cancelar',
@@ -56,7 +61,7 @@ import { cancelBlocker } from './pedidos.labels';
         } @else {
           <p>¿Cancelar este pedido? No se puede deshacer.</p>
           <div class="row">
-            <button type="button" class="danger" (click)="cancel(true)" [disabled]="busy()">Sí, cancelar pedido</button>
+            <button type="button" class="danger" (click)="cancel(null)" [disabled]="busy()">Sí, cancelar pedido</button>
             <button type="button" class="ghost" (click)="back.emit()" [disabled]="busy()">No</button>
           </div>
         }
@@ -89,23 +94,32 @@ export class PedidoCancelar {
   readonly cancelled = output<string | null>();
   /** The person changed their mind. */
   readonly back = output<void>();
+  /** The database refused: the list may be out of date and is to be read again. */
+  readonly stale = output<void>();
 
   protected readonly busy = signal(false);
   protected readonly error = signal<string | null>(null);
 
   protected readonly blocker = computed(() => cancelBlocker(this.paid()));
-  protected readonly planned = computed(() => this.prints().filter((print) => !print.printing).length);
+  private readonly plannedIds = computed(() =>
+    this.prints()
+      .filter((print) => !print.printing)
+      .map((print) => print.id),
+  );
+  protected readonly planned = computed(() => this.plannedIds().length);
   protected readonly printing = computed(() => this.prints().some((print) => print.printing));
   protected readonly question = computed(() => cancelQuestion(this.planned()));
 
-  protected async cancel(cancelPrints: boolean): Promise<void> {
+  /** `cancelPrints` is the person's answer, null when nothing was asked. */
+  protected async cancel(cancelPrints: boolean | null): Promise<void> {
     this.busy.set(true);
     this.error.set(null);
     try {
-      await this.orders.cancelOrder(this.orderId(), cancelPrints);
+      await this.orders.cancelOrder(this.orderId(), this.plannedIds(), cancelPrints);
       this.cancelled.emit(cancelNotice(this.planned(), cancelPrints));
     } catch (error) {
       this.error.set(friendlyError(error, 'No pudimos cancelar el pedido. Inténtalo de nuevo.'));
+      this.stale.emit();
     } finally {
       this.busy.set(false);
     }

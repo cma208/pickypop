@@ -2418,7 +2418,7 @@ isOneToOne: false
         isSetofReturn: true
       } },
 "cancel_order":
-{ Args: { "p_cancel_prints": boolean,"p_order_id": string,"p_reason"?: string }; Returns: {
+{ Args: { "p_cancel_prints"?: boolean,"p_order_id": string,"p_reason"?: string,"p_seen_prints": string[] }; Returns: {
               "channel_id": string | null,
 "created_at": string,
 "created_by": string | null,

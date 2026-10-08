@@ -103,6 +103,7 @@ import { isFinal, PURPOSE_LABEL, PURPOSE_TONE, STATUS_LABEL, STATUS_TONE, type O
               [paid]="payment()?.paid ?? null"
               [prints]="queued()"
               (changed)="onDelivered()"
+              (printsStale)="reloadProduction()"
               (deliver)="goToDelivery()"
             />
 

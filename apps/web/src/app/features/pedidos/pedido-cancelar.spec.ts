@@ -17,14 +17,17 @@ const KEYCHAIN: QueuedPrint = {
   plateThumbnailPath: null,
 };
 
+type Call = [orderId: string, seenPrints: readonly string[], cancelPrints: boolean | null];
+
 interface Opened {
   fixture: ComponentFixture<PedidoCancelar>;
-  calls: [string, boolean][];
+  calls: Call[];
   notices: (string | null)[];
+  stale: number;
 }
 
 function open(prints: QueuedPrint[], cancelOrder?: () => Promise<void>, paid: number | null = 0): Opened {
-  const calls: [string, boolean][] = [];
+  const calls: Call[] = [];
   TestBed.configureTestingModule({
     providers: [
       provideRouter([]),
@@ -34,8 +37,8 @@ function open(prints: QueuedPrint[], cancelOrder?: () => Promise<void>, paid: nu
       {
         provide: PedidosData,
         useValue: {
-          cancelOrder: async (orderId: string, cancelPrints: boolean) => {
-            calls.push([orderId, cancelPrints]);
+          cancelOrder: async (orderId: string, seenPrints: readonly string[], cancelPrints: boolean | null) => {
+            calls.push([orderId, [...seenPrints], cancelPrints]);
             await cancelOrder?.();
           },
         },
@@ -46,10 +49,11 @@ function open(prints: QueuedPrint[], cancelOrder?: () => Promise<void>, paid: nu
   fixture.componentRef.setInput('orderId', 'order-2');
   fixture.componentRef.setInput('paid', paid);
   fixture.componentRef.setInput('prints', prints);
-  const notices: (string | null)[] = [];
-  fixture.componentInstance.cancelled.subscribe((notice) => notices.push(notice));
+  const opened: Opened = { fixture, calls, notices: [], stale: 0 };
+  fixture.componentInstance.cancelled.subscribe((notice) => opened.notices.push(notice));
+  fixture.componentInstance.stale.subscribe(() => opened.stale++);
   fixture.detectChanges();
-  return { fixture, calls, notices };
+  return opened;
 }
 
 const text = (fixture: ComponentFixture<PedidoCancelar>) =>
@@ -83,7 +87,7 @@ describe('PedidoCancelar', () => {
     press(fixture, 'Cancelar el pedido y sus impresiones');
     await settle(fixture);
 
-    expect(calls).toEqual([['order-2', true]]);
+    expect(calls).toEqual([['order-2', ['j1'], true]]);
     expect(notices).toEqual(['También se canceló una impresión planificada, sin tiempo ni costo.']);
   });
 
@@ -93,19 +97,54 @@ describe('PedidoCancelar', () => {
     press(fixture, 'Cancelar solo el pedido');
     await settle(fixture);
 
-    expect(calls).toEqual([['order-2', false]]);
+    expect(calls).toEqual([['order-2', ['j1'], false]]);
     expect(notices).toEqual(['Su impresión planificada quedó en la cola como trabajo suelto, sin pedido.']);
   });
 
-  it('asks nothing about prints when there are none', async () => {
+  // Nothing was shown, so nothing was answered: the database is told so, and
+  // a print queued from Producción meanwhile is not cancelled behind anyone's back.
+  it('asks nothing about prints when there are none, and answers nothing for them', async () => {
     const { fixture, calls, notices } = open([]);
 
     expect(text(fixture)).toContain('¿Cancelar este pedido?');
     press(fixture, 'Sí, cancelar pedido');
     await settle(fixture);
 
-    expect(calls).toEqual([['order-2', true]]);
+    expect(calls).toEqual([['order-2', [], null]]);
     expect(notices).toEqual([null]);
+  });
+
+  it('answers only for the planned prints it showed, not for the one on the printer', async () => {
+    const { fixture, calls } = open([
+      { ...KEYCHAIN, id: 'j0', name: 'Llavero grande', printing: true },
+      KEYCHAIN,
+      { ...KEYCHAIN, id: 'j2', name: 'Llavero rojo' },
+    ]);
+
+    press(fixture, 'Cancelar solo el pedido');
+    await settle(fixture);
+
+    expect(calls).toEqual([['order-2', ['j1', 'j2'], false]]);
+  });
+
+  it('when the queue changed meanwhile, shows the refusal and has the list read again', async () => {
+    const changed = 'La cola cambió: el pedido ORD-2026-0002 tiene ahora una impresión planificada. Revisa la lista y vuelve a elegir.';
+    const opened = open([], async () => {
+      throw new UserFacingError(changed);
+    });
+
+    press(opened.fixture, 'Sí, cancelar pedido');
+    await settle(opened.fixture);
+
+    expect(opened.notices).toEqual([]);
+    expect(opened.stale).toBe(1);
+    expect(text(opened.fixture)).toContain(changed);
+
+    // The page reads the queue again and hands the new list down: now it asks.
+    opened.fixture.componentRef.setInput('prints', [KEYCHAIN]);
+    opened.fixture.detectChanges();
+    expect(text(opened.fixture)).toContain('¿Cancelas también la impresión planificada?');
+    expect(text(opened.fixture)).toContain(changed);
   });
 
   it('shows the database refusal for a print on the printer as it comes, with the way to the queue', async () => {

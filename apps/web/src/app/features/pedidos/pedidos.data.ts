@@ -394,14 +394,18 @@ export class PedidosData {
   /**
    * Cancels through the database rule, which in the same transaction cancels
    * the order's planned prints or leaves them in the queue as loose jobs,
-   * whichever the person answered (E4-01). Its refusals (a print already on
-   * the printer, money collected) are written for a person and travel as
-   * they are.
+   * whichever the person answered (E4-01). `seenPrints` are the planned
+   * prints the person was shown: the answer covers those alone, and if the
+   * queue holds others by now the database touches nothing and says so.
+   * `cancelPrints` is null when there was nothing to ask. Its refusals (a
+   * print already on the printer, money collected, a queue that changed) are
+   * written for a person and travel as they are.
    */
-  async cancelOrder(orderId: string, cancelPrints: boolean): Promise<void> {
+  async cancelOrder(orderId: string, seenPrints: readonly string[], cancelPrints: boolean | null): Promise<void> {
     const { error } = await this.supabase.rpc('cancel_order', {
       p_order_id: orderId,
-      p_cancel_prints: cancelPrints,
+      p_seen_prints: [...seenPrints],
+      ...(cancelPrints === null ? {} : { p_cancel_prints: cancelPrints }),
     });
     if (error?.code === RAISED_BY_DATABASE) throw new UserFacingError(error.message);
     if (error) throw error;
