@@ -522,6 +522,7 @@ El mes quedaba igual de rentable con o sin ellas. El costo de ventas era el esti
 - Instalar o retirar un componente de la impresora es del dueño, aunque el cambio de boquilla lo haga el operador: lo registra en el mantenimiento.
 - La llave de servicio tampoco reescribe un libro. Un arreglo de datos se hace desde la consola SQL, con su motivo, y queda en el historial de Git como migración si hace falta repetirlo.
 - Las funciones `security definer` no pasan por estas políticas: cada una exige el rol que corresponde, como `void_transaction` exige el dueño. Las demás funciones del sistema son `security invoker` y heredan la matriz de quien las llama.
+- **Queda abierto:** el estante (ADR-020) todavía acepta un `insert` directo en `stock_movements` de una pieza o un producto, y en `order_deliveries`. `complete_print_job`, `assemble_product`, `count_shelf` y `deliver_order` son `security invoker` y escriben por la misma política que un POST a mano, así que la política no puede distinguirlos. Se cierra cuando esas funciones pasen a `security definer` exigiendo `app.can_operate` (producción y ventas): entonces la política de insert de `stock_movements` se limita a rollos, insumos, empaques y repuestos, y la de las entregas se quita. Mirar la pila de llamadas desde un disparador se probó y se descartó: depende de nombres de funciones de otras áreas y no ve una función `sql` integrada en la consulta.
 
 ---
 
