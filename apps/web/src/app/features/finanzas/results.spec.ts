@@ -94,6 +94,12 @@ describe('reserveCovers', () => {
     expect(reserveCovers({ failedPrints: 0.28, printCost: 2.15, failureReserveRate: 0.1 })).toBe(false);
   });
 
+  it('is not tipped over by a failed test: the view counts it with the tools, not in failed prints (E3-02)', () => {
+    // Parts 5.00, a failed part 0.30, a mould 7.72 and a failed test 0.40: the
+    // view reports 0.30 failed over 5.30 printed to produce, 5.7 %.
+    expect(reserveCovers({ failedPrints: 0.3, printCost: 5.3, failureReserveRate: 0.1 })).toBe(true);
+  });
+
   it('covers a month whose failures stay within the allowance, the edge included', () => {
     expect(reserveCovers({ failedPrints: 0.1, printCost: 2, failureReserveRate: 0.1 })).toBe(true);
     expect(reserveCovers({ failedPrints: 0.2, printCost: 2, failureReserveRate: 0.1 })).toBe(true);

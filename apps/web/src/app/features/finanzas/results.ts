@@ -16,16 +16,23 @@ export interface MonthResult {
   ownerDraws: number;
   /** Printed and never sold: `toolsAndTests` plus `shelfCountLosses`. Subtracted (ADR-023). */
   unsoldProduction: number;
-  /** Moulds, jigs and test prints: finished jobs that left nothing on the shelf. */
+  /**
+   * Moulds, jigs and test prints: jobs of no order that put nothing on the
+   * shelf, their failed tries included. No allowance pays for those tries, so
+   * they are what the tool cost, not a failure of production.
+   */
   toolsAndTests: number;
   /** What the shelf count found missing, less what it found over. */
   shelfCountLosses: number;
-  /** Reported apart, never subtracted: the failure allowance in the cost of sales pays for them. */
+  /**
+   * Failed prints of production. Reported apart, never subtracted: the
+   * failure allowance in the cost of sales pays for them.
+   */
   failedPrints: number;
   /**
    * What was printed to produce that month, failures included: what the
    * failures are measured against. Moulds and tests do not carry the
-   * allowance, so they are left out (E3-02, ADR-023).
+   * allowance, so they are left out, failed or not (E3-02, ADR-023).
    */
   printCost: number;
   /** The failure allowance the prices carried that month, as a fraction. */

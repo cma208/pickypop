@@ -12,16 +12,24 @@
 -- the three plates of parts and the failure it was 13 %: it was not.
 --
 -- Two kinds of job do not pay the allowance and leave the denominator:
---   * tools and tests (a finished job that left nothing on the shelf and
---     belongs to no order). They are already an expense of the month in
---     «Producción no vendida» (ADR-023).
+--   * tools and tests: a job of no order that puts nothing on the shelf.
+--     Finished, they are already an expense of the month in «Producción no
+--     vendida» (ADR-023). Failed, they are the same tool or test tried once
+--     more: no order and no part was waiting on them (no plate, or a plate
+--     with no parts, would have left nothing either), and no allowance pays
+--     for them. Left in `failed_prints`, a failed S/ 0.40 test reads as a
+--     failure of production and can tip the verdict to «súbela» on a month
+--     whose production stayed under the rate. So they add to
+--     `tools_and_tests`, and subtract from the net profit like the tool they
+--     were trying to make, and leave `failed_prints` and `print_cost`.
 --   * jobs on a made-to-order line with no estimate. That line takes the real
 --     cost of its prints, failed ones included, as its cost of sales, so its
 --     failures are not in `failed_prints` either, and its successes must not
 --     dilute the ones that are.
 --
--- Every column keeps its name, type and place: only what `print_cost` adds up
--- changes. The view is the one from 20261013130000_line_cost_keeps_the_batch.
+-- Every column keeps its name, type and place: only what `print_cost`,
+-- `failed_prints` and `tools_and_tests` add up changes. The view is the one
+-- from 20261013130000_line_cost_keeps_the_batch.
 
 create or replace view public.monthly_income_statement with (security_invoker = true) as
 with line_costs as (
@@ -81,10 +89,19 @@ jobs as (
     date_trunc('month', j.finished_at at time zone w.timezone)::date as month,
     j.status,
     coalesce(j.material_cost, 0) + coalesce(j.energy_cost, 0) + coalesce(j.machine_cost, 0) as cost,
-    -- A finished job that put nothing on the shelf and belongs to no order: a
-    -- mould, a jig, a test. A job that did put parts there passed its cost to
-    -- them, and it reaches the result when they are sold.
-    (j.status = 'success' and j.units_produced = 0 and j.order_line_id is null) as tool_or_test,
+    -- A mould, a jig, a test: a job of no order that puts nothing on the
+    -- shelf. Finished, it left nothing there. Failed, it had nothing to leave:
+    -- no plate, or a plate with no parts. A job that did put parts there
+    -- passed its cost to them, and it reaches the result when they are sold.
+    (
+      j.order_line_id is null
+      and case
+        when j.status = 'success' then j.units_produced = 0
+        else not exists (
+          select 1 from public.recipe_plate_outputs o where o.recipe_plate_id = j.recipe_plate_id
+        )
+      end
+    ) as tool_or_test,
     -- A line with no estimate takes the cost of its prints, failed ones
     -- included (line_costs above), so that failure is already in the result.
     exists (
@@ -108,7 +125,9 @@ printing as (
     -- What the failure allowance pays for: the printing to produce, failures
     -- included, without tools, tests or lines that carry their own real cost.
     coalesce(sum(cost) filter (where not tool_or_test and not in_cost_of_sales), 0) as print_cost,
-    coalesce(sum(cost) filter (where status = 'failed' and not in_cost_of_sales), 0) as failed_prints,
+    coalesce(sum(cost) filter (where status = 'failed' and not tool_or_test and not in_cost_of_sales), 0)
+      as failed_prints,
+    -- A tool's failed tries are part of what the tool cost.
     coalesce(sum(cost) filter (where tool_or_test), 0) as tools_and_tests
   from jobs
   group by workspace_id, month
@@ -184,7 +203,13 @@ select
 from merged;
 
 comment on view public.monthly_income_statement is
-  'Profitability by month, in the workshop''s time zone. The cost of sales is what each line''s recipe says it costs to make. What was printed and never sold (moulds, tests, counted losses) is an expense of its month. Failed prints are shown apart: the failure allowance in the cost of sales pays for them, and print_cost is what they are measured against (the printing to produce, without tools, tests or lines that carry their own real cost). Inventory purchases are shown apart: they reach the result through the cost of sales.';
+  'Profitability by month, in the workshop''s time zone. The cost of sales is what each line''s recipe says it costs to make. What was printed and never sold (moulds, tests and their failed tries, counted losses) is an expense of its month. Failed prints of production are shown apart: the failure allowance in the cost of sales pays for them, and print_cost is what they are measured against (the printing to produce, without tools, tests or lines that carry their own real cost). Inventory purchases are shown apart: they reach the result through the cost of sales.';
+
+comment on column public.monthly_income_statement.tools_and_tests is
+  'Jobs of no order that put nothing on the shelf: moulds, jigs and tests, at their real cost. Their failed tries count here too (no plate, or a plate with no parts): no failure allowance pays for them.';
+
+comment on column public.monthly_income_statement.failed_prints is
+  'Failed prints of production: what the failure allowance pays for. Leaves out the failed tries of tools and tests (they are in tools_and_tests) and those of a line with no estimate (they are its cost of sales).';
 
 comment on column public.monthly_income_statement.print_cost is
   'Printing to produce in the month, failures included: what the failure allowance pays for. Leaves out tools and tests (they are unsold production) and the jobs of a line with no estimate (their real cost is its cost of sales).';
