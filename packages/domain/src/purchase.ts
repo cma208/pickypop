@@ -39,6 +39,11 @@ export interface PurchasePlan {
   lines: PlanLine[];
   subtotal: number;
   extra: number;
+  /**
+   * Each line rounded to the cent, then added, plus shipping and other costs.
+   * The database adds a purchase the same way (`purchase_payment_status`,
+   * `register_purchase`): the preview, the payment and the stock are one number.
+   */
   total: number;
   /** The method that was really applied (weight falls back to amount when no line has a weight). */
   method: AllocationMethod;

@@ -175,6 +175,15 @@ describe('the precision a purchase is stored with', () => {
     expect(plan.total).toBe(15.01);
   });
 
+  it('adds a purchase line by line, each to the cent, like purchase_payment_status (T1-16 with two lines)', () => {
+    const line = { kind: 'item' as const, quantity: 1000, unitPrice: 0.015005, unitWeightG: null };
+    const plan = planPurchase([line, line], 0, 0, 'by_amount');
+
+    // 15.005 + 15.005 rounded once would be 30.01. The database adds 15.01 + 15.01.
+    expect(plan.lines.map((planned) => planned.total)).toEqual([15.01, 15.01]);
+    expect(plan.total).toBe(30.02);
+  });
+
   it('prices every spool from the roll price it stores', () => {
     const plan = planPurchase([{ kind: 'sku', quantity: 2, unitPrice: 49.999, unitWeightG: 1000 }], 0, 0, 'by_amount');
 

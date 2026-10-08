@@ -47,6 +47,7 @@
 | *vista* `spool_balances` | Gramos restantes y costo restante por rollo |
 | *vista* `filament_sku_stock` | Gramos en mano y costo promedio ponderado por SKU, de los rollos con gramos. Un rollo agotado o descartado no tiene: al marcarlo así sus gramos salieron con un movimiento, y por eso tampoco cuentan para el plan |
 | *vista* `inventory_balances` | Existencias por artículo |
+| *vista* `purchase_payment_status` | Total, pagado y pendiente por compra, de los egresos ligados. **El total es la suma de sus líneas, cada una redondeada a céntimos, más el envío y los otros costos**: la misma cuenta que `planPurchase` (la vista previa), `register_purchase` y los movimientos que valorizan el stock. Hasta `20261023170000_purchase_total_by_line.sql` redondeaba una sola vez al final, y con dos líneas de fracciones de céntimo se pagaba un céntimo distinto de lo que decía la vista previa |
 | *vista* `part_stock` | Piezas impresas en el estante, con su costo por unidad y de dónde sale (`produced`, `standard`, `unknown`). El costo es el **promedio ponderado de los movimientos de producción**, no el de las compras: una pieza no se compra nunca (ADR-016) |
 
 ### Impresoras y mantenimiento
