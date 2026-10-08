@@ -1,4 +1,4 @@
-import { Component, computed, input, output, signal } from '@angular/core';
+import { Component, computed, inject, input, output, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import type { PlanProposal } from '@pickypop/domain';
 import type { PlanView } from '../../core/plan';
@@ -14,6 +14,7 @@ import {
   type FilamentRow,
   type HoldRef,
 } from './por-lanzar';
+import { ProductionAccess } from './production-access';
 import { ProposalQueueForm, type QueuedRuns } from './proposal-queue-form';
 
 /**
@@ -30,7 +31,8 @@ import { ProposalQueueForm, type QueuedRuns } from './proposal-queue-form';
       <div class="body">
         <header>
           <strong>{{ proposal().label }}</strong>
-          @if (!queueing()) {
+          <!-- Not offered to a viewer: the page says why, once. -->
+          @if (!queueing() && canOperate()) {
             <button type="button" (click)="queueing.set(true)">Poner en cola</button>
           }
         </header>
@@ -73,7 +75,7 @@ import { ProposalQueueForm, type QueuedRuns } from './proposal-queue-form';
           </p>
         }
 
-        @if (queueing()) {
+        @if (queueing() && canOperate()) {
           <app-proposal-queue-form
             [proposal]="proposal()"
             [view]="view()"
@@ -110,6 +112,7 @@ export class PlanProposalRow {
   readonly queued = output<QueuedRuns>();
 
   protected readonly queueing = signal(false);
+  protected readonly canOperate = inject(ProductionAccess).canOperate;
 
   private readonly timeZone = computed(() => this.view().input.settings.timeZone);
   protected readonly runs = computed(() => runsText(this.proposal(), this.view().result.runs));

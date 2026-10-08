@@ -2,7 +2,7 @@ import { Component, computed, inject, input, OnInit, output, signal } from '@ang
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { FormArray, FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Field, FORMAT_PIPES } from '../../ui';
-import { explainError } from '../pedidos/pedidos.errors';
+import { explainProductionError } from './production-errors';
 import { ProduccionData, type CloseJob, type CloseOutcome, type JobItem } from './produccion.data';
 import { FAILURE_CAUSE_LABEL, FAILURE_CAUSES, type FailureCause } from './produccion.labels';
 import { describeCounts } from './produccion.outputs';
@@ -363,7 +363,7 @@ export class PrintJobClose implements OnInit {
       this.closed.emit(outcome);
     } catch (error) {
       this.confirming.set(false);
-      const message = explainError(error, 'No pudimos cerrar la impresión. No se movió nada; inténtalo de nuevo.');
+      const message = explainProductionError(error, 'No pudimos cerrar la impresión. No se movió nada; inténtalo de nuevo.');
       this.error.set(message);
       this.refused.emit(message);
     } finally {

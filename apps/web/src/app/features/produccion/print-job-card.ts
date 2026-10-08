@@ -5,10 +5,11 @@ import { borrowedPhoto } from '../../core/article-photos';
 import { duration } from '../../core/format';
 import { PlanService } from '../../core/plan';
 import { Badge, FORMAT_PIPES, Thumb } from '../../ui';
-import { explainError } from '../pedidos/pedidos.errors';
+import { explainProductionError } from './production-errors';
 import { PrintJobClose } from './print-job-close';
 import { PrintJobStart } from './print-job-start';
 import { ProduccionData, type CloseOutcome, type JobItem } from './produccion.data';
+import { ProductionAccess } from './production-access';
 import { FAILURE_CAUSE_LABEL, isClosed, JOB_STATUS_LABEL, JOB_STATUS_TONE } from './produccion.labels';
 import { jobProgress } from './produccion.progress';
 import { rollName } from './produccion.spools';
@@ -117,7 +118,10 @@ export interface JobRefusal {
       @if (error(); as message) { <p class="error" role="alert">{{ message }}</p> }
 
       @if (!isClosed()) {
-        @if (closing()) {
+        @if (!canOperate()) {
+          <!-- Hidden, not refused: a viewer is not offered what the database would deny (decision of the owner, 2026-10-08). -->
+          <p class="muted note">{{ readOnlyText }}</p>
+        } @else if (closing()) {
           <app-print-job-close [job]="job()" (closed)="onClosed($event)" (cancelled)="closing.set(false)" (refused)="onRefused($event)" />
         } @else if (choosingRolls() && job().status === 'planned') {
           <app-print-job-start [job]="job()" (started)="onStarted()" (cancelled)="choosingRolls.set(false)" (refused)="onRefused($event)" />
@@ -160,6 +164,9 @@ export interface JobRefusal {
 export class PrintJobCard {
   private readonly data = inject(ProduccionData);
   private readonly plan = inject(PlanService);
+  /** Iniciar and Cerrar are the day to day of an owner or an operator, never of a viewer. */
+  protected readonly canOperate = inject(ProductionAccess).canOperate;
+  protected readonly readOnlyText = 'Solo el dueño y los operadores pueden iniciar y cerrar impresiones.';
   /** A part with no photo of its own shows the plate that prints it. */
   protected readonly borrowedPhoto = borrowedPhoto;
 
@@ -229,7 +236,7 @@ export class PrintJobCard {
 
   protected async start(): Promise<void> {
     // Before any await: a second click in the same gesture must not start twice.
-    if (this.busy()) return;
+    if (this.busy() || !this.canOperate()) return;
     if (this.job().filaments.length === 0) {
       this.choosingRolls.set(true);
       return;
@@ -241,7 +248,7 @@ export class PrintJobCard {
       this.plan.invalidate();
       this.changed.emit(null);
     } catch (error) {
-      const message = explainError(error, 'No pudimos iniciar la impresión. Inténtalo de nuevo.');
+      const message = explainProductionError(error, 'No pudimos iniciar la impresión. Inténtalo de nuevo.');
       this.error.set(message);
       this.onRefused(message);
     } finally {

@@ -4,7 +4,7 @@ import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angula
 import type { PlanProposal } from '@pickypop/domain';
 import type { PlanView } from '../../core/plan';
 import { Field } from '../../ui';
-import { explainError } from '../pedidos/pedidos.errors';
+import { explainProductionError } from './production-errors';
 import { clampRuns, runsToQueue, type RunToQueue } from './por-lanzar';
 import { ProduccionData } from './produccion.data';
 import { requestKey, type SentRequest } from './request-key';
@@ -122,7 +122,7 @@ export class ProposalQueueForm implements OnInit {
       const printerName = this.printers().find((printer) => printer.id === printerId)?.name ?? 'la impresora';
       this.queued.emit({ label: proposal.label, runs: count, printerName });
     } catch (error) {
-      this.error.set(explainError(error, 'No pudimos poner las corridas en cola. Inténtalo de nuevo.'));
+      this.error.set(explainProductionError(error, 'No pudimos poner las corridas en cola. Inténtalo de nuevo.'));
     } finally {
       this.saving.set(false);
     }

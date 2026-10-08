@@ -4,12 +4,13 @@ import { ActivatedRoute } from '@angular/router';
 import { PlanService, type PlanView } from '../../core/plan';
 import { planWarningText, readyText } from '../../core/plan-format';
 import { AsyncState, Card, Empty, FORMAT_PIPES, Page } from '../../ui';
-import { explainError } from '../pedidos/pedidos.errors';
+import { explainProductionError } from './production-errors';
 import { PorLanzarCard } from './por-lanzar-card';
 import type { QueuedRuns } from './proposal-queue-form';
 import { PrintJobCard, type JobRefusal } from './print-job-card';
 import { PrintJobForm } from './print-job-form';
 import { ProduccionData, type CloseOutcome, type JobItem } from './produccion.data';
+import { ProductionAccess } from './production-access';
 import { queueLanes } from './produccion.queue';
 import { rollName } from './produccion.spools';
 
@@ -22,11 +23,21 @@ const PAST_ESTIMATE = /pasó su tiempo estimado/;
   imports: [Page, Card, AsyncState, Empty, PorLanzarCard, PrintJobCard, PrintJobForm, ...FORMAT_PIPES],
   template: `
     <pp-page title="Cola de impresión" subtitle="Lo que está corriendo, lo que sigue y lo que falta producir">
-      <button actions type="button" (click)="creating.set(!creating())">
-        {{ creating() ? 'Cerrar formulario' : 'Nuevo trabajo' }}
-      </button>
+      @if (canOperate()) {
+        <button actions type="button" (click)="creating.set(!creating())">
+          {{ creating() ? 'Cerrar formulario' : 'Nuevo trabajo' }}
+        </button>
+      }
 
       <pp-async [loading]="loading()" [error]="error()">
+        @if (!canOperate()) {
+          <!-- A viewer reads the queue; what the database would deny is not offered (decision of the owner, 2026-10-08). -->
+          <p class="muted read-only" role="status">
+            Tienes acceso de solo lectura: ves la cola y el plan, pero solo el dueño y los operadores crean, ponen en cola,
+            inician y cierran trabajos.
+          </p>
+        }
+
         @if (warnings().length > 0) {
           <section class="alert-warn warnings" role="status" aria-label="Avisos del plan">
             <strong>Avisos del plan</strong>
@@ -68,7 +79,7 @@ const PAST_ESTIMATE = /pasó su tiempo estimado/;
           </pp-card>
         }
 
-        @if (creating()) {
+        @if (creating() && canOperate()) {
           <app-print-job-form (saved)="onCreated()" (cancelled)="creating.set(false)" />
         }
 
@@ -119,7 +130,9 @@ const PAST_ESTIMATE = /pasó su tiempo estimado/;
 
         @if (printing().length === 0 && lanes().length === 0) {
           <pp-empty [message]="emptyMessage()">
-            <button type="button" (click)="creating.set(true)">Crear un trabajo a mano</button>
+            @if (canOperate()) {
+              <button type="button" (click)="creating.set(true)">Crear un trabajo a mano</button>
+            }
           </pp-empty>
         }
       </pp-async>
@@ -143,12 +156,14 @@ const PAST_ESTIMATE = /pasó su tiempo estimado/;
       background: var(--accent-soft); color: var(--accent);
     }
     .warn-text { color: var(--warn); }
+    .read-only { margin: 0 0 1rem; font-size: 0.9rem; }
   `,
 })
 export class ProduccionPage {
   private readonly data = inject(ProduccionData);
   private readonly plan = inject(PlanService);
   private readonly query = toSignal(inject(ActivatedRoute).queryParamMap);
+  protected readonly canOperate = inject(ProductionAccess).canOperate;
 
   /** «Ver qué falta imprimir» on an order page links here with `?pedido=<id>`. */
   protected readonly orderId = computed(() => this.query()?.get('pedido') ?? null);
@@ -256,7 +271,7 @@ export class ProduccionPage {
       this.error.set(null);
       void this.loadPictures(view);
     } catch (error) {
-      this.error.set(explainError(error, 'No pudimos leer la cola ni el plan. Inténtalo de nuevo.'));
+      this.error.set(explainProductionError(error, 'No pudimos leer la cola ni el plan. Inténtalo de nuevo.'));
     } finally {
       this.loading.set(false);
     }

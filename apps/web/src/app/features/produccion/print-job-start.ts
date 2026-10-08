@@ -2,7 +2,7 @@ import { Component, inject, input, OnInit, output, signal } from '@angular/core'
 import { FormArray, FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Field, FORMAT_PIPES } from '../../ui';
 import { spoolLabel } from '../../core/spool-label';
-import { explainError } from '../pedidos/pedidos.errors';
+import { explainProductionError } from './production-errors';
 import { ProduccionData, type JobItem, type SpoolOption } from './produccion.data';
 import { rowsForPlate, suggestSpool, type SpoolStatus } from './produccion.spools';
 import { GRAMS_MESSAGE, hundredths, MAX_GRAMS } from './job-grams';
@@ -134,7 +134,7 @@ export class PrintJobStart implements OnInit {
       await this.data.startJob(this.job().id, rolls);
       this.started.emit();
     } catch (error) {
-      const message = explainError(error, 'No pudimos iniciar la impresión. Inténtalo de nuevo.');
+      const message = explainProductionError(error, 'No pudimos iniciar la impresión. Inténtalo de nuevo.');
       this.error.set(message);
       this.refused.emit(message);
     } finally {
@@ -159,7 +159,7 @@ export class PrintJobStart implements OnInit {
       }
       if (this.rows.length === 0) this.rows.push(createRollRow());
     } catch (error) {
-      this.error.set(explainError(error, 'No pudimos leer los rollos. Inténtalo de nuevo.'));
+      this.error.set(explainProductionError(error, 'No pudimos leer los rollos. Inténtalo de nuevo.'));
     } finally {
       this.loading.set(false);
     }

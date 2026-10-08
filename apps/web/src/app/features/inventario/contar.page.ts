@@ -16,6 +16,8 @@ import {
   type CountRow,
 } from './conteo';
 import { ConteoData } from './conteo.data';
+import { productionProblem } from '../produccion/production-errors';
+import { ProductionAccess } from '../produccion/production-access';
 import { INVENTORY_STYLES } from './inventario.styles';
 
 /**
@@ -119,6 +121,10 @@ import { INVENTORY_STYLES } from './inventario.styles';
               {{ saving() ? 'Guardando…' : buttonLabel() }}
             </button>
           </div>
+          @if (!canOperate()) {
+            <!-- Disabled with its reason, not refused after counting a whole shelf (decision of the owner, 2026-10-08). -->
+            <p class="muted" role="status">Tienes acceso de solo lectura: solo el dueño y los operadores pueden corregir el estante.</p>
+          }
           @if (notice(); as message) { <p class="notice" role="status">{{ message }}</p> }
           @if (saveError(); as message) { <p class="alert" role="alert">{{ message }}</p> }
         }
@@ -153,6 +159,8 @@ import { INVENTORY_STYLES } from './inventario.styles';
 export class ContarPage {
   private readonly data = inject(ConteoData);
   private readonly planner = inject(PlanService);
+  /** Counting the shelf is the day to day of an owner or an operator, never of a viewer. */
+  protected readonly canOperate = inject(ProductionAccess).canOperate;
 
   protected readonly rows = signal<CountRow[]>([]);
   protected readonly note = signal('');
@@ -178,7 +186,11 @@ export class ContarPage {
   protected readonly buttonLabel = computed(() => saveLabel(this.rows()));
 
   protected readonly canSave = computed(
-    () => !this.saving() && this.rows().some(isChanged) && this.rows().every((row) => rowProblem(row) === null),
+    () =>
+      this.canOperate() &&
+      !this.saving() &&
+      this.rows().some(isChanged) &&
+      this.rows().every((row) => rowProblem(row) === null),
   );
 
   protected readonly changed = isChanged;
@@ -239,7 +251,7 @@ export class ContarPage {
       this.note.set('');
       await this.load();
     } catch (error) {
-      this.saveError.set(friendlyError(error, 'No pudimos guardar el conteo. Inténtalo de nuevo.'));
+      this.saveError.set(productionProblem(error) ?? friendlyError(error, 'No pudimos guardar el conteo. Inténtalo de nuevo.'));
       // Turned down, what «La app cree» says may be stale: it is read again,
       // and what the person counted stays where they wrote it.
       await this.reloadKeepingCounts();

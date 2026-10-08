@@ -6,7 +6,7 @@ import { borrowedPhoto } from '../../core/article-photos';
 import { duration } from '../../core/format';
 import { PlanService } from '../../core/plan';
 import { spoolLabel } from '../../core/spool-label';
-import { explainError } from '../pedidos/pedidos.errors';
+import { explainProductionError } from './production-errors';
 import { ProduccionData, type NewJob, type OrderLineOption, type PlateOption, type SpoolOption } from './produccion.data';
 import type { PrinterSummary } from '../../core/workshop';
 import { describeCounts } from './produccion.outputs';
@@ -364,7 +364,7 @@ export class PrintJobForm implements OnInit {
       this.plan.invalidate();
       this.saved.emit();
     } catch (error) {
-      this.saveError.set(explainError(error, 'No pudimos crear el trabajo. Inténtalo de nuevo.'));
+      this.saveError.set(explainProductionError(error, 'No pudimos crear el trabajo. Inténtalo de nuevo.'));
     } finally {
       this.saving.set(false);
     }
@@ -413,7 +413,7 @@ export class PrintJobForm implements OnInit {
       this.lines.set(lines);
       if (printers.length === 1) this.form.controls.printerId.setValue(printers[0]!.id);
     } catch (error) {
-      this.loadError.set(explainError(error, 'No pudimos cargar los datos del taller. Inténtalo de nuevo.'));
+      this.loadError.set(explainProductionError(error, 'No pudimos cargar los datos del taller. Inténtalo de nuevo.'));
     } finally {
       this.loading.set(false);
     }
