@@ -1,6 +1,7 @@
 import { Component, computed, inject, input, output, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormControl, NonNullableFormBuilder, ReactiveFormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { nowForInput } from '../../core/dates';
 import { friendlyError } from '../../core/friendly-error';
 import { SECTION_STYLES } from '../../core/styles';
@@ -31,7 +32,7 @@ import {
 
 /** What each type is for, so nobody has to guess between the five. */
 const TYPE_HINTS: Record<TransactionType, string> = {
-  income: 'Dinero que entra al taller y es ganancia: una venta suelta, un servicio.',
+  income: 'Dinero que entra y no es venta ni aporte: un reembolso, la devolución de un proveedor. Suma a la utilidad como «Otros ingresos».',
   expense: 'Dinero que sale del taller: luz, envíos, publicidad, repuestos.',
   transfer: 'Dinero que cambia de bolsillo. No es ganancia ni gasto: el total del taller no cambia.',
   owner_contribution: 'Plata tuya que metes al taller. Es capital, no utilidad.',
@@ -45,8 +46,12 @@ const TYPE_HINTS: Record<TransactionType, string> = {
  */
 @Component({
   selector: 'app-transaction-form',
-  imports: [ReactiveFormsModule, Field, FORMAT_PIPES],
-  styles: [SECTION_STYLES, FINANCE_STYLES],
+  imports: [ReactiveFormsModule, RouterLink, Field, FORMAT_PIPES],
+  styles: [
+    SECTION_STYLES,
+    FINANCE_STYLES,
+    `.sales-elsewhere { margin: -0.4rem 0 0.9rem; padding: 0.5rem 0.75rem; border-radius: var(--radius-sm); background: var(--info-soft); font-size: var(--fs-sm); }`,
+  ],
   template: `
     <form class="form-box" [formGroup]="form" (ngSubmit)="submit()" novalidate>
       <h3>Registrar movimiento</h3>
@@ -58,6 +63,14 @@ const TYPE_HINTS: Record<TransactionType, string> = {
           }
         </select>
       </pp-field>
+      @if (isIncome()) {
+        <!-- A sale typed here never left the shelf nor carried its cost (E5-01). -->
+        <p class="sales-elsewhere">
+          ¿Es una venta? Va por <a routerLink="/pedidos">Pedidos</a> o por la
+          <a routerLink="/pedidos/venta-rapida">Venta rápida</a>, que sí sacan lo vendido del estante y llevan su
+          costo.
+        </p>
+      }
 
       <div class="grid two">
         <pp-field [label]="isTransfer() ? 'Sale de la cuenta' : 'Cuenta'" [required]="true">
@@ -203,6 +216,7 @@ export class TransactionForm {
   protected readonly accounts = computed(() => this.allAccounts().filter((account) => account.active));
 
   protected readonly isTransfer = computed(() => this.values().type === 'transfer');
+  protected readonly isIncome = computed(() => this.values().type === 'income');
   protected readonly typeHint = computed(() => TYPE_HINTS[this.values().type]);
 
   protected readonly destinations = computed(() =>

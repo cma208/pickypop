@@ -7,8 +7,13 @@ export interface MonthResult {
   costOfSales: number;
   grossProfit: number;
   operatingExpenses: number;
+  /** Gross profit, less expenses and unsold production, plus other income. */
   netProfit: number;
-  /** Income that is not a sale: nothing to do with an order. */
+  /**
+   * Money in that settles no order and is not capital: a refund, a supplier
+   * giving money back. It adds to the net profit on its own line (E5-01).
+   * Sales go through orders, which carry their cost.
+   */
   otherIncome: number;
   /** Reported apart, never subtracted. See `netMargin` and the screen. */
   inventoryPurchases: number;
@@ -115,4 +120,9 @@ export function reserveCovers(row: Pick<MonthResult, 'failedPrints' | 'printCost
  */
 export function subtractedSign(value: number): string {
   return value > 0 ? '−' : '';
+}
+
+/** The «+» in front of what a line adds, like other income. Only when it adds something. */
+export function addedSign(value: number): string {
+  return value > 0 ? '+' : '';
 }

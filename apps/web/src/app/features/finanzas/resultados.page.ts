@@ -5,7 +5,7 @@ import { AsyncState, Card, Empty, FORMAT_PIPES, Page } from '../../ui';
 import { FinanzasData } from './finanzas.data';
 import { monthLabel, yearOf } from './finanzas.models';
 import { FINANCE_STYLES } from './finanzas.styles';
-import { addUpMonths, failedShare, netMargin, reserveCovers, subtractedSign, type MonthResult } from './results';
+import { addedSign, addUpMonths, failedShare, netMargin, reserveCovers, subtractedSign, type MonthResult } from './results';
 
 const ALL_YEARS = '';
 
@@ -28,7 +28,7 @@ const ALL_YEARS = '';
     `,
   ],
   template: `
-    <pp-page title="Resultados" subtitle="Ventas menos costo de ventas menos gastos, mes a mes">
+    <pp-page title="Resultados" subtitle="Ventas menos costo de ventas y gastos, más otros ingresos, mes a mes">
       <div class="explainer">
         <p>
           <strong>Las compras de inventario no restan de la utilidad.</strong> Lo comprado llega al costo de
@@ -40,6 +40,12 @@ const ALL_YEARS = '';
           <strong>Los aportes y los retiros del dueño son capital, no utilidad.</strong> Meter o sacar
           plata tuya cambia cuánto dinero hay en el taller, no cuánto ganó el taller, así que tampoco
           entran en la utilidad neta.
+        </p>
+        <p>
+          <strong>Los otros ingresos sí suman.</strong> Son la plata que entra sin ser venta ni aporte: un
+          reembolso, la devolución de un proveedor. Es del taller, así que suma a la utilidad neta en su
+          propia línea. Las ventas no van por aquí: van por Pedidos o por la Venta rápida, que sacan lo
+          vendido del estante y llevan su costo, y por eso cuentan en «Ventas».
         </p>
         <p>
           <strong>Lo que se imprime y no se vende sí resta.</strong> Un molde, una prueba o una pieza que
@@ -84,6 +90,7 @@ const ALL_YEARS = '';
                   <th class="num hide-small">Utilidad bruta</th>
                   <th class="num hide-small">Gastos</th>
                   <th class="num hide-small">No vendido</th>
+                  <th class="num hide-small">Otros ingresos</th>
                   <th class="num">Utilidad neta</th>
                   <th class="num hide-small">Margen</th>
                 </tr>
@@ -101,6 +108,7 @@ const ALL_YEARS = '';
                     <td class="num hide-small">{{ row.grossProfit | money }}</td>
                     <td class="num hide-small">{{ row.operatingExpenses | money }}</td>
                     <td class="num hide-small">{{ row.unsoldProduction | money }}</td>
+                    <td class="num hide-small">{{ row.otherIncome | money }}</td>
                     <td class="num amount-cell" [class.pos]="row.netProfit > 0" [class.neg]="row.netProfit < 0">
                       {{ row.netProfit | money }}
                     </td>
@@ -114,6 +122,7 @@ const ALL_YEARS = '';
                   <td class="num hide-small">{{ totals().grossProfit | money }}</td>
                   <td class="num hide-small">{{ totals().operatingExpenses | money }}</td>
                   <td class="num hide-small">{{ totals().unsoldProduction | money }}</td>
+                  <td class="num hide-small">{{ totals().otherIncome | money }}</td>
                   <td class="num" [class.pos]="totals().netProfit > 0" [class.neg]="totals().netProfit < 0">
                     {{ totals().netProfit | money }}
                   </td>
@@ -151,6 +160,12 @@ const ALL_YEARS = '';
                       <span class="value" [class.neg]="row.unsoldProduction > 0">{{ row.unsoldProduction > 0 ? '−' : '+' }}{{ abs(row.unsoldProduction) | money }}</span>
                     </li>
                   }
+                  @if (row.otherIncome !== 0) {
+                    <li>
+                      <span>Otros ingresos <small class="sub">plata que entra sin ser venta ni aporte: un reembolso, la devolución de un proveedor</small></span>
+                      <span class="value" [class.pos]="row.otherIncome > 0">{{ plus(row.otherIncome) }}{{ row.otherIncome | money }}</span>
+                    </li>
+                  }
                   <li class="sum">
                     <span>Utilidad neta</span>
                     <span class="value" [class.pos]="row.netProfit > 0" [class.neg]="row.netProfit < 0">
@@ -178,10 +193,6 @@ const ALL_YEARS = '';
                         <span class="value">{{ row.failedPrints | money }}</span>
                       </li>
                     }
-                    <li>
-                      <span>Otros ingresos <small class="sub">entradas que no son de un pedido</small></span>
-                      <span class="value">{{ row.otherIncome | money }}</span>
-                    </li>
                     <li>
                       <span>Compras de inventario <small class="sub">no restan aquí: llegan al costo de ventas cuando se vende lo hecho con ellas</small></span>
                       <span class="value">{{ row.inventoryPurchases | money }}</span>
@@ -256,6 +267,10 @@ export class ResultadosPage {
 
   protected minus(value: number): string {
     return subtractedSign(value);
+  }
+
+  protected plus(value: number): string {
+    return addedSign(value);
   }
 
   /** Clicking the month that is open closes it again. */
