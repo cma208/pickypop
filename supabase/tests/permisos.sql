@@ -29,7 +29,14 @@
 --    funcionando para el operador. Corren como su dueño, así que cada una
 --    exige el rol al principio: «Solo lectura» recibe su 42501 con frase y
 --    alguien de otro taller, el «no encontramos» de siempre. Lo mismo para las
---    funciones de compras y la numeración.
+--    funciones de compras y la numeración. Un rollo o un insumo tampoco se
+--    mueve con un insert directo: solo por la compra, el pesaje, el estado
+--    del rollo y `move_item_stock`, que siguen funcionando para el operador.
+-- 4. **Lo de un taller apunta solo a lo de su taller** (ADR-025, punto 10):
+--    alguien de otro taller no cuelga una línea en la receta o el pedido de
+--    este, ni una receta en su producto; una fila de antes de la red no se lee
+--    desde las funciones que corren como su dueño; y toda llave entre tablas
+--    de un taller tiene su guardia.
 --
 -- Lo que no prueba: el renombre de los gemelos que ya existían
 -- (20261021130000) corre una sola vez, al migrar, y sobre una base ya migrada
@@ -109,6 +116,9 @@ language sql immutable as $$
     when p_table = 'document_counters' then false
     -- Una entrega solo la escribe deliver_order (ADR-020): nadie la agrega a mano.
     when p_table in ('order_deliveries', 'order_delivery_lines') then false
+    -- Un movimiento de stock, tampoco: lo escriben sus flujos, que se prueban
+    -- abajo con filas reales (ADR-025, punto 9).
+    when p_table = 'stock_movements' and p_cmd = 'INSERT' then false
     when p_table = any (pg_temp.owner_tables()) then p_who = 'owner'
     when p_table = any (pg_temp.ledgers() || pg_temp.append_only()) then p_cmd = 'INSERT' and p_who in ('owner', 'operator')
     when p_cmd = 'DELETE' then p_who = 'owner'
@@ -495,9 +505,11 @@ begin
     'delete from public.inventory_items where id = ''00000000-7e57-4000-8000-000000000431''', 'error:P0001');
   perform pg_temp.expect('Borrar un artículo sin historial', 'owner',
     'delete from public.inventory_items where id = ''00000000-7e57-4000-8000-000000000432''', 'ok:1');
-  perform pg_temp.expect('Corregir el stock con un ajuste', 'operator',
+  perform pg_temp.expect('Corregir el stock con un ajuste a mano', 'operator',
     'insert into public.stock_movements (workspace_id, inventory_item_id, type, quantity) values ('
-    || c_ws || ', ''00000000-7e57-4000-8000-000000000431'', ''adjustment'', -1)', 'ok:1');
+    || c_ws || ', ''00000000-7e57-4000-8000-000000000431'', ''adjustment'', -1)', 'error:42501');
+  perform pg_temp.expect('Corregir el stock con un conteo', 'operator',
+    'select public.move_item_stock(''00000000-7e57-4000-8000-000000000431'', ''count'', 4)', 'ok:1');
   perform pg_temp.expect('Cambiar una entrega', 'owner',
     'update public.order_deliveries set workspace_id = workspace_id where workspace_id = ' || c_ws, 'error:42501');
   perform pg_temp.expect('Borrar una línea de entrega', 'owner',
@@ -726,13 +738,22 @@ begin
   perform pg_temp.expect('Mover a mano una pieza de otro taller', 'operator',
     'insert into public.stock_movements (workspace_id, inventory_item_id, type, quantity) values ('
     || c_ws || ', ' || c_foreign_part || ', ''adjustment'', 1)', 'error:P0001:Ese rollo o artículo es de otro taller');
-  -- Lo que sí se mueve a mano: un rollo, un empaque.
+  -- Ni un rollo ni un empaque: también se mueven solo por sus flujos (la
+  -- compra, el pesaje, el estado del rollo, move_item_stock), que se prueban
+  -- abajo. Un insert directo fabricaba en Resultados una pérdida o una
+  -- ganancia con el costo que quisiera.
   perform pg_temp.expect('Ajustar un rollo a mano', 'operator',
     'insert into public.stock_movements (workspace_id, spool_id, type, quantity) values ('
-    || c_ws || ', ' || c_spool || ', ''adjustment'', -5)', 'ok:1');
+    || c_ws || ', ' || c_spool || ', ''adjustment'', -5)', 'error:42501');
   perform pg_temp.expect('Ajustar un empaque a mano', 'operator',
     'insert into public.stock_movements (workspace_id, inventory_item_id, type, quantity) values ('
-    || c_ws || ', ' || c_bag || ', ''adjustment'', -1)', 'ok:1');
+    || c_ws || ', ' || c_bag || ', ''adjustment'', -1)', 'error:42501');
+  perform pg_temp.expect('Fabricar a mano una ganancia en Resultados', 'operator',
+    'insert into public.stock_movements (workspace_id, inventory_item_id, type, quantity, unit_cost, source_type, source_id) values ('
+    || c_ws || ', ' || c_bag || ', ''adjustment'', 1, 50000, ''manual'', ' || c_bag || ')', 'error:42501');
+  perform pg_temp.expect('Fabricar a mano un pesaje', 'owner',
+    'insert into public.stock_movements (workspace_id, spool_id, type, quantity, unit_cost, source_type, source_id) values ('
+    || c_ws || ', ' || c_spool || ', ''adjustment'', -500, 0.06, ''weighing'', ' || c_spool || ')', 'error:42501');
   -- Una entrega la escribe deliver_order, nadie más.
   perform pg_temp.expect('Escribir una entrega a mano', 'owner',
     'insert into public.order_deliveries (workspace_id, order_id) values (' || c_ws || ', ' || c_order || ')',
@@ -794,16 +815,33 @@ begin
     'select public.weigh_spool(' || c_spool || ', 1100, 200)', 'error:42501:Solo el dueño o un operador');
   perform pg_temp.expect('Cambiar el estado de un rollo', 'operator',
     'select public.set_spool_status(' || c_spool || ', ''in_use'')', 'ok:1');
+  -- Marcarlo agotado saca lo que tenía: el movimiento lo escribe su flujo.
+  perform pg_temp.expect('Marcar agotado un rollo con filamento', 'operator',
+    'select public.set_spool_status(''00000000-7e57-4000-8000-000000000452'', ''empty'')', 'ok:1');
+  perform pg_temp.expect('Registrar una compra', 'owner',
+    'select public.register_purchase(' || c_ws || ', ''[{"filament_sku_id": "00000000-7e57-4000-8000-000000000421", '
+    || '"quantity": 1, "unit_price": 60, "allocated_extra_cost": 0, "unit_costs": [60]}]'')', 'ok:1');
   perform pg_temp.expect('Cambiar el estado de un rollo', 'viewer',
     'select public.set_spool_status(' || c_spool || ', ''in_use'')', 'error:42501:Solo el dueño o un operador');
   perform pg_temp.expect('Cambiar el estado de un rollo', 'outsider',
     'select public.set_spool_status(' || c_spool || ', ''in_use'')', 'error:P0001:No existe el rollo indicado');
   perform pg_temp.expect('Mover un empaque', 'operator',
     'select public.move_item_stock(' || c_bag || ', ''in'', 1)', 'ok:1');
+  perform pg_temp.expect('Sacar un empaque por merma', 'operator',
+    'select public.move_item_stock(' || c_bag || ', ''out'', 1, ''waste'')', 'ok:1');
   perform pg_temp.expect('Mover un empaque', 'viewer',
     'select public.move_item_stock(' || c_bag || ', ''in'', 1)', 'error:42501:Solo el dueño o un operador');
 end;
 $$;
+
+-- Los flujos dicen que escriben solo mientras escriben: al volver, un insert
+-- directo en la misma transacción ya no pasa.
+select pg_temp.expect('Un insert directo después de un pesaje', 'operator', $q$do $x$
+  begin
+    perform public.weigh_spool('00000000-7e57-4000-8000-000000000451', 1100, 200);
+    insert into public.stock_movements (workspace_id, spool_id, type, quantity)
+    values ('00000000-7e57-4000-8000-000000000001', '00000000-7e57-4000-8000-000000000451', 'adjustment', -5);
+  end $x$$q$, 'error:42501');
 
 -- Lo que el estante tiene es de su taller, lo escriba quien lo escriba: ni
 -- la consola deja un movimiento de un taller sobre la pieza de otro.

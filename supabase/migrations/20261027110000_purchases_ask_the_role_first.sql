@@ -1,4 +1,5 @@
--- Compras y numeración preguntan el rol al principio (ADR-025, punto 6).
+-- Compras y numeración preguntan el rol al principio (ADR-025, punto 6), y
+-- su stock se mueve solo por ellas (punto 9).
 --
 -- «Solo lectura» que intentaba registrar una compra, pagarla, pesar un rollo,
 -- cambiarle el estado o mover un insumo chocaba más adentro: con la política
@@ -26,6 +27,22 @@
 --   `register_purchase`, que paga por dentro con `app.record_purchase_payment`,
 --   no pregunta dos veces. Las firmas no cambian: solo pasan de `sql` a
 --   `plpgsql`.
+--
+-- Y su stock se mueve solo por ellas. Desde 20261027120000 Resultados lee los
+-- movimientos de origen `manual`, `weighing` y `spool_status` como pérdidas,
+-- y la política de insert de `stock_movements` dejaba al operador escribir
+-- uno cualquiera por la API, con la cantidad y el costo que quisiera: una
+-- pestaña con un error (o un POST a mano) fabricaba una pérdida o una
+-- ganancia de S/ 50000 y una unidad que no existe en el kardex. Ahora la
+-- política exige, además del rol y de que sea un rollo, un insumo, un
+-- empaque o un repuesto del taller, que el movimiento lo escriba uno de sus
+-- flujos (`app.in_stock_flow`): la compra, el pesaje y el movimiento de un
+-- insumo lo dicen en la función de `public` antes de entrar a la de `app`, y
+-- el cambio de estado del rollo en el disparador que saca lo que tenía. Lo
+-- dicen con `app.stock_flow`, solo para la transacción, y lo devuelven a como
+-- estaba al salir. La API no puede ponerlo: solo llega a las funciones de
+-- `public`, igual que con `app.quick_sale` (20261020150000). Las cuatro siguen
+-- siendo `security invoker`: pasan por la política como el operador.
 
 -- ------------------------------------------------------------- numerar
 
@@ -85,13 +102,20 @@ returns jsonb
 language plpgsql
 volatile
 as $$
+declare
+  v_flow text := current_setting('app.stock_flow', true);
+  v_result jsonb;
 begin
   perform app.require_operator(p_workspace_id, 'No perteneces a este taller.', 'registrar compras');
-  return app.register_purchase(
+  -- Its rolls and articles enter the stock through the policy, as its flow.
+  perform set_config('app.stock_flow', 'register_purchase', true);
+  v_result := app.register_purchase(
     p_workspace_id, p_lines, p_purchased_at, p_supplier_id, p_document_ref,
     p_shipping_cost, p_other_costs, p_allocation, p_note,
     p_account_id, p_payment_method, p_purchase_key
   );
+  perform set_config('app.stock_flow', coalesce(v_flow, ''), true);
+  return v_result;
 end;
 $$;
 
@@ -134,13 +158,20 @@ returns jsonb
 language plpgsql
 volatile
 as $$
+declare
+  v_flow text := current_setting('app.stock_flow', true);
+  v_result jsonb;
 begin
   perform app.require_operator(
     (select s.workspace_id from public.spools s where s.id = p_spool_id),
     'No existe el rollo indicado.',
     'pesar rollos'
   );
-  return app.weigh_spool(p_spool_id, p_gross_g, p_tare_g, p_reopen);
+  -- What the scale found enters the stock through the policy, as its flow.
+  perform set_config('app.stock_flow', 'weigh_spool', true);
+  v_result := app.weigh_spool(p_spool_id, p_gross_g, p_tare_g, p_reopen);
+  perform set_config('app.stock_flow', coalesce(v_flow, ''), true);
+  return v_result;
 end;
 $$;
 
@@ -177,12 +208,88 @@ returns jsonb
 language plpgsql
 volatile
 as $$
+declare
+  v_flow text := current_setting('app.stock_flow', true);
+  v_result jsonb;
 begin
   perform app.require_operator(
     (select i.workspace_id from public.inventory_items i where i.id = p_item_id),
     'No existe el artículo indicado.',
     'mover el stock de un artículo'
   );
-  return app.move_item_stock(p_item_id, p_mode, p_quantity, p_reason, p_note, p_request_key);
+  -- The entry, exit or count enters the stock through the policy, as its flow.
+  perform set_config('app.stock_flow', 'move_item_stock', true);
+  v_result := app.move_item_stock(p_item_id, p_mode, p_quantity, p_reason, p_note, p_request_key);
+  perform set_config('app.stock_flow', coalesce(v_flow, ''), true);
+  return v_result;
 end;
 $$;
+
+-- ------------------------------------------------- el stock, por sus flujos
+
+/*
+ * Whether one of the stock flows that run as the caller is writing: a
+ * purchase, a weighing, a supply moved by hand or a roll's state. They say so
+ * in `app.stock_flow`, for their transaction only, and the API cannot set it.
+ */
+create or replace function app.in_stock_flow()
+returns boolean
+language sql
+stable
+set search_path = ''
+as $$
+  select coalesce(current_setting('app.stock_flow', true), '') <> '';
+$$;
+
+grant execute on function app.in_stock_flow() to authenticated;
+
+comment on function app.in_stock_flow() is
+  'Si escribe uno de los flujos de stock que corren como quien llama (compra, pesaje, movimiento de un insumo, estado del rollo). Lo dicen en app.stock_flow, solo para su transacción; la API no puede ponerlo.';
+
+-- The one of 20261023120000_spool_status_moves_stock, saying it is the flow.
+create or replace function app.spool_status_moves_stock()
+returns trigger
+language plpgsql
+as $$
+declare
+  v_on_hand numeric := app.spool_on_hand(new.id);
+  v_flow text := current_setting('app.stock_flow', true);
+begin
+  if v_on_hand > 0 then
+    -- What the roll held leaves through the policy, as the flow of its state.
+    perform set_config('app.stock_flow', 'spool_status', true);
+    insert into public.stock_movements (
+      workspace_id, type, spool_id, quantity, unit_cost, source_type, source_id, note
+    )
+    values (
+      new.workspace_id,
+      case when new.status = 'discarded' then 'waste' else 'adjustment' end::public.stock_movement_type,
+      new.id,
+      -v_on_hand,
+      new.cost_per_gram,
+      'spool_status',
+      new.id,
+      format(
+        'Rollo marcado «%s» con %s g según sus movimientos',
+        app.spool_status_label(new.status),
+        trim_scale(v_on_hand)::text
+      )
+    );
+    perform set_config('app.stock_flow', coalesce(v_flow, ''), true);
+  end if;
+
+  return null;
+end;
+$$;
+
+-- What 20261027100000 let in (a roll, a supply, a bag or a spare part of the
+-- workshop, by an owner or an operator), and only from inside its flows.
+drop policy if exists stock_movements_insert on public.stock_movements;
+
+create policy stock_movements_insert on public.stock_movements
+  for insert to authenticated
+  with check (
+    app.can_operate(workspace_id)
+    and app.in_stock_flow()
+    and app.movable_by_hand(workspace_id, spool_id, inventory_item_id)
+  );
