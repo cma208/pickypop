@@ -21,6 +21,7 @@ import { dueStatuses, needsAttention, type DueState } from '../impresoras/mainte
 import { belowMinimum, type LowStock } from './panel.stock';
 import type { SetupCounts } from './panel.setup';
 import { commonCauses } from './panel.prints';
+import { unwatchedPrinters, type MaintenanceCoverage } from './panel.maintenance';
 
 type OrderStatus = Database['public']['Enums']['order_status'];
 type FailureCause = Database['public']['Enums']['print_failure_cause'];
@@ -76,11 +77,8 @@ export interface MaintenanceAlert {
 
 export interface MaintenanceOverview {
   alerts: MaintenanceAlert[];
-  /**
-   * Active plans of the printers in use. No alert with no plan means nothing
-   * is watched, which is not the same as everything being up to date.
-   */
-  watchedPlans: number;
+  /** Which printers the plans watch: no alert from an unwatched one says nothing. */
+  coverage: MaintenanceCoverage;
 }
 
 /** Orders that still need work, in the order they move through the shop. */
@@ -240,7 +238,6 @@ export class PanelData {
     const workshop = await this.printers.load();
     const today = todayLocal();
     const inUse = workshop.printers.filter((printer) => printer.status !== 'retired');
-    const inUseIds = new Set(inUse.map((printer) => printer.id));
 
     const alerts = inUse
       .flatMap((printer) => {
@@ -261,7 +258,11 @@ export class PanelData {
 
     return {
       alerts,
-      watchedPlans: workshop.plans.filter((plan) => plan.active && inUseIds.has(plan.printerId)).length,
+      coverage: {
+        registered: workshop.printers.length,
+        inUse: inUse.length,
+        unwatched: unwatchedPrinters(inUse, workshop.plans),
+      },
     };
   }
 

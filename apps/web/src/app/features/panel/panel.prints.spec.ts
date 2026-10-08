@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { commonCauses, joinCauses } from './panel.prints';
+import { commonCauses, joinLabels } from './panel.prints';
 
 describe('commonCauses', () => {
   it('names the cause that stands out', () => {
@@ -17,11 +17,11 @@ describe('commonCauses', () => {
   });
 });
 
-describe('joinCauses', () => {
+describe('joinLabels', () => {
   it('reads like a sentence', () => {
-    expect(joinCauses(['warping'])).toBe('warping');
-    expect(joinCauses(['adhesión a la placa', 'warping'])).toBe('adhesión a la placa y warping');
-    expect(joinCauses(['a', 'b', 'c'])).toBe('a, b y c');
-    expect(joinCauses([])).toBe('');
+    expect(joinLabels(['warping'])).toBe('warping');
+    expect(joinLabels(['adhesión a la placa', 'warping'])).toBe('adhesión a la placa y warping');
+    expect(joinLabels(['a', 'b', 'c'])).toBe('a, b y c');
+    expect(joinLabels([])).toBe('');
   });
 });

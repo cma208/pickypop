@@ -19,8 +19,8 @@ export function commonCauses(causes: readonly (FailureCause | null)[]): FailureC
   return [...counts].filter(([, count]) => count === most).map(([cause]) => cause);
 }
 
-/** "a", "a y b", "a, b y c". */
-export function joinCauses(labels: readonly string[]): string {
+/** "a", "a y b", "a, b y c": causes, printers, anything the panel lists in a sentence. */
+export function joinLabels(labels: readonly string[]): string {
   if (labels.length <= 1) return labels[0] ?? '';
   return `${labels.slice(0, -1).join(', ')} y ${labels[labels.length - 1]}`;
 }

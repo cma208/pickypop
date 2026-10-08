@@ -7,7 +7,8 @@ import { PanelData, type WeekPrints } from './panel.data';
 import type { TaskUrgency } from './panel.tasks';
 import { FAILURE_CAUSE_LABELS, ORDER_STATUS_LABELS } from './panel.labels';
 import { firstSteps, type SetupCounts } from './panel.setup';
-import { joinCauses } from './panel.prints';
+import { joinLabels } from './panel.prints';
+import { maintenanceNotes } from './panel.maintenance';
 
 type FailureCause = WeekPrints['commonCauses'][number];
 
@@ -179,27 +180,20 @@ const TODAY = new Intl.DateTimeFormat('es-PE', {
         <pp-card heading="Mantenimiento">
           <a card-actions routerLink="/impresoras">Ver impresoras</a>
           <pp-async [loading]="maintenance.isLoading()" [error]="problem(maintenance.error(), 'el mantenimiento')">
-            @if ((maintenance.value()?.alerts ?? []).length === 0) {
-              @if (none('printers')) {
-                <p class="muted">Todavía no hay impresoras registradas.</p>
-              } @else if (maintenance.value()?.watchedPlans === 0) {
-                <p class="muted">
-                  Todavía no hay planes de mantenimiento, así que nada avisa cuándo toca. Créalos en
-                  <a routerLink="/impresoras">Impresoras</a>, pestaña «Planes».
-                </p>
-              } @else if (!setup.isLoading()) {
-                <p class="positive">Sin mantenimientos pendientes: las impresoras están al día.</p>
-              }
-            } @else {
-              @for (alert of maintenance.value()?.alerts; track alert.key) {
-                <div class="row-item">
-                  <span class="grow">
-                    {{ alert.task }}
-                    <small>{{ alert.printerName }} · {{ alert.summary }}</small>
-                  </span>
-                  <pp-badge [tone]="dueTones[alert.state]">{{ dueLabels[alert.state] }}</pp-badge>
-                </div>
-              }
+            @for (alert of maintenance.value()?.alerts; track alert.key) {
+              <div class="row-item">
+                <span class="grow">
+                  {{ alert.task }}
+                  <small>{{ alert.printerName }} · {{ alert.summary }}</small>
+                </span>
+                <pp-badge [tone]="dueTones[alert.state]">{{ dueLabels[alert.state] }}</pp-badge>
+              </div>
+            }
+            @for (note of maintenanceNotes(); track note.text) {
+              <p [class.positive]="note.tone === 'positive'" [class.muted]="note.tone === 'muted'">
+                {{ note.text }}
+                @if (note.plansLink) { Créalos en <a routerLink="/impresoras">Impresoras</a>, pestaña «Planes». }
+              </p>
             }
           </pp-async>
         </pp-card>
@@ -267,6 +261,10 @@ export class PanelPage {
   protected readonly orders = resource({ loader: () => this.data.ordersInProgress() });
   protected readonly maintenance = resource({ loader: () => this.data.maintenance() });
   protected readonly prints = resource({ loader: () => this.data.weekPrints() });
+  protected readonly maintenanceNotes = computed(() => {
+    const overview = this.maintenance.value();
+    return overview ? maintenanceNotes(overview.coverage, overview.alerts.length) : [];
+  });
 
   /** The workshop has none of these yet, so a card must not say they are fine. */
   protected none(key: keyof SetupCounts): boolean {
@@ -274,7 +272,7 @@ export class PanelPage {
   }
 
   protected causeText(causes: readonly FailureCause[]): string {
-    return joinCauses(causes.map((cause) => this.causeLabels[cause]));
+    return joinLabels(causes.map((cause) => this.causeLabels[cause]));
   }
 
   protected isHealthy(rate: number | null): boolean {
