@@ -79,6 +79,14 @@ export interface SalePayment {
   soldAt: string | null;
 }
 
+/** An account money can go into, as far as the sale needs to know it. */
+export interface AccountChoice {
+  id: string;
+  name: string;
+  /** What `record_payment` uses when the sale names no method. */
+  defaultMethod: PaymentMethod | null;
+}
+
 /** A customer as the sale offers it. */
 export interface CustomerChoice {
   id: string;
@@ -201,6 +209,8 @@ export function saleProblem(check: {
   offers: ReadonlyMap<string, ShelfOffer>;
   customer: SaleCustomer;
   payment: SalePayment;
+  /** The accounts the screen offers, to know whether the chosen one brings its own method. */
+  accounts?: readonly AccountChoice[];
   now?: Date;
 }): string | null {
   const { lines, offers, customer, payment } = check;
@@ -224,6 +234,10 @@ export function saleProblem(check: {
   }
   if (roundMoney(amount) > 0 && !payment.accountId) {
     return 'Elige la cuenta donde entró el dinero, o deja lo cobrado en cero si te paga después.';
+  }
+  const account = check.accounts?.find((row) => row.id === payment.accountId);
+  if (roundMoney(amount) > 0 && account && !account.defaultMethod && !payment.method) {
+    return `Falta el medio de pago: la cuenta ${account.name} no tiene uno por defecto.`;
   }
 
   if (!customer.customerId && !customer.name.trim() && customer.phone.trim()) {

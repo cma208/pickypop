@@ -200,6 +200,20 @@ describe('saleProblem', () => {
     );
   });
 
+  it('asks for the method when the account has none of its own', () => {
+    const accounts = [
+      { id: 'cash', name: 'Efectivo', defaultMethod: 'cash' as const },
+      { id: 'yape', name: 'Yape', defaultMethod: null },
+    ];
+    expect(check({ accounts })).toBeNull();
+    expect(check({ accounts, payment: { ...cash, accountId: 'yape' } })).toBe(
+      'Falta el medio de pago: la cuenta Yape no tiene uno por defecto.',
+    );
+    expect(check({ accounts, payment: { ...cash, accountId: 'yape', method: 'yape' } })).toBeNull();
+    // Nothing collected: no account, no method.
+    expect(check({ accounts, payment: { ...cash, amount: 0, accountId: 'yape' } })).toBeNull();
+  });
+
   it('wants a name to keep a phone, and no sale in the future', () => {
     expect(check({ customer: { ...nobody, phone: '987654321' } })).toBe('Escribe el nombre del cliente para guardar su teléfono.');
     expect(check({ customer: { customerId: 'maria', name: '', phone: '987' } })).toBeNull();

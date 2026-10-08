@@ -304,7 +304,13 @@ export class VentaRapidaPage {
 
   private check(offers: ReadonlyMap<string, ShelfOffer>): Parameters<typeof saleProblem>[0] {
     const value = this.value();
-    return { lines: value.lines, offers, customer: value.customer, payment: this.payment(value.payment) };
+    return {
+      lines: value.lines,
+      offers,
+      customer: value.customer,
+      payment: this.payment(value.payment),
+      accounts: this.accounts(),
+    };
   }
 
   private payment(payment: ReturnType<QuickPaymentForm['getRawValue']>): SalePayment {
