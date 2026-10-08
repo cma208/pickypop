@@ -3,10 +3,41 @@ import {
   byUrgency,
   dueWording,
   openPrintWording,
+  owedTask,
   owingWording,
   urgencyForDueDate,
   type TodayTask,
 } from './panel.tasks';
+
+/** Intl puts a no-break space between «S/» and the number; the assertions read it as a plain one. */
+const plain = (text: string) => text.replace(/ /g, ' ');
+
+describe('owedTask (T4-12)', () => {
+  const today = '2026-10-08';
+
+  it('is on time when it has no due date, as Por cobrar says «Al día»', () => {
+    const task = owedTask({ balance: 57.34, daysOverdue: 0, dueDate: null }, today);
+    expect(task.urgency).toBe('soon');
+    expect(plain(task.detail)).toBe('Entregado y debe S/ 57.34. Sin fecha de vencimiento.');
+  });
+
+  it('is due today on the day itself, not late', () => {
+    expect(owedTask({ balance: 8, daysOverdue: 0, dueDate: today }, today)).toMatchObject({ urgency: 'today' });
+    expect(owedTask({ balance: 8, daysOverdue: 0, dueDate: today }, today).detail).toContain('Vence hoy.');
+  });
+
+  it('is late only once the database counts days overdue', () => {
+    expect(owedTask({ balance: 8, daysOverdue: 1, dueDate: '2026-10-07' }, today)).toMatchObject({
+      urgency: 'late',
+    });
+    expect(owedTask({ balance: 8, daysOverdue: 1, dueDate: '2026-10-07' }, today).detail).toContain('Venció ayer.');
+    expect(owedTask({ balance: 8, daysOverdue: 5, dueDate: '2026-10-03' }, today).detail).toContain('hace 5 días');
+  });
+
+  it('is on time when it falls due later', () => {
+    expect(owedTask({ balance: 8, daysOverdue: 0, dueDate: '2026-10-20' }, today)).toMatchObject({ urgency: 'soon' });
+  });
+});
 
 describe('urgencyForDueDate', () => {
   it('yesterday is late and today is not', () => {

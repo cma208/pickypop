@@ -2,7 +2,11 @@ import {
   buildTransactionDraft,
   draftProblem,
   effectsOf,
+  FUTURE_DATE_PROBLEM,
+  isInTheFuture,
+  negativeBalanceNotice,
   previewBalances,
+  TOO_LARGE_PROBLEM,
   workshopChange,
   type BalanceAccount,
   type TransactionFormValue,
@@ -158,5 +162,74 @@ describe('previewBalances', () => {
       accounts,
     );
     expect(workshopChange(previews)).toBe(0);
+  });
+});
+
+describe('draftProblem, the rules the ledger enforces too', () => {
+  // 8 Oct 2026, 10:00 in Lima.
+  const now = Date.parse('2026-10-08T15:00:00Z');
+
+  it('refuses a date that has not come yet (T5-08)', () => {
+    expect(draftProblem(form({ occurredAt: '2026-10-31T23:59' }), now)).toBe(FUTURE_DATE_PROBLEM);
+    expect(draftProblem(form({ occurredAt: '2026-10-08T10:30' }), now)).toBe(FUTURE_DATE_PROBLEM);
+  });
+
+  it('allows the few minutes a phone clock may be ahead', () => {
+    expect(draftProblem(form({ occurredAt: '2026-10-08T10:04' }), now)).toBeNull();
+    expect(draftProblem(form({ occurredAt: '2026-10-01T09:00' }), now)).toBeNull();
+  });
+
+  it('refuses an amount over the ceiling, in soles (T5-11)', () => {
+    expect(draftProblem(form({ amount: 99_999_999_999 }), now)).toBe(TOO_LARGE_PROBLEM);
+    expect(TOO_LARGE_PROBLEM).toContain('1,000,000.00');
+    expect(draftProblem(form({ amount: 1_000_000 }), now)).toBeNull();
+  });
+});
+
+describe('isInTheFuture', () => {
+  it('gives the clocks five minutes', () => {
+    const now = Date.parse('2026-10-08T15:00:00Z');
+    expect(isInTheFuture('2026-10-08T15:05:00Z', now)).toBe(false);
+    expect(isInTheFuture('2026-10-08T15:05:01Z', now)).toBe(true);
+  });
+});
+
+describe('a balance that goes below zero (T5-04)', () => {
+  const accounts: BalanceAccount[] = [
+    { id: 'yape', name: 'Yape', balance: 200, openingBalanceOn: '2026-10-01' },
+    { id: 'cash', name: 'Efectivo', balance: 299, openingBalanceOn: '2026-10-01' },
+  ];
+  const draft = (overrides: Partial<TransactionFormValue>) =>
+    buildTransactionDraft(form({ accountId: 'yape', occurredAt: '2026-10-07T12:00', ...overrides }));
+
+  it('marks the account a transfer empties past zero, and only that one', () => {
+    const previews = previewBalances(draft({ type: 'transfer', counterAccountId: 'cash', amount: 1000 }), accounts);
+    expect(previews.map((line) => [line.name, line.after, line.goesNegative])).toEqual([
+      ['Yape', -800, true],
+      ['Efectivo', 1299, false],
+    ]);
+  });
+
+  it('marks an expense bigger than the balance, not one that leaves it at zero', () => {
+    expect(previewBalances(draft({ type: 'expense', amount: 200.01 }), accounts)[0]?.goesNegative).toBe(true);
+    expect(previewBalances(draft({ type: 'owner_draw', amount: 200 }), accounts)[0]?.goesNegative).toBe(false);
+  });
+
+  it('never marks money coming in, nor a leg before the opening', () => {
+    const negative: BalanceAccount[] = [{ id: 'yape', name: 'Yape', balance: -50, openingBalanceOn: '2026-10-01' }];
+    expect(previewBalances(draft({ type: 'income', amount: 10 }), negative)[0]?.goesNegative).toBe(false);
+    const early = draft({ type: 'expense', amount: 999, occurredAt: '2026-09-30T12:00' });
+    expect(previewBalances(early, accounts)[0]?.goesNegative).toBe(false);
+  });
+
+  it('says how far below and why it may be', () => {
+    // Intl puts a no-break space between «S/» and the number.
+    const plain = (text: string) => text.replace(/ /g, ' ');
+    expect(plain(negativeBalanceNotice({ name: 'Yape', before: 200, after: -800 }))).toBe(
+      'Yape quedaría en -S/ 800.00: sale más de lo que hay (S/ 200.00). ¿Falta registrar un ingreso, o el saldo de apertura está mal?',
+    );
+    expect(plain(negativeBalanceNotice({ name: 'Yape', before: -50, after: -60 }))).toContain(
+      'ya estaba en -S/ 50.00 y sigue bajando',
+    );
   });
 });

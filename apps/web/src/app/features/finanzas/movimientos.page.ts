@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { afterNextRender, Component, computed, ElementRef, inject, Injector, signal, viewChild } from '@angular/core';
 import { friendlyError } from '../../core/friendly-error';
 import { SECTION_STYLES } from '../../core/styles';
 import { AsyncState, Badge, Empty, FORMAT_PIPES, Page } from '../../ui';
@@ -11,10 +11,12 @@ import {
   TRANSACTION_TYPE_TONES,
   timeLabel,
   type CategoryOption,
+  type FinanceAccess,
   type TransactionType,
 } from './finanzas.models';
 import { FINANCE_STYLES } from './finanzas.styles';
 import { ledgerTotals, markVoidable, transfersCaption } from './ledger-totals';
+import type { TransactionPreset } from './transaction-draft';
 import { TransactionForm } from './transaction-form';
 import { VoidForm } from './void-form';
 
@@ -31,29 +33,50 @@ const NO_FILTER: LedgerFilter = { accountId: null, type: null, from: null, to: n
       .reason { color: var(--danger); }
       .early { color: var(--warn); }
       .totals .early { max-width: 24rem; }
+      .forms { scroll-margin-top: 1rem; }
     `,
   ],
   template: `
     <pp-page title="Caja" subtitle="El libro: todo lo que entró, salió y cambió de cuenta">
-      <button actions type="button" (click)="openForm()">Registrar movimiento</button>
+      @if (canOperate()) {
+        <button actions type="button" (click)="openForm()">Registrar movimiento</button>
+      }
 
       @if (notice(); as text) {
         <p class="notice" role="status">{{ text }}</p>
       }
 
-      @if (formOpen()) {
-        <app-transaction-form
-          [allAccounts]="accounts()"
-          [allCategories]="categories()"
-          (saved)="afterChange($event)"
-          (cancelled)="formOpen.set(false)"
-        />
-      }
-
-      @if (voiding(); as row) {
-        @for (key of [row.key]; track key) {
-          <app-void-form [row]="row" (voided)="afterChange($event)" (cancelled)="voiding.set(null)" />
+      <!-- The forms sit above the book: opened from a row far below, the page is brought up to them (T5-14). -->
+      <div class="forms" #forms>
+        @if (formOpen()) {
+          <app-transaction-form
+            [allAccounts]="accounts()"
+            [allCategories]="categories()"
+            [preset]="preset()"
+            (saved)="afterChange($event)"
+            (refused)="afterMovementRefused()"
+            (cancelled)="formOpen.set(false)"
+          />
         }
+
+        @if (voiding(); as row) {
+          <!-- Keyed by movement, not by leg: voided from another tab its row changes key, and the form stays with its message. -->
+          @for (key of [row.transactionId]; track key) {
+            <app-void-form
+              [row]="row"
+              (voided)="afterChange($event)"
+              (refused)="reloadAfterRefusal($event)"
+              (correct)="openCorrection($event)"
+              (cancelled)="voiding.set(null)"
+            />
+          }
+        }
+      </div>
+
+      @if (canOperate() === false) {
+        <p class="muted">Tu rol en el taller es de consulta: ves el libro, pero registrar movimientos es del dueño y de los operadores, y anularlos, solo del dueño.</p>
+      } @else if (isOwner() === false) {
+        <p class="muted">Solo el dueño del taller puede anular un movimiento.</p>
       }
 
       <div class="filters">
@@ -194,7 +217,7 @@ const NO_FILTER: LedgerFilter = { accountId: null, type: null, from: null, to: n
                       {{ row.voided ? (row.amount | money) : (row.signedAmount | money) }}
                     </td>
                     <td class="right nowrap">
-                      @if (row.canVoid) {
+                      @if (row.canVoid && isOwner()) {
                         <button type="button" class="ghost" (click)="startVoid(row)">Anular</button>
                       }
                     </td>
@@ -210,6 +233,16 @@ const NO_FILTER: LedgerFilter = { accountId: null, type: null, from: null, to: n
 })
 export class MovimientosFinancierosPage {
   private readonly data = inject(FinanzasData);
+  private readonly injector = inject(Injector);
+  private readonly forms = viewChild<ElementRef<HTMLElement>>('forms');
+
+  /**
+   * Only the owner voids, and a viewer registers nothing: nobody is offered a
+   * button the database would refuse. Null until it is known.
+   */
+  private readonly access = signal<FinanceAccess | null>(null);
+  protected readonly isOwner = computed(() => this.access()?.isOwner ?? null);
+  protected readonly canOperate = computed(() => this.access()?.canOperate ?? null);
 
   protected readonly types = TRANSACTION_TYPES;
   protected readonly typeLabels = TRANSACTION_TYPE_LABELS;
@@ -224,6 +257,8 @@ export class MovimientosFinancierosPage {
   protected readonly error = signal<string | null>(null);
   protected readonly notice = signal<string | null>(null);
   protected readonly formOpen = signal(false);
+  /** What the movement form opens filled with: the correction of a movement that cannot be voided. */
+  protected readonly preset = signal<TransactionPreset | null>(null);
   protected readonly voiding = signal<LedgerRow | null>(null);
   protected readonly showVoided = signal(true);
   protected readonly filter = signal<LedgerFilter>(NO_FILTER);
@@ -250,6 +285,16 @@ export class MovimientosFinancierosPage {
   constructor() {
     void this.loadOptions();
     void this.load();
+    void this.readAccess();
+  }
+
+  /** Read again after a refusal: the role may have changed in another tab. */
+  private async readAccess(): Promise<void> {
+    try {
+      this.access.set(await this.data.access());
+    } catch {
+      this.access.set({ isOwner: false, canOperate: false });
+    }
   }
 
   protected hora(row: LedgerRow): string {
@@ -259,13 +304,25 @@ export class MovimientosFinancierosPage {
   protected openForm(): void {
     this.notice.set(null);
     this.voiding.set(null);
+    this.preset.set(null);
     this.formOpen.set(true);
+    this.showForms();
+  }
+
+  /** The collection of a sale to «Clientes varios» is corrected, not voided (T5-05): the form opens filled in. */
+  protected openCorrection(preset: TransactionPreset): void {
+    this.notice.set(null);
+    this.voiding.set(null);
+    this.preset.set(preset);
+    this.formOpen.set(true);
+    this.showForms();
   }
 
   protected startVoid(row: LedgerRow): void {
     this.notice.set(null);
     this.formOpen.set(false);
     this.voiding.set(row);
+    this.showForms();
   }
 
   protected afterChange(message: string): void {
@@ -274,6 +331,46 @@ export class MovimientosFinancierosPage {
     this.notice.set(message);
     void this.loadOptions();
     void this.load();
+  }
+
+  /**
+   * The database refused a voiding: the row may already be voided from
+   * another tab. The book is read again and the open form follows its row, so
+   * it says the movement is voided instead of still offering to void it. A row
+   * no longer in the book closes the form, with the refusal said on the page.
+   */
+  protected async reloadAfterRefusal(message: string): Promise<void> {
+    void this.loadOptions();
+    void this.readAccess();
+    await this.load();
+    const open = this.voiding();
+    if (!open) return;
+    const fresh =
+      this.rows().find((row) => row.key === open.key) ??
+      this.rows().find((row) => row.transactionId === open.transactionId);
+    if (fresh) {
+      this.voiding.set(fresh);
+    } else {
+      this.voiding.set(null);
+      this.notice.set(message);
+    }
+  }
+
+  /**
+   * A refused movement may come from an account that changed meanwhile, or a
+   * role: the pickers and the role are read again.
+   */
+  protected afterMovementRefused(): void {
+    void this.loadOptions();
+    void this.readAccess();
+  }
+
+  /** Clicked from a row far down the book, the form opened out of sight and the button seemed dead. */
+  private showForms(): void {
+    afterNextRender(
+      () => this.forms()?.nativeElement.scrollIntoView({ behavior: 'smooth', block: 'start' }),
+      { injector: this.injector },
+    );
   }
 
   protected onAccount(event: Event): void {

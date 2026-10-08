@@ -1,3 +1,4 @@
+import type { MemberRole } from '../../core/workspace';
 import type { BadgeTone } from '../../ui';
 
 /** Days are cut at midnight in Lima, wherever the browser happens to be. */
@@ -85,6 +86,37 @@ export interface CategoryOption {
   direction: TransactionDirection;
   /** A category of sales: collections of orders and the quick sale use it, a loose income cannot. */
   sales: boolean;
+  /** A category of capital: only the owner's contributions and draws use it, and they use only these. */
+  capital: boolean;
+}
+
+/**
+ * The largest single movement the workshop records, in soles. A typo with
+ * three zeros too many is far more likely than a movement of a million. The
+ * database refuses the same (`app.ledger_amount_limit()`): if one changes,
+ * the other changes with it.
+ */
+export const MAX_LEDGER_AMOUNT = 1_000_000;
+
+/**
+ * What a person may do in the finance screens (the owner's decision of
+ * 2026-10-08). The database decides it; the screens use this only not to
+ * offer what it would refuse.
+ */
+export interface FinanceAccess {
+  /** Sets up the accounts and voids movements. */
+  isOwner: boolean;
+  /** Registers movements and collects: the owner and the operators, never a viewer. */
+  canOperate: boolean;
+}
+
+export function financeAccess(role: MemberRole | null | undefined): FinanceAccess {
+  return { isOwner: role === 'owner', canOperate: role === 'owner' || role === 'operator' };
+}
+
+/** The two types that are capital, not profit: the owner's money going in or out. */
+export function isOwnerType(type: TransactionType): boolean {
+  return type === 'owner_contribution' || type === 'owner_draw';
 }
 
 /** The categories a type may be filed under. A transfer accepts none. */
@@ -100,19 +132,25 @@ export function categoriesFor(
 /**
  * The category a collection or a purchase payment is filed under when nobody
  * picks one: the one the owner chose, while it is still offered, else the only
- * one of its direction. It is the rule of `app.default_category` in the
- * database, which is what really applies it; this copy only lets a form say
- * so before saving, so the two change together.
+ * one that fits: of sales for a collection, not of capital for a payment. It
+ * is the rule of `app.default_category` in the database, which is what really
+ * applies it; this copy only lets a form say so before saving, so the two
+ * change together.
  */
 export function defaultCategory(
   direction: TransactionDirection,
   chosenId: string | null,
   categories: readonly CategoryOption[],
 ): CategoryOption | null {
-  const ofDirection = categories.filter((category) => category.direction === direction);
-  const chosen = ofDirection.find((category) => category.id === chosenId);
+  // With «Venta de productos» off, «Aporte del dueño» was the only income left
+  // and took every collection (T5-07).
+  const candidates = categories.filter(
+    (category) =>
+      category.direction === direction && !category.capital && (direction === 'expense' || category.sales),
+  );
+  const chosen = candidates.find((category) => category.id === chosenId);
   if (chosen) return chosen;
-  return ofDirection.length === 1 ? ofDirection[0]! : null;
+  return candidates.length === 1 ? candidates[0]! : null;
 }
 
 /**
@@ -123,33 +161,71 @@ export function defaultCategory(
  * would count twice. Collections and the quick sale keep using them. The
  * database refuses it as well (`app.loose_income_is_not_a_sale`): this only
  * keeps them out of the list.
+ *
+ * A category of capital goes with the owner's contributions and draws, and
+ * only with them: an income filed under «Aporte del dueño» added to the
+ * profit (T5-06). The database refuses that too (`app.guard_ledger_entry`).
  */
 export function cashCategoriesFor(
   type: TransactionType,
   categories: readonly CategoryOption[],
 ): CategoryOption[] {
   const offered = categoriesFor(type, categories);
-  return type === 'income' ? offered.filter((category) => !category.sales) : offered;
+  if (isOwnerType(type)) return offered.filter((category) => category.capital);
+  return offered.filter((category) => !category.capital && !(type === 'income' && category.sales));
+}
+
+/**
+ * What the collection of an order may be filed under: an income that is not
+ * capital. Capital is the owner's money, and a collection is a sale.
+ */
+export function collectionCategoriesFor(categories: readonly CategoryOption[]): CategoryOption[] {
+  return categoriesFor('income', categories).filter((category) => !category.capital);
 }
 
 /** Why the categories of sales are not in Caja's list. */
 const SALES_HIDDEN_HINT = 'Las categorías de ventas no se ofrecen aquí: son de los cobros de pedidos y de la Venta rápida.';
+/** Why the ones of capital are not there either, said after the sales one or alone. */
+const CAPITAL_HIDDEN_HINT = {
+  afterSales: 'Las de capital tampoco: la plata que metes al taller va como «Aporte del dueño», con su propio tipo.',
+  income: 'Las categorías de capital no se ofrecen aquí: la plata que metes al taller va como «Aporte del dueño», con su propio tipo.',
+  expense: 'Las categorías de capital no se ofrecen aquí: la plata que sacas para ti va como «Retiro del dueño», con su propio tipo.',
+} as const;
 /** Where a category that does fit is made, when none is left to choose. */
 const CREATE_CATEGORY_HINT = 'Crea una que no sea de ventas (por ejemplo «Reembolsos») en Configuración › Categorías de dinero.';
+/** An owner's movement already says what it is. */
+const OWNER_HINT = 'Solo las de capital: un aporte o un retiro del dueño no es un ingreso ni un gasto del taller.';
+const OWNER_NONE_HINT = 'No hace falta: el tipo ya dice que es capital. Solo se ofrecen las categorías de capital, y no hay ninguna.';
 
 /**
- * What Caja's category field says. With the categories of sales hidden it
- * says why; and when that leaves nothing to choose (a workshop that only has
- * the two of sales bootstrap.sql creates) also where to make one, or every
- * loose income would go without a category for want of knowing.
+ * What Caja's category field says. With the categories of sales or of capital
+ * hidden it says why; and when that leaves a loose income nothing to choose (a
+ * workshop that only has the two of sales bootstrap.sql creates) also where to
+ * make one, or every loose income would go without a category for want of
+ * knowing.
  */
 export function cashCategoryHint(
   type: TransactionType,
   categories: readonly CategoryOption[],
 ): string | undefined {
+  const direction = TYPE_DIRECTION[type];
+  if (direction === null) return undefined;
+
+  const all = categoriesFor(type, categories);
   const offered = cashCategoriesFor(type, categories).length;
-  const hidden = categoriesFor(type, categories).length - offered;
-  if (hidden > 0) return offered === 0 ? `${SALES_HIDDEN_HINT} ${CREATE_CATEGORY_HINT}` : SALES_HIDDEN_HINT;
+  if (isOwnerType(type)) {
+    if (offered > 0) return OWNER_HINT;
+    return all.length > 0 ? OWNER_NONE_HINT : undefined;
+  }
+
+  const salesHidden = type === 'income' && all.some((category) => category.sales);
+  const capitalHidden = all.some((category) => category.capital);
+  const parts: string[] = [];
+  if (salesHidden) parts.push(SALES_HIDDEN_HINT);
+  if (capitalHidden) parts.push(salesHidden ? CAPITAL_HIDDEN_HINT.afterSales : CAPITAL_HIDDEN_HINT[direction]);
+  if (parts.length > 0 && offered === 0 && type === 'income') parts.push(CREATE_CATEGORY_HINT);
+
+  if (parts.length > 0) return parts.join(' ');
   return offered === 0 ? 'No hay categorías de este tipo todavía.' : undefined;
 }
 

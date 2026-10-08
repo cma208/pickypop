@@ -1,15 +1,18 @@
 import { inject, Injectable } from '@angular/core';
 import { fetchAll } from '../../core/fetch-all';
-import { UserFacingError } from '../../core/friendly-error';
+import { permissionError, UserFacingError } from '../../core/friendly-error';
 import { SUPABASE } from '../../core/supabase';
 import { CurrentWorkspace } from '../../core/workspace';
+import { accountChanges, type AccountInput, type AccountLeg } from './account-edit';
 import {
   dayEnd,
   dayStart,
   defaultCategory,
+  financeAccess,
   num,
   type AccountKind,
   type CategoryOption,
+  type FinanceAccess,
   type PaymentMethod,
   type TransactionType,
 } from './finanzas.models';
@@ -28,6 +31,8 @@ export interface AccountSummary {
   openingBalanceOn: string;
   defaultPaymentMethod: PaymentMethod | null;
   note: string | null;
+  /** When it was last changed: an edit from an old tab is refused against it (T5-09). */
+  updatedAt: string;
   /** In and out since the opening balance: opening + in − out is the balance. */
   totalIn: number;
   totalOut: number;
@@ -39,15 +44,18 @@ export interface AccountSummary {
   netBeforeOpening: number;
 }
 
-export interface AccountInput {
-  name: string;
-  kind: AccountKind;
-  openingBalance: number;
-  openingBalanceOn: string;
-  defaultPaymentMethod: PaymentMethod | null;
-  note: string | null;
-  active: boolean;
-}
+export type { AccountInput };
+
+/** Said when an old tab tries to save over an account that changed meanwhile. */
+const STALE_ACCOUNT =
+  'La cuenta cambió en otra pestaña, o la cambió otra persona, mientras la editabas: no se guardó nada. Vuelve a abrirla para ver cómo quedó.';
+
+/**
+ * The account moved on while the screen showed an older version of it. The
+ * form open on that version cannot be saved over it: Cuentas closes it and
+ * reads the list again.
+ */
+export class StaleAccountError extends UserFacingError {}
 
 export interface LedgerFilter {
   accountId: string | null;
@@ -77,6 +85,12 @@ export interface LedgerRow {
   note: string | null;
   /** What the movement settled, when it came from somewhere else in the app. */
   origin: string | null;
+  /** The order it collected or refunded, so voiding it can say that order owes again. */
+  orderNumber: string | null;
+  /** The order is a quick sale to «Clientes varios», which never owes (T5-05). */
+  walkInOrder: boolean;
+  /** It paid a purchase, which goes back to «Por pagar» if it is voided. */
+  purchaseId: string | null;
   voided: boolean;
   voidReason: string | null;
   /** Dated before this leg's account opened: already inside its opening balance, so it does not move it. */
@@ -130,6 +144,11 @@ function withRaisedMessage(error: unknown): unknown {
   return code === RAISED_EXCEPTION && message ? new UserFacingError(message) : error;
 }
 
+/** Whether the database refused with a sentence of its own: the screen then reloads what it showed. */
+export function isRefusal(error: unknown): boolean {
+  return error instanceof UserFacingError || (error as ErrorLike | null)?.code === RAISED_EXCEPTION;
+}
+
 /**
  * Everything the finance screens read and write. Pages never talk to Supabase
  * directly. Row Level Security scopes every query to the signed-in person's
@@ -140,13 +159,33 @@ export class FinanzasData {
   private readonly supabase = inject(SUPABASE);
   private readonly workspace = inject(CurrentWorkspace);
 
+  /**
+   * What the signed-in person may do here: the owner sets up the accounts and
+   * voids, the owner and the operators register and collect (the owner's
+   * decision of 2026-10-08). Read fresh each time, not from the workshop's
+   * cached role: after a refusal the screens ask again, and a role changed in
+   * another tab counts at once instead of at the next sign-in.
+   */
+  async access(): Promise<FinanceAccess> {
+    const { id, userId } = await this.workspace.info();
+    if (!userId) return financeAccess(null);
+    const { data, error } = await this.supabase
+      .from('workspace_members')
+      .select('role')
+      .eq('workspace_id', id)
+      .eq('user_id', userId)
+      .maybeSingle();
+    if (error) throw error;
+    return financeAccess(data?.role);
+  }
+
   // ---------------------------------------------------------------- accounts
 
   async accounts(): Promise<AccountSummary[]> {
     const [accounts, balances] = await Promise.all([
       this.supabase
         .from('accounts')
-        .select('id, name, kind, opening_balance, opening_balance_on, default_payment_method, note, active'),
+        .select('id, name, kind, opening_balance, opening_balance_on, default_payment_method, note, active, updated_at'),
       this.supabase
         .from('account_balances')
         .select('account_id, total_in, total_out, balance, movements, last_movement_at, movements_before_opening, net_before_opening'),
@@ -168,6 +207,7 @@ export class FinanzasData {
           openingBalanceOn: account.opening_balance_on,
           defaultPaymentMethod: account.default_payment_method,
           note: account.note,
+          updatedAt: account.updated_at,
           totalIn: num(balance?.total_in),
           totalOut: num(balance?.total_out),
           // Without its balance row the account is worth what it opened with.
@@ -181,32 +221,92 @@ export class FinanzasData {
       .sort((a, b) => Number(b.active) - Number(a.active) || a.name.localeCompare(b.name, 'es'));
   }
 
-  async saveAccount(id: string | null, input: AccountInput): Promise<void> {
-    const values = {
+  /** A new account starts active: deactivating one is its own button. */
+  async createAccount(input: AccountInput): Promise<void> {
+    const workspace_id = await this.workspace.requireId();
+    const { error } = await this.supabase.from('accounts').insert({
+      workspace_id,
       name: input.name.trim(),
       kind: input.kind,
       opening_balance: input.openingBalance,
       opening_balance_on: input.openingBalanceOn,
       default_payment_method: input.defaultPaymentMethod,
       note: input.note,
-      active: input.active,
-    };
-
-    if (id) {
-      const { error } = await this.supabase.from('accounts').update(values).eq('id', id);
-      if (error) throw error;
-      return;
-    }
-
-    const workspace_id = await this.workspace.requireId();
-    const { error } = await this.supabase.from('accounts').insert({ workspace_id, ...values });
-    if (error) throw error;
+    });
+    if (error) throw withRaisedMessage(error);
   }
 
-  /** Accounts are never deleted: a closed one still has to explain its movements. */
-  async setAccountActive(id: string, active: boolean): Promise<void> {
-    const { error } = await this.supabase.from('accounts').update({ active }).eq('id', id);
-    if (error) throw error;
+  /**
+   * Saves only what changed, and only over the version the form was opened
+   * with: from an old tab the form used to send every field back, and undid a
+   * deactivation or an opening moved meanwhile without a word (T5-09).
+   * Returns false when there was nothing to save.
+   */
+  async updateAccount(account: AccountSummary, input: AccountInput): Promise<boolean> {
+    const changes = accountChanges(account, input);
+    if (Object.keys(changes).length === 0) return false;
+
+    const { data, error } = await this.supabase
+      .from('accounts')
+      .update(changes)
+      .eq('id', account.id)
+      .eq('updated_at', account.updatedAt)
+      .select('id');
+    if (error) throw withRaisedMessage(error);
+    if (data.length === 0) throw await this.whyNothingChanged(account.id, (row) => row.updated_at !== account.updatedAt);
+    return true;
+  }
+
+  /**
+   * Accounts are never deleted: a closed one still has to explain its
+   * movements. Only an account still in the state the screen showed is
+   * switched, so two tabs cannot undo each other.
+   */
+  async setAccountActive(account: AccountSummary, active: boolean): Promise<void> {
+    const { data, error } = await this.supabase
+      .from('accounts')
+      .update({ active })
+      .eq('id', account.id)
+      .eq('active', !active)
+      .select('id');
+    if (error) throw withRaisedMessage(error);
+    if (data.length === 0) {
+      throw await this.whyNothingChanged(account.id, (row) => row.active === active, active
+        ? `La cuenta ${account.name} ya estaba activa: alguien la reactivó en otra pestaña.`
+        : `La cuenta ${account.name} ya estaba desactivada: alguien la desactivó en otra pestaña.`);
+    }
+  }
+
+  /**
+   * An update that touched no row returns no error. Either the account moved
+   * on meanwhile, or the rules of the table did not let this person change it.
+   */
+  private async whyNothingChanged(
+    id: string,
+    movedOn: (row: { updated_at: string; active: boolean }) => boolean,
+    message = STALE_ACCOUNT,
+  ): Promise<Error> {
+    const { data } = await this.supabase.from('accounts').select('updated_at, active').eq('id', id).maybeSingle();
+    return data && movedOn(data) ? new StaleAccountError(message) : permissionError();
+  }
+
+  /** The legs an account has, to say which change side when its opening day moves. */
+  async accountLegs(accountId: string): Promise<AccountLeg[]> {
+    const rows = await fetchAll((from, to) =>
+      this.supabase
+        .from('transaction_entries')
+        .select('transaction_id, is_counter_leg, occurred_at, signed_amount, type')
+        .eq('account_id', accountId)
+        .order('occurred_at')
+        .order('transaction_id')
+        .order('is_counter_leg')
+        .range(from, to),
+    );
+    return rows.map((row) => ({
+      occurredAt: row.occurred_at ?? '',
+      signedAmount: num(row.signed_amount),
+      type: row.type ?? 'income',
+    }));
   }
 
   // -------------------------------------------------------------- categories
@@ -214,12 +314,18 @@ export class FinanzasData {
   async categories(): Promise<CategoryOption[]> {
     const { data, error } = await this.supabase
       .from('transaction_categories')
-      .select('id, name, direction, sales')
+      .select('id, name, direction, sales, capital')
       .eq('active', true)
       .order('name');
     if (error) throw error;
 
-    return data.map((row) => ({ id: row.id, name: row.name, direction: row.direction, sales: row.sales }));
+    return data.map((row) => ({
+      id: row.id,
+      name: row.name,
+      direction: row.direction,
+      sales: row.sales,
+      capital: row.capital,
+    }));
   }
 
   /**
@@ -296,6 +402,9 @@ export class FinanzasData {
         reference: detail?.reference ?? null,
         note: entry.note,
         origin: originOf(entry.order_id, entry.purchase_id, entry.maintenance_log_id, detail?.orderNumber),
+        orderNumber: detail?.orderNumber ?? null,
+        walkInOrder: detail?.walkInOrder ?? false,
+        purchaseId: entry.purchase_id,
         voided: false,
         voidReason: null,
         beforeOpening: entry.before_opening ?? false,
@@ -326,6 +435,9 @@ export class FinanzasData {
         reference: detail.reference,
         note: detail.note,
         origin: originOf(detail.orderId, detail.purchaseId, detail.maintenanceLogId, detail.orderNumber),
+        orderNumber: detail.orderNumber,
+        walkInOrder: detail.walkInOrder,
+        purchaseId: detail.purchaseId,
         voided: true,
         voidReason: detail.voidReason,
         // An annulled movement moves no balance at all, before or after the opening.
@@ -336,43 +448,44 @@ export class FinanzasData {
     return [...rows, ...voided].sort(ledgerOrder);
   }
 
-  async createTransaction(draft: TransactionDraft): Promise<void> {
+  /**
+   * Writes one movement. `key` is the form's: the same key twice is the same
+   * movement, so a request the browser resends on its own leaves the first
+   * one and adds nothing (`transactions.entry_key`).
+   */
+  async createTransaction(draft: TransactionDraft, key: string): Promise<void> {
     const workspace_id = await this.workspace.requireId();
 
-    const { error } = await this.supabase.from('transactions').insert({
-      workspace_id,
-      account_id: draft.accountId,
-      counter_account_id: draft.counterAccountId,
-      type: draft.type,
-      category_id: draft.categoryId,
-      amount: draft.amount,
-      occurred_at: draft.occurredAt,
-      payment_method: draft.paymentMethod,
-      counterparty: draft.counterparty,
-      reference: draft.reference,
-      note: draft.note,
-    });
-    if (error) throw error;
+    const { error } = await this.supabase.from('transactions').upsert(
+      {
+        workspace_id,
+        account_id: draft.accountId,
+        counter_account_id: draft.counterAccountId,
+        type: draft.type,
+        category_id: draft.categoryId,
+        amount: draft.amount,
+        occurred_at: draft.occurredAt,
+        payment_method: draft.paymentMethod,
+        counterparty: draft.counterparty,
+        reference: draft.reference,
+        note: draft.note,
+        entry_key: key,
+      },
+      { onConflict: 'workspace_id,entry_key', ignoreDuplicates: true },
+    );
+    if (error) throw withRaisedMessage(error);
   }
 
   /**
    * Money is never deleted. Voiding takes the movement out of every balance
-   * and every report and leaves the reason on the record, which is also what
-   * the table's own check demands.
+   * and every report and leaves the reason on the record. Only the owner
+   * does it, through `void_transaction`, which says in words why not when it
+   * cannot: already voided from another tab (T5-10), or the collection of a
+   * sale to «Clientes varios» (T5-05).
    */
   async voidTransaction(id: string, reason: string): Promise<void> {
-    const { userId } = await this.workspace.info();
-
-    const { error } = await this.supabase
-      .from('transactions')
-      .update({
-        voided_at: new Date().toISOString(),
-        void_reason: reason.trim(),
-        voided_by: userId,
-      })
-      .eq('id', id)
-      .is('voided_at', null);
-    if (error) throw error;
+    const { error } = await this.supabase.rpc('void_transaction', { p_id: id, p_reason: reason.trim() });
+    if (error) throw withRaisedMessage(error);
   }
 
   // ------------------------------------------------------------ receivables
@@ -407,9 +520,10 @@ export class FinanzasData {
   /**
    * Collects an order through `record_payment`, which checks the overpayment
    * and moves the order's payment status in the same transaction. Its own
-   * error message is kept word for word.
+   * error message is kept word for word. With the form's key, the same
+   * collection sent twice is recorded once.
    */
-  async recordPayment(input: PaymentInput): Promise<void> {
+  async recordPayment(input: PaymentInput, key: string): Promise<void> {
     const { error } = await this.supabase.rpc('record_payment', {
       p_order_id: input.orderId,
       p_account_id: input.accountId,
@@ -419,6 +533,7 @@ export class FinanzasData {
       p_category_id: input.categoryId ?? undefined,
       p_reference: input.reference ?? undefined,
       p_note: input.note ?? undefined,
+      p_key: key,
     });
     if (error) throw withRaisedMessage(error);
   }
@@ -507,7 +622,7 @@ export class FinanzasData {
       let query = this.supabase
         .from('transactions')
         .select(
-          'id, account_id, counter_account_id, type, category_id, amount, occurred_at, payment_method, counterparty, reference, note, voided_at, void_reason, order_id, purchase_id, maintenance_log_id, orders(number)',
+          'id, account_id, counter_account_id, type, category_id, amount, occurred_at, payment_method, counterparty, reference, note, voided_at, void_reason, order_id, purchase_id, maintenance_log_id, orders(number, customers(walk_in))',
         )
         .order('occurred_at', { ascending: false })
         .order('id')
@@ -546,6 +661,7 @@ export class FinanzasData {
           purchaseId: row.purchase_id,
           maintenanceLogId: row.maintenance_log_id,
           orderNumber: row.orders?.number ?? null,
+          walkInOrder: row.orders?.customers?.walk_in ?? false,
         },
       ]),
     );

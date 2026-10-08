@@ -10,7 +10,7 @@ import {
   dueWording,
   LOOKAHEAD_DAYS,
   openPrintWording,
-  owingWording,
+  owedTask,
   STALE_PRINT_DAYS,
   urgencyForDueDate,
   type TodayTask,
@@ -286,7 +286,7 @@ export class PanelData {
       this.plan(),
       this.dueOrders(today),
       this.openPrints(),
-      this.unpaidDeliveries(),
+      this.unpaidDeliveries(today),
       this.maintenance(),
       this.countPrinters(),
     ]);
@@ -394,13 +394,16 @@ export class PanelData {
     return data ?? [];
   }
 
-  /** Delivered and still owing. Money already earned that nobody went to collect. */
-  private async unpaidDeliveries(): Promise<TodayTask[]> {
+  /**
+   * Delivered and still owing. Money already earned that nobody went to
+   * collect. Read from `receivables`, the list Por cobrar shows, so both
+   * screens say the same of how late it is (T4-12).
+   */
+  private async unpaidDeliveries(today: string): Promise<TodayTask[]> {
     const { data, error } = await this.supabase
-      .from('order_payment_summary')
-      .select('order_id, number, balance, status')
-      .in('status', ['delivered', 'closed'])
-      .gt('balance', 0)
+      .from('receivables')
+      .select('order_id, number, balance, due_date, days_overdue')
+      .order('days_overdue', { ascending: false })
       .order('balance', { ascending: false });
     if (error) throw error;
 
@@ -408,9 +411,11 @@ export class PanelData {
       .filter((row) => row.order_id !== null)
       .map((row): TodayTask => ({
         key: `payment:${row.order_id}`,
-        urgency: 'late',
+        ...owedTask(
+          { balance: Number(row.balance ?? 0), daysOverdue: Number(row.days_overdue ?? 0), dueDate: row.due_date },
+          today,
+        ),
         title: `Cobrar el pedido ${row.number}`,
-        detail: owingWording(Number(row.balance ?? 0)),
         route: '/finanzas/por-cobrar',
         photo: { kind: 'order', id: row.order_id },
         kind: 'product',
