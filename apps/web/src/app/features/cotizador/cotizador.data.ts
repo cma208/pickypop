@@ -176,6 +176,14 @@ export interface QuoteDetail extends QuoteSummary {
   holdUntil: string | null;
   /** The order it became, once the customer accepted. A cancelled one does not count. */
   order: { id: string; number: string } | null;
+  /**
+   * The live order of the whole document, from whichever of its versions
+   * became it. The database judges sending, holding and new versions by it
+   * (`app.quote_document_order`), so the screen does too.
+   */
+  documentOrder: { id: string; number: string; version: number } | null;
+  /** The newest version of the document: where a page of history points. */
+  latest: { id: string; version: number };
   /** The unit of each stock supply its lines use, by inventory item id. */
   supplyUnits: Record<string, string>;
 }
@@ -887,7 +895,7 @@ export class CotizadorData {
   }
 
   async quote(id: string): Promise<QuoteDetail> {
-    const [header, lines, order] = await Promise.all([
+    const [header, lines] = await Promise.all([
       this.supabase
         .from('quotes')
         .select(
@@ -900,28 +908,15 @@ export class CotizadorData {
         .select('*')
         .eq('quote_id', id)
         .order('position'),
-      this.supabase
-        .from('orders')
-        .select('id, number')
-        .eq('quote_id', id)
-        .neq('status', 'cancelled')
-        .order('created_at', { ascending: false })
-        .limit(1),
     ]);
 
     fail(header.error, 'No pudimos leer la cotización.');
     fail(lines.error, 'No pudimos leer las líneas de la cotización.');
-    fail(order.error, 'No pudimos leer el pedido de esta cotización.');
 
     const row = header.data;
     if (row === null || row === undefined) throw new DataError('Esa cotización ya no existe.');
 
-    const { data: siblings } = await this.supabase
-      .from('quotes')
-      .select('version')
-      .eq('number', row.number);
-
-    const latest = (siblings ?? []).reduce((top, item) => Math.max(top, item.version), row.version);
+    const { versions, latest, order, documentOrder } = await this.documentOf(row);
 
     const storedLines = (lines.data ?? []).map((line) => {
       const items = record(line.items);
@@ -966,13 +961,56 @@ export class CotizadorData {
       igv: num(row.igv),
       total: num(row.total),
       lines: (lines.data ?? []).length,
-      hasNewerVersion: latest > row.version,
+      hasNewerVersion: latest.version > row.version,
       snapshot: parseSnapshot(row.cost_profile_snapshot),
       heldAt: row.held_at,
       holdUntil: row.hold_until,
-      order: order.data?.[0] ?? null,
+      order,
+      documentOrder,
+      latest: versions.length > 0 ? latest : { id: row.id, version: row.version },
       storedLines,
       supplyUnits: await this.unitsOf(storedLines.flatMap((line) => line.supplies)),
+    };
+  }
+
+  /**
+   * The versions of a quote's document and the live orders they became. The
+   * order of this version is the newest of its own; the document's is the
+   * first one made, as the database counts it.
+   */
+  private async documentOf(row: { id: string; number: string; version: number }): Promise<{
+    versions: { id: string; version: number }[];
+    latest: { id: string; version: number };
+    order: QuoteDetail['order'];
+    documentOrder: QuoteDetail['documentOrder'];
+  }> {
+    const siblings = await this.supabase.from('quotes').select('id, version').eq('number', row.number);
+    fail(siblings.error, 'No pudimos leer las versiones de la cotización.');
+    const versions = siblings.data ?? [];
+    const latest = versions.reduce((top, item) => (item.version > top.version ? item : top), {
+      id: row.id,
+      version: row.version,
+    });
+
+    const orders = await this.supabase
+      .from('orders')
+      .select('id, number, quote_id')
+      .in('quote_id', versions.length > 0 ? versions.map((version) => version.id) : [row.id])
+      .neq('status', 'cancelled')
+      .order('created_at');
+    fail(orders.error, 'No pudimos leer el pedido de esta cotización.');
+    const live = orders.data ?? [];
+
+    const own = live.filter((order) => order.quote_id === row.id).at(-1);
+    const first = live[0];
+    const versionOf = (quoteId: string | null) =>
+      versions.find((version) => version.id === quoteId)?.version ?? row.version;
+
+    return {
+      versions,
+      latest,
+      order: own ? { id: own.id, number: own.number } : null,
+      documentOrder: first ? { id: first.id, number: first.number, version: versionOf(first.quote_id) } : null,
     };
   }
 

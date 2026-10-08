@@ -22,7 +22,30 @@ type Editing = 'change' | 'renew' | 'release' | null;
   imports: [Card],
   template: `
     <pp-card heading="Separo">
-      @if (status() === 'draft') {
+      @if (releaseOnly()) {
+        @if (state().kind === 'active') {
+          <p class="lead">
+            Esta versión quedó como historial, pero todavía separa lo que pide hasta el
+            <strong>{{ long(holdUntil()!) }}</strong>: lo suelta sola cuando se envíe o se acepte la versión nueva. No se
+            alarga.
+          </p>
+          @if (editing() === 'release') {
+            <div class="ask" role="alert">
+              <p>¿Soltar el separo ahora? Lo que aparta queda libre para otros pedidos desde ya.</p>
+              <div class="row">
+                <button type="button" class="danger" [disabled]="busy()" (click)="release()">Sí, soltar ya</button>
+                <button type="button" class="ghost" [disabled]="busy()" (click)="close()">No</button>
+              </div>
+            </div>
+          } @else {
+            <div class="row">
+              <button type="button" class="ghost" (click)="editing.set('release')">Soltar ya</button>
+            </div>
+          }
+        } @else {
+          <p class="lead">Esta versión quedó como historial y no separa nada.</p>
+        }
+      } @else if (status() === 'draft') {
         <p class="lead">
           Todavía no separa nada.
           @if (draftUntil(); as until) {
@@ -109,6 +132,11 @@ export class CotizacionSeparo {
   readonly quoteId = input.required<string>();
   readonly status = input.required<QuoteStatus>();
   readonly holdUntil = input<string | null>(null);
+  /**
+   * An old version that was sent: it holds until a newer one is sent or
+   * accepted, and the database lets it let go but not start or grow.
+   */
+  readonly releaseOnly = input(false);
 
   /** The new end, once the database accepted it. */
   readonly changed = output<{ heldAt: string | null; holdUntil: string | null }>();
@@ -132,7 +160,7 @@ export class CotizacionSeparo {
 
     // A draft says until when it would hold, by the database's own rule.
     effect(() => {
-      if (this.status() === 'draft') void this.data.defaultHoldUntil().then((until) => this.draftUntil.set(until));
+      if (this.status() === 'draft' && !this.releaseOnly()) void this.data.defaultHoldUntil().then((until) => this.draftUntil.set(until));
     });
   }
 

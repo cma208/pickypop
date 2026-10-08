@@ -48,6 +48,8 @@ function quote(partial: Partial<QuoteDetail> = {}): QuoteDetail {
     heldAt: null,
     holdUntil: null,
     order: null,
+    documentOrder: null,
+    latest: { id: 'quote-1', version: 1 },
     supplyUnits: {},
     ...partial,
   };

@@ -48,9 +48,17 @@
           crea una versión nueva con los precios de hoy.
         </p>
       }
-      @if (q.hasNewerVersion) {
+      @if (orderElsewhere(); as order) {
         <p class="banner info">
-          Hay una versión más nueva de {{ q.number }}. Esta quedó como historial: no se envía, no se acepta ni separa.
+          La versión {{ order.version }} de {{ q.number }} ya es el pedido
+          <a [routerLink]="['/pedidos', order.id]">{{ order.number }}</a>. Esta quedó como historial: no se envía, no se
+          acepta ni separa, y no se hace otra versión del documento.
+        </p>
+      } @else if (q.hasNewerVersion) {
+        <p class="banner info">
+          Hay una versión más nueva de {{ q.number }}:
+          <a [routerLink]="['/cotizaciones', q.latest.id]">la versión {{ q.latest.version }}</a>. Esta quedó como
+          historial: no se envía, no se acepta ni vuelve a separar.
         </p>
       }
       @if (q.snapshot === null) {
@@ -62,11 +70,12 @@
 
       @if (accepting() && canAccept()) {
         <app-cotizacion-aceptar [quote]="q" (cancelled)="accepting.set(false)" (stale)="onStale($event)" />
-      } @else if ((q.status === 'draft' || q.status === 'sent') && !historical()) {
+      } @else if (holdCard(); as card) {
         <app-cotizacion-separo
           [quoteId]="q.id"
           [status]="q.status"
           [holdUntil]="q.holdUntil"
+          [releaseOnly]="card === 'release'"
           (changed)="onHoldChanged($event)"
           (stale)="onStale($event)"
         />

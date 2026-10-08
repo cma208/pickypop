@@ -585,8 +585,9 @@
             <p class="error" role="alert">{{ message }}</p>
           }
           <button type="button" [disabled]="saving()" (click)="save()">
+            <!-- The database numbers it after the newest version, which may not be the one it came from. -->
             @if (saving()) { Guardando… } @else if (previousVersion(); as previous) {
-              Guardar como versión {{ previous.version + 1 }} de {{ previous.number }}
+              Guardar como versión nueva de {{ previous.number }}
             } @else { Guardar como cotización }
           </button>
         }

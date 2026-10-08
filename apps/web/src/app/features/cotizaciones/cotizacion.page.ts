@@ -28,6 +28,7 @@ import { PlanService } from '../../core/plan';
 import { CotizacionAceptar } from './cotizacion-aceptar';
 import { CotizacionSeparo } from './cotizacion-separo';
 import { CotizacionSituacion } from './cotizacion-situacion';
+import { quoteActions } from './quote-actions';
 import { buildQuoteDocument } from './quote-document';
 
 /** A stored line, read back exactly as it was calculated. */
@@ -220,21 +221,23 @@ export class CotizacionPage {
     return totalFor(supply.unitCost, supply.quantity);
   }
 
-  /**
-   * A version that is history (there is a newer one) or a document that
-   * already has its order is not sent, accepted nor held again: the
-   * database refuses it, and the screen does not offer it (T4-09).
-   */
-  protected readonly historical = computed(() => {
+  /** What the page offers, by the database's own rules (T4-03, T4-09). */
+  private readonly actions = computed(() => {
     const quote = this.quote();
-    return quote !== null && (quote.hasNewerVersion || quote.order !== null);
+    return quote === null ? null : quoteActions(quote);
   });
-  protected readonly canSend = computed(() => this.quote()?.status === 'draft' && !this.historical());
-  protected readonly canAccept = computed(() => this.quote()?.status === 'sent' && !this.historical());
-  /** An old version can still be rejected: it only lets go of what it held. */
-  protected readonly canReject = computed(() => this.quote()?.status === 'sent' && this.quote()?.order === null);
-  /** Not of a document that already has its order: the new version could not be sent. */
-  protected readonly canVersion = computed(() => this.quote() !== null && this.quote()?.order === null);
+  protected readonly canSend = computed(() => this.actions()?.canSend ?? false);
+  protected readonly canAccept = computed(() => this.actions()?.canAccept ?? false);
+  protected readonly canReject = computed(() => this.actions()?.canReject ?? false);
+  protected readonly canVersion = computed(() => this.actions()?.canVersion ?? false);
+  protected readonly holdCard = computed(() => this.actions()?.hold ?? null);
+
+  /** The order another version of this document became: this one is history. */
+  protected readonly orderElsewhere = computed(() => {
+    const quote = this.quote();
+    const order = quote?.documentOrder ?? null;
+    return order !== null && order.version !== quote?.version ? order : null;
+  });
 
   /** Who it is for and what it is: "Colegio San Martín · 30 × Botella de poción". */
   protected readonly heading = computed(() => {

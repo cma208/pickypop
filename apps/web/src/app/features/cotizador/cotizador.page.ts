@@ -232,6 +232,12 @@ export class CotizadorPage {
   /** Brings a sent quote back into the calculator so it can be re-priced. */
   private async loadPreviousVersion(quoteId: string, context: QuotingContext): Promise<void> {
     const quote = await this.data.quote(quoteId);
+    // Said before the person rebuilds every line: saving would be refused.
+    if (quote.documentOrder !== null) {
+      throw new DataError(
+        `La cotización ${quote.number} ya tiene el pedido ${quote.documentOrder.number}: una versión nueva no se podría enviar ni aceptar. Si el cliente pide algo más, cotízalo aparte.`,
+      );
+    }
 
     this.previousVersion.set({
       quoteId: quote.id,
