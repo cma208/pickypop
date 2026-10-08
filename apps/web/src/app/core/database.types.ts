@@ -701,13 +701,13 @@ isOneToOne: false
                   ]
                 },"orders": {
                   Row: {
-                    "channel_id": string | null,"created_at": string,"created_by": string | null,"customer_id": string | null,"due_date": string | null,"gift_category_id": string | null,"hold_until": string | null,"id": string,"note": string | null,"number": string,"opportunity_id": string | null,"ordered_on": string,"payment_status": Database["public"]['Enums']["order_payment_status"],"priority_at": string,"purpose": Database["public"]['Enums']["order_purpose"],"quote_id": string | null,"recipient": string | null,"status": Database["public"]['Enums']["order_status"],"total": number,"updated_at": string,"workspace_id": string
+                    "channel_id": string | null,"created_at": string,"created_by": string | null,"customer_id": string | null,"due_date": string | null,"gift_category_id": string | null,"hold_until": string | null,"id": string,"note": string | null,"number": string,"opportunity_id": string | null,"ordered_on": string,"payment_status": Database["public"]['Enums']["order_payment_status"],"priority_at": string,"purpose": Database["public"]['Enums']["order_purpose"],"quick_sale_key": string | null,"quote_id": string | null,"recipient": string | null,"status": Database["public"]['Enums']["order_status"],"total": number,"updated_at": string,"workspace_id": string
                   }
                   Insert: {
-                    "channel_id"?: string | null,"created_at"?: string,"created_by"?: string | null,"customer_id"?: string | null,"due_date"?: string | null,"gift_category_id"?: string | null,"hold_until"?: string | null,"id"?: string,"note"?: string | null,"number": string,"opportunity_id"?: string | null,"ordered_on"?: string,"payment_status"?: Database["public"]['Enums']["order_payment_status"],"priority_at"?: string,"purpose"?: Database["public"]['Enums']["order_purpose"],"quote_id"?: string | null,"recipient"?: string | null,"status"?: Database["public"]['Enums']["order_status"],"total"?: number,"updated_at"?: string,"workspace_id": string
+                    "channel_id"?: string | null,"created_at"?: string,"created_by"?: string | null,"customer_id"?: string | null,"due_date"?: string | null,"gift_category_id"?: string | null,"hold_until"?: string | null,"id"?: string,"note"?: string | null,"number": string,"opportunity_id"?: string | null,"ordered_on"?: string,"payment_status"?: Database["public"]['Enums']["order_payment_status"],"priority_at"?: string,"purpose"?: Database["public"]['Enums']["order_purpose"],"quick_sale_key"?: string | null,"quote_id"?: string | null,"recipient"?: string | null,"status"?: Database["public"]['Enums']["order_status"],"total"?: number,"updated_at"?: string,"workspace_id": string
                   }
                   Update: {
-                    "channel_id"?: string | null,"created_at"?: string,"created_by"?: string | null,"customer_id"?: string | null,"due_date"?: string | null,"gift_category_id"?: string | null,"hold_until"?: string | null,"id"?: string,"note"?: string | null,"number"?: string,"opportunity_id"?: string | null,"ordered_on"?: string,"payment_status"?: Database["public"]['Enums']["order_payment_status"],"priority_at"?: string,"purpose"?: Database["public"]['Enums']["order_purpose"],"quote_id"?: string | null,"recipient"?: string | null,"status"?: Database["public"]['Enums']["order_status"],"total"?: number,"updated_at"?: string,"workspace_id"?: string
+                    "channel_id"?: string | null,"created_at"?: string,"created_by"?: string | null,"customer_id"?: string | null,"due_date"?: string | null,"gift_category_id"?: string | null,"hold_until"?: string | null,"id"?: string,"note"?: string | null,"number"?: string,"opportunity_id"?: string | null,"ordered_on"?: string,"payment_status"?: Database["public"]['Enums']["order_payment_status"],"priority_at"?: string,"purpose"?: Database["public"]['Enums']["order_purpose"],"quick_sale_key"?: string | null,"quote_id"?: string | null,"recipient"?: string | null,"status"?: Database["public"]['Enums']["order_status"],"total"?: number,"updated_at"?: string,"workspace_id"?: string
                   }
                   Relationships: [
                     {
@@ -2382,6 +2382,7 @@ isOneToOne: false
 "payment_status": Database["public"]['Enums']["order_payment_status"],
 "priority_at": string,
 "purpose": Database["public"]['Enums']["order_purpose"],
+"quick_sale_key": string | null,
 "quote_id": string | null,
 "recipient": string | null,
 "status": Database["public"]['Enums']["order_status"],
@@ -2434,6 +2435,7 @@ isOneToOne: false
 "payment_status": Database["public"]['Enums']["order_payment_status"],
 "priority_at": string,
 "purpose": Database["public"]['Enums']["order_purpose"],
+"quick_sale_key": string | null,
 "quote_id": string | null,
 "recipient": string | null,
 "status": Database["public"]['Enums']["order_status"],
@@ -2529,6 +2531,7 @@ isOneToOne: false
 "payment_status": Database["public"]['Enums']["order_payment_status"],
 "priority_at": string,
 "purpose": Database["public"]['Enums']["order_purpose"],
+"quick_sale_key": string | null,
 "quote_id": string | null,
 "recipient": string | null,
 "status": Database["public"]['Enums']["order_status"],
@@ -2543,7 +2546,7 @@ isOneToOne: false
         isSetofReturn: false
       } },
 "quick_sale":
-{ Args: { "p_account_id"?: string,"p_amount"?: number,"p_customer_id"?: string,"p_customer_name"?: string,"p_customer_phone"?: string,"p_lines": Json,"p_note"?: string,"p_payment_method"?: Database["public"]['Enums']["payment_method"],"p_reference"?: string,"p_sold_at"?: string,"p_workspace_id": string }; Returns: {
+{ Args: { "p_account_id"?: string,"p_amount"?: number,"p_customer_id"?: string,"p_customer_name"?: string,"p_customer_phone"?: string,"p_lines": Json,"p_note"?: string,"p_payment_method"?: Database["public"]['Enums']["payment_method"],"p_reference"?: string,"p_sale_key"?: string,"p_sold_at"?: string,"p_workspace_id": string }; Returns: {
               "channel_id": string | null,
 "created_at": string,
 "created_by": string | null,
@@ -2559,6 +2562,7 @@ isOneToOne: false
 "payment_status": Database["public"]['Enums']["order_payment_status"],
 "priority_at": string,
 "purpose": Database["public"]['Enums']["order_purpose"],
+"quick_sale_key": string | null,
 "quote_id": string | null,
 "recipient": string | null,
 "status": Database["public"]['Enums']["order_status"],
@@ -2673,6 +2677,7 @@ isOneToOne: false
 "payment_status": Database["public"]['Enums']["order_payment_status"],
 "priority_at": string,
 "purpose": Database["public"]['Enums']["order_purpose"],
+"quick_sale_key": string | null,
 "quote_id": string | null,
 "recipient": string | null,
 "status": Database["public"]['Enums']["order_status"],
@@ -2703,6 +2708,7 @@ isOneToOne: false
 "payment_status": Database["public"]['Enums']["order_payment_status"],
 "priority_at": string,
 "purpose": Database["public"]['Enums']["order_purpose"],
+"quick_sale_key": string | null,
 "quote_id": string | null,
 "recipient": string | null,
 "status": Database["public"]['Enums']["order_status"],
