@@ -3,7 +3,18 @@ import type { PhotoRef } from '../../core/article-photos';
 import { friendlyError } from '../../core/friendly-error';
 import { PlanService } from '../../core/plan';
 import { AsyncState, Badge, Card, Empty, FORMAT_PIPES, Item, Page } from '../../ui';
-import { countPayload, difference, isChanged, needsCost, rowProblem, saveLabel, type CountRow } from './conteo';
+import {
+  countHint,
+  countPayload,
+  difference,
+  isChanged,
+  keepCounts,
+  needsCost,
+  rowKey,
+  rowProblem,
+  saveLabel,
+  type CountRow,
+} from './conteo';
 import { ConteoData } from './conteo.data';
 import { INVENTORY_STYLES } from './inventario.styles';
 
@@ -87,7 +98,11 @@ import { INVENTORY_STYLES } from './inventario.styles';
                         <small class="sub cost">Entran a {{ row.knownCost | money }} cada una.</small>
                       }
 
-                      @if (rowProblem(row); as problem) { <p class="error problem">{{ problem }}</p> }
+                      @if (rowProblem(row); as problem) {
+                        <p class="error problem">{{ problem }}</p>
+                      } @else if (countHint(row); as hint) {
+                        <p class="muted problem">{{ hint }}</p>
+                      }
                     </li>
                   }
                 </ul>
@@ -170,6 +185,7 @@ export class ContarPage {
   protected readonly difference = difference;
   protected readonly needsCost = needsCost;
   protected readonly rowProblem = rowProblem;
+  protected readonly countHint = countHint;
 
   constructor() {
     void this.load();
@@ -181,7 +197,7 @@ export class ContarPage {
   }
 
   protected key(row: CountRow): string {
-    return `${row.kind}:${row.variantId ?? row.inventoryItemId}`;
+    return rowKey(row);
   }
 
   protected label(row: CountRow): string {
@@ -205,6 +221,7 @@ export class ContarPage {
   }
 
   protected async save(): Promise<void> {
+    // Before any await: canSave is false while saving, so a second click does nothing.
     if (!this.canSave()) return;
     this.saving.set(true);
     this.saveError.set(null);
@@ -223,8 +240,19 @@ export class ContarPage {
       await this.load();
     } catch (error) {
       this.saveError.set(friendlyError(error, 'No pudimos guardar el conteo. Inténtalo de nuevo.'));
+      // Turned down, what «La app cree» says may be stale: it is read again,
+      // and what the person counted stays where they wrote it.
+      await this.reloadKeepingCounts();
     } finally {
       this.saving.set(false);
+    }
+  }
+
+  private async reloadKeepingCounts(): Promise<void> {
+    try {
+      this.rows.set(keepCounts(await this.data.rows(), this.rows()));
+    } catch {
+      // The error above already says the count was not saved; the rows stay as they were.
     }
   }
 

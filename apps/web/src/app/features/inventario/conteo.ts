@@ -73,6 +73,40 @@ export function countPayload(rows: readonly CountRow[]): CountEntry[] {
   });
 }
 
+/**
+ * What the count field starts with: what the app believes, so only what does
+ * not match is changed. Half a cap is not something anyone can count, and
+ * proposing it showed «Escribe un número entero» on a row nobody had touched,
+ * blocking the whole count (T3-04): such a row starts empty, to be counted.
+ */
+export function initialCount(onHand: number): number | null {
+  return Number.isInteger(onHand) ? onHand : null;
+}
+
+/** Why a row starts empty, when it does. */
+export function countHint(row: CountRow): string | null {
+  return Number.isInteger(row.onHand) ? null : 'Cuéntala: la app cree un número con decimales, y en el estante solo hay enteras.';
+}
+
+/**
+ * The rows read again after the database turned a count down, with what the
+ * person had counted kept. A row they changed keeps its count and its cost; a
+ * row they left alone takes what the app believes now, or it would turn into
+ * a correction back to the old figure.
+ */
+export function keepCounts(fresh: readonly CountRow[], previous: readonly CountRow[]): CountRow[] {
+  const typed = new Map(previous.filter(isChanged).map((row) => [rowKey(row), row]));
+  return fresh.map((row) => {
+    const before = typed.get(rowKey(row));
+    return before ? { ...row, counted: before.counted, typedCost: before.typedCost } : row;
+  });
+}
+
+/** One row per product variant or per article, as the screen tracks them. */
+export function rowKey(row: Pick<CountRow, 'kind' | 'variantId' | 'inventoryItemId'>): string {
+  return `${row.kind}:${row.variantId ?? row.inventoryItemId}`;
+}
+
 /** The button says exactly what is about to happen. */
 export function saveLabel(rows: readonly CountRow[]): string {
   const changed = rows.filter(isChanged).length;

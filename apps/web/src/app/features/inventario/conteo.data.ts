@@ -1,7 +1,7 @@
 import { inject, Injectable } from '@angular/core';
 import { fetchAll } from '../../core/fetch-all';
 import { SUPABASE } from '../../core/supabase';
-import type { CountEntry, CountKind, CountRow } from './conteo';
+import { initialCount, type CountEntry, type CountKind, type CountRow } from './conteo';
 
 @Injectable({ providedIn: 'root' })
 export class ConteoData {
@@ -30,7 +30,7 @@ export class ConteoData {
         imagePath: row.image_path,
         onHand,
         knownCost: row.cost_per_unit === null ? null : Number(row.cost_per_unit),
-        counted: onHand,
+        counted: initialCount(onHand),
         typedCost: null,
       };
     });
