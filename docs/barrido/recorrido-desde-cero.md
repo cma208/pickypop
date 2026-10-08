@@ -151,7 +151,7 @@ Los arreglos están en la rama `recorrido-desde-cero`, en tres ramas mezcladas (
 **Medios y menores: arreglados.** Con estas excepciones:
 - **Crear el taller desde la aplicación:** sigue sin existir.
 - **Movimientos de Caja que ya están sin categoría:** no se reclasificaron. Las categorías por defecto rigen desde ahora.
-- **Costo de ventas (ADR-022):** sigue esperando la decisión del dueño.
+- **Costo de ventas (ADR-022):** decidido el 2026-10-07: lo que salió del estante, con la mano de obra que suma armar (rama `decisiones-venta-rapida`).
 
 **Hecho además de lo pedido:**
 - El costo de una línea de pedido es el de su lote, al céntimo: 15.69, ya no 15.70.

@@ -357,8 +357,21 @@ Al cerrar una impresión:
 | Aporte del dueño | Dinero personal que pones en el negocio (por ejemplo, la compra de la impresora) |
 | Retiro del dueño | Dinero o producto que sacas para ti |
 
-- Categorías de ingreso y egreso configurables.
+- Categorías de ingreso y egreso configurables. Una categoría de ingreso puede ser **de ventas** (la de los cobros de pedidos, «Venta de productos», «Trabajos por encargo»): la usan los cobros y la Venta rápida, y un **ingreso suelto** de Caja no puede usarla, porque una venta anotada ahí no sale del estante ni lleva su costo.
 - **Activos:** impresora, AMS lite, secador… con costo y vida útil. Alimentan la tarifa de máquina.
+
+### El costo de lo vendido es lo que salió del estante
+
+El cotizador calcula lo que costaría **hacer un lote nuevo** (§2.5). Pero el taller produce primero y vende después, muchas veces de a una: una calavera vendida suelta cuesta S/ 10.97 como lote de uno (placas enteras y preparación), cuando la que salió del estante costó S/ 5.64. Por eso el costo de ventas de Resultados **no es el estimado**, sino lo que de verdad costó lo que salió (ADR-022):
+
+- **Una pieza impresa** entra al estante a lo que costó su impresión (material, luz y máquina), repartido entre las piezas que salieron.
+- **Un producto armado** entra a lo que consumió (piezas, dulces, empaque) **más la mano de obra de su receta**: los minutos por unidad por cada una y la preparación una vez por armado, a la tarifa del perfil vigente ese día. Es la misma regla de mano de obra del cotizador (`laborCost`).
+- **Lo que no se arma** (un llavero que sale en piezas) suma esa misma mano de obra al entregarse, así vale lo mismo que armado.
+- **Al entregar**, cada unidad sale al promedio de lo que costó producir ese artículo. Eso es el costo de ventas de lo entregado. Lo que falta entregar de un pedido va a su estimado hasta que se entregue.
+
+Ejemplo (el de la prueba en la base): una receta de 10 minutos de preparación y 5 por unidad, a S/ 15 la hora, cuyos componentes cuestan S/ 3.10 por unidad. Armar 4 cuesta 12.40 de componentes, más 2.50 de preparación y 5.00 de trabajo por unidad: cada una entra al estante a **S/ 4.975**. Armadas de a una, cada una costaría 3.10 + 2.50 + 1.25 = S/ 6.85: la preparación pesa menos cuanto más se arma de una vez.
+
+Como una pieza está en el estante a lo que costó su impresión **exitosa**, una impresión fallida de lo que va al estante no llega a ninguna venta: es producción no vendida y resta en el mes, como un molde. Solo la de un trabajo a medida con estimado la paga la reserva por fallos de ese estimado.
 
 ### Dos miradas que no se deben mezclar
 
