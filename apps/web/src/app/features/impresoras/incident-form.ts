@@ -5,6 +5,7 @@ import { inputToIso, nowForInput } from '../../core/dates';
 import { errorOf, notInFuture, requiredText, textOrNull, wholeNumber } from '../../core/form-errors';
 import { friendlyError } from '../../core/friendly-error';
 import { SECTION_STYLES } from '../../core/styles';
+import { CurrentWorkspace } from '../../core/workspace';
 import { ImpresorasData } from './impresoras.data';
 import { PRINTER_LIMITS, type IncidentRecord } from './impresoras.models';
 
@@ -57,6 +58,8 @@ const LIMA_OFFSET_MS = 5 * 3_600_000;
 })
 export class IncidentForm {
   private readonly data = inject(ImpresorasData);
+  /** A refusal of the role reads it again, so the tabs stop offering what the database denies. */
+  private readonly workspace = inject(CurrentWorkspace);
 
   readonly printerId = input.required<string>();
   readonly incident = input<IncidentRecord | null>(null);
@@ -149,6 +152,7 @@ export class IncidentForm {
       this.saved.emit();
     } catch (error) {
       this.error.set(friendlyError(error, 'No pudimos guardar el incidente. Inténtalo de nuevo.'));
+      await this.workspace.afterRefusal(error);
     } finally {
       this.saving.set(false);
     }

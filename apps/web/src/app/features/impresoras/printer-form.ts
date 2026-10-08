@@ -6,6 +6,7 @@ import { Field, FORMAT_PIPES } from '../../ui';
 import { errorOf, maxDecimals, requiredText, textOrNull } from '../../core/form-errors';
 import { friendlyError } from '../../core/friendly-error';
 import { SECTION_STYLES } from '../../core/styles';
+import { CurrentWorkspace } from '../../core/workspace';
 import { ImpresorasData } from './impresoras.data';
 import {
   PRINTER_LIMITS,
@@ -150,6 +151,8 @@ const POSITIVE_MAX_MESSAGES = {
 })
 export class PrinterForm implements OnInit {
   private readonly data = inject(ImpresorasData);
+  /** A refusal of the role reads it again, so the tabs stop offering what the database denies. */
+  private readonly workspace = inject(CurrentWorkspace);
 
   /** Null to register a new one. */
   readonly printer = input<PrinterRecord | null>(null);
@@ -299,6 +302,7 @@ export class PrinterForm implements OnInit {
     } catch (error) {
       // Nothing was saved, asset included: save_printer is all or nothing.
       this.error.set(friendlyError(error, 'No pudimos guardar la impresora. No se guardó nada.'));
+      await this.workspace.afterRefusal(error);
     } finally {
       this.saving.set(false);
     }

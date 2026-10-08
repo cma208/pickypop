@@ -4,6 +4,7 @@ import { Field } from '../../ui';
 import { atLeastOneOf, errorOf, requiredText, textOrNull, wholeNumber } from '../../core/form-errors';
 import { friendlyError } from '../../core/friendly-error';
 import { SECTION_STYLES } from '../../core/styles';
+import { CurrentWorkspace } from '../../core/workspace';
 import { ImpresorasData } from './impresoras.data';
 import { PRINTER_LIMITS, type PlanRecord } from './impresoras.models';
 
@@ -53,6 +54,8 @@ import { PRINTER_LIMITS, type PlanRecord } from './impresoras.models';
 })
 export class PlanForm {
   private readonly data = inject(ImpresorasData);
+  /** A refusal of the role reads it again, so the tabs stop offering what the database denies. */
+  private readonly workspace = inject(CurrentWorkspace);
 
   readonly printerId = input.required<string>();
   readonly plan = input<PlanRecord | null>(null);
@@ -138,6 +141,7 @@ export class PlanForm {
       this.saved.emit();
     } catch (error) {
       this.error.set(friendlyError(error, 'No pudimos guardar el plan. Inténtalo de nuevo.'));
+      await this.workspace.afterRefusal(error);
     } finally {
       this.saving.set(false);
     }

@@ -1,6 +1,6 @@
 import { Component, inject, input, output, signal } from '@angular/core';
 import { Badge, Empty } from '../../ui';
-import { friendlyError, isPermissionError } from '../../core/friendly-error';
+import { friendlyError } from '../../core/friendly-error';
 import { SECTION_STYLES } from '../../core/styles';
 import { CurrentWorkspace } from '../../core/workspace';
 import { ImpresorasData } from './impresoras.data';
@@ -114,7 +114,7 @@ export class PlansTab {
       this.changed.emit();
     } catch (error) {
       this.error.set(friendlyError(error, 'No pudimos cambiar el estado del plan.'));
-      if (isPermissionError(error)) await this.workspace.refresh().catch(() => undefined);
+      await this.workspace.afterRefusal(error);
     } finally {
       this.busy.set(false);
     }

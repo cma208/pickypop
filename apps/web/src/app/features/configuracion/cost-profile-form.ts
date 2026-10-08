@@ -125,6 +125,11 @@ export class CostProfileForm {
   readonly takenDates = input<string[]>([]);
   readonly saved = output<void>();
   readonly cancelled = output<void>();
+  /**
+   * The database refused who is asking, not what was written: the role was
+   * read again, and the section closes the form and says why (ADR-025).
+   */
+  readonly refused = output<string>();
 
   protected readonly today = todayLocal();
   protected readonly valuations = VALUATIONS;
@@ -238,7 +243,9 @@ export class CostProfileForm {
       else await this.data.createCostProfile(draft);
       this.saved.emit();
     } catch (error) {
-      this.error.set(friendlyError(error, editing ? 'No pudimos guardar la corrección.' : 'No pudimos guardar la nueva versión.'));
+      const message = friendlyError(error, editing ? 'No pudimos guardar la corrección.' : 'No pudimos guardar la nueva versión.');
+      this.error.set(message);
+      if (await this.data.afterRefusal(error)) this.refused.emit(message);
     } finally {
       this.saving.set(false);
     }

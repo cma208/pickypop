@@ -1,6 +1,6 @@
 import { computed, inject, Injectable, signal } from '@angular/core';
 import type { Database } from './database.types';
-import { UserFacingError } from './friendly-error';
+import { isPermissionError, UserFacingError } from './friendly-error';
 import { SUPABASE } from './supabase';
 
 export type MemberRole = Database['public']['Enums']['member_role'];
@@ -84,6 +84,17 @@ export class CurrentWorkspace {
   refresh(): Promise<WorkspaceInfo> {
     this.pending = null;
     return this.info();
+  }
+
+  /**
+   * What every screen does with a refusal: when the database said no to who
+   * is asking (not to what was written), the role is read again, so the
+   * screen stops offering it. Answers whether it was that kind of refusal.
+   */
+  async afterRefusal(error: unknown): Promise<boolean> {
+    if (!isPermissionError(error)) return false;
+    await this.refresh().catch(() => undefined);
+    return true;
   }
 
   private async load(): Promise<WorkspaceInfo> {

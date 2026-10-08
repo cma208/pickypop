@@ -63,6 +63,7 @@ const STATE_TONES: Record<ProfileState, 'good' | 'info' | 'neutral'> = {
             [takenDates]="takenDates(target)"
             (saved)="afterSave(target)"
             (cancelled)="closeForm()"
+            (refused)="afterRefusal($event)"
           />
         }
       }
@@ -159,6 +160,12 @@ export class CostProfileSection {
     this.formOpen.set(false);
     this.editing.set(null);
     void this.reload();
+  }
+
+  /** The role changed under this tab: the form goes, and the reason stays on screen. */
+  protected afterRefusal(message: string): void {
+    this.closeForm();
+    this.actionError.set(message);
   }
 
   protected afterSave(corrected: CostProfileRecord | null): void {

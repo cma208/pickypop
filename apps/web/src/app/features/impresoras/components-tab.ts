@@ -1,7 +1,7 @@
 import { Component, inject, input, output, signal } from '@angular/core';
 import { Badge, Empty, FORMAT_PIPES } from '../../ui';
 import { todayLocal } from '../../core/dates';
-import { friendlyError, isPermissionError } from '../../core/friendly-error';
+import { friendlyError } from '../../core/friendly-error';
 import { SECTION_STYLES } from '../../core/styles';
 import { CurrentWorkspace } from '../../core/workspace';
 import { ComponentForm } from './component-form';
@@ -111,7 +111,7 @@ export class ComponentsTab {
       this.changed.emit();
     } catch (error) {
       this.error.set(friendlyError(error, 'No pudimos retirar el componente.'));
-      if (isPermissionError(error)) await this.workspace.refresh().catch(() => undefined);
+      await this.workspace.afterRefusal(error);
     } finally {
       this.busy.set(false);
     }

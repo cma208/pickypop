@@ -1,7 +1,7 @@
 import { Component, computed, inject, input, output, signal } from '@angular/core';
 import { Badge, Card, FORMAT_PIPES } from '../../ui';
 import { todayLocal } from '../../core/dates';
-import { friendlyError, isPermissionError } from '../../core/friendly-error';
+import { friendlyError } from '../../core/friendly-error';
 import { SECTION_STYLES } from '../../core/styles';
 import { CurrentWorkspace } from '../../core/workspace';
 import { ComponentsTab } from './components-tab';
@@ -264,7 +264,7 @@ export class PrinterDetail {
     } catch (error) {
       this.error.set(friendlyError(error, fallback));
       // A refusal may mean the role changed in another tab: read it again.
-      if (isPermissionError(error)) await this.workspace.refresh().catch(() => undefined);
+      await this.workspace.afterRefusal(error);
     } finally {
       this.busy.set(false);
     }

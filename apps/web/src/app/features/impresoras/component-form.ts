@@ -5,6 +5,7 @@ import { todayLocal } from '../../core/dates';
 import { errorOf, notInFuture, textOrNull } from '../../core/form-errors';
 import { friendlyError } from '../../core/friendly-error';
 import { SECTION_STYLES } from '../../core/styles';
+import { CurrentWorkspace } from '../../core/workspace';
 import { ImpresorasData } from './impresoras.data';
 import { COMPONENT_KINDS, COMPONENT_LABELS, PRINTER_LIMITS, type ComponentKind } from './impresoras.models';
 
@@ -50,6 +51,8 @@ const HOURS_PRECISION = 100;
 })
 export class ComponentForm {
   private readonly data = inject(ImpresorasData);
+  /** A refusal of the role reads it again, so the tabs stop offering what the database denies. */
+  private readonly workspace = inject(CurrentWorkspace);
 
   readonly printerId = input.required<string>();
   readonly currentHours = input.required<number>();
@@ -111,6 +114,7 @@ export class ComponentForm {
       this.saved.emit();
     } catch (error) {
       this.error.set(friendlyError(error, 'No pudimos guardar el componente. Inténtalo de nuevo.'));
+      await this.workspace.afterRefusal(error);
     } finally {
       this.saving.set(false);
     }

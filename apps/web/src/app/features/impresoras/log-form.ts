@@ -6,6 +6,7 @@ import { inputToIso, nowForInput } from '../../core/dates';
 import { errorOf, notInFuture, textOrNull, wholeNumber } from '../../core/form-errors';
 import { friendlyError } from '../../core/friendly-error';
 import { SECTION_STYLES } from '../../core/styles';
+import { CurrentWorkspace } from '../../core/workspace';
 import { ImpresorasData } from './impresoras.data';
 import { PRINTER_LIMITS, type LogDraft, type PlanRecord } from './impresoras.models';
 
@@ -89,6 +90,8 @@ export function composeLogContent(
 })
 export class LogForm {
   private readonly data = inject(ImpresorasData);
+  /** A refusal of the role reads it again, so the tabs stop offering what the database denies. */
+  private readonly workspace = inject(CurrentWorkspace);
 
   readonly printerId = input.required<string>();
   readonly currentHours = input.required<number>();
@@ -186,6 +189,7 @@ export class LogForm {
       this.saved.emit();
     } catch (error) {
       this.error.set(friendlyError(error, 'No pudimos registrar el mantenimiento. Inténtalo de nuevo.'));
+      await this.workspace.afterRefusal(error);
     } finally {
       this.saving.set(false);
     }

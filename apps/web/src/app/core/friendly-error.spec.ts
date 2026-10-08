@@ -93,8 +93,19 @@ describe('friendlyError', () => {
     expect(friendlyError({ code: '42501', message: 'permission denied for table printers' }, FALLBACK)).toContain('permiso');
   });
 
+  it('shows the sentence of a function that refuses by role, and the generic one for PostgreSQL\'s own', () => {
+    const owner = 'Solo el dueño del taller puede registrar o cambiar las impresoras.';
+    expect(friendlyError({ code: '42501', message: owner }, FALLBACK)).toBe(owner);
+    expect(
+      friendlyError({ code: '42501', message: 'new row violates row-level security policy for table "printers"' }, FALLBACK),
+    ).toContain('No tienes permiso');
+    expect(friendlyError({ code: '42501', message: '' }, FALLBACK)).toContain('No tienes permiso');
+  });
+
   it('knows a refusal of who is asking from a refusal of what was written', () => {
     expect(isPermissionError({ code: '42501', message: 'new row violates row-level security policy' })).toBe(true);
+    expect(isPermissionError({ code: '42501', message: 'Solo el dueño del taller puede registrar o cambiar las impresoras.' })).toBe(true);
+    expect(isPermissionError({ code: 'P0001', message: 'Escribe el nombre de la impresora.' })).toBe(false);
     expect(isPermissionError(permissionError())).toBe(true);
     expect(isPermissionError({ code: '23505', message: 'duplicate key' })).toBe(false);
     expect(isPermissionError(new UserFacingError('Faltan los gramos.'))).toBe(false);

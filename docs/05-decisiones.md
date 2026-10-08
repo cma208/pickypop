@@ -506,7 +506,9 @@ El mes quedaba igual de rentable con o sin ellas. El costo de ventas era el esti
 
 5. **Cómo se corrige el stock.** Con otro movimiento: un pesaje del rollo (ajuste) o un conteo del estante (`count_shelf`), que deja por escrito qué cambió y por qué. Lo que ya no se usa se desactiva.
 
-6. **La pantalla no ofrece lo que la base va a negar.** El rol se lee de `CurrentWorkspace` (`isOwner`, `canOperate`, y `isOwnerRole` / `canOperateRole` para quien ya lo tiene): lo que el rol no puede, se oculta o se muestra con el porqué («Solo el dueño del taller puede…»). Si aun así la base lo niega (una pestaña vieja, un rol que cambió), `friendlyError` lo dice, y la pantalla vuelve a leer el rol (`CurrentWorkspace.refresh`). Cuando ni el dueño puede, el mensaje no dice «solo el dueño»: dice que el dinero se anula y el stock se corrige.
+6. **La pantalla no ofrece lo que la base va a negar.** El rol se lee de `CurrentWorkspace` (`isOwner`, `canOperate`, y `isOwnerRole` / `canOperateRole` para quien ya lo tiene): lo que el rol no puede, se oculta o se muestra con el porqué («Solo el dueño del taller puede…»). Si aun así la base lo niega (una pestaña vieja, un rol que cambió), `friendlyError` lo dice, y la pantalla vuelve a leer el rol con `CurrentWorkspace.afterRefusal(error)`, que distingue un «no» a quien pide de un «no» a lo que escribió. Cuando ni el dueño puede, el mensaje no dice «solo el dueño»: dice que el dinero se anula y el stock se corrige.
+
+   Una función que niega por el rol lo hace con el código de un permiso negado, no con `P0001`: `raise exception using errcode = 'insufficient_privilege', message = 'Solo el dueño del taller puede…'` (así `save_printer`). La pantalla reconoce el `42501`, vuelve a leer el rol y muestra la frase tal cual. Un borrado que la política no deja ver vuelve con cero filas, igual que uno de algo que ya no está: la pantalla mira si la fila sigue para saber cuál de los dos fue (`deleteCostProfile`).
 
 7. **El taller nunca se queda sin dueño.** La base rechaza quitarle el rol o sacar del taller al último (`workspace_members_keep_an_owner`).
 

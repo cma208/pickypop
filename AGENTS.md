@@ -28,7 +28,8 @@ Está **en producción** desde el 2026-10-05, con datos reales entrando. Las pan
 - Una tabla nueva usa una de las tres formas: `app.apply_workspace_rls` (el día a día), `app.apply_owner_rls` (configuración) o `app.apply_ledger_rls` (un libro). `supabase/tests/permisos.sql` verifica la matriz entera; si tu tabla no es del día a día, agrégala a su lista.
 - **Nadie, ni el dueño, edita ni borra un cobro, un pago, un movimiento de dinero o de stock, ni una entrega.** El dinero se anula (`void_transaction`); el stock se corrige con otro movimiento, un pesaje o un conteo. La base no tiene ni la política ni el privilegio: un `update` o un `delete` sobre esas tablas es un error, también desde la llave de servicio.
 - Una función `security definer` se salta las políticas: exige ella misma el rol que corresponde. Las demás heredan la matriz de quien las llama.
-- La pantalla lee el rol de `CurrentWorkspace` (`isOwner`, `canOperate`) solo para no ofrecer lo que la base va a negar y decir por qué. Si la base lo niega igual, lo dice `friendlyError`, y la pantalla vuelve a leer el rol (`refresh`).
+- La pantalla lee el rol de `CurrentWorkspace` (`isOwner`, `canOperate`) solo para no ofrecer lo que la base va a negar y decir por qué. Si la base lo niega igual, lo dice `friendlyError`, y la pantalla vuelve a leer el rol con `CurrentWorkspace.afterRefusal(error)`, en cada formulario, no solo en las listas.
+- Una función que niega por el rol lanza `42501` con su frase (`raise exception using errcode = 'insufficient_privilege', message = '…'`), no `P0001`: así la pantalla sabe que fue el rol y lo vuelve a leer, y `friendlyError` muestra la frase tal cual.
 
 **Los saldos no se guardan, se derivan.** El stock sale de sus movimientos; el saldo de una cuenta, de los suyos más el saldo de apertura. No añadas una columna de saldo editable por mucho que parezca más rápido.
 

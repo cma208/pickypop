@@ -6,7 +6,8 @@
 -- and the screen said nothing had been saved. Here both go in one transaction.
 --
 -- Only the owner registers or changes printers (ADR-025). The policies would
--- refuse anyway; the check up front says it in words.
+-- refuse anyway; the check up front says it in words, with the code of a
+-- refused permission (42501).
 
 create or replace function app.save_printer(
   p_name text,
@@ -41,8 +42,12 @@ begin
     v_workspace := v_printer.workspace_id;
   end if;
 
+  -- 42501, like a refused policy, so the screen knows it was the role and
+  -- reads it again, instead of taking it for a mistake in what was written.
   if v_workspace is null or not app.is_owner(v_workspace) then
-    raise exception 'Solo el dueño del taller puede registrar o cambiar las impresoras.';
+    raise exception using
+      errcode = 'insufficient_privilege',
+      message = 'Solo el dueño del taller puede registrar o cambiar las impresoras.';
   end if;
 
   if v_name = '' then

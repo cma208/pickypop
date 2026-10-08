@@ -133,7 +133,7 @@ export function friendlyError(error: unknown, fallback: string): string {
   if (code === 'P0001' && text.trim() !== '') return text;
 
   if (code === '42501' || text.includes('row-level security') || text.includes('permission denied')) {
-    return ledgerMessage(text) ?? NO_PERMISSION;
+    return ledgerMessage(text) ?? handWrittenRefusal(code, text) ?? NO_PERMISSION;
   }
   // Reintentar no arregla un número que no cabe: se dice qué pasó y cuánto cabe.
   if (code === '22003') return tooLargeMessage(text, details ?? '');
@@ -165,6 +165,17 @@ function constraintMessage(text: string): string | null {
     if (text.includes(constraint)) return explanation;
   }
   return null;
+}
+
+/**
+ * A function that refuses by role raises 42501 with a sentence of its own
+ * (`save_printer`: «Solo el dueño del taller puede…»). That sentence says
+ * more than the generic one; PostgreSQL's own wording does not.
+ */
+function handWrittenRefusal(code: string | undefined, text: string): string | null {
+  if (code !== '42501' || text.trim() === '') return null;
+  if (/permission denied|row-level security|must be owner/.test(text)) return null;
+  return text;
 }
 
 function ledgerMessage(text: string): string | null {
