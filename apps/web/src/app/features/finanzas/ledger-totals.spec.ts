@@ -1,4 +1,13 @@
-import { ledgerOrder, ledgerTotals, markVoidable, type LedgerAmount, type LedgerPlace } from './ledger-totals';
+import {
+  ledgerOrder,
+  ledgerTotals,
+  legKey,
+  markVoidable,
+  otherLegBeforeOpening,
+  transfersCaption,
+  type LedgerAmount,
+  type LedgerPlace,
+} from './ledger-totals';
 
 describe('ledgerOrder', () => {
   const place = (transactionId: string, occurredAt: string, isCounterLeg = false): LedgerPlace & { label: string } => ({
@@ -31,6 +40,8 @@ function leg(overrides: Partial<LedgerAmount> = {}): LedgerAmount {
     signedAmount: 100,
     amount: 100,
     voided: false,
+    beforeOpening: false,
+    otherBeforeOpening: false,
     ...overrides,
   };
 }
@@ -68,6 +79,28 @@ describe('ledgerTotals', () => {
     expect(totals.net).toBe(0);
     expect(totals.transfers).toBe(1);
     expect(totals.transferAmount).toBe(80);
+    expect(totals.transfersMovingTotal).toBe(0);
+  });
+
+  it('tells apart a transfer with one leg before its account opened: that one moves the total (E5-02)', () => {
+    const totals = ledgerTotals([
+      // Yape opened on the 7th, Efectivo on the 1st: S/ 30 sent on the 5th.
+      leg({ transactionId: 'tr', type: 'transfer', signedAmount: -30, amount: 30, beforeOpening: true }),
+      leg({ transactionId: 'tr', type: 'transfer', signedAmount: 30, amount: 30, otherBeforeOpening: true }),
+      // Both before their openings: neither balance moves, the total does not either.
+      leg({ transactionId: 'old', type: 'transfer', signedAmount: -5, amount: 5, beforeOpening: true, otherBeforeOpening: true }),
+    ]);
+
+    expect(totals.transfers).toBe(2);
+    expect(totals.transfersMovingTotal).toBe(1);
+  });
+
+  it('sees it from one leg alone, as the book filtered by account shows it', () => {
+    const totals = ledgerTotals([
+      leg({ transactionId: 'tr', type: 'transfer', signedAmount: 30, amount: 30, otherBeforeOpening: true }),
+    ]);
+
+    expect(totals.transfersMovingTotal).toBe(1);
   });
 
   it('does not let an annulled movement add up', () => {
@@ -97,6 +130,7 @@ describe('ledgerTotals', () => {
       net: 0,
       transfers: 0,
       transferAmount: 0,
+      transfersMovingTotal: 0,
       voided: 0,
     });
   });
@@ -118,5 +152,47 @@ describe('markVoidable', () => {
 
   it('never offers it on a movement that is already annulled', () => {
     expect(markVoidable([{ transactionId: 'a', voided: true }])[0].canVoid).toBe(false);
+  });
+});
+
+describe('transfersCaption', () => {
+  it('says the total does not change while every transfer moves both balances or neither', () => {
+    expect(transfersCaption({ transfers: 2, transfersMovingTotal: 0 })).toEqual({
+      label: 'Transferencias (no cambian el total)',
+      note: null,
+    });
+  });
+
+  it('stops saying it when a leg falls before its account opened (E5-02)', () => {
+    expect(transfersCaption({ transfers: 1, transfersMovingTotal: 1 })).toEqual({
+      label: 'Transferencias',
+      note: 'Una de sus patas es anterior a la apertura de su cuenta: cambia el total del taller.',
+    });
+    expect(transfersCaption({ transfers: 3, transfersMovingTotal: 1 }).note).toBe(
+      'Una tiene una pata anterior a la apertura de su cuenta: esa sí cambia el total del taller.',
+    );
+    expect(transfersCaption({ transfers: 3, transfersMovingTotal: 2 }).note).toBe(
+      '2 tienen una pata anterior a la apertura de su cuenta: esas sí cambian el total del taller.',
+    );
+  });
+});
+
+describe('otherLegBeforeOpening', () => {
+  // 5 October at noon in Lima.
+  const leg = { transactionId: 'tr', isCounterLeg: true, occurredAt: '2026-10-05T17:00:00.000Z' };
+
+  it('believes what the database said of the other leg when the book brought it', () => {
+    const legs = new Map([[legKey('tr', false), true]]);
+    // The opening day passed here would say otherwise: the database wins.
+    expect(otherLegBeforeOpening(leg, legs, '2026-10-01')).toBe(true);
+  });
+
+  it('judges it from the other account opening when the book is filtered to this account', () => {
+    expect(otherLegBeforeOpening(leg, new Map(), '2026-10-07')).toBe(true);
+    expect(otherLegBeforeOpening(leg, new Map(), '2026-10-01')).toBe(false);
+  });
+
+  it('says no when there is nothing to judge it by', () => {
+    expect(otherLegBeforeOpening(leg, new Map(), null)).toBe(false);
   });
 });

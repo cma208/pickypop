@@ -13,7 +13,7 @@ import {
   type PaymentMethod,
   type TransactionType,
 } from './finanzas.models';
-import { ledgerOrder } from './ledger-totals';
+import { ledgerOrder, legKey, otherLegBeforeOpening } from './ledger-totals';
 import type { MonthResult } from './results';
 import type { TransactionDraft } from './transaction-draft';
 
@@ -81,6 +81,8 @@ export interface LedgerRow {
   voidReason: string | null;
   /** Dated before this leg's account opened: already inside its opening balance, so it does not move it. */
   beforeOpening: boolean;
+  /** The same for the other leg of a transfer, judged by its own account. False for anything else. */
+  otherBeforeOpening: boolean;
 }
 
 export interface ReceivableRow {
@@ -254,25 +256,38 @@ export class FinanzasData {
    */
   async ledger(filter: LedgerFilter): Promise<LedgerRow[]> {
     const [accounts, categories, entries, details] = await Promise.all([
-      this.accountNames(),
+      this.accountRefs(),
       this.categoryNames(),
       this.liveEntries(filter),
       this.transactionDetails(filter),
     ]);
 
+    const legs = new Map(
+      entries.map((entry) => [
+        legKey(entry.transaction_id ?? '', entry.is_counter_leg ?? false),
+        entry.before_opening ?? false,
+      ]),
+    );
+
     const rows = entries.map((entry): LedgerRow => {
       const detail = details.get(entry.transaction_id ?? '');
       const otherId = entry.is_counter_leg ? detail?.accountId : detail?.counterAccountId;
+      const other = otherId ? accounts.get(otherId) : undefined;
+      const leg = {
+        transactionId: entry.transaction_id ?? '',
+        isCounterLeg: entry.is_counter_leg ?? false,
+        occurredAt: entry.occurred_at ?? '',
+      };
 
       return {
         key: `${entry.transaction_id}-${entry.is_counter_leg ? 'in' : 'out'}`,
-        transactionId: entry.transaction_id ?? '',
-        occurredAt: entry.occurred_at ?? '',
+        transactionId: leg.transactionId,
+        occurredAt: leg.occurredAt,
         type: entry.type ?? 'income',
         accountId: entry.account_id,
-        accountName: accounts.get(entry.account_id ?? '') ?? 'Cuenta desconocida',
-        otherAccountName: otherId ? (accounts.get(otherId) ?? null) : null,
-        isCounterLeg: entry.is_counter_leg ?? false,
+        accountName: accounts.get(entry.account_id ?? '')?.name ?? 'Cuenta desconocida',
+        otherAccountName: other?.name ?? null,
+        isCounterLeg: leg.isCounterLeg,
         categoryName: entry.category_id ? (categories.get(entry.category_id) ?? null) : null,
         paymentMethod: entry.payment_method,
         signedAmount: num(entry.signed_amount),
@@ -284,6 +299,8 @@ export class FinanzasData {
         voided: false,
         voidReason: null,
         beforeOpening: entry.before_opening ?? false,
+        otherBeforeOpening:
+          entry.type === 'transfer' && otherLegBeforeOpening(leg, legs, other?.openingBalanceOn ?? null),
       };
     });
 
@@ -295,9 +312,9 @@ export class FinanzasData {
         occurredAt: detail.occurredAt,
         type: detail.type,
         accountId: detail.accountId,
-        accountName: accounts.get(detail.accountId) ?? 'Cuenta desconocida',
+        accountName: accounts.get(detail.accountId)?.name ?? 'Cuenta desconocida',
         otherAccountName: detail.counterAccountId
-          ? (accounts.get(detail.counterAccountId) ?? null)
+          ? (accounts.get(detail.counterAccountId)?.name ?? null)
           : null,
         isCounterLeg: false,
         categoryName: detail.categoryId ? (categories.get(detail.categoryId) ?? null) : null,
@@ -313,6 +330,7 @@ export class FinanzasData {
         voidReason: detail.voidReason,
         // An annulled movement moves no balance at all, before or after the opening.
         beforeOpening: false,
+        otherBeforeOpening: false,
       }));
 
     return [...rows, ...voided].sort(ledgerOrder);
@@ -442,10 +460,11 @@ export class FinanzasData {
 
   // ---------------------------------------------------------------- helpers
 
-  private async accountNames(): Promise<Map<string, string>> {
-    const { data, error } = await this.supabase.from('accounts').select('id, name');
+  /** Names for the book, and the opening day to judge a transfer leg the book did not bring. */
+  private async accountRefs(): Promise<Map<string, { name: string; openingBalanceOn: string }>> {
+    const { data, error } = await this.supabase.from('accounts').select('id, name, opening_balance_on');
     if (error) throw error;
-    return new Map(data.map((row) => [row.id, row.name]));
+    return new Map(data.map((row) => [row.id, { name: row.name, openingBalanceOn: row.opening_balance_on }]));
   }
 
   private async categoryNames(): Promise<Map<string, string>> {
