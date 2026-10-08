@@ -6,9 +6,10 @@
 -- side. With the filament it is worse than a duplicate in a list: the stock is
 -- split between the two and neither shows what is on the shelf.
 --
--- The old keys stay: bootstrap.sql uses them in "on conflict", and a name
--- written exactly the same still hits them first. The new indexes sit next to
--- them, and friendlyError knows both names.
+-- The old keys stay: a name written exactly the same still hits them first,
+-- and friendlyError knows both names. bootstrap.sql names no key in its
+-- "on conflict", so a twin in other capitals is skipped there too instead of
+-- stopping the whole script.
 --
 -- Production may already hold such twins. Nothing is merged or deleted, since
 -- a duplicated account or filament already has movements of its own: the
