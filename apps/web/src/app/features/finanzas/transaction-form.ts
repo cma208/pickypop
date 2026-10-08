@@ -10,6 +10,7 @@ import { FinanzasData, type AccountSummary } from './finanzas.data';
 import {
   categoriesFor,
   categoryFitsType,
+  saysSale,
   PAYMENT_METHODS,
   PAYMENT_METHOD_LABELS,
   TRANSACTION_TYPES,
@@ -32,7 +33,8 @@ import {
 
 /** What each type is for, so nobody has to guess between the five. */
 const TYPE_HINTS: Record<TransactionType, string> = {
-  income: 'Dinero que entra y no es venta ni aporte: un reembolso, la devolución de un proveedor. Suma a la utilidad como «Otros ingresos».',
+  income:
+    'Dinero que entra y no es venta, cobro de un pedido ni aporte: un reembolso, la devolución de un proveedor. Suma a la utilidad como «Otros ingresos».',
   expense: 'Dinero que sale del taller: luz, envíos, publicidad, repuestos.',
   transfer: 'Dinero que cambia de bolsillo. No es ganancia ni gasto: el total del taller no cambia.',
   owner_contribution: 'Plata tuya que metes al taller. Es capital, no utilidad.',
@@ -50,7 +52,8 @@ const TYPE_HINTS: Record<TransactionType, string> = {
   styles: [
     SECTION_STYLES,
     FINANCE_STYLES,
-    `.sales-elsewhere { margin: -0.4rem 0 0.9rem; padding: 0.5rem 0.75rem; border-radius: var(--radius-sm); background: var(--info-soft); font-size: var(--fs-sm); }`,
+    `.sales-elsewhere { margin: -0.4rem 0 0.9rem; padding: 0.5rem 0.75rem; border-radius: var(--radius-sm); background: var(--info-soft); font-size: var(--fs-sm); }
+     .sale-category { grid-column: 1 / -1; margin: -0.4rem 0 0.9rem; }`,
   ],
   template: `
     <form class="form-box" [formGroup]="form" (ngSubmit)="submit()" novalidate>
@@ -64,11 +67,16 @@ const TYPE_HINTS: Record<TransactionType, string> = {
         </select>
       </pp-field>
       @if (isIncome()) {
-        <!-- A sale typed here never left the shelf nor carried its cost (E5-01). -->
+        <!--
+          A sale typed here never left the shelf nor carried its cost, and the
+          collection of an order typed here counts twice: once as the order's
+          sale and again as other income (E5-01).
+        -->
         <p class="sales-elsewhere">
           ¿Es una venta? Va por <a routerLink="/pedidos">Pedidos</a> o por la
           <a routerLink="/pedidos/venta-rapida">Venta rápida</a>, que sí sacan lo vendido del estante y llevan su
-          costo.
+          costo. ¿Te pagaron un pedido? Se cobra desde el pedido o desde
+          <a routerLink="/finanzas/por-cobrar">Por cobrar</a>: anotado aquí, contaría dos veces.
         </p>
       }
 
@@ -103,6 +111,12 @@ const TYPE_HINTS: Record<TransactionType, string> = {
               }
             </select>
           </pp-field>
+          @if (saleCategory(); as name) {
+            <p class="alert alert-warn sale-category" role="status">
+              «{{ name }}» es una categoría de ventas. Un ingreso suelto con ella suma a la utilidad sin costo y sin
+              sacar nada del estante: si es una venta o el cobro de un pedido, regístralo por Pedidos.
+            </p>
+          }
         }
 
         <pp-field label="Monto" [required]="true">
@@ -190,6 +204,8 @@ export class TransactionForm {
 
   protected readonly saving = signal(false);
   protected readonly failure = signal<string | null>(null);
+  /** The category collections of orders are filed under, once read. */
+  private readonly orderCategoryId = signal<string | null>(null);
 
   protected readonly form = this.fb.group({
     type: ['income' as TransactionType],
@@ -225,6 +241,13 @@ export class TransactionForm {
 
   protected readonly categories = computed(() => categoriesFor(this.values().type, this.allCategories()));
 
+  /** The name of the chosen category when it says «sale» and this is a loose income. */
+  protected readonly saleCategory = computed(() => {
+    if (!this.isIncome()) return null;
+    const chosen = this.categories().find((category) => category.id === this.values().categoryId);
+    return chosen && saysSale(chosen, this.orderCategoryId()) ? chosen.name : null;
+  });
+
   protected readonly counterpartyLabel = computed(() =>
     TYPE_DIRECTION[this.values().type] === 'income' ? 'De quién lo recibiste' : 'A quién le pagaste',
   );
@@ -246,6 +269,8 @@ export class TransactionForm {
   protected readonly totalUnchanged = computed(() => workshopChange(this.preview()) === 0);
 
   constructor() {
+    void this.loadOrderCategory();
+
     // A category belongs to one direction only, so one that no longer fits
     // the chosen type has to go before the database rejects the pairing.
     this.form.controls.type.valueChanges.subscribe((type) => {
@@ -265,6 +290,15 @@ export class TransactionForm {
         this.form.controls.counterAccountId.setValue('');
       }
     });
+  }
+
+  /** A line of warning: if it cannot be read, the form works the same without it. */
+  private async loadOrderCategory(): Promise<void> {
+    try {
+      this.orderCategoryId.set((await this.data.paymentCategories()).order?.id ?? null);
+    } catch {
+      this.orderCategoryId.set(null);
+    }
   }
 
   protected async submit(): Promise<void> {
