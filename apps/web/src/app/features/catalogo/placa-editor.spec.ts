@@ -16,6 +16,7 @@ const CAPS_AND_HOOKS: RecipePlate = {
   label: 'Tapas',
   plateIndex: 1,
   unitsPerRun: 9,
+  // What a sliced file says: 44.4333… minutes.
   printTimeS: 2666,
   filaments: [],
   outputs: [
@@ -52,6 +53,50 @@ function open(askedIds: string[] = ['cap']) {
   fixture.detectChanges();
   return { fixture, data };
 }
+
+const field = (element: HTMLElement, name: string): HTMLInputElement =>
+  element.querySelector(`input[formControlName="${name}"]`)!;
+
+function type(input: HTMLInputElement, value: string): void {
+  input.value = value;
+  input.dispatchEvent(new Event('input'));
+}
+
+const text = (element: HTMLElement) => (element.textContent ?? '').replace(/\s+/g, ' ').trim();
+
+describe('PlacaEditor, the time of a run (T2-17)', () => {
+  it('saves the time from the file to the second when only the label changes', async () => {
+    const { fixture, data } = open();
+    expect(field(fixture.nativeElement, 'printMinutes').value).toBe('44.43');
+
+    type(field(fixture.nativeElement, 'label'), 'Tapas y ganchos');
+    fixture.nativeElement.querySelector('form').dispatchEvent(new Event('submit'));
+
+    await vi.waitFor(() =>
+      expect(data.updatePlate).toHaveBeenCalledWith('plate-1', { label: 'Tapas y ganchos', unitsPerRun: 9, printTimeS: 2666 }),
+    );
+  });
+
+  it('refuses a typed time that does not fall on a second, instead of rounding it', async () => {
+    const { fixture, data } = open();
+
+    type(field(fixture.nativeElement, 'printMinutes'), '10.01');
+    fixture.nativeElement.querySelector('form').dispatchEvent(new Event('submit'));
+    fixture.detectChanges();
+
+    expect(text(fixture.nativeElement)).toContain('Tiempo: hasta 1 decimal (0.1 minutos son 6 segundos).');
+    expect(data.updatePlate).not.toHaveBeenCalled();
+  });
+
+  it('saves a time typed in tenths of a minute as the seconds it is', async () => {
+    const { fixture, data } = open();
+
+    type(field(fixture.nativeElement, 'printMinutes'), '10.1');
+    fixture.nativeElement.querySelector('form').dispatchEvent(new Event('submit'));
+
+    await vi.waitFor(() => expect(data.updatePlate).toHaveBeenCalledWith('plate-1', expect.objectContaining({ printTimeS: 606 })));
+  });
+});
 
 describe('PlacaEditor, removing the only plate that prints a part (T2-07)', () => {
   afterEach(() => vi.restoreAllMocks());

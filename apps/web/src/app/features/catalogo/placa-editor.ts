@@ -1,5 +1,5 @@
 import { Component, computed, effect, inject, input, output, signal, untracked } from '@angular/core';
-import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormControl, FormGroup, ReactiveFormsModule, Validators, type AbstractControl, type ValidationErrors } from '@angular/forms';
 import { FORMAT_PIPES, Thumb } from '../../ui';
 import { CatalogoData } from './catalogo.data';
 import type { Lookups, RecipePlate } from './catalogo.models';
@@ -14,10 +14,16 @@ import { SalidaFila, type PartOption } from './salida-fila';
 
 const SECONDS_PER_MINUTE = 60;
 /**
- * A sliced file says 2666 s, which is 44.4333… minutes. Two decimals read like
- * a time and still give back the same second on save: they are off by 0.3 s at most.
+ * A sliced file says 2666 s, which is 44.4333… minutes. It is shown with two
+ * decimals, and left as it is it goes back as the same 2666 s.
  */
 const MINUTE_DECIMALS = 100;
+/**
+ * A time typed by hand goes in tenths of a minute: 0.1 minutes are 6 seconds,
+ * so it is saved to the second as typed. With two decimals, 10.01 minutes
+ * (600.6 s) was saved as 601 s and came back as 10.02 (T2-17).
+ */
+const TYPED_MINUTE_DECIMALS = 1;
 
 const UNITS_MESSAGES: Record<string, string> = {
   required: 'Productos por corrida: escribe cuántos alcanza a hacer una corrida.',
@@ -30,7 +36,7 @@ const MINUTES_MESSAGES: Record<string, string> = {
   required: 'Tiempo: escribe cuántos minutos tarda una corrida.',
   min: 'Tiempo: al menos 1 minuto.',
   max: `Tiempo: hasta ${limitText(LIMITS.plateMinutes)} minutos (una semana).`,
-  decimals: `Tiempo: ${decimalsText(DECIMALS.minutes)}.`,
+  decimals: `Tiempo: ${decimalsText(TYPED_MINUTE_DECIMALS)} (0.1 minutos son 6 segundos).`,
 };
 
 /** A plate of the recipe with its filaments, or the form that adds a new plate. */
@@ -141,6 +147,11 @@ export class PlacaEditor {
   protected readonly busy = signal(false);
   protected readonly error = signal<string | null>(null);
   /**
+   * The saved time as the field was filled: in minutes with two decimals, and
+   * the seconds they came from. Null for a new plate.
+   */
+  private shown: { minutes: number; seconds: number } | null = null;
+  /**
    * The parts a plate can make, from the page's options. Each plate used to
    * read them once on its own, so a part an import had just created was
    * missing from the plate added next until the page was reloaded (E2-01).
@@ -176,7 +187,7 @@ export class PlacaEditor {
       Validators.required,
       Validators.min(1),
       Validators.max(LIMITS.plateMinutes),
-      maxDecimals(DECIMALS.minutes),
+      (control: AbstractControl) => this.typedMinutes(control),
     ]),
   });
 
@@ -209,15 +220,18 @@ export class PlacaEditor {
     if (this.form.invalid) return;
 
     const value = this.form.getRawValue();
+    const current = this.plate();
+    const minutes = Number(value.printMinutes);
     const input = {
       label: value.label,
       unitsPerRun: Number(value.unitsPerRun),
-      printTimeS: Math.round(Number(value.printMinutes) * SECONDS_PER_MINUTE),
+      // Untouched, the time goes back to the second it was shown from;
+      // typed, it is in tenths of a minute, which are whole seconds.
+      printTimeS: this.shown && minutes === this.shown.minutes ? this.shown.seconds : Math.round(minutes * SECONDS_PER_MINUTE),
     };
 
     this.busy.set(true);
     try {
-      const current = this.plate();
       if (current) {
         await this.data.updatePlate(current.id, input);
       } else {
@@ -264,11 +278,26 @@ export class PlacaEditor {
     return output?.part?.name ?? this.lookups().supplies.find((item) => item.id === id)?.name ?? 'una pieza';
   }
 
+  /**
+   * The saved time passes as shown, even with two decimals; anything typed
+   * goes in tenths of a minute.
+   */
+  private typedMinutes(control: AbstractControl): ValidationErrors | null {
+    if (this.shown && Number(control.value) === this.shown.minutes) return null;
+    return maxDecimals(TYPED_MINUTE_DECIMALS)(control);
+  }
+
   private fill(plate: RecipePlate | null): void {
+    this.shown = plate
+      ? {
+          minutes: Math.round((plate.printTimeS / SECONDS_PER_MINUTE) * MINUTE_DECIMALS) / MINUTE_DECIMALS,
+          seconds: plate.printTimeS,
+        }
+      : null;
     this.form.reset({
       label: plate?.label ?? '',
       unitsPerRun: plate?.unitsPerRun ?? null,
-      printMinutes: plate ? Math.round((plate.printTimeS / SECONDS_PER_MINUTE) * MINUTE_DECIMALS) / MINUTE_DECIMALS : null,
+      printMinutes: this.shown?.minutes ?? null,
     });
   }
 }
