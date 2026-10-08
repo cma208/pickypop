@@ -23,6 +23,10 @@
 --   desactivada: al armar, al entregar, al vender y en las pantallas de armar
 --   y de contar.
 -- * La Venta rápida escribe sus montos con doce cifras (T4-15).
+-- * Una llave por movimiento de dinero: el cobro de un pedido y el pago de
+--   una compra la dejan en `transactions.entry_key`, la misma llave por
+--   `record_payment` es el mismo cobro, una llave de antes sigue valiendo y
+--   la llave de otra compra se rechaza.
 --
 -- Los rechazos escritos para una persona son P0001.
 
@@ -359,6 +363,75 @@ select pg_temp.expect('Un cobro de más con cifras grandes dice el monto (T4-15)
   select public.quick_sale(#1, ('[{"variant_id": "' || #2 || '", "quantity": 1, "unit_price": 20}]')::jsonb, #3,
     null, null, #4, 5000000000)
   $q$, 1, 511, 301, 201), 'error:P0001:Lo cobrado (S/ 5000000000.00) pasa del total de la venta (S/ 20.00)');
+
+-- ========================================== una llave por movimiento de dinero
+
+insert into public.orders (id, workspace_id, number, purpose, customer_id, status, total) values
+  (pg_temp.id(702), pg_temp.id(1), 'FLU-0002', 'sale', pg_temp.id(301), 'confirmed', 30);
+
+insert into public.order_lines (id, workspace_id, order_id, position, variant_id, description, quantity, unit_price) values
+  (pg_temp.id(712), pg_temp.id(1), pg_temp.id(702), 1, null, 'Llavero con nombre', 1, 30);
+
+insert into public.purchases (id, workspace_id) values
+  (pg_temp.id(801), pg_temp.id(1)),
+  (pg_temp.id(802), pg_temp.id(1));
+
+insert into public.purchase_lines (workspace_id, purchase_id, inventory_item_id, quantity, unit_price) values
+  (pg_temp.id(1), pg_temp.id(801), pg_temp.id(421), 2, 5),
+  (pg_temp.id(1), pg_temp.id(802), pg_temp.id(421), 2, 5);
+
+-- A payment from before the key went into the movement: its key is only in
+-- purchase_payment_requests.
+insert into public.transactions (id, workspace_id, account_id, type, amount, payment_method, purchase_id, occurred_at)
+values (pg_temp.id(811), pg_temp.id(1), pg_temp.id(201), 'expense', 2, 'cash', pg_temp.id(801), now() - interval '1 day');
+
+insert into public.purchase_payment_requests (workspace_id, request_key, transaction_id)
+values (pg_temp.id(1), pg_temp.id(953), pg_temp.id(811));
+
+select pg_temp.expect('El cobro de un pedido deja su llave en el movimiento', 'operator', pg_temp.q($q$do $x$
+  declare a uuid; b uuid; n integer;
+  begin
+    a := (public.collect_order_payment(#1, #2, 5, 'cash', null, null, #3)).id;
+    if (select entry_key from public.transactions where id = a) is distinct from #3 then
+      raise exception 'el movimiento no lleva la llave';
+    end if;
+    if not exists (select 1 from public.order_payment_keys where payment_key = #3 and transaction_id = a) then
+      raise exception 'la ficha del pedido no encuentra la llave';
+    end if;
+    -- The same key through record_payment is the same movement.
+    b := (public.record_payment(#1, #2, 5, p_key => #3)).id;
+    select count(*) into n from public.transactions where order_id = #1;
+    if a is distinct from b or n <> 1 then raise exception 'dos cobros: % filas', n; end if;
+  end $x$$q$, 702, 201, 951), 'ok:');
+
+select pg_temp.expect('El pago de una compra deja su llave en el movimiento', 'operator', pg_temp.q($q$do $x$
+  declare a uuid; b uuid; n integer;
+  begin
+    a := (public.record_purchase_payment(#1, #2, 3, 'cash', null, null, null, #3)).id;
+    b := (public.record_purchase_payment(#1, #2, 3, 'cash', null, null, null, #3)).id;
+    if (select entry_key from public.transactions where id = a) is distinct from #3 then
+      raise exception 'el movimiento no lleva la llave';
+    end if;
+    select count(*) into n from public.transactions where purchase_id = #1 and voided_at is null;
+    if a is distinct from b or n <> 2 then raise exception 'pagos de la compra: % filas', n; end if;
+    if exists (select 1 from public.purchase_payment_requests where request_key = #3) then
+      raise exception 'la llave también fue a purchase_payment_requests';
+    end if;
+  end $x$$q$, 801, 201, 952), 'ok:');
+
+select pg_temp.expect('Una llave de pago de antes sigue valiendo', 'operator', pg_temp.q($q$do $x$
+  declare a uuid; n integer;
+  begin
+    a := (public.record_purchase_payment(#1, #2, 2, 'cash', null, null, null, #3)).id;
+    select count(*) into n from public.transactions where purchase_id = #1;
+    if a is distinct from #4 or n <> 1 then raise exception 'pagó otra vez: % filas', n; end if;
+  end $x$$q$, 801, 201, 953, 811), 'ok:');
+
+select pg_temp.expect('La llave de un pago usada en otra compra', 'operator', pg_temp.q($q$do $x$
+  begin
+    perform public.record_purchase_payment(#1, #3, 1, 'cash', null, null, null, #4);
+    perform public.record_purchase_payment(#2, #3, 1, 'cash', null, null, null, #4);
+  end $x$$q$, 801, 802, 201, 954), 'error:P0001:Este pago ya se registró en otra compra');
 
 -- --------------------------------------------------------------- resultado
 
