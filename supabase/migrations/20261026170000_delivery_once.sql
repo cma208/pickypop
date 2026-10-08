@@ -19,8 +19,24 @@
 -- se vuelven a crear. La Venta rápida la llama con cuatro argumentos y sigue
 -- igual: su llave es la de la venta.
 --
+-- Y lo que quedaba de T4-08: antes del ADR-021 una impresión de catálogo se
+-- ataba a la línea del pedido. Entregada la línea entera desde el estante,
+-- esa impresión, planificada o imprimiéndose, seguía en la cola de un pedido
+-- entregado. Ahora se suelta del pedido como lo hace `cancel_order` con las
+-- que no cancela: sigue como trabajo suelto, con su nombre y una nota de
+-- dónde venía, y lo que produzca entra al estante como cualquier otra
+-- impresión de catálogo (ADR-020). No se cancela: lo que está en la
+-- impresora ya gastó filamento, y eso se dice al cerrarla. Lo hecho a medida
+-- no llega aquí con impresiones pendientes: la entrega lo rechaza antes.
+--
+-- Las que ya están así se sueltan al migrar. Las impresiones a medida que
+-- ya existen en la cola de una línea entregada no se tocan: solo quien las
+-- ve sabe si se imprimieron (cerrarlas «Exitosa» le da al pedido su costo
+-- real) o si sobran (cancelarlas).
+--
 -- `deliver_order` es la de 20261026150000_custom_lines_leave_printed, con la
--- llave al principio y en el insert de la entrega.
+-- llave al principio y en el insert de la entrega, y la impresión de
+-- catálogo que se suelta al final.
 
 alter table public.order_deliveries add column delivery_key uuid;
 
@@ -288,6 +304,23 @@ begin
     )
   from jsonb_array_elements(v_requested) r;
 
+  -- A catalogue print still tied to a line that has gone out whole (from
+  -- before ADR-021) is no longer this order's: it goes on as a loose print,
+  -- the way cancel_order lets go of the prints it does not cancel, and what
+  -- it makes reaches the shelf like any other.
+  update public.print_jobs j
+     set order_line_id = null,
+         label = coalesce(nullif(btrim(j.label), ''), l.description),
+         note = concat_ws(E'\n', nullif(btrim(j.note), ''),
+                          format('Era del pedido %s, que se entregó desde el estante.', v_order.number))
+    from public.order_lines l
+    join public.order_line_delivery_status s on s.order_line_id = l.id
+   where j.order_line_id = l.id
+     and l.order_id = p_order_id
+     and l.variant_id is not null
+     and s.pending = 0
+     and j.status in ('planned', 'printing');
+
   -- Nothing left to deliver: the order is delivered. A partial delivery leaves
   -- the order where it was.
   if not exists (
@@ -319,3 +352,19 @@ as $$
 $$;
 
 grant execute on function public.deliver_order(uuid, jsonb, timestamptz, text, uuid) to authenticated;
+
+-- The catalogue prints already left in the queue of a line that went out
+-- whole, or of an order marked delivered: let go, as deliver_order does now.
+update public.print_jobs j
+   set order_line_id = null,
+       label = coalesce(nullif(btrim(j.label), ''), l.description),
+       note = concat_ws(E'\n', nullif(btrim(j.note), ''),
+                        format('Era del pedido %s, que se entregó desde el estante.', o.number))
+  from public.order_lines l
+  join public.orders o on o.id = l.order_id
+  join public.order_line_delivery_status s on s.order_line_id = l.id
+ where j.order_line_id = l.id
+   and l.variant_id is not null
+   and o.status <> 'cancelled'
+   and (s.pending = 0 or o.status in ('delivered', 'closed'))
+   and j.status in ('planned', 'printing');
