@@ -731,6 +731,46 @@ begin
     'select public.count_shelf(''[{"inventory_item_id": "00000000-7e57-4000-8000-000000000464", "counted": 4}, '
     || '{"inventory_item_id": "00000000-7e57-4000-8000-000000000495", "counted": 4}]'')',
     'error:P0001:Un conteo es de un solo taller');
+
+
+  -- Compras y numeración: el rol se pregunta al principio, y el operador
+  -- sigue pudiendo todo.
+  perform pg_temp.expect('Pedir un número de pedido', 'operator',
+    'select public.next_document_number(' || c_ws || ', ''order'')', 'ok:1');
+  perform pg_temp.expect('Pedir un número de pedido', 'viewer',
+    'select public.next_document_number(' || c_ws || ', ''order'')', 'error:42501:Solo el dueño o un operador');
+  perform pg_temp.expect('Pedir un número de pedido', 'outsider',
+    'select public.next_document_number(' || c_ws || ', ''order'')', 'error:P0001:No perteneces a este taller');
+  perform pg_temp.expect('Registrar una compra', 'operator',
+    'select public.register_purchase(' || c_ws || ', ''[{"inventory_item_id": "00000000-7e57-4000-8000-000000000465", '
+    || '"quantity": 4, "unit_price": 0.5, "allocated_extra_cost": 0, "unit_cost": 0.5}]'')', 'ok:1');
+  perform pg_temp.expect('Registrar una compra', 'viewer',
+    'select public.register_purchase(' || c_ws || ', ''[{"inventory_item_id": "00000000-7e57-4000-8000-000000000465", '
+    || '"quantity": 4, "unit_price": 0.5, "allocated_extra_cost": 0, "unit_cost": 0.5}]'')',
+    'error:42501:Solo el dueño o un operador');
+  perform pg_temp.expect('Pagar una compra', 'operator',
+    'select public.record_purchase_payment(''00000000-7e57-4000-8000-000000000491'', '
+    || '''00000000-7e57-4000-8000-000000000201'', 5, ''cash'')', 'ok:1');
+  perform pg_temp.expect('Pagar una compra', 'viewer',
+    'select public.record_purchase_payment(''00000000-7e57-4000-8000-000000000491'', '
+    || '''00000000-7e57-4000-8000-000000000201'', 5, ''cash'')', 'error:42501:Solo el dueño o un operador');
+  perform pg_temp.expect('Pagar una compra', 'outsider',
+    'select public.record_purchase_payment(''00000000-7e57-4000-8000-000000000491'', '
+    || '''00000000-7e57-4000-8000-000000000201'', 5, ''cash'')', 'error:P0001:No existe la compra indicada');
+  perform pg_temp.expect('Pesar un rollo', 'operator',
+    'select public.weigh_spool(' || c_spool || ', 1100, 200)', 'ok:1');
+  perform pg_temp.expect('Pesar un rollo', 'viewer',
+    'select public.weigh_spool(' || c_spool || ', 1100, 200)', 'error:42501:Solo el dueño o un operador');
+  perform pg_temp.expect('Cambiar el estado de un rollo', 'operator',
+    'select public.set_spool_status(' || c_spool || ', ''in_use'')', 'ok:1');
+  perform pg_temp.expect('Cambiar el estado de un rollo', 'viewer',
+    'select public.set_spool_status(' || c_spool || ', ''in_use'')', 'error:42501:Solo el dueño o un operador');
+  perform pg_temp.expect('Cambiar el estado de un rollo', 'outsider',
+    'select public.set_spool_status(' || c_spool || ', ''in_use'')', 'error:P0001:No existe el rollo indicado');
+  perform pg_temp.expect('Mover un empaque', 'operator',
+    'select public.move_item_stock(' || c_bag || ', ''in'', 1)', 'ok:1');
+  perform pg_temp.expect('Mover un empaque', 'viewer',
+    'select public.move_item_stock(' || c_bag || ', ''in'', 1)', 'error:42501:Solo el dueño o un operador');
 end;
 $$;
 
