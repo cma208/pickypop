@@ -120,13 +120,13 @@ isOneToOne: false
                   ]
                 },"customers": {
                   Row: {
-                    "active": boolean,"created_at": string,"doc_number": string | null,"doc_type": Database["public"]['Enums']["customer_doc_type"],"email": string | null,"id": string,"kind": Database["public"]['Enums']["customer_kind"],"name": string,"note": string | null,"phone": string | null,"updated_at": string,"workspace_id": string
+                    "active": boolean,"created_at": string,"doc_number": string | null,"doc_type": Database["public"]['Enums']["customer_doc_type"],"email": string | null,"id": string,"kind": Database["public"]['Enums']["customer_kind"],"name": string,"note": string | null,"phone": string | null,"updated_at": string,"walk_in": boolean,"workspace_id": string
                   }
                   Insert: {
-                    "active"?: boolean,"created_at"?: string,"doc_number"?: string | null,"doc_type"?: Database["public"]['Enums']["customer_doc_type"],"email"?: string | null,"id"?: string,"kind"?: Database["public"]['Enums']["customer_kind"],"name": string,"note"?: string | null,"phone"?: string | null,"updated_at"?: string,"workspace_id": string
+                    "active"?: boolean,"created_at"?: string,"doc_number"?: string | null,"doc_type"?: Database["public"]['Enums']["customer_doc_type"],"email"?: string | null,"id"?: string,"kind"?: Database["public"]['Enums']["customer_kind"],"name": string,"note"?: string | null,"phone"?: string | null,"updated_at"?: string,"walk_in"?: boolean,"workspace_id": string
                   }
                   Update: {
-                    "active"?: boolean,"created_at"?: string,"doc_number"?: string | null,"doc_type"?: Database["public"]['Enums']["customer_doc_type"],"email"?: string | null,"id"?: string,"kind"?: Database["public"]['Enums']["customer_kind"],"name"?: string,"note"?: string | null,"phone"?: string | null,"updated_at"?: string,"workspace_id"?: string
+                    "active"?: boolean,"created_at"?: string,"doc_number"?: string | null,"doc_type"?: Database["public"]['Enums']["customer_doc_type"],"email"?: string | null,"id"?: string,"kind"?: Database["public"]['Enums']["customer_kind"],"name"?: string,"note"?: string | null,"phone"?: string | null,"updated_at"?: string,"walk_in"?: boolean,"workspace_id"?: string
                   }
                   Relationships: [
                     {
@@ -2514,6 +2514,36 @@ isOneToOne: false
                            },
 "prioritize_order":
 { Args: { "p_before_id": string,"p_before_kind": string,"p_order_id": string,"p_reason": string }; Returns: {
+              "channel_id": string | null,
+"created_at": string,
+"created_by": string | null,
+"customer_id": string | null,
+"due_date": string | null,
+"gift_category_id": string | null,
+"hold_until": string | null,
+"id": string,
+"note": string | null,
+"number": string,
+"opportunity_id": string | null,
+"ordered_on": string,
+"payment_status": Database["public"]['Enums']["order_payment_status"],
+"priority_at": string,
+"purpose": Database["public"]['Enums']["order_purpose"],
+"quote_id": string | null,
+"recipient": string | null,
+"status": Database["public"]['Enums']["order_status"],
+"total": number,
+"updated_at": string,
+"workspace_id": string
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "orders"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
+"quick_sale":
+{ Args: { "p_account_id"?: string,"p_amount"?: number,"p_customer_id"?: string,"p_customer_name"?: string,"p_customer_phone"?: string,"p_lines": Json,"p_note"?: string,"p_payment_method"?: Database["public"]['Enums']["payment_method"],"p_reference"?: string,"p_sold_at"?: string,"p_workspace_id": string }; Returns: {
               "channel_id": string | null,
 "created_at": string,
 "created_by": string | null,

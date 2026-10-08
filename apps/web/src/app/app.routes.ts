@@ -60,6 +60,7 @@ export const routes: Routes = [
 
       { path: 'pedidos', title: 'Pedidos', loadComponent: () => import('./features/pedidos/pedidos.page').then((m) => m.PedidosPage) },
       { path: 'pedidos/nuevo', title: 'Nuevo pedido', loadComponent: () => import('./features/pedidos/pedido-nuevo.page').then((m) => m.PedidoNuevoPage) },
+      { path: 'pedidos/venta-rapida', title: 'Venta rápida', loadComponent: () => import('./features/pedidos/venta-rapida.page').then((m) => m.VentaRapidaPage) },
       { path: 'pedidos/:id', title: 'Pedido', loadComponent: () => import('./features/pedidos/pedido.page').then((m) => m.PedidoPage) },
 
       { path: 'finanzas/cuentas', title: 'Cuentas', loadComponent: () => import('./features/finanzas/cuentas.page').then((m) => m.CuentasPage) },

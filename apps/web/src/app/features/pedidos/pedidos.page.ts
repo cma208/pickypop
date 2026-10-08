@@ -24,6 +24,7 @@ const FINISHED: OrderStatus[] = ['delivered', 'closed', 'cancelled'];
   imports: [RouterLink, Page, Badge, AsyncState, Empty, Thumb, ...FORMAT_PIPES],
   template: `
     <pp-page title="Pedidos" subtitle="Ventas, uso personal y regalos">
+      <a actions class="button secondary" routerLink="/pedidos/venta-rapida">Venta rápida</a>
       <a actions class="button" routerLink="/pedidos/nuevo">+ Nuevo pedido</a>
 
       <div class="filters">
