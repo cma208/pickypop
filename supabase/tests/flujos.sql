@@ -27,6 +27,8 @@
 --   una compra la dejan en `transactions.entry_key`, la misma llave por
 --   `record_payment` es el mismo cobro, una llave de antes sigue valiendo y
 --   la llave de otra compra se rechaza.
+-- * La ficha del pedido cuenta entre los fallidos una impresión cancelada que
+--   corrió, como el tablero y Resultados (ADR-023, punto 6).
 --
 -- Los rechazos escritos para una persona son P0001.
 
@@ -432,6 +434,38 @@ select pg_temp.expect('La llave de un pago usada en otra compra', 'operator', pg
     perform public.record_purchase_payment(#1, #3, 1, 'cash', null, null, null, #4);
     perform public.record_purchase_payment(#2, #3, 1, 'cash', null, null, null, #4);
   end $x$$q$, 801, 802, 201, 954), 'error:P0001:Este pago ya se registró en otra compra');
+
+-- ============================================ lo que falla, en la ficha del pedido
+
+-- Four prints for one line: one went well, one failed, one was cancelled
+-- after half an hour and one was cancelled before it ran.
+insert into public.orders (id, workspace_id, number, purpose, customer_id, status, total) values
+  (pg_temp.id(703), pg_temp.id(1), 'FLU-0003', 'sale', pg_temp.id(301), 'confirmed', 10);
+
+insert into public.order_lines (id, workspace_id, order_id, position, variant_id, description, quantity, unit_price) values
+  (pg_temp.id(713), pg_temp.id(1), pg_temp.id(703), 1, null, 'Placa grabada', 1, 10);
+
+insert into public.print_jobs (
+  id, workspace_id, printer_id, order_line_id, label, status, started_at, finished_at, actual_time_s,
+  failure_cause, material_cost, energy_cost, machine_cost
+) values
+  (pg_temp.id(621), pg_temp.id(1), pg_temp.id(601), pg_temp.id(713), 'Placa', 'success',
+   now() - interval '5 hours', now() - interval '4 hours', 3600, null, 1, 0.1, 0.5),
+  (pg_temp.id(622), pg_temp.id(1), pg_temp.id(601), pg_temp.id(713), 'Placa', 'failed',
+   now() - interval '7 hours', now() - interval '6 hours', 1800, 'adhesion', 0.5, 0.05, 0.25),
+  (pg_temp.id(623), pg_temp.id(1), pg_temp.id(601), pg_temp.id(713), 'Placa', 'cancelled',
+   now() - interval '9 hours', now() - interval '8 hours', 1800, null, 0.5, 0.05, 0.25),
+  (pg_temp.id(624), pg_temp.id(1), pg_temp.id(601), pg_temp.id(713), 'Placa', 'cancelled',
+   null, now() - interval '10 hours', null, null, null, null, null);
+
+select pg_temp.expect('Una cancelada que corrió es un intento fallido en la ficha del pedido', 'operator', pg_temp.q($q$do $x$
+  declare r record;
+  begin
+    select * into r from public.order_production_summary where order_id = #1;
+    if r.jobs <> 4 or r.successful_jobs <> 1 or r.failed_jobs <> 2 then
+      raise exception '% trabajos, % exitosos, % fallidos', r.jobs, r.successful_jobs, r.failed_jobs;
+    end if;
+  end $x$$q$, 703), 'ok:');
 
 -- --------------------------------------------------------------- resultado
 
