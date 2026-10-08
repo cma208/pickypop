@@ -9,6 +9,7 @@ import { InventoryPlan, type InventoryPositions } from './inventory-plan';
 import { ItemForm } from './item-form';
 import { Modal } from './modal';
 import { PiezasDesactivadas } from './piezas-desactivadas';
+import { deactivatedNote, deactivationWarning, PartRecipes, type PartUse } from './piezas-recetas';
 import { itemCells, type PositionCells } from './stock-position';
 
 const COST_DIGITS = 3;
@@ -152,10 +153,13 @@ interface PartRow {
 
       @if (editing(); as current) {
         <app-modal [heading]="current.item ? 'Editar pieza' : 'Nueva pieza'" (closed)="editing.set(null)">
+          @if (current.item?.active && editWarning(); as warning) {
+            <p class="alert-warn" role="status">{{ warning }}</p>
+          }
           <app-item-form
             [item]="current.item"
             [kinds]="partOnly"
-            (saved)="onSaved(current.item ? 'Cambios guardados.' : 'Pieza creada. Dile en la receta qué placa la produce.')"
+            (saved)="afterSave(current.item)"
             (cancelled)="editing.set(null)"
           />
         </app-modal>
@@ -167,6 +171,7 @@ export class PiezasPage {
   private readonly data = inject(InventarioData);
   private readonly planner = inject(InventoryPlan);
   private readonly photos = inject(ArticlePhotos);
+  private readonly recipes = inject(PartRecipes);
 
   protected readonly costDigits = COST_DIGITS;
   protected readonly partOnly = PART_ONLY;
@@ -178,6 +183,12 @@ export class PiezasPage {
   protected readonly actionError = signal<string | null>(null);
   protected readonly notice = signal<string | null>(null);
   protected readonly editing = signal<Editing | null>(null);
+  /** The recipes that use the piece being edited, to warn before it is switched off. */
+  private readonly editUses = signal<PartUse[]>([]);
+  protected readonly editWarning = computed(() => {
+    const item = this.editing()?.item;
+    return item ? deactivationWarning(item.name, this.editUses()) : null;
+  });
   /** Pieces whose picture is the thumbnail of their plate, because they have no photo of their own. */
   private readonly platePhotos = signal<ReadonlySet<string>>(new Set());
   private readonly positions = signal<InventoryPositions | null>(null);
@@ -227,7 +238,33 @@ export class PiezasPage {
       return;
     }
     this.actionError.set(null);
+    this.editUses.set([]);
     this.editing.set({ item });
+    void this.loadUses(item.id);
+  }
+
+  /**
+   * A piece that recipes still use and was just switched off says so, and
+   * which recipes: «Cambios guardados.» let it go quietly (T2-13).
+   */
+  protected async afterSave(before: InventoryItemSummary | null): Promise<void> {
+    if (!before) {
+      await this.onSaved('Pieza creada. Dile en la receta qué placa la produce.');
+      return;
+    }
+    const uses = this.editUses();
+    await this.onSaved('Cambios guardados.');
+    const after = this.itemById().get(before.id);
+    if (before.active && after && !after.active) this.notice.set(deactivatedNote(after.name, uses));
+  }
+
+  private async loadUses(partId: string): Promise<void> {
+    try {
+      const uses = await this.recipes.uses(partId);
+      if (this.editing()?.item?.id === partId) this.editUses.set(uses);
+    } catch {
+      // Only a warning: the form works the same without it.
+    }
   }
 
   protected async reactivate(part: InventoryItemSummary): Promise<void> {
