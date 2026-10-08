@@ -2,21 +2,21 @@ import { Component, computed, inject, input, output, signal } from '@angular/cor
 import { friendlyError } from '../../core/friendly-error';
 import { SECTION_STYLES } from '../../core/styles';
 import { Field, FORMAT_PIPES } from '../../ui';
-import { FinanzasData, type LedgerRow } from './finanzas.data';
+import { FinanzasData, isRefusal, type LedgerRow } from './finanzas.data';
 import { FINANCE_STYLES } from './finanzas.styles';
 import { voidSummary } from './void-summary';
 
 /**
  * Annuls a movement. There is no delete: the row stays on the record with the
- * reason, and the table itself refuses to void one without saying why.
+ * reason. Only the owner opens it, and `void_transaction` checks it again.
  */
 @Component({
   selector: 'app-void-form',
   imports: [Field, FORMAT_PIPES],
   styles: [SECTION_STYLES, FINANCE_STYLES],
   template: `
-    <section class="form-box">
-      <h3>Anular movimiento</h3>
+    <section class="form-box" aria-labelledby="void-title">
+      <h3 id="void-title">Anular movimiento</h3>
 
       <p class="muted">
         <strong>{{ summary().what }}</strong>, del {{ row().occurredAt | fecha }}.
@@ -24,20 +24,31 @@ import { voidSummary } from './void-summary';
         El movimiento no se borra: deja de contar en los saldos y queda registrado como anulado.
       </p>
 
-      <pp-field label="Motivo de la anulación" [required]="true" [error]="problem()">
-        <textarea rows="2" [value]="reason()" (input)="onReason($event)" autocomplete="off"></textarea>
-      </pp-field>
+      @if (summary().blocked; as text) {
+        <p class="alert alert-warn">{{ text }}</p>
+        <div class="form-actions">
+          <button type="button" class="secondary" (click)="cancelled.emit()">Cerrar</button>
+        </div>
+      } @else {
+        @if (summary().consequence; as text) {
+          <p class="alert alert-warn">{{ text }}</p>
+        }
 
-      @if (failure(); as message) {
-        <p class="alert" role="alert">{{ message }}</p>
+        <pp-field label="Motivo de la anulación" [required]="true" [error]="problem()">
+          <textarea rows="2" [value]="reason()" (input)="onReason($event)" autocomplete="off"></textarea>
+        </pp-field>
+
+        @if (failure(); as message) {
+          <p class="alert" role="alert">{{ message }}</p>
+        }
+
+        <div class="form-actions">
+          <button type="button" class="danger" [disabled]="saving() || !reason().trim()" (click)="submit()">
+            {{ saving() ? 'Anulando…' : 'Anular movimiento' }}
+          </button>
+          <button type="button" class="secondary" (click)="cancelled.emit()">Cancelar</button>
+        </div>
       }
-
-      <div class="form-actions">
-        <button type="button" class="danger" [disabled]="saving() || !reason().trim()" (click)="submit()">
-          {{ saving() ? 'Anulando…' : 'Anular movimiento' }}
-        </button>
-        <button type="button" class="secondary" (click)="cancelled.emit()">Cancelar</button>
-      </div>
     </section>
   `,
 })
@@ -46,6 +57,8 @@ export class VoidForm {
 
   readonly row = input.required<LedgerRow>();
   readonly voided = output<string>();
+  /** The database said no: the book behind the form may be out of date. */
+  readonly refused = output<void>();
   readonly cancelled = output<void>();
 
   protected readonly summary = computed(() => voidSummary(this.row()));
@@ -61,13 +74,15 @@ export class VoidForm {
 
   protected onReason(event: Event): void {
     this.touched.set(true);
+    this.failure.set(null);
     this.reason.set((event.target as HTMLTextAreaElement).value);
   }
 
   protected async submit(): Promise<void> {
+    if (this.saving()) return;
     this.touched.set(true);
     const reason = this.reason().trim();
-    if (!reason || this.saving()) return;
+    if (!reason || this.summary().blocked) return;
 
     this.saving.set(true);
     this.failure.set(null);
@@ -76,6 +91,7 @@ export class VoidForm {
       this.voided.emit('Movimiento anulado. Los saldos ya no lo cuentan.');
     } catch (error) {
       this.failure.set(friendlyError(error, 'No pudimos anular el movimiento. Inténtalo de nuevo.'));
+      if (isRefusal(error)) this.refused.emit();
     } finally {
       this.saving.set(false);
     }

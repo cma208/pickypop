@@ -1695,13 +1695,13 @@ isOneToOne: false
                   ]
                 },"transaction_categories": {
                   Row: {
-                    "active": boolean,"created_at": string,"direction": Database["public"]['Enums']["transaction_direction"],"id": string,"name": string,"note": string | null,"sales": boolean,"updated_at": string,"workspace_id": string
+                    "active": boolean,"capital": boolean,"created_at": string,"direction": Database["public"]['Enums']["transaction_direction"],"id": string,"name": string,"note": string | null,"sales": boolean,"updated_at": string,"workspace_id": string
                   }
                   Insert: {
-                    "active"?: boolean,"created_at"?: string,"direction": Database["public"]['Enums']["transaction_direction"],"id"?: string,"name": string,"note"?: string | null,"sales"?: boolean,"updated_at"?: string,"workspace_id": string
+                    "active"?: boolean,"capital"?: boolean,"created_at"?: string,"direction": Database["public"]['Enums']["transaction_direction"],"id"?: string,"name": string,"note"?: string | null,"sales"?: boolean,"updated_at"?: string,"workspace_id": string
                   }
                   Update: {
-                    "active"?: boolean,"created_at"?: string,"direction"?: Database["public"]['Enums']["transaction_direction"],"id"?: string,"name"?: string,"note"?: string | null,"sales"?: boolean,"updated_at"?: string,"workspace_id"?: string
+                    "active"?: boolean,"capital"?: boolean,"created_at"?: string,"direction"?: Database["public"]['Enums']["transaction_direction"],"id"?: string,"name"?: string,"note"?: string | null,"sales"?: boolean,"updated_at"?: string,"workspace_id"?: string
                   }
                   Relationships: [
                     {
@@ -1714,13 +1714,13 @@ isOneToOne: false
                   ]
                 },"transactions": {
                   Row: {
-                    "account_id": string,"amount": number,"category_id": string | null,"counter_account_id": string | null,"counterparty": string | null,"created_at": string,"created_by": string | null,"expected_direction": Database["public"]['Enums']["transaction_direction"] | null,"id": string,"maintenance_log_id": string | null,"note": string | null,"occurred_at": string,"order_id": string | null,"payment_method": Database["public"]['Enums']["payment_method"],"purchase_id": string | null,"reference": string | null,"type": Database["public"]['Enums']["transaction_type"],"updated_at": string,"void_reason": string | null,"voided_at": string | null,"voided_by": string | null,"workspace_id": string
+                    "account_id": string,"amount": number,"category_id": string | null,"counter_account_id": string | null,"counterparty": string | null,"created_at": string,"created_by": string | null,"entry_key": string | null,"expected_direction": Database["public"]['Enums']["transaction_direction"] | null,"id": string,"maintenance_log_id": string | null,"note": string | null,"occurred_at": string,"order_id": string | null,"payment_method": Database["public"]['Enums']["payment_method"],"purchase_id": string | null,"reference": string | null,"type": Database["public"]['Enums']["transaction_type"],"updated_at": string,"void_reason": string | null,"voided_at": string | null,"voided_by": string | null,"workspace_id": string
                   }
                   Insert: {
-                    "account_id": string,"amount": number,"category_id"?: string | null,"counter_account_id"?: string | null,"counterparty"?: string | null,"created_at"?: string,"created_by"?: string | null,"expected_direction"?: never,"id"?: string,"maintenance_log_id"?: string | null,"note"?: string | null,"occurred_at"?: string,"order_id"?: string | null,"payment_method": Database["public"]['Enums']["payment_method"],"purchase_id"?: string | null,"reference"?: string | null,"type": Database["public"]['Enums']["transaction_type"],"updated_at"?: string,"void_reason"?: string | null,"voided_at"?: string | null,"voided_by"?: string | null,"workspace_id": string
+                    "account_id": string,"amount": number,"category_id"?: string | null,"counter_account_id"?: string | null,"counterparty"?: string | null,"created_at"?: string,"created_by"?: string | null,"entry_key"?: string | null,"expected_direction"?: never,"id"?: string,"maintenance_log_id"?: string | null,"note"?: string | null,"occurred_at"?: string,"order_id"?: string | null,"payment_method": Database["public"]['Enums']["payment_method"],"purchase_id"?: string | null,"reference"?: string | null,"type": Database["public"]['Enums']["transaction_type"],"updated_at"?: string,"void_reason"?: string | null,"voided_at"?: string | null,"voided_by"?: string | null,"workspace_id": string
                   }
                   Update: {
-                    "account_id"?: string,"amount"?: number,"category_id"?: string | null,"counter_account_id"?: string | null,"counterparty"?: string | null,"created_at"?: string,"created_by"?: string | null,"expected_direction"?: never,"id"?: string,"maintenance_log_id"?: string | null,"note"?: string | null,"occurred_at"?: string,"order_id"?: string | null,"payment_method"?: Database["public"]['Enums']["payment_method"],"purchase_id"?: string | null,"reference"?: string | null,"type"?: Database["public"]['Enums']["transaction_type"],"updated_at"?: string,"void_reason"?: string | null,"voided_at"?: string | null,"voided_by"?: string | null,"workspace_id"?: string
+                    "account_id"?: string,"amount"?: number,"category_id"?: string | null,"counter_account_id"?: string | null,"counterparty"?: string | null,"created_at"?: string,"created_by"?: string | null,"entry_key"?: string | null,"expected_direction"?: never,"id"?: string,"maintenance_log_id"?: string | null,"note"?: string | null,"occurred_at"?: string,"order_id"?: string | null,"payment_method"?: Database["public"]['Enums']["payment_method"],"purchase_id"?: string | null,"reference"?: string | null,"type"?: Database["public"]['Enums']["transaction_type"],"updated_at"?: string,"void_reason"?: string | null,"voided_at"?: string | null,"voided_by"?: string | null,"workspace_id"?: string
                   }
                   Relationships: [
                     {
@@ -2653,7 +2653,7 @@ isOneToOne: false
         isSetofReturn: false
       } },
 "record_payment":
-{ Args: { "p_account_id": string,"p_amount": number,"p_category_id"?: string,"p_note"?: string,"p_occurred_at"?: string,"p_order_id": string,"p_payment_method"?: Database["public"]['Enums']["payment_method"],"p_reference"?: string }; Returns: {
+{ Args: { "p_account_id": string,"p_amount": number,"p_category_id"?: string,"p_key"?: string,"p_note"?: string,"p_occurred_at"?: string,"p_order_id": string,"p_payment_method"?: Database["public"]['Enums']["payment_method"],"p_reference"?: string }; Returns: {
               "account_id": string,
 "amount": number,
 "category_id": string | null,
@@ -2661,6 +2661,7 @@ isOneToOne: false
 "counterparty": string | null,
 "created_at": string,
 "created_by": string | null,
+"entry_key": string | null,
 "expected_direction": Database["public"]['Enums']["transaction_direction"] | null,
 "id": string,
 "maintenance_log_id": string | null,
@@ -2692,6 +2693,7 @@ isOneToOne: false
 "counterparty": string | null,
 "created_at": string,
 "created_by": string | null,
+"entry_key": string | null,
 "expected_direction": Database["public"]['Enums']["transaction_direction"] | null,
 "id": string,
 "maintenance_log_id": string | null,
@@ -2829,7 +2831,39 @@ isOneToOne: false
         to: "quotes"
         isOneToOne: true
         isSetofReturn: false
-      } }
+      } },
+"void_transaction":
+{ Args: { "p_id": string,"p_reason": string }; Returns: {
+              "account_id": string,
+"amount": number,
+"category_id": string | null,
+"counter_account_id": string | null,
+"counterparty": string | null,
+"created_at": string,
+"created_by": string | null,
+"entry_key": string | null,
+"expected_direction": Database["public"]['Enums']["transaction_direction"] | null,
+"id": string,
+"maintenance_log_id": string | null,
+"note": string | null,
+"occurred_at": string,
+"order_id": string | null,
+"payment_method": Database["public"]['Enums']["payment_method"],
+"purchase_id": string | null,
+"reference": string | null,
+"type": Database["public"]['Enums']["transaction_type"],
+"updated_at": string,
+"void_reason": string | null,
+"voided_at": string | null,
+"voided_by": string | null,
+"workspace_id": string
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "transactions"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
           }
           Enums: {
             "account_kind": "cash"|"bank"|"wallet","component_kind": "nozzle"|"hotend"|"plate"|"ptfe"|"cutter"|"fan"|"ams"|"other","cost_allocation": "by_amount"|"by_weight","customer_doc_type": "none"|"dni"|"ruc"|"ce","customer_kind": "person"|"company","gift_treatment": "marketing"|"owner_draw"|"other","inventory_item_kind": "supply"|"packaging"|"spare_part"|"finished_good"|"part","material_valuation": "weighted_avg"|"last_cost"|"replacement","member_role": "owner"|"operator"|"viewer","opportunity_stage": "new"|"quoted"|"negotiating"|"won"|"closed"|"lost","order_payment_status": "not_applicable"|"unpaid"|"partial"|"paid","order_purpose": "sale"|"personal"|"gift","order_status": "confirmed"|"queued"|"printing"|"post_processing"|"ready"|"delivered"|"closed"|"on_hold"|"cancelled","payment_method": "cash"|"yape"|"plin"|"transfer","print_failure_cause": "adhesion"|"clog"|"spaghetti"|"layer_shift"|"filament_runout"|"power_loss"|"wrong_settings"|"warping"|"other","print_job_status": "planned"|"printing"|"success"|"failed"|"cancelled","printer_status": "active"|"maintenance"|"retired","product_status": "draft"|"published"|"archived","quote_line_kind": "catalog"|"custom"|"service","quote_status": "draft"|"sent"|"accepted"|"rejected"|"expired","request_status": "new"|"awaiting_slicing"|"quoted"|"discarded","spool_status": "sealed"|"open"|"in_use"|"empty"|"discarded","stock_movement_type": "purchase"|"consumption"|"waste"|"adjustment"|"maintenance"|"reservation"|"release"|"production"|"delivery","tax_regime": "none"|"nrus"|"rer"|"rmt"|"general","transaction_direction": "income"|"expense","transaction_type": "income"|"expense"|"transfer"|"owner_contribution"|"owner_draw"

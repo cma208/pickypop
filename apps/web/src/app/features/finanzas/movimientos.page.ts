@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { afterNextRender, Component, computed, ElementRef, inject, Injector, signal, viewChild } from '@angular/core';
 import { friendlyError } from '../../core/friendly-error';
 import { SECTION_STYLES } from '../../core/styles';
 import { AsyncState, Badge, Empty, FORMAT_PIPES, Page } from '../../ui';
@@ -31,6 +31,7 @@ const NO_FILTER: LedgerFilter = { accountId: null, type: null, from: null, to: n
       .reason { color: var(--danger); }
       .early { color: var(--warn); }
       .totals .early { max-width: 24rem; }
+      .forms { scroll-margin-top: 1rem; }
     `,
   ],
   template: `
@@ -41,19 +42,32 @@ const NO_FILTER: LedgerFilter = { accountId: null, type: null, from: null, to: n
         <p class="notice" role="status">{{ text }}</p>
       }
 
-      @if (formOpen()) {
-        <app-transaction-form
-          [allAccounts]="accounts()"
-          [allCategories]="categories()"
-          (saved)="afterChange($event)"
-          (cancelled)="formOpen.set(false)"
-        />
-      }
-
-      @if (voiding(); as row) {
-        @for (key of [row.key]; track key) {
-          <app-void-form [row]="row" (voided)="afterChange($event)" (cancelled)="voiding.set(null)" />
+      <!-- The forms sit above the book: opened from a row far below, the page is brought up to them (T5-14). -->
+      <div class="forms" #forms>
+        @if (formOpen()) {
+          <app-transaction-form
+            [allAccounts]="accounts()"
+            [allCategories]="categories()"
+            (saved)="afterChange($event)"
+            (refused)="reloadOptions()"
+            (cancelled)="formOpen.set(false)"
+          />
         }
+
+        @if (voiding(); as row) {
+          @for (key of [row.key]; track key) {
+            <app-void-form
+              [row]="row"
+              (voided)="afterChange($event)"
+              (refused)="reloadAfterRefusal()"
+              (cancelled)="voiding.set(null)"
+            />
+          }
+        }
+      </div>
+
+      @if (!isOwner()) {
+        <p class="muted">Solo el dueño del taller puede anular un movimiento.</p>
       }
 
       <div class="filters">
@@ -194,7 +208,7 @@ const NO_FILTER: LedgerFilter = { accountId: null, type: null, from: null, to: n
                       {{ row.voided ? (row.amount | money) : (row.signedAmount | money) }}
                     </td>
                     <td class="right nowrap">
-                      @if (row.canVoid) {
+                      @if (row.canVoid && isOwner()) {
                         <button type="button" class="ghost" (click)="startVoid(row)">Anular</button>
                       }
                     </td>
@@ -210,6 +224,11 @@ const NO_FILTER: LedgerFilter = { accountId: null, type: null, from: null, to: n
 })
 export class MovimientosFinancierosPage {
   private readonly data = inject(FinanzasData);
+  private readonly injector = inject(Injector);
+  private readonly forms = viewChild<ElementRef<HTMLElement>>('forms');
+
+  /** Only the owner voids: an operator is not offered the button the database would refuse. */
+  protected readonly isOwner = signal(false);
 
   protected readonly types = TRANSACTION_TYPES;
   protected readonly typeLabels = TRANSACTION_TYPE_LABELS;
@@ -250,6 +269,10 @@ export class MovimientosFinancierosPage {
   constructor() {
     void this.loadOptions();
     void this.load();
+    void this.data
+      .isOwner()
+      .then((owner) => this.isOwner.set(owner))
+      .catch(() => this.isOwner.set(false));
   }
 
   protected hora(row: LedgerRow): string {
@@ -260,12 +283,14 @@ export class MovimientosFinancierosPage {
     this.notice.set(null);
     this.voiding.set(null);
     this.formOpen.set(true);
+    this.showForms();
   }
 
   protected startVoid(row: LedgerRow): void {
     this.notice.set(null);
     this.formOpen.set(false);
     this.voiding.set(row);
+    this.showForms();
   }
 
   protected afterChange(message: string): void {
@@ -274,6 +299,25 @@ export class MovimientosFinancierosPage {
     this.notice.set(message);
     void this.loadOptions();
     void this.load();
+  }
+
+  /** The database refused a voiding: the row may already be voided from another tab. */
+  protected reloadAfterRefusal(): void {
+    void this.loadOptions();
+    void this.load();
+  }
+
+  /** A refused movement may come from an account that changed meanwhile: the pickers read it again. */
+  protected reloadOptions(): void {
+    void this.loadOptions();
+  }
+
+  /** Clicked from a row far down the book, the form opened out of sight and the button seemed dead. */
+  private showForms(): void {
+    afterNextRender(
+      () => this.forms()?.nativeElement.scrollIntoView({ behavior: 'smooth', block: 'start' }),
+      { injector: this.injector },
+    );
   }
 
   protected onAccount(event: Event): void {

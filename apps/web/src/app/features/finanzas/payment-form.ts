@@ -1,5 +1,5 @@
 import { Component, computed, effect, inject, input, output, signal, untracked } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
+import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { FormControl, NonNullableFormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { inputToIso, nowForInput } from '../../core/dates';
 import { textOrNull } from '../../core/form-errors';
@@ -7,9 +7,10 @@ import { friendlyError } from '../../core/friendly-error';
 import { roundMoney } from '../../core/pricing';
 import { SECTION_STYLES } from '../../core/styles';
 import { Field, FORMAT_PIPES } from '../../ui';
-import { FinanzasData, type AccountSummary, type ReceivableRow } from './finanzas.data';
+import { FinanzasData, isRefusal, type AccountSummary, type ReceivableRow } from './finanzas.data';
 import {
-  categoriesFor,
+  collectionCategoriesFor,
+  MAX_LEDGER_AMOUNT,
   PAYMENT_METHODS,
   PAYMENT_METHOD_LABELS,
   type CategoryOption,
@@ -17,6 +18,7 @@ import {
 } from './finanzas.models';
 import { FINANCE_STYLES } from './finanzas.styles';
 import { beforeOpening, beforeOpeningNotice } from './opening-balance';
+import { FUTURE_DATE_PROBLEM, isInTheFuture, TOO_LARGE_PROBLEM } from './transaction-draft';
 
 /**
  * Collects money against an order. The amount, the overpayment check and the
@@ -57,11 +59,11 @@ import { beforeOpening, beforeOpeningNotice } from './opening-balance';
         </pp-field>
 
         <pp-field label="Monto" [required]="true">
-          <input type="number" step="0.01" min="0" inputmode="decimal" formControlName="amount" />
+          <input type="number" step="0.01" min="0" [attr.max]="maxAmount" inputmode="decimal" formControlName="amount" />
         </pp-field>
 
         <pp-field label="Fecha y hora" [required]="true">
-          <input type="datetime-local" formControlName="occurredAt" />
+          <input type="datetime-local" [attr.max]="latest" formControlName="occurredAt" />
         </pp-field>
 
         <pp-field label="Categoría" hint="Si no eliges, se usa la de Configuración › Categorías de dinero.">
@@ -121,15 +123,23 @@ export class PaymentForm {
   readonly allAccounts = input.required<AccountSummary[]>();
   readonly allCategories = input.required<CategoryOption[]>();
   readonly saved = output<string>();
+  /** The database said no: what the list showed may be out of date. */
+  readonly refused = output<void>();
   readonly cancelled = output<void>();
 
   protected readonly methods = PAYMENT_METHODS;
   protected readonly methodLabels = PAYMENT_METHOD_LABELS;
+  protected readonly maxAmount = MAX_LEDGER_AMOUNT;
+  /** The picker stops at now: a collection is recorded once the money came in. */
+  protected readonly latest = nowForInput();
 
   protected readonly saving = signal(false);
   protected readonly failure = signal<string | null>(null);
   /** What the database files the collection under when none is chosen. */
   protected readonly defaultCategoryName = signal<string | null>(null);
+
+  /** The same collection sent twice is recorded once (`record_payment`'s key). New when the form changes. */
+  private entryKey = crypto.randomUUID();
 
   protected readonly form = this.fb.group({
     accountId: [''],
@@ -148,7 +158,8 @@ export class PaymentForm {
   });
 
   protected readonly accounts = computed(() => this.allAccounts().filter((account) => account.active));
-  protected readonly categories = computed(() => categoriesFor('income', this.allCategories()));
+  /** Capital is the owner's money, and a collection is a sale: those are not offered (T5-06). */
+  protected readonly categories = computed(() => collectionCategoriesFor(this.allCategories()));
 
   private readonly chosenAccount = computed(() =>
     this.accounts().find((account) => account.id === this.values().accountId),
@@ -170,7 +181,9 @@ export class PaymentForm {
     if (!accountId) return 'Elige la cuenta donde entra el dinero.';
     if (amount === null || !Number.isFinite(amount)) return 'Indica el monto del cobro.';
     if (roundMoney(amount) <= 0) return 'El monto tiene que ser mayor que cero.';
+    if (roundMoney(amount) > MAX_LEDGER_AMOUNT) return TOO_LARGE_PROBLEM;
     if (!occurredAt || Number.isNaN(Date.parse(occurredAt))) return 'Indica la fecha y la hora del cobro.';
+    if (isInTheFuture(inputToIso(occurredAt))) return FUTURE_DATE_PROBLEM;
     return null;
   });
 
@@ -208,30 +221,41 @@ export class PaymentForm {
       const balance = this.receivable().balance;
       untracked(() => this.form.controls.amount.setValue(balance));
     });
+
+    // Another collection once something changes, and the last error goes
+    // away when the person corrects what it was about.
+    this.form.valueChanges.pipe(takeUntilDestroyed()).subscribe(() => {
+      this.entryKey = crypto.randomUUID();
+      this.failure.set(null);
+    });
   }
 
   protected async submit(): Promise<void> {
-    if (this.problem() || this.saving()) return;
+    if (this.saving() || this.problem()) return;
 
     const value = this.values();
     this.saving.set(true);
     this.failure.set(null);
     try {
-      await this.data.recordPayment({
-        orderId: this.receivable().orderId,
-        accountId: value.accountId,
-        amount: roundMoney(value.amount ?? 0),
-        paymentMethod: value.paymentMethod === '' ? null : value.paymentMethod,
-        occurredAt: inputToIso(value.occurredAt),
-        categoryId: textOrNull(value.categoryId),
-        reference: textOrNull(value.reference),
-        note: textOrNull(value.note),
-      });
+      await this.data.recordPayment(
+        {
+          orderId: this.receivable().orderId,
+          accountId: value.accountId,
+          amount: roundMoney(value.amount ?? 0),
+          paymentMethod: value.paymentMethod === '' ? null : value.paymentMethod,
+          occurredAt: inputToIso(value.occurredAt),
+          categoryId: textOrNull(value.categoryId),
+          reference: textOrNull(value.reference),
+          note: textOrNull(value.note),
+        },
+        this.entryKey,
+      );
       this.saved.emit(`Cobro registrado en el pedido ${this.receivable().number}.`);
     } catch (error) {
       // `record_payment` writes its refusals in Spanish and with the amounts
       // in them; friendlyError passes those through untouched.
       this.failure.set(friendlyError(error, 'No pudimos registrar el cobro. Inténtalo de nuevo.'));
+      if (isRefusal(error)) this.refused.emit();
     } finally {
       this.saving.set(false);
     }

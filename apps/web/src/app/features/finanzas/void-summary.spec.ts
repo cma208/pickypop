@@ -10,6 +10,9 @@ function row(overrides: Partial<VoidedRow> = {}): VoidedRow {
     accountName: 'Efectivo',
     otherAccountName: null,
     isCounterLeg: false,
+    orderNumber: null,
+    walkInOrder: false,
+    purchaseId: null,
     ...overrides,
   };
 }
@@ -35,5 +38,29 @@ describe('voidSummary', () => {
       row({ type: 'transfer', amount: 30, accountName: 'Yape', otherAccountName: 'Efectivo', isCounterLeg: false }),
     );
     expect(plain(summary.what)).toBe('Transferencia de S/ 30.00 de Yape a Efectivo');
+  });
+
+  it('says the order owes again when its collection is voided (T5-05)', () => {
+    const summary = voidSummary(row({ type: 'income', amount: 57.34, orderNumber: 'ORD-2026-0004' }));
+    expect(plain(summary.consequence)).toBe('El pedido ORD-2026-0004 vuelve a deber S/ 57.34: si ya se entregó, aparece en Por cobrar.');
+    expect(summary.blocked).toBeNull();
+  });
+
+  it('refuses up front the collection of a sale to «Clientes varios», and says what to do', () => {
+    const summary = voidSummary(row({ type: 'income', amount: 8, orderNumber: 'ORD-2026-0001', walkInOrder: true }));
+    expect(plain(summary.blocked)).toContain('quedaría debiendo S/ 8.00 a nombre de nadie');
+    expect(summary.blocked).toContain('transferencia entre cuentas');
+    expect(summary.consequence).toBeNull();
+  });
+
+  it('says a purchase is to be paid again', () => {
+    const summary = voidSummary(row({ amount: 37.5, purchaseId: 'p-1' }));
+    expect(plain(summary.consequence)).toBe('La compra vuelve a quedar por pagar en S/ 37.50.');
+  });
+
+  it('says nothing else for a movement that settled nothing', () => {
+    const summary = voidSummary(row());
+    expect(summary.consequence).toBeNull();
+    expect(summary.blocked).toBeNull();
   });
 });

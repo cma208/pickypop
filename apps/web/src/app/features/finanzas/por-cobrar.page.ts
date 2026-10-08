@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { afterNextRender, Component, computed, ElementRef, inject, Injector, signal, viewChild } from '@angular/core';
 import { friendlyError } from '../../core/friendly-error';
 import { sumMoney } from '../../core/pricing';
 import { SECTION_STYLES } from '../../core/styles';
@@ -16,7 +16,7 @@ function normalize(text: string): string {
 @Component({
   selector: 'app-por-cobrar',
   imports: [Page, AsyncState, Empty, Badge, PaymentForm, FORMAT_PIPES],
-  styles: [SECTION_STYLES, FINANCE_STYLES],
+  styles: [SECTION_STYLES, FINANCE_STYLES, `.form-anchor { scroll-margin-top: 1rem; }`],
   template: `
     <pp-page
       title="Por cobrar"
@@ -26,17 +26,21 @@ function normalize(text: string): string {
         <p class="notice" role="status">{{ text }}</p>
       }
 
-      @if (collecting(); as row) {
-        @for (key of [row.orderId]; track key) {
-          <app-payment-form
-            [receivable]="row"
-            [allAccounts]="accounts()"
-            [allCategories]="categories()"
-            (saved)="afterPayment($event)"
-            (cancelled)="collecting.set(null)"
-          />
+      <!-- «Cobrar» sits in the list below: the page is brought up to the form. -->
+      <div class="form-anchor" #formAnchor>
+        @if (collecting(); as row) {
+          @for (key of [row.orderId]; track key) {
+            <app-payment-form
+              [receivable]="row"
+              [allAccounts]="accounts()"
+              [allCategories]="categories()"
+              (saved)="afterPayment($event)"
+              (refused)="reloadAfterRefusal()"
+              (cancelled)="collecting.set(null)"
+            />
+          }
         }
-      }
+      </div>
 
       <pp-async [loading]="loading()" [error]="error()">
         @if (rows().length === 0) {
@@ -130,6 +134,8 @@ function normalize(text: string): string {
 })
 export class PorCobrarPage {
   private readonly data = inject(FinanzasData);
+  private readonly injector = inject(Injector);
+  private readonly formAnchor = viewChild<ElementRef<HTMLElement>>('formAnchor');
 
   protected readonly tones = AGING_TONES;
 
@@ -175,11 +181,21 @@ export class PorCobrarPage {
   protected startPayment(row: ReceivableRow): void {
     this.notice.set(null);
     this.collecting.set(row);
+    afterNextRender(
+      () => this.formAnchor()?.nativeElement.scrollIntoView({ behavior: 'smooth', block: 'start' }),
+      { injector: this.injector },
+    );
   }
 
   protected afterPayment(message: string): void {
     this.collecting.set(null);
     this.notice.set(message);
+    void this.load();
+  }
+
+  /** The database refused the collection: the debt or the accounts on screen may be out of date. */
+  protected reloadAfterRefusal(): void {
+    void this.loadOptions();
     void this.load();
   }
 

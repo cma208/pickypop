@@ -1,7 +1,25 @@
 import { inputToIso } from '../../core/dates';
+import { money } from '../../core/format';
 import { roundMoney, sumMoney } from '../../core/pricing';
-import { TYPE_DIRECTION, type PaymentMethod, type TransactionType } from './finanzas.models';
+import { MAX_LEDGER_AMOUNT, TYPE_DIRECTION, type PaymentMethod, type TransactionType } from './finanzas.models';
 import { beforeOpening, type OpeningOf } from './opening-balance';
+
+/**
+ * How far ahead of now a movement may be dated: the phone's clock is not the
+ * server's. The database gives the same slack (`app.guard_ledger_entry`).
+ */
+const FUTURE_SLACK_MS = 5 * 60_000;
+
+/** True when an instant has not come yet, give or take the clocks' difference. */
+export function isInTheFuture(iso: string, now = Date.now()): boolean {
+  return Date.parse(iso) > now + FUTURE_SLACK_MS;
+}
+
+/** Said next to a date of money that has not come yet (T5-08). */
+export const FUTURE_DATE_PROBLEM = 'Esa fecha todavía no llega: el dinero se registra cuando ya se movió.';
+
+/** Said next to an amount over the ceiling, in soles, instead of a failure of the column. */
+export const TOO_LARGE_PROBLEM = `El monto pasa del máximo de un movimiento, ${money(MAX_LEDGER_AMOUNT)}: revisa que esté bien escrito.`;
 
 /** Raw values of the movement form, straight from the controls. */
 export interface TransactionFormValue {
@@ -42,11 +60,12 @@ function textOrNull(value: string | null | undefined): string | null {
  * it can be saved. These are the same rules the table checks, said in Spanish
  * before the round trip instead of as a constraint violation after it.
  */
-export function draftProblem(value: TransactionFormValue): string | null {
+export function draftProblem(value: TransactionFormValue, now = Date.now()): string | null {
   if (!value.accountId) return 'Elige la cuenta del movimiento.';
 
   if (value.amount === null || !Number.isFinite(value.amount)) return 'Indica el monto.';
   if (roundMoney(value.amount) <= 0) return 'El monto tiene que ser mayor que cero.';
+  if (roundMoney(value.amount) > MAX_LEDGER_AMOUNT) return TOO_LARGE_PROBLEM;
 
   if (value.type === 'transfer') {
     if (!value.counterAccountId) return 'Elige la cuenta a la que llega el dinero.';
@@ -58,6 +77,9 @@ export function draftProblem(value: TransactionFormValue): string | null {
   if (!value.occurredAt) return 'Indica la fecha y la hora del movimiento.';
   // Checked before `inputToIso`, which throws on a half-typed value.
   if (Number.isNaN(Date.parse(value.occurredAt))) return 'La fecha y la hora no son válidas.';
+  // A date at the end of the month moved today's balance and opened a month in
+  // Resultados that had not come (T5-08).
+  if (isInTheFuture(inputToIso(value.occurredAt), now)) return FUTURE_DATE_PROBLEM;
 
   return null;
 }
@@ -119,6 +141,8 @@ export interface BalancePreview extends OpeningOf {
   after: number;
   /** The leg is dated before the account's opening balance, so it leaves the balance as it is. */
   beforeOpening: boolean;
+  /** Money leaves an account and leaves it below zero: more went out than there was. */
+  goesNegative: boolean;
 }
 
 /**
@@ -133,17 +157,32 @@ export function previewBalances(draft: TransactionDraft, accounts: readonly Bala
     const account = byId.get(effect.accountId);
     if (!account) return [];
     const early = beforeOpening(draft.occurredAt, account.openingBalanceOn);
+    const after = early ? account.balance : roundMoney(account.balance + effect.delta);
     return [
       {
         accountId: account.id,
         name: account.name,
         openingBalanceOn: account.openingBalanceOn,
         before: account.balance,
-        after: early ? account.balance : roundMoney(account.balance + effect.delta),
+        after,
         beforeOpening: early,
+        goesNegative: !early && effect.delta < 0 && after < 0,
       },
     ];
   });
+}
+
+/**
+ * The warning before money leaves an account below zero (T5-04). It is not
+ * refused: a bank may be overdrawn, an income may still be missing, or the
+ * opening balance may be wrong. But it is said, and confirmed, before saving.
+ */
+export function negativeBalanceNotice(line: Pick<BalancePreview, 'name' | 'before' | 'after'>): string {
+  const why =
+    line.before > 0
+      ? `sale más de lo que hay (${money(line.before)})`
+      : `ya estaba en ${money(line.before)} y sigue bajando`;
+  return `${line.name} quedaría en ${money(line.after)}: ${why}. ¿Falta registrar un ingreso, o el saldo de apertura está mal?`;
 }
 
 /**

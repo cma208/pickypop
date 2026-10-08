@@ -1,16 +1,17 @@
 import { Component, computed, inject, input, output, signal } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
+import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { FormControl, NonNullableFormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { nowForInput } from '../../core/dates';
 import { friendlyError } from '../../core/friendly-error';
 import { SECTION_STYLES } from '../../core/styles';
 import { Field, FORMAT_PIPES } from '../../ui';
-import { FinanzasData, type AccountSummary } from './finanzas.data';
+import { FinanzasData, isRefusal, type AccountSummary } from './finanzas.data';
 import {
   cashCategoriesFor,
   cashCategoryHint,
   categoryFitsType,
+  MAX_LEDGER_AMOUNT,
   PAYMENT_METHODS,
   PAYMENT_METHOD_LABELS,
   TRANSACTION_TYPES,
@@ -25,6 +26,7 @@ import { beforeOpeningNotice } from './opening-balance';
 import {
   buildTransactionDraft,
   draftProblem,
+  negativeBalanceNotice,
   previewBalances,
   STILL_COUNTS,
   workshopChange,
@@ -40,6 +42,15 @@ const TYPE_HINTS: Record<TransactionType, string> = {
   owner_contribution: 'Plata tuya que metes al taller. Es capital, no utilidad.',
   owner_draw: 'Plata del taller que sacas para ti. Es capital, no gasto.',
 };
+
+/**
+ * A deactivated account still holding money is offered as the origin of a
+ * transfer, and only there, so it can be emptied: Cuentas asks for exactly
+ * that, and the database lets a transfer leave it (T5-12, T1-22).
+ */
+function canLeave(account: AccountSummary, type: TransactionType): boolean {
+  return account.active || (type === 'transfer' && account.balance > 0);
+}
 
 /**
  * Registers one movement of money. The five types share a form because they
@@ -80,11 +91,13 @@ const TYPE_HINTS: Record<TransactionType, string> = {
       }
 
       <div class="grid two">
-        <pp-field [label]="isTransfer() ? 'Sale de la cuenta' : 'Cuenta'" [required]="true">
+        <pp-field [label]="isTransfer() ? 'Sale de la cuenta' : 'Cuenta'" [required]="true" [hint]="originHint()">
           <select formControlName="accountId">
             <option value="">Elige una cuenta</option>
-            @for (account of accounts(); track account.id) {
-              <option [value]="account.id">{{ account.name }} · {{ account.balance | money }}</option>
+            @for (account of origins(); track account.id) {
+              <option [value]="account.id">
+                {{ account.name }}{{ account.active ? '' : ' (desactivada)' }} · {{ account.balance | money }}
+              </option>
             }
           </select>
         </pp-field>
@@ -110,11 +123,11 @@ const TYPE_HINTS: Record<TransactionType, string> = {
         }
 
         <pp-field label="Monto" [required]="true">
-          <input type="number" step="0.01" min="0" inputmode="decimal" formControlName="amount" />
+          <input type="number" step="0.01" min="0" [attr.max]="maxAmount" inputmode="decimal" formControlName="amount" />
         </pp-field>
 
         <pp-field label="Fecha y hora" [required]="true">
-          <input type="datetime-local" formControlName="occurredAt" />
+          <input type="datetime-local" [attr.max]="latest" formControlName="occurredAt" />
         </pp-field>
 
         <pp-field label="Medio de pago" [required]="true">
@@ -147,6 +160,15 @@ const TYPE_HINTS: Record<TransactionType, string> = {
           @for (text of openingNotices(); track text) {
             <p class="alert alert-warn">{{ text }}</p>
           }
+          @for (text of negativeNotices(); track text) {
+            <p class="alert alert-warn">{{ text }}</p>
+          }
+          @if (negativeNotices().length > 0) {
+            <label class="check">
+              <input type="checkbox" [checked]="negativeConfirmed()" (change)="negativeConfirmed.set(!negativeConfirmed())" />
+              Sí, registrarlo aunque la cuenta quede en negativo
+            </label>
+          }
           <p class="notice">
             @for (line of preview(); track line.accountId) {
               <span class="block">
@@ -170,7 +192,7 @@ const TYPE_HINTS: Record<TransactionType, string> = {
       }
 
       <div class="form-actions">
-        <button type="submit" [disabled]="saving() || !!problem()">
+        <button type="submit" [disabled]="saving() || !!problem() || awaitingConfirmation()">
           {{ saving() ? 'Guardando…' : 'Registrar movimiento' }}
         </button>
         <button type="button" class="secondary" (click)="cancelled.emit()">Cancelar</button>
@@ -185,15 +207,28 @@ export class TransactionForm {
   readonly allAccounts = input.required<AccountSummary[]>();
   readonly allCategories = input.required<CategoryOption[]>();
   readonly saved = output<string>();
+  /** The database said no: the accounts the form offers may be out of date. */
+  readonly refused = output<void>();
   readonly cancelled = output<void>();
 
   protected readonly types = TRANSACTION_TYPES;
   protected readonly typeLabels = TRANSACTION_TYPE_LABELS;
   protected readonly methods = PAYMENT_METHODS;
   protected readonly methodLabels = PAYMENT_METHOD_LABELS;
+  protected readonly maxAmount = MAX_LEDGER_AMOUNT;
+  /** The picker stops at now: money is recorded once it has moved (T5-08). */
+  protected readonly latest = nowForInput();
 
   protected readonly saving = signal(false);
   protected readonly failure = signal<string | null>(null);
+  protected readonly negativeConfirmed = signal(false);
+
+  /**
+   * One movement, one key: the same request sent twice records it once. It
+   * is kept while the form does not change, so a retry after a lost answer is
+   * still the same movement, and a new one gets a new key.
+   */
+  private entryKey = crypto.randomUUID();
 
   protected readonly form = this.fb.group({
     type: ['income' as TransactionType],
@@ -216,21 +251,29 @@ export class TransactionForm {
     return this.form.getRawValue();
   });
 
-  /** Money can only be moved in and out of an account that is still open. */
-  protected readonly accounts = computed(() => this.allAccounts().filter((account) => account.active));
-
   protected readonly isTransfer = computed(() => this.values().type === 'transfer');
   protected readonly isIncome = computed(() => this.values().type === 'income');
   protected readonly typeHint = computed(() => TYPE_HINTS[this.values().type]);
 
-  protected readonly destinations = computed(() =>
-    this.accounts().filter((account) => account.id !== this.values().accountId),
+  /** Money moves in and out of open accounts; a closed one with money can still be emptied. */
+  protected readonly origins = computed(() =>
+    this.allAccounts().filter((account) => canLeave(account, this.values().type)),
   );
 
-  /** A loose income is not offered the categories of sales: the database would refuse them. */
+  protected readonly originHint = computed(() =>
+    this.origins().some((account) => !account.active)
+      ? 'Una cuenta desactivada con saldo aparece aquí solo para sacar ese dinero a otra cuenta.'
+      : undefined,
+  );
+
+  protected readonly destinations = computed(() =>
+    this.allAccounts().filter((account) => account.active && account.id !== this.values().accountId),
+  );
+
+  /** A loose income is not offered the categories of sales nor capital: the database would refuse them. */
   protected readonly categories = computed(() => cashCategoriesFor(this.values().type, this.allCategories()));
 
-  /** Says why a category of sales the person knows is not in the list, and where to make one that fits. */
+  /** Says why a category the person knows is not in the list, and where to make one that fits. */
   protected readonly categoryHint = computed(() => cashCategoryHint(this.values().type, this.allCategories()));
 
   protected readonly counterpartyLabel = computed(() =>
@@ -241,7 +284,7 @@ export class TransactionForm {
 
   /** What each account will be worth once this is saved. */
   protected readonly preview = computed<BalancePreview[]>(() =>
-    this.problem() ? [] : previewBalances(buildTransactionDraft(this.values()), this.accounts()),
+    this.problem() ? [] : previewBalances(buildTransactionDraft(this.values()), this.allAccounts()),
   );
 
   /** Said before saving, not discovered afterwards in Cuentas. */
@@ -251,20 +294,33 @@ export class TransactionForm {
       .map((line) => beforeOpeningNotice(line, STILL_COUNTS[this.values().type])),
   );
 
+  /** More money leaving than there is: said, and confirmed, before saving (T5-04). */
+  protected readonly negativeNotices = computed(() =>
+    this.preview()
+      .filter((line) => line.goesNegative)
+      .map((line) => negativeBalanceNotice(line)),
+  );
+
+  protected readonly awaitingConfirmation = computed(
+    () => this.negativeNotices().length > 0 && !this.negativeConfirmed(),
+  );
+
   protected readonly totalUnchanged = computed(() => workshopChange(this.preview()) === 0);
 
   constructor() {
     // A category belongs to one direction only, so one that no longer fits
     // the chosen type has to go before the database rejects the pairing.
-    this.form.controls.type.valueChanges.subscribe((type) => {
+    this.form.controls.type.valueChanges.pipe(takeUntilDestroyed()).subscribe((type) => {
       if (!categoryFitsType(type, this.form.controls.categoryId.value || null, this.allCategories())) {
         this.form.controls.categoryId.setValue('');
       }
       if (type !== 'transfer') this.form.controls.counterAccountId.setValue('');
+      const origin = this.allAccounts().find((account) => account.id === this.form.controls.accountId.value);
+      if (origin && !canLeave(origin, type)) this.form.controls.accountId.setValue('');
     });
 
     // The account usually decides how the money moves, so it fills the method in.
-    this.form.controls.accountId.valueChanges.subscribe((id) => {
+    this.form.controls.accountId.valueChanges.pipe(takeUntilDestroyed()).subscribe((id) => {
       const account = this.allAccounts().find((candidate) => candidate.id === id);
       if (account?.defaultPaymentMethod) {
         this.form.controls.paymentMethod.setValue(account.defaultPaymentMethod);
@@ -273,19 +329,29 @@ export class TransactionForm {
         this.form.controls.counterAccountId.setValue('');
       }
     });
+
+    // Whatever changes is another movement: a new key, a new confirmation, and
+    // the error of the last attempt goes away once something is corrected (T5-11).
+    this.form.valueChanges.pipe(takeUntilDestroyed()).subscribe(() => {
+      this.entryKey = crypto.randomUUID();
+      this.negativeConfirmed.set(false);
+      this.failure.set(null);
+    });
   }
 
   protected async submit(): Promise<void> {
+    if (this.saving()) return;
     this.form.markAllAsTouched();
-    if (this.problem() || this.saving()) return;
+    if (this.problem() || this.awaitingConfirmation()) return;
 
     this.saving.set(true);
     this.failure.set(null);
     try {
-      await this.data.createTransaction(buildTransactionDraft(this.values()));
+      await this.data.createTransaction(buildTransactionDraft(this.values()), this.entryKey);
       this.saved.emit('Movimiento registrado.');
     } catch (error) {
       this.failure.set(friendlyError(error, 'No pudimos registrar el movimiento. Inténtalo de nuevo.'));
+      if (isRefusal(error)) this.refused.emit();
     } finally {
       this.saving.set(false);
     }
