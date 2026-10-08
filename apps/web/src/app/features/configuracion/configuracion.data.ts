@@ -377,7 +377,7 @@ export class ConfiguracionData {
   async categories(): Promise<CategoryRecord[]> {
     const { data, error } = await this.supabase
       .from('transaction_categories')
-      .select('id, name, direction, active, sales')
+      .select('id, name, direction, active, sales, capital')
       .order('direction')
       .order('name');
     if (error) throw error;
@@ -388,12 +388,14 @@ export class ConfiguracionData {
       direction: row.direction,
       active: row.active,
       sales: row.sales,
+      capital: row.capital,
     }));
   }
 
   /**
    * The database refuses unmarking the category collections are filed under
-   * while it is chosen, with a message for a person: it travels as it is.
+   * while it is chosen, or making it one of capital, with a message for a
+   * person: it travels as it is. A category of capital is never one of sales.
    */
   async saveCategory(categoryId: string | null, draft: CategoryDraft): Promise<void> {
     const duplicate = 'Ya existe una categoría con ese nombre para ese tipo.';
@@ -401,7 +403,8 @@ export class ConfiguracionData {
       name: draft.name.trim(),
       direction: draft.direction,
       active: draft.active,
-      sales: draft.direction === 'income' && draft.sales,
+      sales: draft.direction === 'income' && draft.sales && !draft.capital,
+      capital: draft.capital,
     };
 
     if (categoryId) {

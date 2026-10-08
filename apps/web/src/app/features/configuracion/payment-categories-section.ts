@@ -9,6 +9,11 @@ import type { CategoryRecord } from './configuracion.models';
 
 const AUTOMATIC = '';
 
+/** What «Categorías por defecto» offers: active, and not of capital. */
+export function defaultCategoryOptions(categories: readonly CategoryRecord[]): CategoryRecord[] {
+  return categories.filter((category) => category.active && !category.capital);
+}
+
 /**
  * En qué categoría de Caja queda un cobro y un pago de compra cuando nadie
  * elige otra. Antes quedaban sin categoría, y las que el taller ya tenía no se
@@ -26,7 +31,8 @@ const AUTOMATIC = '';
           Dónde queda anotado cada cobro de un pedido y cada pago de una compra cuando nadie elige otra categoría al
           registrarlo. En «Automática», si el taller tiene una sola categoría activa de ese tipo se usa esa, y si tiene
           varias queda sin categoría. La de los cobros queda marcada como de ventas: un ingreso suelto de Caja no la
-          ofrece.
+          ofrece. Las de capital no se ofrecen: son de los aportes y retiros del dueño, y la base no deja elegirlas
+          aquí.
         </p>
         <form [formGroup]="form" (ngSubmit)="save()">
           <div class="grid two">
@@ -94,8 +100,9 @@ export class PaymentCategoriesSection {
         this.data.paymentCategories(),
         this.data.currentRole(),
       ]);
-      // A deactivated category is not offered, so a choice that points at one is shown as automatic.
-      const offered = categories.filter((category) => category.active);
+      // A deactivated category is not offered, so a choice that points at one is shown as automatic. Nor one of
+      // capital: a collection is a sale and a purchase is an expense, and the database refuses it for either.
+      const offered = defaultCategoryOptions(categories);
       this.incomeCategories.set(offered.filter((category) => category.direction === 'income'));
       this.expenseCategories.set(offered.filter((category) => category.direction === 'expense'));
       this.form.setValue({

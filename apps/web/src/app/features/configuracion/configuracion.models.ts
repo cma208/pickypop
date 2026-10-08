@@ -204,6 +204,11 @@ export interface CategoryRecord {
   active: boolean;
   /** A category of sales: collections of orders and the quick sale use it, a loose income in Caja cannot. Income only. */
   sales: boolean;
+  /**
+   * A category of capital: only the owner's contributions (income) and draws
+   * (expense) use it, and they only use these. Never one of sales.
+   */
+  capital: boolean;
 }
 
 export type CategoryDraft = Omit<CategoryRecord, 'id'>;

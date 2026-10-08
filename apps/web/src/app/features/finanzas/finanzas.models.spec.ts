@@ -113,6 +113,13 @@ describe('cashCategoryHint', () => {
     expect(hint).toContain('Configuración › Categorías de dinero');
   });
 
+  it('does not send the operator to a configuration they cannot change: they ask the owner', () => {
+    const hint = cashCategoryHint('income', CATEGORIES, false);
+
+    expect(hint).toContain('Pídele al dueño del taller');
+    expect(hint).not.toContain('Configuración ›');
+  });
+
   it('says nothing when the list is whole, and that there are none when there are none', () => {
     expect(cashCategoryHint('expense', CATEGORIES)).toBeUndefined();
     expect(cashCategoryHint('expense', [])).toBe('No hay categorías de este tipo todavía.');
