@@ -544,6 +544,10 @@
             </p>
           }
 
+          @if (!canOperate()) {
+            <!-- Calculating writes nothing; saving does (ADR-025). -->
+            <p class="muted">{{ readOnlyNote }} Puedes calcular el precio, pero guardar la cotización es del dueño y de los operadores.</p>
+          } @else {
           <form [formGroup]="quoteForm" class="grid two">
             <pp-field label="Cliente" [required]="true" [error]="fieldError('quote', 'customerId')">
               <select formControlName="customerId">
@@ -590,6 +594,7 @@
               Guardar como versión nueva de {{ previous.number }}
             } @else { Guardar como cotización }
           </button>
+          }
         }
       </pp-card>
     }

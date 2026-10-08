@@ -11,6 +11,7 @@ import { Modal } from './modal';
 import { PiezasDesactivadas } from './piezas-desactivadas';
 import { deactivatedNote, deactivationWarning, PartRecipes, type PartUse } from './piezas-recetas';
 import { itemCells, type PositionCells } from './stock-position';
+import { CurrentWorkspace, READ_ONLY_NOTE } from '../../core/workspace';
 
 const COST_DIGITS = 3;
 const PART_ONLY = ['part'] as const;
@@ -48,7 +49,12 @@ interface PartRow {
   template: `
     <pp-page title="Piezas impresas" subtitle="Lo que sale de las placas y espera en el estante para armar un producto">
       <a actions class="button secondary" routerLink="/inventario/armar">Armar productos</a>
-      <button actions type="button" (click)="editing.set({ item: null })">+ Nueva pieza</button>
+      @if (canOperate()) {
+        <button actions type="button" (click)="editing.set({ item: null })">+ Nueva pieza</button>
+      }
+      @if (roleKnown() && !canOperate()) {
+        <p class="muted">{{ readOnlyNote }}</p>
+      }
 
       @if (notice(); as text) {
         <p class="notice" role="status">{{ text }}</p>
@@ -70,7 +76,9 @@ interface PartRow {
                   : 'Todavía no hay piezas. Crea una y di en la receta qué placa la produce.'
               "
             >
-              <button type="button" (click)="editing.set({ item: null })">Crear la primera pieza</button>
+              @if (canOperate()) {
+                <button type="button" (click)="editing.set({ item: null })">Crear la primera pieza</button>
+              }
             </pp-empty>
           } @else {
             <div class="table-wrap">
@@ -96,10 +104,10 @@ interface PartRow {
                             <span sub>
                               @if (platePhotoStandsIn(part)) {
                                 Foto de la placa ·
-                                <button type="button" class="inline-link" (click)="edit(part)">Agregar la suya</button>
+                                @if (canOperate()) { <button type="button" class="inline-link" (click)="edit(part)">Agregar la suya</button> }
                               } @else {
                                 Sin foto ·
-                                <button type="button" class="inline-link" (click)="edit(part)">Agregar</button>
+                                @if (canOperate()) { <button type="button" class="inline-link" (click)="edit(part)">Agregar</button> }
                               }
                             </span>
                           }
@@ -136,7 +144,9 @@ interface PartRow {
                         <small class="sub">{{ sourceLabel(part.costSource) }}</small>
                       </td>
                       <td class="actions-cell">
-                        <button type="button" class="ghost" (click)="edit(part)">Editar</button>
+                        @if (canOperate()) {
+                          <button type="button" class="ghost" (click)="edit(part)">Editar</button>
+                        }
                       </td>
                     </tr>
                   }
@@ -148,10 +158,10 @@ interface PartRow {
       </pp-card>
 
       @if (inactiveParts().length > 0) {
-        <app-piezas-desactivadas [parts]="inactiveParts()" [busyId]="reactivating()" (reactivate)="reactivate($event)" />
+        <app-piezas-desactivadas [parts]="inactiveParts()" [busyId]="reactivating()" [readOnly]="!canOperate()" (reactivate)="reactivate($event)" />
       }
 
-      @if (editing(); as current) {
+      @if (canOperate() && editing(); as current) {
         <app-modal [heading]="current.item ? 'Editar pieza' : 'Nueva pieza'" (closed)="editing.set(null)">
           @if (current.item?.active && editWarning(); as warning) {
             <p class="alert-warn" role="status">{{ warning }}</p>
@@ -169,6 +179,11 @@ interface PartRow {
 })
 export class PiezasPage {
   private readonly data = inject(InventarioData);
+  private readonly workspace = inject(CurrentWorkspace);
+  /** Owner and operator keep the inventory; a viewer only reads it (ADR-025). */
+  protected readonly canOperate = this.workspace.canOperate;
+  protected readonly roleKnown = this.workspace.roleKnown;
+  protected readonly readOnlyNote = READ_ONLY_NOTE;
   private readonly planner = inject(InventoryPlan);
   private readonly photos = inject(ArticlePhotos);
   private readonly recipes = inject(PartRecipes);
@@ -277,6 +292,7 @@ export class PiezasPage {
       await this.onSaved(`«${part.name}» vuelve a estar activa: ya se ofrece en las recetas y entra en el conteo.`);
     } catch (error) {
       this.actionError.set(describeError(error, 'No pudimos volver a activar la pieza. Inténtalo de nuevo.'));
+      void this.workspace.afterRefusal(error);
     } finally {
       this.reactivating.set(null);
     }

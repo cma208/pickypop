@@ -71,6 +71,12 @@ const CONSTRAINT_MESSAGES: Record<string, string> = {
   transaction_categories_workspace_id_direction_name_key: DUPLICATE_CATEGORY,
   transaction_categories_name_ci_key: DUPLICATE_CATEGORY,
   transaction_categories_name_check: 'Escribe el nombre de la categoría: no puede quedar vacío.',
+  transaction_categories_capital_is_not_sales:
+    'Una categoría no puede ser de capital y de ventas a la vez: los aportes y retiros del dueño no son ventas. Desmarca una de las dos.',
+  transactions_workspace_entry_key_key:
+    'Ese movimiento ya quedó registrado: llegó dos veces. Revisa la Caja antes de anotarlo de nuevo.',
+  filament_skus_color_name_not_blank: 'Escribe el nombre del color: no puede quedar vacío ni tener solo espacios.',
+  inventory_items_unit_not_blank: 'Escribe la unidad (unidad, g, ml…): no puede quedar vacía ni tener solo espacios.',
   gift_categories_workspace_id_name_key: 'Ya existe una categoría con ese nombre.',
   gift_categories_name_ci_key: 'Ya existe una categoría de regalo con ese nombre (las mayúsculas no cuentan).',
   gift_categories_name_check: 'Escribe el nombre de la categoría: no puede quedar vacío.',
@@ -109,11 +115,30 @@ export function permissionError(): UserFacingError {
   return new UserFacingError(NO_PERMISSION);
 }
 
-/** The database said no to who is asking, not to what they wrote. */
+/**
+ * A function that checks the role on its own may say so in words, as a plain
+ * `raise exception` (P0001) and not a 42501: «Solo el dueño del taller puede
+ * anular un movimiento de dinero.» (`void_transaction`), or the one about
+ * unmarking a sales category. It is as much a refusal of who is asking.
+ */
+const OWNER_ONLY_REFUSAL = /^Solo el dueño del taller puede /;
+
+/**
+ * The database said no to who is asking, not to what they wrote. An error
+ * already translated for a screen keeps what the database said as its
+ * `cause`, so the role is read again after it too.
+ */
 export function isPermissionError(error: unknown): boolean {
-  if (error instanceof UserFacingError) return error.message === NO_PERMISSION;
+  if (error instanceof UserFacingError) {
+    return (
+      error.message === NO_PERMISSION ||
+      OWNER_ONLY_REFUSAL.test(error.message) ||
+      (error.cause !== undefined && isPermissionError(error.cause))
+    );
+  }
   const { code, message } = (error ?? {}) as PostgrestLike;
   const text = message ?? '';
+  if (code === 'P0001') return OWNER_ONLY_REFUSAL.test(text);
   return code === '42501' || text.includes('row-level security') || text.includes('permission denied');
 }
 

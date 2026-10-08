@@ -3,7 +3,7 @@ import { UserFacingError } from '../../core/friendly-error';
 import { SUPABASE } from '../../core/supabase';
 import { fetchAll } from '../../core/fetch-all';
 import { spoolName, type SpoolIdentity } from '../../core/spool-label';
-import { CurrentWorkspace, type MemberRole } from '../../core/workspace';
+import { CurrentWorkspace } from '../../core/workspace';
 import type { PaymentMethod } from '../finanzas/finanzas.models';
 import { dayEnd, dayStart, type ItemKind, type MovementType, type SpoolStatus } from './inventario.format';
 import type { AllocationMethod } from '../../core/pricing';
@@ -400,14 +400,6 @@ export class InventarioData {
     return this.workspace.requireId();
   }
 
-  /**
-   * The signed-in person's role, read the way the configuration screens read
-   * it. Only to not offer what the database would refuse (ADR-025): the
-   * database decides either way.
-   */
-  currentRole(): Promise<MemberRole | null> {
-    return this.workspace.info().then((info) => info.role);
-  }
 
   // ------------------------------------------------------------ catalogues
 
@@ -582,22 +574,31 @@ export class InventarioData {
 
   // ----------------------------------------------------------------- spools
 
+  /**
+   * Every roll the workshop ever bought, emptied ones included: past 1000
+   * PostgREST cut the list without a word, and the rolls left out vanished
+   * from their filament. Paged by id, so no page repeats or skips a row.
+   */
   async spools(): Promise<SpoolSummary[]> {
     const [spools, balances, details] = await Promise.all([
-      this.supabase
-        .from('spools')
-        .select(
-          'id, code, filament_sku_id, status, location, opened_at, initial_weight_g, unit_cost, cost_per_gram, filament_skus(color_name, color_hex, spool_tare_g)',
-        ),
-      this.supabase.from('spool_balances').select('spool_id, on_hand_g'),
+      fetchAll((from, to) =>
+        this.supabase
+          .from('spools')
+          .select(
+            'id, code, filament_sku_id, status, location, opened_at, initial_weight_g, unit_cost, cost_per_gram, filament_skus(color_name, color_hex, spool_tare_g)',
+          )
+          .order('id')
+          .range(from, to),
+      ),
+      fetchAll((from, to) =>
+        this.supabase.from('spool_balances').select('spool_id, on_hand_g').order('spool_id').range(from, to),
+      ),
       this.skuDetails(),
     ]);
-    if (spools.error) throw spools.error;
-    if (balances.error) throw balances.error;
 
-    const remaining = new Map(balances.data.map((row) => [row.spool_id, num(row.on_hand_g)]));
+    const remaining = new Map(balances.map((row) => [row.spool_id, num(row.on_hand_g)]));
 
-    return spools.data
+    return spools
       .map((spool): SpoolSummary => {
         const sku = spool.filament_skus;
         const detail = details.get(spool.filament_sku_id);
@@ -681,31 +682,41 @@ export class InventarioData {
 
   // -------------------------------------------------------------- purchases
 
+  /**
+   * Every purchase, newest first. Past 1000 PostgREST cut the oldest without a
+   * word; the id breaks ties so that a page never repeats or skips one.
+   */
   async purchases(): Promise<PurchaseSummary[]> {
     const [purchases, details, items, payments] = await Promise.all([
-      this.supabase
-        .from('purchases')
-        .select(
-          'id, purchased_at, document_ref, shipping_cost, other_costs, allocation, note, suppliers(name), purchase_lines(id, filament_sku_id, inventory_item_id, description, quantity, unit_price, allocated_extra_cost, spools(count), filament_skus(color_hex), inventory_items(kind, image_path, unit))',
-        )
-        .order('purchased_at', { ascending: false })
-        .order('created_at', { ascending: false }),
-      this.skuDetails(),
-      this.supabase.from('inventory_items').select('id, name'),
       fetchAll((from, to) =>
-        this.supabase.from('purchase_payment_status').select('purchase_id, total, paid, pending').range(from, to),
+        this.supabase
+          .from('purchases')
+          .select(
+            'id, purchased_at, document_ref, shipping_cost, other_costs, allocation, note, suppliers(name), purchase_lines(id, filament_sku_id, inventory_item_id, description, quantity, unit_price, allocated_extra_cost, spools(count), filament_skus(color_hex), inventory_items(kind, image_path, unit))',
+          )
+          .order('purchased_at', { ascending: false })
+          .order('created_at', { ascending: false })
+          .order('id')
+          .range(from, to),
+      ),
+      this.skuDetails(),
+      fetchAll((from, to) => this.supabase.from('inventory_items').select('id, name').order('id').range(from, to)),
+      fetchAll((from, to) =>
+        this.supabase
+          .from('purchase_payment_status')
+          .select('purchase_id, total, paid, pending')
+          .order('purchase_id')
+          .range(from, to),
       ),
     ]);
-    if (purchases.error) throw purchases.error;
-    if (items.error) throw items.error;
     const paymentOf = new Map(payments.map((row) => [row.purchase_id, row]));
 
     const skuNames = new Map(
       [...details].map(([id, sku]) => [id, skuLabel(sku.brandName, sku.materialCode, sku.finishName, sku.colorName)]),
     );
-    const itemNames = new Map(items.data.map((item) => [item.id, item.name]));
+    const itemNames = new Map(items.map((item) => [item.id, item.name]));
 
-    return purchases.data.map((purchase): PurchaseSummary => {
+    return purchases.map((purchase): PurchaseSummary => {
       const lines = purchase.purchase_lines.map((line): PurchaseLineView => ({
         id: line.id,
         label:

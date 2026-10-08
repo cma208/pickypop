@@ -26,9 +26,6 @@ export const GENERIC_CUSTOMER_NAMES: readonly string[] = [
   'Clientes al paso',
 ];
 
-/** Something has to be written, not just spaces. */
-export const NOT_BLANK = /\S/;
-
 /** A customer as the screens that create one know them. */
 export interface KnownCustomer {
   id: string;

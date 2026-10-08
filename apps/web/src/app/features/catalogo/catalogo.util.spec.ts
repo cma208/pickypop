@@ -93,10 +93,10 @@ describe('deactivationWarning', () => {
     );
   });
 
-  it('says that a new version of an open quote would lose the price list', () => {
+  it('says that open quotes, and their new versions, keep the price list', () => {
     expect(deactivationWarning({ openQuotes: 2, openOrders: 0, onHand: 0 })).toBe(
-      'Tiene 2 cotizaciones abiertas: se pueden aceptar con el precio que ya tienen, pero desactivada no se ofrece ' +
-        'al cotizar, y una versión nueva de ellas la cotizaría por costo, sin su precio de lista.',
+      'Tiene 2 cotizaciones abiertas: se pueden aceptar con el precio que ya tienen, y una versión nueva de ellas ' +
+        'la sigue cotizando a su precio de lista y su escalera. Desactivada, solo deja de ofrecerse para líneas nuevas del cotizador.',
     );
   });
 

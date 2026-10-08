@@ -1,6 +1,6 @@
 import { inject, Injectable } from '@angular/core';
 import { fetchAll } from '../../core/fetch-all';
-import { permissionError, UserFacingError } from '../../core/friendly-error';
+import { isPermissionError, permissionError, UserFacingError } from '../../core/friendly-error';
 import { SUPABASE } from '../../core/supabase';
 import { CurrentWorkspace } from '../../core/workspace';
 import { accountChanges, type AccountInput, type AccountLeg } from './account-edit';
@@ -8,11 +8,9 @@ import {
   dayEnd,
   dayStart,
   defaultCategory,
-  financeAccess,
   num,
   type AccountKind,
   type CategoryOption,
-  type FinanceAccess,
   type PaymentMethod,
   type TransactionType,
 } from './finanzas.models';
@@ -144,9 +142,16 @@ function withRaisedMessage(error: unknown): unknown {
   return code === RAISED_EXCEPTION && message ? new UserFacingError(message) : error;
 }
 
-/** Whether the database refused with a sentence of its own: the screen then reloads what it showed. */
+/**
+ * Whether the database refused, with a sentence of its own or for the role
+ * (a 42501 from a row policy): the screen then reloads what it showed.
+ */
 export function isRefusal(error: unknown): boolean {
-  return error instanceof UserFacingError || (error as ErrorLike | null)?.code === RAISED_EXCEPTION;
+  return (
+    error instanceof UserFacingError ||
+    (error as ErrorLike | null)?.code === RAISED_EXCEPTION ||
+    isPermissionError(error)
+  );
 }
 
 /**
@@ -158,26 +163,6 @@ export function isRefusal(error: unknown): boolean {
 export class FinanzasData {
   private readonly supabase = inject(SUPABASE);
   private readonly workspace = inject(CurrentWorkspace);
-
-  /**
-   * What the signed-in person may do here: the owner sets up the accounts and
-   * voids, the owner and the operators register and collect (the owner's
-   * decision of 2026-10-08). Read fresh each time, not from the workshop's
-   * cached role: after a refusal the screens ask again, and a role changed in
-   * another tab counts at once instead of at the next sign-in.
-   */
-  async access(): Promise<FinanceAccess> {
-    const { id, userId } = await this.workspace.info();
-    if (!userId) return financeAccess(null);
-    const { data, error } = await this.supabase
-      .from('workspace_members')
-      .select('role')
-      .eq('workspace_id', id)
-      .eq('user_id', userId)
-      .maybeSingle();
-    if (error) throw error;
-    return financeAccess(data?.role);
-  }
 
   // ---------------------------------------------------------------- accounts
 
@@ -536,6 +521,18 @@ export class FinanzasData {
       p_key: key,
     });
     if (error) throw withRaisedMessage(error);
+  }
+
+  /**
+   * Whether a movement sent with this key is in the book: the answer to
+   * «¿quedó registrado?» when the connection dropped before the reply came.
+   * The key travels into `transactions.entry_key`, from Caja and from
+   * `record_payment` alike.
+   */
+  async entryRecorded(key: string): Promise<boolean> {
+    const { data, error } = await this.supabase.from('transactions').select('id').eq('entry_key', key).maybeSingle();
+    if (error) throw error;
+    return data !== null;
   }
 
   // ---------------------------------------------------------------- results

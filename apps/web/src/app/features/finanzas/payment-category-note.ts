@@ -1,5 +1,6 @@
 import { Component, inject, input, OnInit, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { CurrentWorkspace } from '../../core/workspace';
 import { FinanzasData } from './finanzas.data';
 
 /**
@@ -17,22 +18,30 @@ import { FinanzasData } from './finanzas.data';
   `,
   template: `
     @if (loaded()) {
+      <!-- The categories are configuration (ADR-025): only the owner is sent to change them. -->
       @if (name(); as category) {
         <p class="muted">
           Queda en la categoría «{{ category }}».
-          <a routerLink="/configuracion" [queryParams]="{ tab: 'categories' }">Cambiarla</a>
+          @if (isOwner()) {
+            <a routerLink="/configuracion" [queryParams]="{ tab: 'categories' }">Cambiarla</a>
+          } @else {
+            La elige el dueño del taller.
+          }
         </p>
-      } @else {
+      } @else if (isOwner()) {
         <p class="muted">
           Queda sin categoría. Elige cuál usar en
           <a routerLink="/configuracion" [queryParams]="{ tab: 'categories' }">Configuración › Categorías de dinero</a>.
         </p>
+      } @else {
+        <p class="muted">Queda sin categoría: cuál usar lo elige el dueño del taller.</p>
       }
     }
   `,
 })
 export class PaymentCategoryNote implements OnInit {
   private readonly data = inject(FinanzasData);
+  protected readonly isOwner = inject(CurrentWorkspace).isOwner;
 
   /** Whose category: a collection of an order, or the payment of a purchase. */
   readonly kind = input.required<'order' | 'purchase'>();

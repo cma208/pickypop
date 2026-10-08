@@ -1,4 +1,3 @@
-import type { MemberRole } from '../../core/workspace';
 import type { BadgeTone } from '../../ui';
 
 /** Days are cut at midnight in Lima, wherever the browser happens to be. */
@@ -98,22 +97,6 @@ export interface CategoryOption {
  */
 export const MAX_LEDGER_AMOUNT = 1_000_000;
 
-/**
- * What a person may do in the finance screens (the owner's decision of
- * 2026-10-08). The database decides it; the screens use this only not to
- * offer what it would refuse.
- */
-export interface FinanceAccess {
-  /** Sets up the accounts and voids movements. */
-  isOwner: boolean;
-  /** Registers movements and collects: the owner and the operators, never a viewer. */
-  canOperate: boolean;
-}
-
-export function financeAccess(role: MemberRole | null | undefined): FinanceAccess {
-  return { isOwner: role === 'owner', canOperate: role === 'owner' || role === 'operator' };
-}
-
 /** The two types that are capital, not profit: the owner's money going in or out. */
 export function isOwnerType(type: TransactionType): boolean {
   return type === 'owner_contribution' || type === 'owner_draw';
@@ -191,8 +174,11 @@ const CAPITAL_HIDDEN_HINT = {
   income: 'Las categorías de capital no se ofrecen aquí: la plata que metes al taller va como «Aporte del dueño», con su propio tipo.',
   expense: 'Las categorías de capital no se ofrecen aquí: la plata que sacas para ti va como «Retiro del dueño», con su propio tipo.',
 } as const;
-/** Where a category that does fit is made, when none is left to choose. */
-const CREATE_CATEGORY_HINT = 'Crea una que no sea de ventas (por ejemplo «Reembolsos») en Configuración › Categorías de dinero.';
+/** Where a category that does fit is made, when none is left to choose. Only the owner can (ADR-025). */
+const CREATE_CATEGORY_HINT = {
+  owner: 'Crea una que no sea de ventas (por ejemplo «Reembolsos») en Configuración › Categorías de dinero.',
+  other: 'Pídele al dueño del taller que cree una que no sea de ventas (por ejemplo «Reembolsos»): las categorías son de la configuración.',
+} as const;
 /** An owner's movement already says what it is. */
 const OWNER_HINT = 'Solo las de capital: un aporte o un retiro del dueño no es un ingreso ni un gasto del taller.';
 const OWNER_NONE_HINT = 'No hace falta: el tipo ya dice que es capital. Solo se ofrecen las categorías de capital, y no hay ninguna.';
@@ -207,6 +193,7 @@ const OWNER_NONE_HINT = 'No hace falta: el tipo ya dice que es capital. Solo se 
 export function cashCategoryHint(
   type: TransactionType,
   categories: readonly CategoryOption[],
+  isOwner = true,
 ): string | undefined {
   const direction = TYPE_DIRECTION[type];
   if (direction === null) return undefined;
@@ -223,7 +210,7 @@ export function cashCategoryHint(
   const parts: string[] = [];
   if (salesHidden) parts.push(SALES_HIDDEN_HINT);
   if (capitalHidden) parts.push(salesHidden ? CAPITAL_HIDDEN_HINT.afterSales : CAPITAL_HIDDEN_HINT[direction]);
-  if (parts.length > 0 && offered === 0 && type === 'income') parts.push(CREATE_CATEGORY_HINT);
+  if (parts.length > 0 && offered === 0 && type === 'income') parts.push(CREATE_CATEGORY_HINT[isOwner ? 'owner' : 'other']);
 
   if (parts.length > 0) return parts.join(' ');
   return offered === 0 ? 'No hay categorías de este tipo todavía.' : undefined;

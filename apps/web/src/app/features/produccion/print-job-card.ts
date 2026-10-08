@@ -9,11 +9,11 @@ import { explainProductionError } from './production-errors';
 import { PrintJobClose } from './print-job-close';
 import { PrintJobStart } from './print-job-start';
 import { ProduccionData, type CloseOutcome, type JobItem } from './produccion.data';
-import { ProductionAccess } from './production-access';
 import { FAILURE_CAUSE_LABEL, isClosed, JOB_STATUS_LABEL, JOB_STATUS_TONE } from './produccion.labels';
 import { jobProgress } from './produccion.progress';
 import { rollName } from './produccion.spools';
 import { plannedCounts, type PartCount } from './produccion.outputs';
+import { CurrentWorkspace } from '../../core/workspace';
 
 /** The database turned down a start or a close: the job is not what this tab believed. */
 export interface JobRefusal {
@@ -21,6 +21,18 @@ export interface JobRefusal {
   /** The status this tab showed when it asked. */
   status: JobItem['status'];
   message: string;
+}
+
+/**
+ * What a page says once it read the jobs again after a refusal. While the job
+ * is still where it was, its card already shows the refusal. If it left
+ * (started, closed or cancelled elsewhere), the card it was on is gone, and
+ * the page has to say it or the refusal vanishes with it.
+ */
+export function refusalAfterReload(refusal: JobRefusal | null, jobs: readonly Pick<JobItem, 'id' | 'status'>[]): string | null {
+  if (!refusal) return null;
+  const now = jobs.find((job) => job.id === refusal.jobId);
+  return !now || now.status !== refusal.status ? refusal.message : null;
 }
 
 /** One print job with its actions: start it, close it. */
@@ -165,7 +177,9 @@ export class PrintJobCard {
   private readonly data = inject(ProduccionData);
   private readonly plan = inject(PlanService);
   /** Iniciar and Cerrar are the day to day of an owner or an operator, never of a viewer. */
-  protected readonly canOperate = inject(ProductionAccess).canOperate;
+  private readonly workspace = inject(CurrentWorkspace);
+  /** Owner and operator run production; a viewer only reads (ADR-025). */
+  protected readonly canOperate = this.workspace.canOperate;
   protected readonly readOnlyText = 'Solo el dueño y los operadores pueden iniciar y cerrar impresiones.';
   /** A part with no photo of its own shows the plate that prints it. */
   protected readonly borrowedPhoto = borrowedPhoto;
@@ -250,6 +264,7 @@ export class PrintJobCard {
     } catch (error) {
       const message = explainProductionError(error, 'No pudimos iniciar la impresión. Inténtalo de nuevo.');
       this.error.set(message);
+      void this.workspace.afterRefusal(error);
       this.onRefused(message);
     } finally {
       this.busy.set(false);

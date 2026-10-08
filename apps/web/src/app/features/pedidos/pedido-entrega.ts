@@ -2,7 +2,7 @@ import { Component, computed, effect, ElementRef, inject, input, output, signal,
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormArray, FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { todayLocal } from '../../core/dates';
-import { errorOf, textOrNull } from '../../core/form-errors';
+import { errorOf, notInFuture, textOrNull } from '../../core/form-errors';
 import { RouterLink } from '@angular/router';
 import { PlanService } from '../../core/plan';
 import { Card, Field, FORMAT_PIPES, Item } from '../../ui';
@@ -14,7 +14,6 @@ import {
   deliveredAtFor,
   deliveryConfirmation,
   deliveryPayload,
-  notAfterToday,
   quantityProblem,
   readyByLine,
   unitsLeaving,
@@ -23,6 +22,7 @@ import {
 } from './pedidos.delivery';
 import { explainError, refusedByDatabase } from './pedidos.errors';
 import { requestKey, type SentRequest } from './request-key';
+import { CurrentWorkspace } from '../../core/workspace';
 
 /** The plan is still being read: nothing is proposed yet. */
 const ASKING = undefined;
@@ -49,11 +49,15 @@ const ASKING = undefined;
       @if (owed(); as amount) {
         <div class="owed" role="status">
           <span>Falta cobrar <strong>{{ amount | money }}</strong>.</span>
-          <button type="button" (click)="collect.emit()">Cobrar saldo</button>
+          @if (canOperate()) {
+            <button type="button" (click)="collect.emit()">Cobrar saldo</button>
+          }
         </div>
       }
 
-      @if (pendingLines().length > 0) {
+      @if (pendingLines().length > 0 && !canOperate()) {
+        <p class="muted lead">Falta entregar parte del pedido. Lo entregan el dueño o un operador.</p>
+      } @else if (pendingLines().length > 0) {
         <form [formGroup]="form" (ngSubmit)="ask()" novalidate>
           <p class="muted lead">{{ lead() }}</p>
           <div class="scroll">
@@ -160,6 +164,9 @@ const ASKING = undefined;
 })
 export class PedidoEntrega {
   private readonly data = inject(PedidosData);
+  private readonly workspace = inject(CurrentWorkspace);
+  /** Owner and operator sell, deliver and collect; a viewer only reads (ADR-025). */
+  protected readonly canOperate = this.workspace.canOperate;
   private readonly planner = inject(PlanService);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
 
@@ -200,7 +207,9 @@ export class PedidoEntrega {
 
   protected readonly form = new FormGroup({
     quantities: new FormArray<FormControl<number | null>>([]),
-    day: new FormControl(todayLocal(), { nonNullable: true, validators: [Validators.required, notAfterToday] }),
+    // A delivery takes stock out, and stock does not move on a day that has
+    // not come: today or before, in the workshop's day. The database refuses the same.
+    day: new FormControl(todayLocal(), { nonNullable: true, validators: [Validators.required, notInFuture] }),
     note: new FormControl('', { nonNullable: true }),
   });
 
@@ -399,6 +408,7 @@ export class PedidoEntrega {
 
   /** Says why and reads the order again; the quantities typed stay, and so does the key. */
   private failed(error: unknown): void {
+    void this.workspace.afterRefusal(error);
     this.error.set(
       refusedByDatabase(error)
         ? explainError(error, 'No pudimos registrar la entrega. Inténtalo de nuevo.')

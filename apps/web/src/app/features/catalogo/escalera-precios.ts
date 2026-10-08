@@ -2,11 +2,13 @@ import { Component, computed, inject, input, output, signal } from '@angular/cor
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Card, Badge, FORMAT_PIPES } from '../../ui';
 import { CatalogoData } from './catalogo.data';
-import { CatalogoPermissions, OWNER_ONLY } from './catalogo.permissions';
+import { OWNER_ONLY } from './catalogo.permissions';
 import { SHARED_STYLES } from './catalogo.styles';
 import { countOf, messageOf } from './catalogo.util';
-import { DECIMALS, decimalsText, fieldError, LIMITS, limitText, maxDecimals, wholeNumber } from './catalogo.validators';
+import { maxDecimals, wholeNumber } from '../../core/form-errors';
+import { DECIMALS, decimalsText, fieldError, LIMITS, limitText } from './catalogo.validators';
 import { VariantCostModel } from './variant-cost.model';
+import { CurrentWorkspace } from '../../core/workspace';
 
 /** The smallest price that is not zero. */
 const ONE_CENT = 0.01;
@@ -14,7 +16,7 @@ const ONE_CENT = 0.01;
 const QUANTITY_MESSAGES: Record<string, string> = {
   required: 'Desde: escribe desde cuántas unidades rige.',
   min: 'Desde: al menos 1 unidad.',
-  whole: 'Desde: un número entero de unidades.',
+  integer: 'Desde: un número entero de unidades.',
   max: `Desde: hasta ${limitText(LIMITS.units)} unidades.`,
 };
 
@@ -78,7 +80,7 @@ const PRICE_MESSAGES: Record<string, string> = {
                   </td>
                   <td class="num">{{ row.targetPrice | money }}</td>
                   <td>
-                    @if (row.tierId && permissions.isOwner()) {
+                    @if (row.tierId && isOwner()) {
                       <button type="button" class="ghost" [disabled]="busy()" (click)="remove(row.tierId, row.quantity)"
                         [attr.aria-label]="'Quitar el escalón desde ' + row.quantity + ' unidades'">✕</button>
                     }
@@ -114,22 +116,24 @@ const PRICE_MESSAGES: Record<string, string> = {
         <p class="ok" role="status">Todos los precios alcanzan el margen objetivo de {{ cost.profile()!.targetMargin | percent1 }}.</p>
       }
 
-      <form [formGroup]="form" (ngSubmit)="add()" novalidate>
-        <label>Desde (unidades)
-          <input type="number" min="1" step="1" inputmode="numeric" formControlName="minQuantity" />
-        </label>
-        <label>Precio unitario (S/)
-          <input type="number" min="0" step="0.01" inputmode="decimal" formControlName="unitPrice" />
-        </label>
-        <button type="submit" [disabled]="busy()">Agregar escalón</button>
-      </form>
+      @if (canOperate()) {
+        <form [formGroup]="form" (ngSubmit)="add()" novalidate>
+          <label>Desde (unidades)
+            <input type="number" min="1" step="1" inputmode="numeric" formControlName="minQuantity" />
+          </label>
+          <label>Precio unitario (S/)
+            <input type="number" min="0" step="0.01" inputmode="decimal" formControlName="unitPrice" />
+          </label>
+          <button type="submit" [disabled]="busy()">Agregar escalón</button>
+        </form>
+      }
       @if (formError(); as message) {
         <p class="error hint">{{ message }}</p>
       }
       @if (error(); as message) {
         <p class="error" role="alert">{{ message }}</p>
       }
-      @if (!permissions.isOwner() && ladder().length > 0) {
+      @if (canOperate() && !isOwner() && ladder().length > 0) {
         <p class="muted hint">{{ ownerOnly }}</p>
       }
     </pp-card>
@@ -138,7 +142,11 @@ const PRICE_MESSAGES: Record<string, string> = {
 export class EscaleraPrecios {
   private readonly data = inject(CatalogoData);
   protected readonly cost = inject(VariantCostModel);
-  protected readonly permissions = inject(CatalogoPermissions);
+  private readonly workspace = inject(CurrentWorkspace);
+  /** The day to day: owner and operator. A viewer is shown what there is, with nothing to change (ADR-025). */
+  protected readonly canOperate = this.workspace.canOperate;
+  /** Removing is the owner's: the database refuses everyone else (T2-10). */
+  protected readonly isOwner = this.workspace.isOwner;
   protected readonly ownerOnly = OWNER_ONLY.tiers;
 
   readonly variantId = input.required<string>();
@@ -186,6 +194,7 @@ export class EscaleraPrecios {
       this.changed.emit();
     } catch (error) {
       this.error.set(messageOf(error, 'No pudimos agregar el escalón.'));
+      void this.workspace.afterRefusal(error);
       // A refusal may come from a tab that is behind: read the ladder again.
       this.changed.emit();
     } finally {
@@ -202,6 +211,7 @@ export class EscaleraPrecios {
       await this.data.deleteTier(id);
     } catch (error) {
       this.error.set(messageOf(error, 'No pudimos quitar el escalón.'));
+      void this.workspace.afterRefusal(error);
     } finally {
       this.busy.set(false);
     }

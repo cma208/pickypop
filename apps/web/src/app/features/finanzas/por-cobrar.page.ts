@@ -4,9 +4,10 @@ import { sumMoney } from '../../core/pricing';
 import { SECTION_STYLES } from '../../core/styles';
 import { AsyncState, Badge, Empty, FORMAT_PIPES, Page } from '../../ui';
 import { FinanzasData, type AccountSummary, type ReceivableRow } from './finanzas.data';
-import { agingBucket, AGING_LABELS, AGING_TONES, type CategoryOption, type FinanceAccess } from './finanzas.models';
+import { agingBucket, AGING_LABELS, AGING_TONES, type CategoryOption } from './finanzas.models';
 import { FINANCE_STYLES } from './finanzas.styles';
 import { PaymentForm } from './payment-form';
+import { CurrentWorkspace } from '../../core/workspace';
 
 /** Lowercase and strip accents so "perez" finds "Pérez". */
 function normalize(text: string): string {
@@ -156,9 +157,9 @@ export class PorCobrarPage {
   /** A refused collection whose order left the list meanwhile: said here, since its form is gone. */
   protected readonly refusal = signal<string | null>(null);
   protected readonly collecting = signal<ReceivableRow | null>(null);
-  /** A viewer is not offered «Cobrar», which the database would refuse. Null until it is known. */
-  private readonly access = signal<FinanceAccess | null>(null);
-  protected readonly canOperate = computed(() => this.access()?.canOperate ?? null);
+  private readonly workspace = inject(CurrentWorkspace);
+  /** A viewer is not offered «Cobrar», which the database would refuse (ADR-025). Null until it is known. */
+  protected readonly canOperate = computed(() => (this.workspace.roleKnown() ? this.workspace.canOperate() : null));
   protected readonly query = signal('');
   protected readonly onlyOverdue = signal(false);
 
@@ -180,16 +181,6 @@ export class PorCobrarPage {
   constructor() {
     void this.loadOptions();
     void this.load();
-    void this.readAccess();
-  }
-
-  /** Read again after a refusal: the role may have changed in another tab. */
-  private async readAccess(): Promise<void> {
-    try {
-      this.access.set(await this.data.access());
-    } catch {
-      this.access.set({ isOwner: false, canOperate: false });
-    }
   }
 
   protected bucket(row: ReceivableRow) {
@@ -226,7 +217,6 @@ export class PorCobrarPage {
    */
   protected async reloadAfterRefusal(message: string): Promise<void> {
     void this.loadOptions();
-    void this.readAccess();
     await this.load();
     const open = this.collecting();
     if (!open) return;

@@ -9,7 +9,6 @@ import {
   dayStart,
   defaultCategory,
   defaultMethodFor,
-  financeAccess,
   monthLabel,
   num,
   numOrNull,
@@ -111,6 +110,13 @@ describe('cashCategoryHint', () => {
 
     expect(hint).toContain('Las categorías de ventas no se ofrecen aquí');
     expect(hint).toContain('Configuración › Categorías de dinero');
+  });
+
+  it('does not send the operator to a configuration they cannot change: they ask the owner', () => {
+    const hint = cashCategoryHint('income', CATEGORIES, false);
+
+    expect(hint).toContain('Pídele al dueño del taller');
+    expect(hint).not.toContain('Configuración ›');
   });
 
   it('says nothing when the list is whole, and that there are none when there are none', () => {
@@ -252,18 +258,3 @@ describe('defaultMethodFor', () => {
   });
 });
 
-describe('financeAccess', () => {
-  it('lets the owner set up and void, and register and collect', () => {
-    expect(financeAccess('owner')).toEqual({ isOwner: true, canOperate: true });
-  });
-
-  it('lets an operator register and collect, not void', () => {
-    expect(financeAccess('operator')).toEqual({ isOwner: false, canOperate: true });
-  });
-
-  it('lets a viewer or somebody without a role only look', () => {
-    expect(financeAccess('viewer')).toEqual({ isOwner: false, canOperate: false });
-    expect(financeAccess(null)).toEqual({ isOwner: false, canOperate: false });
-    expect(financeAccess(undefined)).toEqual({ isOwner: false, canOperate: false });
-  });
-});

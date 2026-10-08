@@ -88,7 +88,7 @@ describe('ClienteRapido', () => {
     fixture.detectChanges();
 
     expect(calls).toEqual([]);
-    expect(text(fixture)).toContain('solo espacios no cuenta');
+    expect(text(fixture)).toContain('Escribe el nombre del cliente.');
   });
 
   it('does not create a second walk-in customer', () => {

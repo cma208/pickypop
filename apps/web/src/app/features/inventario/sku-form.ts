@@ -3,7 +3,8 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { FormControl, NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Field } from '../../ui';
 import { ARTICLE_DECIMALS, ARTICLE_LIMITS, OUT_OF_RANGE, rangeMessage } from './article-ranges';
-import { blankToNull, inactiveSuffix, invalidMessage, maxDecimals, requiredText, selectableOptions } from './form-helpers';
+import { maxDecimals, requiredText } from '../../core/form-errors';
+import { blankToNull, inactiveSuffix, invalidMessage, selectableOptions } from './form-helpers';
 import {
   InventarioData,
   type BrandOption,
@@ -15,6 +16,7 @@ import {
 import { describeError } from './inventario.errors';
 import { INVENTORY_STYLES } from './inventario.styles';
 import { QuickAdd } from './quick-add';
+import { CurrentWorkspace } from '../../core/workspace';
 
 const DEFAULT_DIAMETER_MM = 1.75;
 const DEFAULT_NET_WEIGHT_G = 1000;
@@ -142,6 +144,7 @@ const TWO_DECIMALS = maxDecimals(ARTICLE_DECIMALS.filament);
 })
 export class SkuForm {
   private readonly data = inject(InventarioData);
+  private readonly workspace = inject(CurrentWorkspace);
   private readonly fb = inject(NonNullableFormBuilder);
 
   readonly sku = input<SkuSummary | null>(null);
@@ -264,6 +267,7 @@ export class SkuForm {
       await this.data.saveSku(this.sku()?.id ?? null, this.toInput());
       this.saved.emit();
     } catch (error) {
+      void this.workspace.afterRefusal(error);
       this.error.set(
         describeError(
           error,

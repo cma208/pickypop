@@ -5,7 +5,7 @@ import { ArticlePhotos } from '../../core/article-photos';
 import { Media } from '../../core/media';
 import { CatalogoData } from './catalogo.data';
 import type { RecipeSupply, SupplyOption } from './catalogo.models';
-import { CatalogoPermissions } from './catalogo.permissions';
+import { workspaceAs } from '../../core/workspace.testing';
 import { SuministroFila } from './suministro-fila';
 
 const CAP: RecipeSupply = {
@@ -32,7 +32,7 @@ function open(inputs: Inputs) {
   TestBed.configureTestingModule({
     providers: [
       { provide: CatalogoData, useValue: inputs.data ?? {} },
-      { provide: CatalogoPermissions, useValue: { isOwner: signal(inputs.owner ?? true) } },
+      workspaceAs((inputs.owner ?? true) ? 'owner' : 'operator'),
       { provide: Media, useValue: { url: async () => null, version: signal(0) } },
       { provide: ArticlePhotos, useValue: { resolve: async () => ({ path: null, kind: 'part' }) } },
     ],

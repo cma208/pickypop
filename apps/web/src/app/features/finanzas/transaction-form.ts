@@ -5,6 +5,7 @@ import { RouterLink } from '@angular/router';
 import { nowForInput } from '../../core/dates';
 import { friendlyError } from '../../core/friendly-error';
 import { SECTION_STYLES } from '../../core/styles';
+import { CurrentWorkspace } from '../../core/workspace';
 import { Field, FORMAT_PIPES } from '../../ui';
 import { FinanzasData, isRefusal, type AccountSummary } from './finanzas.data';
 import {
@@ -204,6 +205,7 @@ function canLeave(account: AccountSummary, type: TransactionType): boolean {
 export class TransactionForm {
   private readonly data = inject(FinanzasData);
   private readonly fb = inject(NonNullableFormBuilder);
+  private readonly workspace = inject(CurrentWorkspace);
 
   readonly allAccounts = input.required<AccountSummary[]>();
   readonly allCategories = input.required<CategoryOption[]>();
@@ -277,7 +279,10 @@ export class TransactionForm {
   protected readonly categories = computed(() => cashCategoriesFor(this.values().type, this.allCategories()));
 
   /** Says why a category the person knows is not in the list, and where to make one that fits. */
-  protected readonly categoryHint = computed(() => cashCategoryHint(this.values().type, this.allCategories()));
+  /** Where to create a category is said to the owner, who can; the operator is told to ask. */
+  protected readonly categoryHint = computed(() =>
+    cashCategoryHint(this.values().type, this.allCategories(), this.workspace.isOwner()),
+  );
 
   protected readonly counterpartyLabel = computed(() =>
     TYPE_DIRECTION[this.values().type] === 'income' ? 'De quién lo recibiste' : 'A quién le pagaste',
@@ -379,6 +384,7 @@ export class TransactionForm {
       this.saved.emit('Movimiento registrado.');
     } catch (error) {
       this.failure.set(friendlyError(error, 'No pudimos registrar el movimiento. Inténtalo de nuevo.'));
+      void this.workspace.afterRefusal(error);
       if (isRefusal(error)) this.refused.emit();
     } finally {
       this.saving.set(false);

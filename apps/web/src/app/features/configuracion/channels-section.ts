@@ -6,7 +6,7 @@ import type { ChannelRecord } from './configuracion.models';
 import { errorOf, maxDecimals, requiredText } from '../../core/form-errors';
 import { friendlyError } from '../../core/friendly-error';
 import { SECTION_STYLES } from '../../core/styles';
-import { isOwnerRole } from '../../core/workspace';
+import { CurrentWorkspace } from '../../core/workspace';
 
 const PERCENT_SCALE = 100;
 const MAX_PERCENT = 99.99;
@@ -128,7 +128,9 @@ export class ChannelsSection {
   );
   protected readonly loading = signal(true);
   protected readonly loadError = signal<string | null>(null);
-  protected readonly canEdit = signal(false);
+  private readonly workspace = inject(CurrentWorkspace);
+  /** Configuration is the owner's (ADR-025); anyone else reads it. Read from `CurrentWorkspace`, the one place that reads the role. */
+  protected readonly canEdit = this.workspace.isOwner;
   protected readonly formOpen = signal(false);
   protected readonly editing = signal<ChannelRecord | null>(null);
   protected readonly saving = signal(false);
@@ -196,7 +198,7 @@ export class ChannelsSection {
       await this.reload();
     } catch (error) {
       this.error.set(friendlyError(error, 'No pudimos guardar el canal.'));
-      if (await this.data.afterRefusal(error)) {
+      if (await this.workspace.afterRefusal(error)) {
         this.formOpen.set(false);
         this.listError.set(this.error());
         await this.reload();
@@ -218,7 +220,7 @@ export class ChannelsSection {
       await this.reload();
     } catch (error) {
       this.listError.set(friendlyError(error, 'No pudimos cambiar el canal por defecto.'));
-      if (await this.data.afterRefusal(error)) await this.reload();
+      if (await this.workspace.afterRefusal(error)) await this.reload();
     } finally {
       this.saving.set(false);
     }
@@ -226,14 +228,13 @@ export class ChannelsSection {
 
   private async reload(): Promise<void> {
     try {
-      const [channels, defaultId, role] = await Promise.all([
+      const [channels, defaultId] = await Promise.all([
         this.data.channels(),
         this.data.defaultChannel(),
-        this.data.currentRole(),
+        this.workspace.info(),
       ]);
       this.channels.set(channels);
       this.defaultId.set(defaultId);
-      this.canEdit.set(isOwnerRole(role));
       this.loadError.set(null);
     } catch (error) {
       this.loadError.set(friendlyError(error, 'No pudimos cargar los canales de venta.'));

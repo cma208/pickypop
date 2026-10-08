@@ -1,8 +1,10 @@
 import type { Database } from '../../core/database.types';
+import type { MemberRole } from '../../core/workspace';
 import type { BadgeTone } from '../../ui';
 
 export type TaxRegime = Database['public']['Enums']['tax_regime'];
-export type MemberRole = Database['public']['Enums']['member_role'];
+/** The one definition is core's (`CurrentWorkspace`); re-exported for the members screen. */
+export type { MemberRole };
 export type Valuation = Database['public']['Enums']['material_valuation'];
 export type GiftTreatment = Database['public']['Enums']['gift_treatment'];
 
@@ -204,6 +206,11 @@ export interface CategoryRecord {
   active: boolean;
   /** A category of sales: collections of orders and the quick sale use it, a loose income in Caja cannot. Income only. */
   sales: boolean;
+  /**
+   * A category of capital: only the owner's contributions (income) and draws
+   * (expense) use it, and they only use these. Never one of sales.
+   */
+  capital: boolean;
 }
 
 export type CategoryDraft = Omit<CategoryRecord, 'id'>;

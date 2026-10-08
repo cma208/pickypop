@@ -1,5 +1,5 @@
 import type { PlanDemandPlan } from '@pickypop/domain';
-import { inputToIso, todayLocal } from '../../core/dates';
+import { inputToIso } from '../../core/dates';
 import { roundMoney, sumMoney } from '../../core/pricing';
 import type { LineKind } from './pedidos.labels';
 
@@ -101,15 +101,6 @@ export function deliveryConfirmation(
     );
   }
   return [...parts, 'Esto no se puede deshacer.'].join(' ');
-}
-
-/**
- * A delivery takes stock out, and stock does not move on a day that has not
- * come: «Entregado el» accepts today or before. The database refuses the
- * same. Compared as "YYYY-MM-DD" in the workshop's day.
- */
-export function notAfterToday(control: { value: string }, today: string = todayLocal()): { future: true } | null {
-  return control.value && control.value > today ? { future: true } : null;
 }
 
 /**

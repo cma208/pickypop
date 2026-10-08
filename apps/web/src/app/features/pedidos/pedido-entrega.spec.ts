@@ -5,6 +5,7 @@ import { UserFacingError } from '../../core/friendly-error';
 import { PlanService } from '../../core/plan';
 import { PedidoEntrega } from './pedido-entrega';
 import { PedidosData, type NewDelivery, type OrderLine } from './pedidos.data';
+import { workspaceAs } from '../../core/workspace.testing';
 
 function line(pending: number): OrderLine {
   return {
@@ -43,6 +44,7 @@ async function open(pending = 3, recorded: Recorded = false): Promise<Opened> {
   TestBed.configureTestingModule({
     providers: [
       provideRouter([]),
+      workspaceAs('operator'),
       // The plan cannot say what is ready: the form starts empty and the person types.
       { provide: PlanService, useValue: { version: signal(0), current: () => Promise.reject(new Error('sin plan')) } },
       {

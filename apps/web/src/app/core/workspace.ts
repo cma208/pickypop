@@ -21,6 +21,12 @@ export function canOperateRole(role: MemberRole | null | undefined): boolean {
   return role === 'owner' || role === 'operator';
 }
 
+/**
+ * What a screen says to a member who only reads («Solo lectura»), instead of
+ * the forms and buttons it does not offer them (ADR-025).
+ */
+export const READ_ONLY_NOTE = 'Tu rol en el taller es de solo lectura: ves todo, pero no registras ni cambias nada.';
+
 export interface WorkspaceInfo {
   id: string;
   name: string;
@@ -45,6 +51,12 @@ export class CurrentWorkspace {
   readonly name = signal<string | null>(null);
   readonly taxRegime = signal<TaxRegime | null>(null);
   readonly role = signal<MemberRole | null>(null);
+  /**
+   * Whether the role has been read. Until then nothing is offered (no role
+   * may write) and nothing is explained either: «solo lectura» flashing on
+   * every screen of the owner would read as a fault.
+   */
+  readonly roleKnown = signal(false);
   /** The configuration and voiding money: owner only. */
   readonly isOwner = computed(() => isOwnerRole(this.role()));
   /** The day to day: owner or operator. */
@@ -74,6 +86,7 @@ export class CurrentWorkspace {
     this.name.set(null);
     this.taxRegime.set(null);
     this.role.set(null);
+    this.roleKnown.set(false);
   }
 
   /**
@@ -128,6 +141,7 @@ export class CurrentWorkspace {
     this.name.set(data.name);
     this.taxRegime.set(data.tax_regime);
     this.role.set(role);
+    this.roleKnown.set(true);
 
     return { id: data.id, name: data.name, taxRegime: data.tax_regime, role, userId };
   }

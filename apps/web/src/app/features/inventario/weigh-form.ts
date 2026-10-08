@@ -7,6 +7,7 @@ import { InventarioData, type SpoolSummary, type WeighingResult } from './invent
 import { describeError } from './inventario.errors';
 import { INVENTORY_PIPES, signedQuantity } from './inventario.format';
 import { INVENTORY_STYLES } from './inventario.styles';
+import { CurrentWorkspace } from '../../core/workspace';
 
 const WEIGHT_PRECISION = 1000;
 /** A 1 kg roll with its spool weighs about 1.2 kg: the database refuses past this, as a typo. */
@@ -126,6 +127,7 @@ const MAX_WEIGHT_G = 100_000;
 })
 export class WeighForm {
   private readonly data = inject(InventarioData);
+  private readonly workspace = inject(CurrentWorkspace);
   private readonly fb = inject(NonNullableFormBuilder);
 
   readonly spool = input.required<SpoolSummary>();
@@ -205,6 +207,7 @@ export class WeighForm {
       });
       this.saved.emit(result);
     } catch (error) {
+      void this.workspace.afterRefusal(error);
       this.error.set(describeError(error, 'No pudimos registrar el pesaje. Inténtalo de nuevo.'));
       this.refused.emit();
     } finally {

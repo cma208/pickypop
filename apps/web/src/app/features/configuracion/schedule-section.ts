@@ -5,7 +5,7 @@ import { AsyncState, Card, Field } from '../../ui';
 import { friendlyError } from '../../core/friendly-error';
 import { SECTION_STYLES } from '../../core/styles';
 import { ConfiguracionData } from './configuracion.data';
-import { isOwnerRole } from '../../core/workspace';
+import { CurrentWorkspace } from '../../core/workspace';
 import {
   MAX_CHANGEOVER_MINUTES,
   MIN_CHANGEOVER_SAMPLES,
@@ -96,7 +96,9 @@ export class ScheduleSection {
   protected readonly saving = signal(false);
   protected readonly saved = signal(false);
   protected readonly error = signal<string | null>(null);
-  protected readonly canEdit = signal(false);
+  private readonly workspace = inject(CurrentWorkspace);
+  /** Configuration is the owner's (ADR-025); anyone else reads it. Read from `CurrentWorkspace`, the one place that reads the role. */
+  protected readonly canEdit = this.workspace.isOwner;
   private readonly measured = signal<{ minutes: number | null; samples: number }>({ minutes: null, samples: 0 });
 
   protected readonly form = new FormGroup({
@@ -144,7 +146,7 @@ export class ScheduleSection {
       this.form.markAsPristine();
     } catch (error) {
       this.error.set(friendlyError(error, 'No pudimos guardar el horario.'));
-      if (await this.data.afterRefusal(error)) await this.load();
+      if (await this.workspace.afterRefusal(error)) await this.load();
     } finally {
       this.saving.set(false);
     }
@@ -152,12 +154,11 @@ export class ScheduleSection {
 
   private async load(): Promise<void> {
     try {
-      const [schedule, role] = await Promise.all([this.data.schedule(), this.data.currentRole()]);
+      const [schedule] = await Promise.all([this.data.schedule(), this.workspace.info()]);
       const { measuredMinutes, samples, ...draft } = schedule;
       this.form.setValue(draft);
       this.measured.set({ minutes: measuredMinutes, samples });
-      this.canEdit.set(isOwnerRole(role));
-      if (isOwnerRole(role)) this.form.enable();
+      if (this.canEdit()) this.form.enable();
       else this.form.disable();
     } catch (error) {
       this.loadError.set(friendlyError(error, 'No pudimos cargar el horario.'));

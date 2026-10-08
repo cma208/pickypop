@@ -1,9 +1,10 @@
 import { inject, Injectable } from '@angular/core';
 import type { PostgrestError } from '@supabase/supabase-js';
 import { todayLocal } from '../../core/dates';
+import { friendlyError } from '../../core/friendly-error';
 import { fetchAll } from '../../core/fetch-all';
 import { SUPABASE } from '../../core/supabase';
-import { CurrentWorkspace } from '../../core/workspace';
+import { CurrentWorkspace, isOwnerRole } from '../../core/workspace';
 import { Media } from '../../core/media';
 import type { CostProfile, PrinterProfile } from '../../core/pricing';
 import type { Json } from '../../core/database.types';
@@ -40,12 +41,6 @@ const GRAMS_PER_KG = 1000;
 const LEARNED_PLATES_LIMIT = 500;
 
 const PG_UNIQUE = '23505';
-const PG_RAISED = 'P0001';
-const PG_FOREIGN_KEY = '23503';
-const PG_CHECK = '23514';
-const PG_NOT_ALLOWED = '42501';
-/** «2.5» for an integer column, and a number past what the column holds. */
-const PG_BAD_NUMBER = ['22P02', '22003'];
 
 /**
  * The unique rules of the catalogue whose clash a person can act on, by the
@@ -68,30 +63,20 @@ const DUPLICATES: Record<string, string> = {
  */
 const GONE = 'Eso ya no está: lo quitaron o lo cambiaron en otra pestaña. Recarga la página.';
 
-/** Turns a database error into a message a person can act on. */
+/**
+ * Turns a database error into a message a person can act on. Only the
+ * repeated names are the catalogue's own; the rest is said as everywhere
+ * else (`friendlyError`): a `raise exception` word for word, a permission,
+ * a number too large with how large it may be, the network. The error goes
+ * along as the cause, so a screen can tell a refusal of the role.
+ */
 function fail(error: PostgrestError, fallback: string, duplicate?: string): never {
-  // A `raise exception` was written for a person and knows the case better
-  // than any rule here: it travels as it is (AGENTS.md).
-  if (error.code === PG_RAISED && error.message.trim() !== '') throw new CatalogoError(error.message);
   if (error.code === PG_UNIQUE) {
     const known = Object.keys(DUPLICATES).find((name) => error.message.includes(`"${name}"`));
-    if (known) throw new CatalogoError(DUPLICATES[known]!);
-    if (duplicate) throw new CatalogoError(duplicate);
+    if (known) throw new CatalogoError(DUPLICATES[known]!, { cause: error });
+    if (duplicate) throw new CatalogoError(duplicate, { cause: error });
   }
-  if (PG_BAD_NUMBER.includes(error.code)) {
-    throw new CatalogoError('Alguno de los números no es válido o es demasiado grande.');
-  }
-  if (error.code === PG_FOREIGN_KEY) {
-    throw new CatalogoError('No se puede hacer porque otra parte del sistema depende de esto.');
-  }
-  if (error.code === PG_CHECK) throw new CatalogoError('Alguno de los valores no es válido.');
-  if (error.code === PG_NOT_ALLOWED) {
-    throw new CatalogoError('No tienes permiso para hacer esto.');
-  }
-  if (/fetch|network/i.test(error.message)) {
-    throw new CatalogoError('No hay conexión con el servidor. Revisa tu internet.');
-  }
-  throw new CatalogoError(fallback);
+  throw new CatalogoError(friendlyError(error, fallback), { cause: error });
 }
 
 function toPairs(json: Json | undefined): Pair[] {
@@ -767,12 +752,14 @@ export class CatalogoData {
 
   /**
    * A delete that took nothing. For anyone but the owner that is the policy
-   * saying no; for the owner, the row was already gone.
+   * saying no; for the owner, the row was already gone. The role is read
+   * again, not taken from this tab: it may have changed in another one, and
+   * the screen stops offering what was refused.
    */
   private async removed(rows: unknown[] | null, ownerOnly: string): Promise<void> {
     if (rows && rows.length > 0) return;
-    const { role } = await this.workspace.info();
-    throw new CatalogoError(role === 'owner' ? GONE : ownerOnly);
+    const { role } = await this.workspace.refresh();
+    throw new CatalogoError(isOwnerRole(role) ? GONE : ownerOnly);
   }
 
   // -------------------------------------------------------- costing sources

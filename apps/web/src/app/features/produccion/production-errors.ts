@@ -14,8 +14,15 @@ const NO_PRIVILEGE = '42501';
 export const OUT_OF_SYNC_MESSAGE =
   'La aplicación y la base de datos no están en la misma versión: recarga la página. Si sigue igual, avísale al dueño, que falta publicar una parte de la actualización. No se movió nada.';
 
+/**
+ * Said as a possibility, not a fact: the screen reads the role again on its
+ * own (`afterRefusal`) and stops offering what a new role cannot do, but the
+ * same 42501 comes when the hosted project lacks the right to run a function
+ * (a migration half published), and then the role did not change and the
+ * button stays.
+ */
 export const NO_PRIVILEGE_MESSAGE =
-  'No tienes permiso para hacer esto. Si tu rol en el taller cambió, recarga la página para ver lo que puedes hacer.';
+  'No tienes permiso para hacer esto. Si tu rol en el taller cambió, la pantalla ya muestra lo que puedes hacer; si te lo sigue ofreciendo, avísale al dueño: puede faltar publicar una parte de la actualización.';
 
 /**
  * What production, assembly and the shelf count say before the general

@@ -10,7 +10,6 @@ import {
   deliveredAtFor,
   deliversEverything,
   deliveryPayload,
-  notAfterToday,
   partialDeliveries,
   quantityProblem,
   unitsLeaving,
@@ -163,14 +162,6 @@ describe('deliveryConfirmation', () => {
     expect(deliveryConfirmation([{ quantity: 2, kind: 'custom', printed: true }])).toBe(
       'Se entregan 2 unidades hechas para este pedido. Esto no se puede deshacer.',
     );
-  });
-});
-
-describe('notAfterToday', () => {
-  it('takes today or before, never a day that has not come', () => {
-    expect(notAfterToday({ value: '2026-10-08' }, '2026-10-08')).toBeNull();
-    expect(notAfterToday({ value: '2026-10-01' }, '2026-10-08')).toBeNull();
-    expect(notAfterToday({ value: '2026-10-09' }, '2026-10-08')).toEqual({ future: true });
   });
 });
 

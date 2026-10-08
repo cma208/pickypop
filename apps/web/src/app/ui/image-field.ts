@@ -25,18 +25,20 @@ import { Thumb } from './thumb';
   template: `
     <div class="box">
       <pp-thumb size="bed" [path]="path()" [name]="name()" [kind]="kind()" />
-      <div class="side">
-        <label class="pick button secondary">
-          <input type="file" accept="image/*" (change)="choose($event)" [disabled]="busy()" />
-          {{ path() ? 'Cambiar foto' : 'Subir foto' }}
-        </label>
-        @if (path() && !busy()) {
-          <button type="button" class="ghost" (click)="clear()">Quitar</button>
-        }
-        @if (busy()) { <span class="muted">Subiendo…</span> }
-        @if (error(); as message) { <span class="error">{{ message }}</span> }
-        <span class="muted hint">Se achica sola antes de subir.</span>
-      </div>
+      @if (!readOnly()) {
+        <div class="side">
+          <label class="pick button secondary">
+            <input type="file" accept="image/*" (change)="choose($event)" [disabled]="busy()" />
+            {{ path() ? 'Cambiar foto' : 'Subir foto' }}
+          </label>
+          @if (path() && !busy()) {
+            <button type="button" class="ghost" (click)="clear()">Quitar</button>
+          }
+          @if (busy()) { <span class="muted">Subiendo…</span> }
+          @if (error(); as message) { <span class="error">{{ message }}</span> }
+          <span class="muted hint">Se achica sola antes de subir.</span>
+        </div>
+      }
     </div>
   `,
   styles: [
@@ -57,6 +59,8 @@ export class ImageField {
   readonly folder = input.required<MediaFolder>();
   /** The icon shown while there is no picture. */
   readonly kind = input<ArticleKind | null>(null);
+  /** Only the picture, for someone who may not change it (ADR-025). */
+  readonly readOnly = input(false, { transform: booleanAttribute });
   /** Off for forms that can still be cancelled; see the class comment. */
   readonly removesPrevious = input(true, { transform: booleanAttribute });
 

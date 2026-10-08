@@ -12,6 +12,7 @@ import {
   type RegisteredPurchase,
   type SkuSummary,
 } from './inventario.data';
+import { workspaceAs } from '../../core/workspace.testing';
 
 const SKU: SkuSummary = {
   id: 'sku-1',
@@ -73,6 +74,7 @@ function open(answers: Array<object | null | Promise<object | null>>, options: {
   TestBed.configureTestingModule({
     providers: [
       provideRouter([]),
+      workspaceAs(options.isOwner ? 'owner' : 'operator'),
       { provide: Media, useValue: { url: async () => null, version: signal(0) } },
       { provide: ArticlePhotos, useValue: { resolve: async () => ({ path: null, kind: 'spool' }) } },
       { provide: FinanzasData, useValue: { paymentCategories: async () => ({ order: null, purchase: null }) } },
@@ -94,7 +96,6 @@ function open(answers: Array<object | null | Promise<object | null>>, options: {
   fixture.componentRef.setInput('itemOptions', []);
   fixture.componentRef.setInput('supplierOptions', []);
   fixture.componentRef.setInput('accountOptions', options.accounts ?? [CASH]);
-  fixture.componentRef.setInput('isOwner', options.isOwner ?? false);
   const outcome = { saved: 0, refused: 0 };
   fixture.componentInstance.saved.subscribe(() => outcome.saved++);
   fixture.componentInstance.refused.subscribe(() => outcome.refused++);

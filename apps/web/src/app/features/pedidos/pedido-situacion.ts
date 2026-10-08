@@ -17,6 +17,7 @@ import {
   type QueuePlace,
   type ReadyChange,
 } from './pedido-fila';
+import { CurrentWorkspace } from '../../core/workspace';
 
 interface PriorityChange {
   passedLabel: string;
@@ -77,7 +78,7 @@ const NAMED_AHEAD = 3;
             }
           </p>
 
-          @if (p.ahead.length > 0 && !passing()) {
+          @if (canOperate() && p.ahead.length > 0 && !passing()) {
             <button type="button" class="secondary" (click)="startPassing(p)">Pasar adelante</button>
           }
 
@@ -163,6 +164,9 @@ const NAMED_AHEAD = 3;
 })
 export class PedidoSituacion {
   private readonly planner = inject(PlanService);
+  private readonly workspace = inject(CurrentWorkspace);
+  /** Owner and operator sell, deliver and collect; a viewer only reads (ADR-025). */
+  protected readonly canOperate = this.workspace.canOperate;
   private readonly supabase = inject(SUPABASE);
 
   readonly orderId = input.required<string>();
@@ -262,6 +266,7 @@ export class PedidoSituacion {
       this.changed.emit();
     } catch (error) {
       this.error.set(friendlyError(error, 'No pudimos cambiar el lugar del pedido.'));
+      void this.workspace.afterRefusal(error);
     } finally {
       this.busy.set(false);
     }

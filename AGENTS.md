@@ -50,8 +50,9 @@ Está **en producción** desde el 2026-10-05, con datos reales entrando. Las pan
 - **Código, identificadores y comentarios en inglés. Todo lo que ve el usuario, en español.** La documentación también en español.
 - Los comentarios explican **por qué**, no qué. Si el comentario repite la línea, sobra. Mira `packages/domain/src/cost.ts`, que es el mejor ejemplo del repositorio.
 - Angular 22: componentes standalone, sin zone.js, signals, `input()`, formularios reactivos. Componentes compartidos en `ui/` (`pp-page`, `pp-card`, `pp-badge`, `pp-async`, `pp-empty`, `pp-field`); no inventes otros si ya hay uno.
-- El taller actual se pide a `CurrentWorkspace` (`core/workspace.ts`). Nunca consultes la tabla `workspaces` por tu cuenta.
-- Los errores de base se traducen con `friendlyError` (`core/friendly-error.ts`). Cuando la base lanza un mensaje escrito para una persona —como el de sobrepago de `record_payment`— se muestra **tal cual**.
+- El taller actual se pide a `CurrentWorkspace` (`core/workspace.ts`). Nunca consultes la tabla `workspaces` por tu cuenta. El rol también: `isOwner` y `canOperate`, sin copias por área. «Solo lectura» no ve formularios ni botones de escribir (`@if (canOperate())`, `lockWhileReadOnly` para lo que ya existe).
+- Se valida con `core/form-errors.ts` (`requiredText`, `wholeNumber`, `maxDecimals`, `notInFuture`), y cada mensaje lee la clave que dan: `required`, `integer`, `decimals` (el número permitido), `future`. Una copia por área con otra clave ya mostró «Hasta undefined decimales».
+- Los errores de base se traducen con `friendlyError` (`core/friendly-error.ts`). Un traductor de área (`explainError`, el `fail` del catálogo) conserva solo sus reglas propias y le pasa el resto. Cuando la base lanza un mensaje escrito para una persona —como el de sobrepago de `record_payment`— se muestra **tal cual**.
 - Las listas largas se paginan con `fetchAll` (`core/fetch-all.ts`): PostgREST corta en 1000 filas y trunca sin avisar.
 - **Git siempre.** Rama por trabajo, commits con mensaje que explique el porqué. No se commitea nada sin que lo pida el dueño.
 

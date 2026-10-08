@@ -6,7 +6,7 @@ import type { BrandRecord } from './configuracion.models';
 import { errorOf, requiredText } from '../../core/form-errors';
 import { friendlyError } from '../../core/friendly-error';
 import { SECTION_STYLES } from '../../core/styles';
-import { canOperateRole } from '../../core/workspace';
+import { CurrentWorkspace } from '../../core/workspace';
 
 /**
  * Filament brands. They are deactivated, never deleted: a SKU may still point at one.
@@ -88,7 +88,9 @@ export class BrandsSection {
   protected readonly brands = signal<BrandRecord[]>([]);
   protected readonly loading = signal(true);
   protected readonly loadError = signal<string | null>(null);
-  protected readonly canEdit = signal(false);
+  private readonly workspace = inject(CurrentWorkspace);
+  /** Owner and operator keep these lists (ADR-025); a viewer reads them. Read from `CurrentWorkspace`, the one place that reads the role. */
+  protected readonly canEdit = this.workspace.canOperate;
   protected readonly formOpen = signal(false);
   protected readonly editing = signal<BrandRecord | null>(null);
   protected readonly saving = signal(false);
@@ -132,7 +134,7 @@ export class BrandsSection {
       await this.reload();
     } catch (error) {
       this.error.set(friendlyError(error, 'No pudimos guardar la marca.'));
-      if (await this.data.afterRefusal(error)) {
+      if (await this.workspace.afterRefusal(error)) {
         this.formOpen.set(false);
         this.listError.set(this.error());
         await this.reload();
@@ -153,7 +155,7 @@ export class BrandsSection {
       await this.reload();
     } catch (error) {
       this.listError.set(friendlyError(error, 'No pudimos cambiar el estado de la marca.'));
-      if (await this.data.afterRefusal(error)) await this.reload();
+      if (await this.workspace.afterRefusal(error)) await this.reload();
     } finally {
       this.saving.set(false);
     }
@@ -161,9 +163,8 @@ export class BrandsSection {
 
   private async reload(): Promise<void> {
     try {
-      const [brands, role] = await Promise.all([this.data.brands(), this.data.currentRole()]);
+      const [brands] = await Promise.all([this.data.brands(), this.workspace.info()]);
       this.brands.set(brands);
-      this.canEdit.set(canOperateRole(role));
       this.loadError.set(null);
     } catch (error) {
       this.loadError.set(friendlyError(error, 'No pudimos cargar las marcas.'));

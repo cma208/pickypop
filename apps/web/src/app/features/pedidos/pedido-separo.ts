@@ -32,7 +32,9 @@ interface HoldState {
           </p>
         }
 
-        @if (editing()) {
+        @if (!canOperate()) {
+          <!-- Changing the hold is writing: a viewer only reads it (ADR-025). -->
+        } @else if (editing()) {
           <div class="row">
             <label>
               Separar hasta
@@ -80,6 +82,8 @@ interface HoldState {
 export class PedidoSeparo {
   private readonly supabase = inject(SUPABASE);
   private readonly workspace = inject(CurrentWorkspace);
+  /** Owner and operator sell, deliver and collect; a viewer only reads (ADR-025). */
+  protected readonly canOperate = this.workspace.canOperate;
 
   readonly orderId = input.required<string>();
   /** The hold changed: the page reloads, because who goes first changed too. */
@@ -142,6 +146,7 @@ export class PedidoSeparo {
       this.changed.emit();
     } catch (error) {
       this.error.set(friendlyError(error, 'No pudimos cambiar el separo.'));
+      void this.workspace.afterRefusal(error);
     } finally {
       this.busy.set(false);
     }

@@ -6,7 +6,7 @@ import { Media } from '../../core/media';
 import { PlanService } from '../../core/plan';
 import { PrintJobCard } from './print-job-card';
 import { ProduccionData, type JobItem } from './produccion.data';
-import { ProductionAccess } from './production-access';
+import { workspaceAs } from '../../core/workspace.testing';
 
 /** Queued with its roll, ready for «Iniciar». */
 const PLANNED: JobItem = {
@@ -55,7 +55,7 @@ function open(job: JobItem, canOperate: boolean) {
       provideRouter([]),
       { provide: ProduccionData, useValue: { startJob } },
       { provide: PlanService, useValue: { invalidate: () => undefined } },
-      { provide: ProductionAccess, useValue: { canOperate: signal(canOperate) } },
+      workspaceAs(canOperate ? 'operator' : 'viewer'),
       { provide: Media, useValue: { url: async () => null, version: signal(0) } },
       { provide: ArticlePhotos, useValue: { resolve: async () => ({ path: null, kind: 'part' }) } },
     ],

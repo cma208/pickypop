@@ -6,6 +6,7 @@ import { countOf, messageOf } from './catalogo.util';
 import { newPartsToCreate, type ImportDraft, type ImportOutcome } from './importacion';
 import { confirmedFilaments, confirmedOutputs, ImportarPlaca, plateDraftGroup, type PlateDraftGroup } from './importar-placa';
 import type { PartOption } from './salida-fila';
+import { CurrentWorkspace } from '../../core/workspace';
 
 /**
  * The step between reading a sliced file and saving its plates: the person
@@ -64,6 +65,7 @@ import type { PartOption } from './salida-fila';
 })
 export class ImportarPlacas {
   private readonly data = inject(CatalogoData);
+  private readonly workspace = inject(CurrentWorkspace);
 
   readonly recipeId = input.required<string>();
   readonly firstIndex = input.required<number>();
@@ -170,6 +172,7 @@ export class ImportarPlacas {
       });
     } catch (error) {
       this.error.set(messageOf(error, 'No pudimos guardar las placas.'));
+      void this.workspace.afterRefusal(error);
     } finally {
       this.busy.set(false);
     }

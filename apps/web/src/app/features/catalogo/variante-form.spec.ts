@@ -5,7 +5,8 @@ import { ArticlePhotos } from '../../core/article-photos';
 import { Media } from '../../core/media';
 import { CatalogoData } from './catalogo.data';
 import type { Variant, VariantUsage } from './catalogo.models';
-import { CatalogoPermissions } from './catalogo.permissions';
+import { CurrentWorkspace } from '../../core/workspace';
+import { fakeWorkspace, workspaceAs } from '../../core/workspace.testing';
 import { VarianteForm } from './variante-form';
 
 const VARIANT: Variant = {
@@ -30,7 +31,7 @@ async function open(options: { usage: VariantUsage; owner?: boolean; data?: obje
   TestBed.configureTestingModule({
     providers: [
       { provide: CatalogoData, useValue: data },
-      { provide: CatalogoPermissions, useValue: { isOwner: signal(options.owner ?? true) } },
+      workspaceAs((options.owner ?? true) ? 'owner' : 'operator'),
       { provide: Media, useValue: { url: async () => null, version: signal(0) } },
       { provide: ArticlePhotos, useValue: { resolve: async () => ({ path: null, kind: 'product' }) } },
     ],
@@ -129,7 +130,7 @@ describe('VarianteForm, switching off a variant with orders still to deliver', (
     const { fixture, data } = await open({ usage: usage(2, 0, 0, { openQuotes: 1 }) });
     const ask = vi.spyOn(window, 'confirm').mockReturnValue(false);
 
-    expect(text(fixture.nativeElement)).toContain('una versión nueva de ella la cotizaría por costo, sin su precio de lista');
+    expect(text(fixture.nativeElement)).toContain('una versión nueva de ella la sigue cotizando a su precio de lista');
     button(fixture, 'Desactivar variante')!.click();
     await fixture.whenStable();
 
@@ -197,5 +198,36 @@ describe('VarianteForm, what cannot be saved', () => {
     fixture.detectChanges();
     expect(text(fixture.nativeElement)).toContain('En soles, con hasta 2 decimales.');
     expect(data.updateVariant).not.toHaveBeenCalled();
+  });
+});
+
+describe('VarianteForm, filled before the role is read', () => {
+  it('still points at a list price of zero saved before the rule, once the form unlocks', async () => {
+    // Reloaded on a phone: the variant can arrive before the role, while the form is still locked.
+    const workspace = fakeWorkspace(null);
+    workspace.roleKnown.set(false);
+    TestBed.configureTestingModule({
+      providers: [
+        { provide: CatalogoData, useValue: { variantUsage: vi.fn(async () => usage(0, 0, 0)) } },
+        { provide: CurrentWorkspace, useValue: workspace },
+        { provide: Media, useValue: { url: async () => null, version: signal(0) } },
+        { provide: ArticlePhotos, useValue: { resolve: async () => ({ path: null, kind: 'product' }) } },
+      ],
+    });
+    const fixture = TestBed.createComponent(VarianteForm);
+    fixture.componentRef.setInput('productId', 'product-1');
+    fixture.componentRef.setInput('variant', { ...VARIANT, listPrice: 0 });
+    fixture.componentRef.setInput('siblings', [VARIANT]);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(text(fixture.nativeElement)).not.toContain('Tiene que ser mayor que cero');
+
+    workspace.role.set('owner');
+    workspace.roleKnown.set(true);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(text(fixture.nativeElement)).toContain('Tiene que ser mayor que cero. Si todavía no tiene precio, déjalo vacío.');
   });
 });

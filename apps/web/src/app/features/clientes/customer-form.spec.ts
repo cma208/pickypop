@@ -102,7 +102,17 @@ describe('CustomerForm', () => {
     submit(fixture);
 
     expect(saves).toEqual([]);
-    expect(text(fixture)).toContain('solo espacios no cuenta');
+    expect(text(fixture)).toContain('Escribe el nombre del cliente.');
+  });
+
+  it('says the same to an empty name, without talking of spaces nobody typed', async () => {
+    const { fixture, saves } = await open();
+
+    submit(fixture);
+
+    expect(saves).toEqual([]);
+    expect(text(fixture)).toContain('Escribe el nombre del cliente.');
+    expect(text(fixture)).not.toContain('solo espacios');
   });
 
   it('saves once for a double click', async () => {

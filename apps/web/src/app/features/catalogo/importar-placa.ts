@@ -5,7 +5,8 @@ import { borrowedPhoto } from '../../core/article-photos';
 import { FORMAT_PIPES, ItemPicker, type PickerOption } from '../../ui';
 import type { DraftFilament, ImportedFilament, MaterialOption, PlateOutputInput, SkuOption } from './catalogo.models';
 import { countOf, joinWithAnd } from './catalogo.util';
-import { DECIMALS, LIMITS, maxDecimals, wholeNumber } from './catalogo.validators';
+import { maxDecimals, wholeNumber } from '../../core/form-errors';
+import { DECIMALS, LIMITS } from './catalogo.validators';
 import { SHARED_STYLES } from './catalogo.styles';
 import {
   describeObjects,
@@ -262,7 +263,7 @@ export class ImportarPlaca implements OnInit {
   protected readonly problem = computed(() => {
     this.revision();
     const rows = this.objects().controls;
-    if (rows.some((row) => row.controls.units.hasError('whole'))) {
+    if (rows.some((row) => row.controls.units.hasError('integer'))) {
       return 'Las piezas salen enteras: escribe cuántas salen por corrida, sin decimales.';
     }
     if (rows.some((row) => row.controls.units.invalid)) {

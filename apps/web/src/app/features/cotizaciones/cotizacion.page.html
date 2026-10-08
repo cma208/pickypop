@@ -70,7 +70,7 @@
 
       @if (accepting() && canAccept()) {
         <app-cotizacion-aceptar [quote]="q" (cancelled)="accepting.set(false)" (stale)="onStale($event)" />
-      } @else if (holdCard(); as card) {
+      } @else if (holdState(); as card) {
         <app-cotizacion-separo
           [quoteId]="q.id"
           [status]="q.status"

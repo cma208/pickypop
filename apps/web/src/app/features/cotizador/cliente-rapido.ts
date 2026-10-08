@@ -1,11 +1,12 @@
 import { Component, computed, inject, input, output, signal } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { errorOf, textOrNull } from '../../core/form-errors';
+import { errorOf, requiredText, textOrNull } from '../../core/form-errors';
 import { friendlyError } from '../../core/friendly-error';
 import { Field } from '../../ui';
 import { ClientesData } from '../clientes/clientes.data';
-import { isWalkInName, NOT_BLANK, sameName, WALK_IN_NAME } from '../clientes/customer-match';
+import { isWalkInName, sameName, WALK_IN_NAME } from '../clientes/customer-match';
+import { CurrentWorkspace } from '../../core/workspace';
 
 /** The customer picker's own option that opens «Nuevo cliente» instead of choosing one. */
 export const NEW_CUSTOMER = '__nuevo__';
@@ -87,6 +88,7 @@ export function watchNewCustomerOption(control: FormControl<string>, open: () =>
 })
 export class ClienteRapido {
   private readonly data = inject(ClientesData);
+  private readonly workspace = inject(CurrentWorkspace);
 
   /** Who is already in the list, to recognise the name being typed. */
   readonly customers = input<readonly QuickCustomer[]>([]);
@@ -105,7 +107,7 @@ export class ClienteRapido {
   protected readonly form = new FormGroup({
     name: new FormControl('', {
       nonNullable: true,
-      validators: [Validators.required, Validators.pattern(NOT_BLANK), Validators.maxLength(200)],
+      validators: [requiredText, Validators.maxLength(200)],
     }),
     phone: new FormControl('', { nonNullable: true }),
   });
@@ -118,7 +120,6 @@ export class ClienteRapido {
   protected nameError(): string | null {
     return errorOf(this.form.controls.name, {
       required: 'Escribe el nombre del cliente.',
-      pattern: 'Escribe el nombre del cliente: solo espacios no cuenta.',
       maxlength: 'El nombre es demasiado largo.',
     });
   }
@@ -143,6 +144,7 @@ export class ClienteRapido {
       this.form.reset();
     } catch (cause) {
       this.failed.set(friendlyError(cause, 'No pudimos crear el cliente. Inténtalo de nuevo.'));
+      void this.workspace.afterRefusal(cause);
     } finally {
       this.busy.set(false);
     }

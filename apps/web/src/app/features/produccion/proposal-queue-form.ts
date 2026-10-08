@@ -1,6 +1,7 @@
 import { Component, computed, inject, input, OnInit, output, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { wholeNumber } from '../../core/form-errors';
 import type { PlanProposal } from '@pickypop/domain';
 import type { PlanView } from '../../core/plan';
 import { Field } from '../../ui';
@@ -8,6 +9,7 @@ import { explainProductionError } from './production-errors';
 import { clampRuns, runsToQueue, type RunToQueue } from './por-lanzar';
 import { ProduccionData } from './produccion.data';
 import { requestKey, type SentRequest } from './request-key';
+import { CurrentWorkspace } from '../../core/workspace';
 
 /** What was queued, so the list can say it back. */
 export interface QueuedRuns {
@@ -58,6 +60,7 @@ export interface QueuedRuns {
 })
 export class ProposalQueueForm implements OnInit {
   private readonly data = inject(ProduccionData);
+  private readonly workspace = inject(CurrentWorkspace);
 
   readonly proposal = input.required<PlanProposal>();
   readonly view = input.required<PlanView>();
@@ -66,7 +69,7 @@ export class ProposalQueueForm implements OnInit {
 
   protected readonly form = new FormGroup({
     printerId: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
-    count: new FormControl<number | null>(null, [Validators.required, Validators.min(1), Validators.pattern(/^\d+$/)]),
+    count: new FormControl<number | null>(null, [Validators.required, Validators.min(1), wholeNumber]),
   });
 
   protected readonly saving = signal(false);
@@ -123,6 +126,7 @@ export class ProposalQueueForm implements OnInit {
       this.queued.emit({ label: proposal.label, runs: count, printerName });
     } catch (error) {
       this.error.set(explainProductionError(error, 'No pudimos poner las corridas en cola. Inténtalo de nuevo.'));
+      void this.workspace.afterRefusal(error);
     } finally {
       this.saving.set(false);
     }

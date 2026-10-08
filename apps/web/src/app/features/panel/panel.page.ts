@@ -7,8 +7,9 @@ import { PanelData, type WeekPrints } from './panel.data';
 import type { TaskUrgency } from './panel.tasks';
 import { FAILURE_CAUSE_LABELS, ORDER_STATUS_LABELS } from './panel.labels';
 import { firstSteps, type SetupCounts } from './panel.setup';
-import { joinLabels } from './panel.prints';
+import { failedLabel, joinLabels } from './panel.prints';
 import { maintenanceNotes } from './panel.maintenance';
+import { CurrentWorkspace } from '../../core/workspace';
 
 type FailureCause = WeekPrints['commonCauses'][number];
 
@@ -62,8 +63,10 @@ const TODAY = new Intl.DateTimeFormat('es-PE', {
   ],
   template: `
     <pp-page title="Hoy" [subtitle]="today">
-      <a actions class="button" routerLink="/pedidos/venta-rapida">Venta rápida</a>
-      @if (steps().length > 0) {
+      @if (canOperate()) {
+        <a actions class="button" routerLink="/pedidos/venta-rapida">Venta rápida</a>
+      }
+      @if (steps().length > 0 && canOperate()) {
         <pp-card class="first-steps" heading="Primeros pasos">
           <p class="muted">Para que el taller pueda cotizar, planificar y vender, falta cargar:</p>
           <ol>
@@ -208,16 +211,18 @@ const TODAY = new Intl.DateTimeFormat('es-PE', {
               } @else {
                 <div class="big" [class.good-text]="isHealthy(week.successRate)">{{ week.successRate ?? 0 | percent1 }}</div>
                 <p class="muted">de las impresiones de los últimos 7 días salieron bien</p>
+                <!-- A cancelled print that ran is a failed attempt, as in Resultados (ADR-023, point 6). -->
                 <div class="stats">
                   <div><span>{{ week.successful }}</span><small>exitosas</small></div>
-                  <div><span>{{ week.failed }}</span><small>fallidas</small></div>
-                  <div><span>{{ week.successful + week.failed }}</span><small>cerradas</small></div>
+                  <div><span>{{ week.failed }}</span><small>{{ failedLabel(week.cancelledRan) }}</small></div>
+                  <div><span>{{ week.successful + week.failed }}</span><small>intentadas</small></div>
                 </div>
               }
               @if (week.historicClosed > 0) {
                 <p class="muted">
                   Histórico: fallaron {{ week.historicFailed }} de {{ week.historicClosed }} impresiones
-                  ({{ week.historicFailureRate ?? 0 | percent1 }}).
+                  ({{ week.historicFailureRate ?? 0 | percent1 }}), contando como fallidas las canceladas que
+                  alcanzaron a correr.
                   @if (week.commonCauses.length === 1) {
                     Causa más común: {{ causeLabels[week.commonCauses[0]!] }}.
                   } @else if (week.commonCauses.length > 1) {
@@ -240,6 +245,8 @@ const TODAY = new Intl.DateTimeFormat('es-PE', {
 })
 export class PanelPage {
   private readonly data = inject(PanelData);
+  /** Selling and loading the first data are writing: a viewer is offered neither (ADR-025). */
+  protected readonly canOperate = inject(CurrentWorkspace).canOperate;
 
   protected readonly today = capitalize(TODAY.format(new Date()));
   protected readonly statusLabels = ORDER_STATUS_LABELS;
@@ -271,6 +278,8 @@ export class PanelPage {
   protected none(key: keyof SetupCounts): boolean {
     return this.setup.value()?.[key] === 0;
   }
+
+  protected readonly failedLabel = failedLabel;
 
   protected causeText(causes: readonly FailureCause[]): string {
     return joinLabels(causes.map((cause) => this.causeLabels[cause]));

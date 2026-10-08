@@ -4,10 +4,12 @@ import { borrowedPhoto } from '../../core/article-photos';
 import { FORMAT_PIPES, ItemPicker, type PickerOption } from '../../ui';
 import { CatalogoData } from './catalogo.data';
 import type { RecipeSupply, SupplyOption } from './catalogo.models';
-import { CatalogoPermissions } from './catalogo.permissions';
 import { SHARED_STYLES } from './catalogo.styles';
 import { emptyPickerText, messageOf } from './catalogo.util';
-import { DECIMALS, decimalsText, fieldError, LIMITS, limitText, maxDecimals, wholeNumber } from './catalogo.validators';
+import { breaksItsRules, maxDecimals, wholeNumber } from '../../core/form-errors';
+import { DECIMALS, decimalsText, fieldError, LIMITS, limitText } from './catalogo.validators';
+import { CurrentWorkspace } from '../../core/workspace';
+import { lockWhileReadOnly } from '../../core/read-only';
 
 /**
  * What is wrong with a quantity per unit, in words, next to the field. The
@@ -17,7 +19,7 @@ const QUANTITY_MESSAGES: Record<'part' | 'supply', Record<string, string>> = {
   part: {
     required: 'Escribe cuántas lleva cada producto.',
     min: 'Cada producto lleva al menos 1.',
-    whole: 'Las piezas van enteras: un producto no lleva media pieza.',
+    integer: 'Las piezas van enteras: un producto no lleva media pieza.',
     max: `Hasta ${limitText(LIMITS.perUnit)} por producto.`,
   },
   supply: {
@@ -57,6 +59,7 @@ const SMALLEST_SUPPLY = 0.001;
     `,
   ],
   template: `
+    @if (supply() || canOperate()) {
     <form [formGroup]="form" (ngSubmit)="save()" novalidate>
       <label class="item">{{ isPart() ? 'Pieza' : 'Insumo' }}
         <pp-item-picker formControlName="itemId" [options]="pickerOptions()" [placeholder]="isPart() ? 'Elige la pieza…' : 'Elige un insumo…'" [emptyText]="emptyText()" />
@@ -64,14 +67,16 @@ const SMALLEST_SUPPLY = 0.001;
       <label>Cantidad por unidad{{ unit() ? ' (' + unit() + ')' : '' }}
         <input type="number" min="0.001" step="any" inputmode="decimal" formControlName="quantity" />
       </label>
-      <div class="actions">
-        <button type="submit" [disabled]="busy() || (supply() !== null && form.pristine)">
-          {{ supply() ? 'Guardar' : 'Agregar' }}
-        </button>
-        @if (supply() && permissions.isOwner()) {
-          <button type="button" class="ghost" [disabled]="busy()" (click)="remove()" [attr.aria-label]="isPart() ? 'Quitar pieza' : 'Quitar insumo'">✕</button>
-        }
-      </div>
+      @if (canOperate()) {
+        <div class="actions">
+          <button type="submit" [disabled]="busy() || (supply() !== null && form.pristine)">
+            {{ supply() ? 'Guardar' : 'Agregar' }}
+          </button>
+          @if (supply() && isOwner()) {
+            <button type="button" class="ghost" [disabled]="busy()" (click)="remove()" [attr.aria-label]="isPart() ? 'Quitar pieza' : 'Quitar insumo'">✕</button>
+          }
+        </div>
+      }
       @if (formError(); as message) {
         <p class="note error">{{ message }}</p>
       }
@@ -113,11 +118,16 @@ const SMALLEST_SUPPLY = 0.001;
         <p class="note error" role="alert">{{ message }}</p>
       }
     </form>
+    }
   `,
 })
 export class SuministroFila {
   private readonly data = inject(CatalogoData);
-  protected readonly permissions = inject(CatalogoPermissions);
+  private readonly workspace = inject(CurrentWorkspace);
+  /** The day to day: owner and operator. A viewer is shown what there is, with nothing to change (ADR-025). */
+  protected readonly canOperate = this.workspace.canOperate;
+  /** Removing is the owner's: the database refuses everyone else (T2-10). */
+  protected readonly isOwner = this.workspace.isOwner;
 
   readonly recipeId = input.required<string>();
   readonly supply = input<RecipeSupply | null>(null);
@@ -209,6 +219,10 @@ export class SuministroFila {
   }
 
   constructor() {
+    lockWhileReadOnly(this.form, this.canOperate, () => {
+      // The item of a saved row is fixed: to change it, remove the row and add another.
+      if (this.supply()) this.form.controls.itemId.disable({ emitEvent: false });
+    });
     effect(() => {
       const supply = this.supply();
       untracked(() => {
@@ -240,6 +254,7 @@ export class SuministroFila {
       this.changed.emit();
     } catch (error) {
       this.error.set(messageOf(error, 'No pudimos guardar el insumo.'));
+      void this.workspace.afterRefusal(error);
       // A refusal may come from a tab that is behind: read the recipe again.
       this.changed.emit();
     } finally {
@@ -258,6 +273,7 @@ export class SuministroFila {
       await this.data.deleteSupply(current.id);
     } catch (error) {
       this.error.set(messageOf(error, 'No pudimos quitar el insumo.'));
+      void this.workspace.afterRefusal(error);
     } finally {
       this.busy.set(false);
     }
@@ -273,6 +289,6 @@ export class SuministroFila {
     // The item of a saved row is fixed: to change it, remove the row and add another.
     if (supply) this.form.controls.itemId.disable({ emitEvent: false });
     // A part saved as 1.5 before pieces had to be whole: said at once, so it gets fixed.
-    if (supply && this.form.controls.quantity.invalid) this.form.controls.quantity.markAsTouched();
+    if (supply && breaksItsRules(this.form.controls.quantity)) this.form.controls.quantity.markAsTouched();
   }
 }

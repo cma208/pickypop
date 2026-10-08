@@ -47,7 +47,8 @@ export class VariantCostModel {
   /** Why the cost cannot be shown, or null when it can. */
   readonly blocker = computed<string | null>(() => {
     if (!this.context() || !this.lookups()) return 'Todavía no se cargaron los costos del taller.';
-    if (!this.profile()) return 'No hay parámetros de costo vigentes. Créalos en Configuración.';
+    // Read by an operator too: the parameters are the owner's (ADR-025).
+    if (!this.profile()) return 'No hay parámetros de costo vigentes. Los crea el dueño del taller en Configuración.';
     if (!this.printer()) return 'No hay una impresora activa para calcular la hora de máquina.';
     const recipe = this.recipe();
     if (!recipe) return 'Esta variante no tiene receta todavía.';

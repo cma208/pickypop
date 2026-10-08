@@ -17,7 +17,7 @@ import { DEFAULT_TIMEZONE } from '../../core/dates';
 import { errorOf, requiredText, textOrNull } from '../../core/form-errors';
 import { friendlyError } from '../../core/friendly-error';
 import { SECTION_STYLES } from '../../core/styles';
-import { isOwnerRole } from '../../core/workspace';
+import { CurrentWorkspace } from '../../core/workspace';
 
 /**
  * Workshop data: name, tax regime and RUC. Currency and time zone are shown,
@@ -109,7 +109,9 @@ export class WorkshopSection {
   protected readonly saving = signal(false);
   protected readonly saved = signal(false);
   protected readonly error = signal<string | null>(null);
-  protected readonly canEdit = signal(false);
+  private readonly workspace = inject(CurrentWorkspace);
+  /** Configuration is the owner's (ADR-025); anyone else reads it. Read from `CurrentWorkspace`, the one place that reads the role. */
+  protected readonly canEdit = this.workspace.isOwner;
   private readonly stored = signal<{ currency: string; timezone: string } | null>(null);
 
   protected readonly form = new FormGroup({
@@ -172,7 +174,7 @@ export class WorkshopSection {
       this.saved.set(true);
     } catch (error) {
       this.error.set(friendlyError(error, 'No pudimos guardar los datos del taller.'));
-      if (await this.data.afterRefusal(error)) await this.load();
+      if (await this.workspace.afterRefusal(error)) await this.load();
     } finally {
       this.saving.set(false);
     }
@@ -180,7 +182,7 @@ export class WorkshopSection {
 
   private async load(): Promise<void> {
     try {
-      const [workshop, role] = await Promise.all([this.data.workshop(), this.data.currentRole()]);
+      const [workshop] = await Promise.all([this.data.workshop(), this.workspace.info()]);
       this.stored.set({ currency: workshop.currency, timezone: workshop.timezone });
       this.form.reset({
         name: workshop.name,
@@ -188,9 +190,7 @@ export class WorkshopSection {
         taxRegime: workshop.taxRegime,
         ruc: workshop.ruc ?? '',
       });
-
-      this.canEdit.set(isOwnerRole(role));
-      if (isOwnerRole(role)) this.form.enable();
+      if (this.canEdit()) this.form.enable();
       else this.form.disable();
       this.loadError.set(null);
     } catch (error) {

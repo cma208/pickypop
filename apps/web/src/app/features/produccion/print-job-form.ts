@@ -1,6 +1,7 @@
 import { Component, computed, inject, input, OnInit, output, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormArray, FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { maxDecimals, wholeNumber } from '../../core/form-errors';
 import { Card, Field, FORMAT_PIPES, ItemPicker, Thumb, type PickerOption } from '../../ui';
 import { borrowedPhoto } from '../../core/article-photos';
 import { duration } from '../../core/format';
@@ -13,9 +14,10 @@ import { describeCounts } from './produccion.outputs';
 import { rowsForPlate, suggestSpool } from './produccion.spools';
 import { labelForPlate } from './job-label';
 import { proposeTime, secondsToSave, type ProposedTime } from './job-time';
-import { GRAMS_MESSAGE, hundredths, MAX_GRAMS, MAX_MINUTES } from './job-grams';
+import { GRAM_DECIMALS, GRAMS_MESSAGE, MAX_GRAMS, MAX_MINUTES } from './job-grams';
 import { requestKey, type SentRequest } from './request-key';
 import { NOTE_MAX_LENGTH } from './print-job-close';
+import { CurrentWorkspace } from '../../core/workspace';
 
 /** What a person can type as the name of a job; `create_print_job` refuses more. */
 export const LABEL_MAX_LENGTH = 200;
@@ -33,7 +35,7 @@ function createFilamentRow(spoolId = '', estimatedG = 0, slot: number | null = n
     spoolId: new FormControl(spoolId, { nonNullable: true, validators: [Validators.required] }),
     estimatedG: new FormControl(estimatedG, {
       nonNullable: true,
-      validators: [Validators.required, Validators.min(0), Validators.max(MAX_GRAMS), hundredths],
+      validators: [Validators.required, Validators.min(0), Validators.max(MAX_GRAMS), maxDecimals(GRAM_DECIMALS)],
     }),
     slot: new FormControl<number | null>(slot),
   });
@@ -183,6 +185,7 @@ function createFilamentRow(spoolId = '', estimatedG = 0, slot: number | null = n
 })
 export class PrintJobForm implements OnInit {
   private readonly data = inject(ProduccionData);
+  private readonly workspace = inject(CurrentWorkspace);
   private readonly plan = inject(PlanService);
   /** A part with no photo of its own shows the plate that prints it. */
   protected readonly borrowedPhoto = borrowedPhoto;
@@ -197,7 +200,7 @@ export class PrintJobForm implements OnInit {
     label: new FormControl('', { nonNullable: true, validators: [Validators.maxLength(LABEL_MAX_LENGTH)] }),
     printerId: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
     plateId: new FormControl('', { nonNullable: true }),
-    estimatedMinutes: new FormControl<number | null>(null, [Validators.min(1), Validators.max(MAX_MINUTES), Validators.pattern(/^\d+$/)]),
+    estimatedMinutes: new FormControl<number | null>(null, [Validators.min(1), Validators.max(MAX_MINUTES), wholeNumber]),
     note: new FormControl('', { nonNullable: true, validators: [Validators.maxLength(NOTE_MAX_LENGTH)] }),
     filaments: new FormArray([createFilamentRow()]),
   });
@@ -365,6 +368,7 @@ export class PrintJobForm implements OnInit {
       this.saved.emit();
     } catch (error) {
       this.saveError.set(explainProductionError(error, 'No pudimos crear el trabajo. Inténtalo de nuevo.'));
+      void this.workspace.afterRefusal(error);
     } finally {
       this.saving.set(false);
     }

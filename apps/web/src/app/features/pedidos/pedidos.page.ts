@@ -15,6 +15,7 @@ import {
   type OrderStatus,
   type StatusFilter,
 } from './pedidos.labels';
+import { CurrentWorkspace, READ_ONLY_NOTE } from '../../core/workspace';
 
 type PurposeFilter = OrderPurpose | 'all';
 
@@ -25,8 +26,15 @@ const FINISHED: OrderStatus[] = ['delivered', 'closed', 'cancelled'];
   imports: [RouterLink, Page, Badge, AsyncState, Empty, Thumb, ...FORMAT_PIPES],
   template: `
     <pp-page title="Pedidos" subtitle="Ventas, uso personal y regalos">
-      <a actions class="button secondary" routerLink="/pedidos/venta-rapida">Venta rápida</a>
-      <a actions class="button" routerLink="/pedidos/nuevo">+ Nuevo pedido</a>
+      <!-- One node per @if: two in one would not reach the [actions] slot. -->
+      @if (canOperate()) {
+        <a actions class="button secondary" routerLink="/pedidos/venta-rapida">Venta rápida</a>
+      }
+      @if (canOperate()) {
+        <a actions class="button" routerLink="/pedidos/nuevo">+ Nuevo pedido</a>
+      } @else if (roleKnown()) {
+        <p class="muted">{{ readOnlyNote }}</p>
+      }
 
       <div class="filters">
         <label>
@@ -53,7 +61,9 @@ const FINISHED: OrderStatus[] = ['delivered', 'closed', 'cancelled'];
       <pp-async [loading]="loading()" [error]="error()">
         @if (visible().length === 0) {
           <pp-empty [message]="emptyMessage()">
-            <a class="button" routerLink="/pedidos/nuevo">Crear un pedido</a>
+            @if (canOperate()) {
+              <a class="button" routerLink="/pedidos/nuevo">Crear un pedido</a>
+            }
           </pp-empty>
         } @else {
           <ul class="orders">
@@ -113,6 +123,11 @@ const FINISHED: OrderStatus[] = ['delivered', 'closed', 'cancelled'];
 })
 export class PedidosPage {
   private readonly data = inject(PedidosData);
+  private readonly workspace = inject(CurrentWorkspace);
+  /** Owner and operator sell, deliver and collect; a viewer only reads (ADR-025). */
+  protected readonly canOperate = this.workspace.canOperate;
+  protected readonly roleKnown = this.workspace.roleKnown;
+  protected readonly readOnlyNote = READ_ONLY_NOTE;
 
   protected readonly statuses = ALL_STATUSES;
   protected readonly purposes = PURPOSES;

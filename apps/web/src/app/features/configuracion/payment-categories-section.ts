@@ -3,11 +3,16 @@ import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { AsyncState, Card, Field } from '../../ui';
 import { friendlyError } from '../../core/friendly-error';
 import { SECTION_STYLES } from '../../core/styles';
-import { isOwnerRole } from '../../core/workspace';
+import { CurrentWorkspace } from '../../core/workspace';
 import { ConfiguracionData } from './configuracion.data';
 import type { CategoryRecord } from './configuracion.models';
 
 const AUTOMATIC = '';
+
+/** What «Categorías por defecto» offers: active, and not of capital. */
+export function defaultCategoryOptions(categories: readonly CategoryRecord[]): CategoryRecord[] {
+  return categories.filter((category) => category.active && !category.capital);
+}
 
 /**
  * En qué categoría de Caja queda un cobro y un pago de compra cuando nadie
@@ -26,7 +31,8 @@ const AUTOMATIC = '';
           Dónde queda anotado cada cobro de un pedido y cada pago de una compra cuando nadie elige otra categoría al
           registrarlo. En «Automática», si el taller tiene una sola categoría activa de ese tipo se usa esa, y si tiene
           varias queda sin categoría. La de los cobros queda marcada como de ventas: un ingreso suelto de Caja no la
-          ofrece.
+          ofrece. Las de capital no se ofrecen: son de los aportes y retiros del dueño, y la base no deja elegirlas
+          aquí.
         </p>
         <form [formGroup]="form" (ngSubmit)="save()">
           <div class="grid two">
@@ -73,7 +79,9 @@ export class PaymentCategoriesSection {
   protected readonly saving = signal(false);
   protected readonly saved = signal(false);
   protected readonly error = signal<string | null>(null);
-  protected readonly canEdit = signal(false);
+  private readonly workspace = inject(CurrentWorkspace);
+  /** Configuration is the owner's (ADR-025); anyone else reads it. Read from `CurrentWorkspace`, the one place that reads the role. */
+  protected readonly canEdit = this.workspace.isOwner;
   protected readonly incomeCategories = signal<CategoryRecord[]>([]);
   protected readonly expenseCategories = signal<CategoryRecord[]>([]);
 
@@ -89,21 +97,21 @@ export class PaymentCategoriesSection {
   /** The list of categories above changed: the options are read again, and what was chosen is kept if it still exists. */
   async reload(): Promise<void> {
     try {
-      const [categories, choice, role] = await Promise.all([
+      const [categories, choice] = await Promise.all([
         this.data.categories(),
         this.data.paymentCategories(),
-        this.data.currentRole(),
+        this.workspace.info(),
       ]);
-      // A deactivated category is not offered, so a choice that points at one is shown as automatic.
-      const offered = categories.filter((category) => category.active);
+      // A deactivated category is not offered, so a choice that points at one is shown as automatic. Nor one of
+      // capital: a collection is a sale and a purchase is an expense, and the database refuses it for either.
+      const offered = defaultCategoryOptions(categories);
       this.incomeCategories.set(offered.filter((category) => category.direction === 'income'));
       this.expenseCategories.set(offered.filter((category) => category.direction === 'expense'));
       this.form.setValue({
         orderCategoryId: this.stillOffered(choice.orderCategoryId, this.incomeCategories()),
         purchaseCategoryId: this.stillOffered(choice.purchaseCategoryId, this.expenseCategories()),
       });
-      this.canEdit.set(isOwnerRole(role));
-      if (isOwnerRole(role)) this.form.enable();
+      if (this.canEdit()) this.form.enable();
       else this.form.disable();
       this.loadError.set(null);
     } catch (error) {
@@ -129,7 +137,7 @@ export class PaymentCategoriesSection {
       this.defaultsSaved.emit();
     } catch (error) {
       this.error.set(friendlyError(error, 'No pudimos guardar las categorías por defecto.'));
-      if (await this.data.afterRefusal(error)) await this.reload();
+      if (await this.workspace.afterRefusal(error)) await this.reload();
     } finally {
       this.saving.set(false);
     }

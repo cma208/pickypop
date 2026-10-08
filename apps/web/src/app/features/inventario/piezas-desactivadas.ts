@@ -41,9 +41,11 @@ export function inactivePartLine(part: Pick<InventoryItemSummary, 'onHand' | 'un
               [name]="part.name"
               [sub]="line(part)"
             >
-              <button end type="button" class="secondary" [disabled]="busyId() !== null" (click)="reactivate.emit(part)">
-                {{ busyId() === part.id ? 'Activando…' : 'Volver a activar' }}
-              </button>
+              @if (!readOnly()) {
+                <button end type="button" class="secondary" [disabled]="busyId() !== null" (click)="reactivate.emit(part)">
+                  {{ busyId() === part.id ? 'Activando…' : 'Volver a activar' }}
+                </button>
+              }
             </pp-item>
           </li>
         }
@@ -55,6 +57,8 @@ export class PiezasDesactivadas {
   readonly parts = input.required<readonly InventoryItemSummary[]>();
   /** The piece being switched back on, so a second click cannot send it twice. */
   readonly busyId = input<string | null>(null);
+  /** Only the list, for someone who may not switch them back on (ADR-025). */
+  readonly readOnly = input(false);
   readonly reactivate = output<InventoryItemSummary>();
 
   protected line(part: InventoryItemSummary): string {

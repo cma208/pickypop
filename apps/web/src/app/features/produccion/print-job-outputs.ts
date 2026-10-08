@@ -3,9 +3,15 @@ import { FormArray, FormControl, ReactiveFormsModule, Validators } from '@angula
 import { borrowedPhoto } from '../../core/article-photos';
 import { Thumb } from '../../ui';
 import type { PlatePart } from './produccion.outputs';
-import { wholeNumber } from './job-grams';
+import { wholeNumber } from '../../core/form-errors';
 
-/** How many of one part came out: none to all the plate makes, whole, already full. */
+/**
+ * How many of one part came out: none to all the plate makes, whole, already
+ * full. Whole because a number input takes 6.5 as it is and `step="1"`
+ * validates nothing: 6.5 caps went on the shelf, and «Contar el estante»,
+ * which only takes whole numbers, could not be saved until that row was
+ * fixed (T3-04).
+ */
 export function createOutputControl(planned: number) {
   return new FormControl<number | null>(planned, [Validators.required, Validators.min(0), Validators.max(planned), wholeNumber]);
 }

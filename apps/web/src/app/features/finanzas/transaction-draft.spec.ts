@@ -3,7 +3,6 @@ import {
   draftProblem,
   effectsOf,
   FUTURE_DATE_PROBLEM,
-  isInTheFuture,
   negativeBalanceNotice,
   previewBalances,
   TOO_LARGE_PROBLEM,
@@ -183,14 +182,6 @@ describe('draftProblem, the rules the ledger enforces too', () => {
     expect(draftProblem(form({ amount: 99_999_999_999 }), now)).toBe(TOO_LARGE_PROBLEM);
     expect(TOO_LARGE_PROBLEM).toContain('1,000,000.00');
     expect(draftProblem(form({ amount: 1_000_000 }), now)).toBeNull();
-  });
-});
-
-describe('isInTheFuture', () => {
-  it('gives the clocks five minutes', () => {
-    const now = Date.parse('2026-10-08T15:00:00Z');
-    expect(isInTheFuture('2026-10-08T15:05:00Z', now)).toBe(false);
-    expect(isInTheFuture('2026-10-08T15:05:01Z', now)).toBe(true);
   });
 });
 

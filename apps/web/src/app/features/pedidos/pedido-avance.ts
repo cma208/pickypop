@@ -14,6 +14,7 @@ import {
   STATUS_LABEL,
   type OrderStatus,
 } from './pedidos.labels';
+import { CurrentWorkspace } from '../../core/workspace';
 
 /**
  * Where the order is on its path and the steps it can take from there. Only
@@ -31,8 +32,9 @@ import {
         }
       </ol>
       @if (status() === 'on_hold') {
-        <p class="muted">El pedido está en espera. Elige en qué paso retomarlo.</p>
+        <p class="muted">{{ canOperate() ? 'El pedido está en espera. Elige en qué paso retomarlo.' : 'El pedido está en espera.' }}</p>
         <app-pedido-separo [orderId]="orderId()" (changed)="changed.emit()" />
+        @if (canOperate()) {
         <div class="row">
           <select (change)="resumeAt.set(readStatus($event))" aria-label="Retomar en">
             @for (step of resumeOptions(); track step) {
@@ -41,6 +43,7 @@ import {
           </select>
           <button type="button" (click)="change(resumeAt())" [disabled]="changing()">Retomar</button>
         </div>
+        }
       } @else if (status() === 'cancelled') {
         <p class="muted">Este pedido fue cancelado.</p>
         @if (notice(); as message) {
@@ -53,7 +56,7 @@ import {
         <p class="muted">Este pedido está cerrado.</p>
       }
 
-      @if (!final() && status() !== 'on_hold') {
+      @if (canOperate() && !final() && status() !== 'on_hold') {
         <div class="row">
           @if (next(); as step) {
             @if (step.kind === 'deliver') {
@@ -95,6 +98,9 @@ import {
 })
 export class PedidoAvance {
   private readonly orders = inject(PedidosData);
+  private readonly workspace = inject(CurrentWorkspace);
+  /** Owner and operator sell, deliver and collect; a viewer only reads (ADR-025). */
+  protected readonly canOperate = this.workspace.canOperate;
 
   readonly orderId = input.required<string>();
   readonly status = input.required<OrderStatus>();
@@ -164,6 +170,7 @@ export class PedidoAvance {
       // written for a person: they travel as they come. The order may have
       // moved elsewhere, so it is read again.
       this.error.set(friendlyError(error, 'No pudimos cambiar el estado. Inténtalo de nuevo.'));
+      void this.workspace.afterRefusal(error);
       this.changed.emit();
     } finally {
       this.changing.set(false);

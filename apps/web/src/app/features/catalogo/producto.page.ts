@@ -1,6 +1,7 @@
 import { Component, computed, effect, inject, signal, untracked } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
+import { CurrentWorkspace, READ_ONLY_NOTE } from '../../core/workspace';
 import { AsyncState, Badge, Empty, Page } from '../../ui';
 import { CatalogoData } from './catalogo.data';
 import {
@@ -45,13 +46,18 @@ import { VarianteForm } from './variante-form';
             <pp-badge [tone]="tones[current.status]">{{ labels[current.status] }}</pp-badge>
             <span class="muted hint">/{{ current.slug }}</span>
           </div>
+          @if (roleKnown() && !canOperate()) {
+            <p class="muted">{{ readOnlyNote }}</p>
+          }
 
           <app-producto-datos [product]="current" (saved)="reloadProduct()" />
 
           <h2 class="section">Variantes</h2>
           @if (variants().length === 0 && !creating()) {
-            <pp-empty message="Este producto todavía no tiene variantes. Crea la primera para definir su receta y sus precios.">
-              <button type="button" (click)="creating.set(true)">Crear variante</button>
+            <pp-empty [message]="canOperate() ? 'Este producto todavía no tiene variantes. Crea la primera para definir su receta y sus precios.' : 'Este producto todavía no tiene variantes.'">
+              @if (canOperate()) {
+                <button type="button" (click)="creating.set(true)">Crear variante</button>
+              }
             </pp-empty>
           } @else {
             <div class="tabs" role="group" aria-label="Variantes del producto">
@@ -66,12 +72,14 @@ import { VarianteForm } from './variante-form';
                   {{ variant.name }}{{ variant.active ? '' : ' (inactiva)' }}
                 </button>
               }
-              <button type="button" class="ghost" [attr.aria-pressed]="creating()" (click)="creating.set(true)">+ Nueva variante</button>
+              @if (canOperate()) {
+                <button type="button" class="ghost" [attr.aria-pressed]="creating()" (click)="creating.set(true)">+ Nueva variante</button>
+              }
             </div>
           }
 
           <div class="variant-area">
-          @if (creating()) {
+          @if (creating() && canOperate()) {
             <app-variante-form
               [productId]="current.id"
               [productSlug]="current.slug"
@@ -107,6 +115,11 @@ import { VarianteForm } from './variante-form';
 })
 export class ProductoPage {
   private readonly data = inject(CatalogoData);
+  private readonly workspace = inject(CurrentWorkspace);
+  /** Owner and operator edit the catalogue; a viewer is shown it as it is (ADR-025). */
+  protected readonly canOperate = this.workspace.canOperate;
+  protected readonly roleKnown = this.workspace.roleKnown;
+  protected readonly readOnlyNote = READ_ONLY_NOTE;
 
   /** Route parameter `:id`. */
   private readonly params = toSignal(inject(ActivatedRoute).paramMap);

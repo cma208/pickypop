@@ -1,8 +1,10 @@
+import type { Provider } from '@angular/core';
 import { TestBed, type ComponentFixture } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
-import { UserFacingError } from '../../core/friendly-error';
+import { isPermissionError, UserFacingError } from '../../core/friendly-error';
 import { FinanzasData, type AccountSummary, type LedgerRow } from './finanzas.data';
-import type { FinanceAccess } from './finanzas.models';
+import { CurrentWorkspace, type MemberRole } from '../../core/workspace';
+import { fakeWorkspace, workspaceAs } from '../../core/workspace.testing';
 import { MovimientosFinancierosPage } from './movimientos.page';
 
 function account(id: string, name: string, balance: number): AccountSummary {
@@ -59,22 +61,21 @@ function row(overrides: Partial<LedgerRow> = {}): LedgerRow {
 
 const ALREADY_VOIDED = 'Este movimiento ya estaba anulado (motivo: «Se anotó dos veces»).';
 
-const OWNER: FinanceAccess = { isOwner: true, canOperate: true };
-
 /** Caja, for the owner unless said otherwise. The book is read once per call to `ledger`, in this order. */
 async function open(
   books: LedgerRow[][],
   voidTransaction: () => Promise<void> = async () => undefined,
-  access: FinanceAccess = OWNER,
+  role: MemberRole = 'owner',
+  workspace: Provider = workspaceAs(role),
 ) {
   let reads = 0;
   TestBed.configureTestingModule({
     providers: [
       provideRouter([]),
+      workspace,
       {
         provide: FinanzasData,
         useValue: {
-          access: async () => access,
           accounts: async () => ACCOUNTS,
           categories: async () => [],
           ledger: async () => books[Math.min(reads++, books.length - 1)],
@@ -123,7 +124,7 @@ const labels = (fixture: ComponentFixture<MovimientosFinancierosPage>) =>
 
 describe('MovimientosFinancierosPage', () => {
   it('offers an operator to register but not to void', async () => {
-    const fixture = await open([[row()]], undefined, { isOwner: false, canOperate: true });
+    const fixture = await open([[row()]], undefined, 'operator');
 
     expect(labels(fixture)).toContain('Registrar movimiento');
     expect(labels(fixture)).not.toContain('Anular');
@@ -131,11 +132,75 @@ describe('MovimientosFinancierosPage', () => {
   });
 
   it('offers a viewer neither, and says whose they are', async () => {
-    const fixture = await open([[row()]], undefined, { isOwner: false, canOperate: false });
+    const fixture = await open([[row()]], undefined, 'viewer');
 
     expect(labels(fixture)).not.toContain('Registrar movimiento');
     expect(labels(fixture)).not.toContain('Anular');
     expect(text(fixture)).toContain('Tu rol en el taller es de consulta');
+  });
+
+  it('offers a viewer no way to register on an empty book either', async () => {
+    const fixture = await open([[]], undefined, 'viewer');
+
+    expect(text(fixture)).toContain('Todavía no hay movimientos de dinero registrados.');
+    expect(labels(fixture)).not.toContain('Registrar el primero');
+    expect(fixture.nativeElement.querySelector('app-transaction-form')).toBeNull();
+  });
+
+  it('offers an operator the first movement on an empty book, not on an empty filter', async () => {
+    const fixture = await open([[], []], undefined, 'operator');
+    expect(labels(fixture)).toContain('Registrar el primero');
+
+    const type = fixture.nativeElement.querySelectorAll('.filters select')[1] as HTMLSelectElement;
+    type.value = 'transfer';
+    type.dispatchEvent(new Event('change'));
+    await settle(fixture);
+
+    expect(text(fixture)).toContain('No hay movimientos con estos filtros.');
+    expect(labels(fixture)).not.toContain('Registrar el primero');
+  });
+
+  it('closes the movement form when the role read again cannot register', async () => {
+    const workspace = fakeWorkspace('operator');
+    const fixture = await open([[row()]], undefined, 'operator', { provide: CurrentWorkspace, useValue: workspace });
+    await press(fixture, 'Registrar movimiento');
+    expect(fixture.nativeElement.querySelector('app-transaction-form')).not.toBeNull();
+
+    workspace.role.set('viewer');
+    await settle(fixture);
+
+    expect(fixture.nativeElement.querySelector('app-transaction-form')).toBeNull();
+  });
+
+  it('reads the role again when the database says only the owner voids, and stops offering «Anular»', async () => {
+    // The owner made this member an operator from another tab; `void_transaction` says so as a P0001.
+    const workspace = fakeWorkspace('owner');
+    const reread = {
+      ...workspace,
+      afterRefusal: async (error: unknown) => {
+        if (!isPermissionError(error)) return false;
+        workspace.role.set('operator');
+        return true;
+      },
+    };
+    const fixture = await open(
+      [[row()]],
+      async () => {
+        throw new UserFacingError('Solo el dueño del taller puede anular un movimiento de dinero.');
+      },
+      'owner',
+      { provide: CurrentWorkspace, useValue: reread },
+    );
+
+    await press(fixture, 'Anular');
+    const reason = fixture.nativeElement.querySelector('app-void-form textarea') as HTMLTextAreaElement;
+    reason.value = 'Era de prueba';
+    reason.dispatchEvent(new Event('input'));
+    await settle(fixture);
+    await press(fixture, 'Anular movimiento');
+
+    expect(text(fixture)).toContain('Solo el dueño del taller puede anular un movimiento de dinero.');
+    expect(labels(fixture)).not.toContain('Anular');
   });
 
   it('turns the voiding form into «ya está anulado» when another tab voided it first (T5-10)', async () => {

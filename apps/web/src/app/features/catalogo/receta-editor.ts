@@ -5,15 +5,18 @@ import { CatalogoData } from './catalogo.data';
 import { readPlateDetails, readSlicedFile, SlicedFileError } from '../../core/sliced-file';
 import type { Lookups, Recipe } from './catalogo.models';
 import { SHARED_STYLES } from './catalogo.styles';
-import { CatalogoPermissions, OWNER_ONLY } from './catalogo.permissions';
+import { OWNER_ONLY } from './catalogo.permissions';
 import { messageOf } from './catalogo.util';
-import { DECIMALS, decimalsText, fieldError, LIMITS, limitText, maxDecimals } from './catalogo.validators';
+import { maxDecimals } from '../../core/form-errors';
+import { DECIMALS, decimalsText, fieldError, LIMITS, limitText } from './catalogo.validators';
 import { partsMadeByPlates, partsPrintedElsewhere, splitRecipeRows } from './costing';
 import { buildDraft, importSummary, type ImportDraft, type ImportOutcome } from './importacion';
 import { ImportarPlacas } from './importar-placas';
 import { PlacaEditor } from './placa-editor';
 import type { PartOption } from './salida-fila';
 import { SuministroFila } from './suministro-fila';
+import { CurrentWorkspace } from '../../core/workspace';
+import { lockWhileReadOnly } from '../../core/read-only';
 
 const MINUTES_PER_HOUR = 60;
 
@@ -64,8 +67,10 @@ function minutesControl() {
         <p class="error" role="alert">{{ message }}</p>
       } @else if (!recipe()) {
         <p class="muted">Esta variante todavía no tiene receta. Con ella se calcula cuánto cuesta fabricarla.</p>
-        @if (createError(); as message) { <p class="error" role="alert">{{ message }}</p> }
-        <button type="button" [disabled]="busy()" (click)="create()">{{ busy() ? 'Creando…' : 'Crear receta' }}</button>
+        @if (canOperate()) {
+          @if (createError(); as message) { <p class="error" role="alert">{{ message }}</p> }
+          <button type="button" [disabled]="busy()" (click)="create()">{{ busy() ? 'Creando…' : 'Crear receta' }}</button>
+        }
       } @else if (lookups(); as lookupData) {
         @if (recipe(); as current) {
           <div class="explain">
@@ -107,7 +112,9 @@ function minutesControl() {
             </pp-field>
             @if (error(); as message) { <p class="error" role="alert">{{ message }}</p> }
             <div class="bar">
-              <button type="submit" [disabled]="busy() || header.pristine">{{ busy() ? 'Guardando…' : 'Guardar' }}</button>
+              @if (canOperate()) {
+                <button type="submit" [disabled]="busy() || header.pristine">{{ busy() ? 'Guardando…' : 'Guardar' }}</button>
+              }
               <span class="muted hint">Versión {{ current.version }}</span>
             </div>
           </form>
@@ -117,11 +124,13 @@ function minutesControl() {
             Un producto puede salir de varias placas (la botella en una, las tapas en otra). Los gramos son los de
             una corrida de la placa, con la purga que reporta el laminador.
           </p>
-          @if (!permissions.isOwner()) {
+          @if (canOperate() && !isOwner()) {
             <p class="muted hint owner-only">{{ ownerOnly }}</p>
           }
 
-          @if (importDraft(); as draft) {
+          @if (!canOperate()) {
+            <!-- Nothing to load from a file for someone who only reads (ADR-025). -->
+          } @else if (importDraft(); as draft) {
             <app-importar-placas
               [recipeId]="current.id"
               [firstIndex]="nextPlateIndex()"
@@ -187,7 +196,11 @@ function minutesControl() {
 })
 export class RecetaEditor {
   private readonly data = inject(CatalogoData);
-  protected readonly permissions = inject(CatalogoPermissions);
+  private readonly workspace = inject(CurrentWorkspace);
+  /** The day to day: owner and operator. A viewer is shown what there is, with nothing to change (ADR-025). */
+  protected readonly canOperate = this.workspace.canOperate;
+  /** Removing is the owner's: the database refuses everyone else (T2-10). */
+  protected readonly isOwner = this.workspace.isOwner;
   protected readonly ownerOnly = OWNER_ONLY.recipeRows;
 
   readonly variantId = input.required<string>();
@@ -310,6 +323,7 @@ export class RecetaEditor {
   });
 
   constructor() {
+    lockWhileReadOnly(this.header, this.canOperate);
     effect(() => {
       const recipe = this.recipe();
       untracked(() => {
@@ -342,6 +356,7 @@ export class RecetaEditor {
       // Shown only while there is no recipe: when another tab created it a
       // moment ago, the reload brings it and the message has nothing to say.
       this.createError.set(messageOf(error, 'No pudimos crear la receta.'));
+      void this.workspace.afterRefusal(error);
       this.changed.emit();
     } finally {
       this.busy.set(false);
@@ -368,6 +383,7 @@ export class RecetaEditor {
       this.changed.emit();
     } catch (error) {
       this.error.set(messageOf(error, 'No pudimos guardar la receta.'));
+      void this.workspace.afterRefusal(error);
       // A refusal may come from a tab that is behind: read the recipe again.
       this.changed.emit();
     } finally {

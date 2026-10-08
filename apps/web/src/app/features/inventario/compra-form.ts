@@ -19,12 +19,11 @@ import {
   NonNullableFormBuilder,
   ReactiveFormsModule,
   Validators,
-  type AbstractControl,
-  type ValidationErrors,
 } from '@angular/forms';
 import { map } from 'rxjs';
 import { Card, Field, FORMAT_PIPES, ItemPicker, type PickerOption } from '../../ui';
-import { blankToNull, invalidMessage, maxDecimals } from './form-helpers';
+import { maxDecimals, notInFuture } from '../../core/form-errors';
+import { blankToNull, invalidMessage } from './form-helpers';
 import {
   InventarioData,
   type InventoryItemSummary,
@@ -50,6 +49,7 @@ import { purchaseEntries } from './purchase-entries';
 import { purchaseLineProblems, purchaseTotalProblem, type PurchaseLineProblems } from './purchase-line-rules';
 import { notBefore, purchaseDateFloor } from './purchase-dates';
 import { noAccountsText } from './accounts-hint';
+import { CurrentWorkspace } from '../../core/workspace';
 
 interface Target {
   kind: 'sku' | 'item';
@@ -86,10 +86,6 @@ function parseTarget(value: string): Target | null {
 
 function numberOrNull(value: number | null | undefined): number | null {
   return typeof value === 'number' && Number.isFinite(value) ? value : null;
-}
-
-function notInTheFuture(control: AbstractControl): ValidationErrors | null {
-  return typeof control.value === 'string' && control.value > todayIso() ? { future: true } : null;
 }
 
 /**
@@ -297,6 +293,7 @@ function notInTheFuture(control: AbstractControl): ValidationErrors | null {
 })
 export class CompraForm {
   private readonly data = inject(InventarioData);
+  private readonly workspace = inject(CurrentWorkspace);
   private readonly fb = inject(NonNullableFormBuilder);
   private readonly injector = inject(Injector);
   private readonly destroyRef = inject(DestroyRef);
@@ -307,7 +304,8 @@ export class CompraForm {
   readonly supplierOptions = input.required<SupplierOption[]>();
   readonly accountOptions = input.required<PaymentAccount[]>();
   /** Only the owner creates accounts: the operator is told whom to ask. */
-  readonly isOwner = input(false);
+  /** Only to word what the operator cannot do (create an account); the database decides. */
+  protected readonly isOwner = this.workspace.isOwner;
   readonly saved = output<SavedPurchase>();
   readonly cancelled = output<void>();
   /** The database refused it: what the form was built from may be old (a filament switched off, an account closed). */
@@ -354,7 +352,7 @@ export class CompraForm {
 
   protected readonly form = this.fb.group({
     supplierId: [''],
-    purchasedAt: [todayIso(), [Validators.required, notInTheFuture, notBefore(purchaseDateFloor(todayIso()))]],
+    purchasedAt: [todayIso(), [Validators.required, notInFuture, notBefore(purchaseDateFloor(todayIso()))]],
     documentRef: [''],
     shippingCost: new FormControl<number | null>(0, [Validators.required, ...EXTRA_COST_RULES]),
     otherCosts: new FormControl<number | null>(0, EXTRA_COST_RULES),
@@ -626,6 +624,7 @@ export class CompraForm {
       this.uncertain.set(null);
       this.saved.emit({ rolls: registered.spools.length, spools: registered.spools, paid: registered.paid });
     } catch (error) {
+      void this.workspace.afterRefusal(error);
       if (outcomeUnknown(error)) {
         // It may be in: same key, same purchase, and the form stays as it was sent.
         this.uncertain.set(noAnswerReason(error));

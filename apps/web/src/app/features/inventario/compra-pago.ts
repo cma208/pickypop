@@ -2,18 +2,18 @@ import { Component, computed, effect, inject, input, output, signal, untracked }
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { inputToIso, nowForInput, todayLocal } from '../../core/dates';
-import { errorOf } from '../../core/form-errors';
+import { errorOf, maxDecimals, notInFuture } from '../../core/form-errors';
 import { roundMoney } from '../../core/pricing';
 import { Field, FORMAT_PIPES } from '../../ui';
 import { PAYMENT_METHOD_LABELS, PAYMENT_METHODS, type PaymentMethod } from '../finanzas/finanzas.models';
 import { beforeOpening, beforeOpeningNotice } from '../finanzas/opening-balance';
 import { PaymentCategoryNote } from '../finanzas/payment-category-note';
-import { maxDecimals } from './form-helpers';
 import { InventarioData, type PaymentAccount, type PurchaseSummary } from './inventario.data';
 import { describeError, noAnswerReason, outcomeUnknown } from './inventario.errors';
 import { INVENTORY_STYLES } from './inventario.styles';
 import { noAccountsText } from './accounts-hint';
-import { notBefore, notInTheFutureMoment, purchaseDateFloor } from './purchase-dates';
+import { notBefore, purchaseDateFloor } from './purchase-dates';
+import { CurrentWorkspace } from '../../core/workspace';
 
 const NO_ACCOUNT = '';
 const NO_METHOD = '';
@@ -94,11 +94,13 @@ const MONEY = new Intl.NumberFormat('es-PE', { minimumFractionDigits: 2, maximum
 })
 export class CompraPago {
   private readonly data = inject(InventarioData);
+  private readonly workspace = inject(CurrentWorkspace);
 
   readonly purchase = input.required<PurchaseSummary>();
   readonly accounts = input.required<PaymentAccount[]>();
   /** Only the owner creates accounts: the operator is told whom to ask. */
-  readonly isOwner = input(false);
+  /** Only to word what the operator cannot do (create an account); the database decides. */
+  protected readonly isOwner = this.workspace.isOwner;
   /** The money is recorded; the list that owns the purchase reloads it. */
   readonly paid = output<void>();
   /**
@@ -136,7 +138,7 @@ export class CompraPago {
     ]),
     occurredAt: new FormControl(nowForInput(), {
       nonNullable: true,
-      validators: [Validators.required, notInTheFutureMoment, notBefore(purchaseDateFloor(todayLocal()))],
+      validators: [Validators.required, notInFuture, notBefore(purchaseDateFloor(todayLocal()))],
     }),
     method: new FormControl<PaymentMethod | typeof NO_METHOD>(NO_METHOD, { nonNullable: true }),
   });
@@ -271,6 +273,7 @@ export class CompraPago {
       this.form.controls.amount.markAsPristine();
       this.paid.emit();
     } catch (error) {
+      void this.workspace.afterRefusal(error);
       if (outcomeUnknown(error)) {
         this.uncertain.set(noAnswerReason(error));
       } else {

@@ -2,6 +2,7 @@ import { Component, computed, DestroyRef, inject, input, OnInit, output, signal 
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
+import { requiredText, wholeNumber } from '../../core/form-errors';
 import { roundMoney } from '../../core/pricing';
 import { Field, FORMAT_PIPES, ItemPicker, type PickerOption } from '../../ui';
 import { Promesa } from '../cotizador/promesa';
@@ -10,8 +11,6 @@ import { CostEstimator } from './cost-estimate';
 import { PedidosData, type NewOrderLine, type VariantOption } from './pedidos.data';
 
 const TYPING_DELAY_MS = 300;
-/** Something has to be written, not just spaces. */
-const NOT_BLANK = /\S/;
 /**
  * Reasonable ceilings, said next to the field. Past them the database would
  * refuse anyway (a quantity of 3 000 000 000 broke the lines, T4-02), but
@@ -45,7 +44,7 @@ export function createOrderLineForm(): OrderLineForm {
     description: new FormControl('', { nonNullable: true }),
     quantity: new FormControl(1, {
       nonNullable: true,
-      validators: [Validators.required, Validators.min(1), Validators.max(MAX_LINE_UNITS), Validators.pattern(/^\d+$/)],
+      validators: [Validators.required, Validators.min(1), Validators.max(MAX_LINE_UNITS), wholeNumber],
     }),
     unitPrice: new FormControl(0, {
       nonNullable: true,
@@ -65,7 +64,7 @@ export function applyLineKind(group: OrderLineForm, kind: OrderLineKind): void {
   const custom = kind === 'custom';
 
   variantId.setValidators(custom ? [] : [Validators.required]);
-  description.setValidators(custom ? [Validators.required, Validators.pattern(NOT_BLANK)] : []);
+  description.setValidators(custom ? [requiredText] : []);
   estimatedUnitCost.setValidators(custom ? [Validators.min(0), Validators.max(MAX_UNIT_AMOUNT)] : []);
 
   group.patchValue({

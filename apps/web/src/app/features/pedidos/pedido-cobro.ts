@@ -2,7 +2,7 @@ import { Component, computed, effect, ElementRef, inject, input, output, signal,
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators, type AbstractControl, type ValidationErrors } from '@angular/forms';
 import { inputToIso, nowForInput } from '../../core/dates';
-import { errorOf, textOrNull } from '../../core/form-errors';
+import { errorOf, notInFuture, textOrNull } from '../../core/form-errors';
 import { friendlyError } from '../../core/friendly-error';
 import { money } from '../../core/format';
 import { roundMoney } from '../../core/pricing';
@@ -19,22 +19,10 @@ import {
   PAYMENT_STATUS_TONE,
   type PaymentMethod,
 } from './pedidos.labels';
+import { CurrentWorkspace } from '../../core/workspace';
 
 const NO_ACCOUNT = '';
 const NO_METHOD = '';
-
-/**
- * A payment dated after now would be in the balance today and open a month
- * that has not come yet in Resultados (T4-06). The database refuses it too,
- * with the same slack for a clock a little ahead.
- */
-const FUTURE_SLACK_MS = 5 * 60_000;
-
-export function notInTheFuture(control: AbstractControl<string>): ValidationErrors | null {
-  const value = control.value;
-  if (!value) return null;
-  return Date.parse(inputToIso(value)) > Date.now() + FUTURE_SLACK_MS ? { future: true } : null;
-}
 
 /** What was collected on a sale, and the form to collect the rest. */
 @Component({
@@ -72,6 +60,9 @@ export function notInTheFuture(control: AbstractControl<string>): ValidationErro
         <p class="muted">Esta venta suma {{ 0 | money }}: no hay nada que cobrar.</p>
       } @else if (summary().balance <= 0) {
         <p class="muted">Este pedido está cobrado por completo.</p>
+      } @else if (!canOperate()) {
+        <!-- Collecting is writing: a viewer sees what is owed, not the form (ADR-025). -->
+        <p class="muted">Falta cobrar {{ summary().balance | money }}. Lo cobran el dueño o un operador.</p>
       } @else if (accountsError(); as message) {
         <p class="error" role="alert">{{ message }}</p>
       } @else if (accountsLoading()) {
@@ -139,6 +130,9 @@ export function notInTheFuture(control: AbstractControl<string>): ValidationErro
 })
 export class PedidoCobro {
   private readonly data = inject(PedidosData);
+  private readonly workspace = inject(CurrentWorkspace);
+  /** Owner and operator sell, deliver and collect; a viewer only reads (ADR-025). */
+  protected readonly canOperate = this.workspace.canOperate;
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
 
   readonly orderId = input.required<string>();
@@ -176,7 +170,9 @@ export class PedidoCobro {
       Validators.min(0.01),
       (control: AbstractControl<number | null>) => this.withinBalance(control),
     ]),
-    occurredAt: new FormControl(nowForInput(), { nonNullable: true, validators: [Validators.required, notInTheFuture] }),
+    // A payment dated after now would be in the balance today and open a
+    // month that has not come yet in Resultados (T4-06).
+    occurredAt: new FormControl(nowForInput(), { nonNullable: true, validators: [Validators.required, notInFuture] }),
     method: new FormControl<PaymentMethod | typeof NO_METHOD>(NO_METHOD, { nonNullable: true }),
     reference: new FormControl('', { nonNullable: true }),
   });
@@ -336,6 +332,7 @@ export class PedidoCobro {
    * stays as it was, and so does its key.
    */
   private async failed(error: unknown): Promise<void> {
+    void this.workspace.afterRefusal(error);
     this.error.set(
       refusedByDatabase(error)
         ? friendlyError(error, 'No pudimos registrar el cobro. Inténtalo de nuevo.')

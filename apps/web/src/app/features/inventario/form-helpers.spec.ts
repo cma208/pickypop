@@ -1,14 +1,6 @@
-import { FormControl } from '@angular/forms';
-import {
-  blankToNull,
-  decimalPlaces,
-  inactiveSuffix,
-  invalidMessage,
-  maxDecimals,
-  photosToDelete,
-  requiredText,
-  selectableOptions,
-} from './form-helpers';
+import { FormControl, type ValidatorFn } from '@angular/forms';
+import { maxDecimals, notInFuture, requiredText, wholeNumber } from '../../core/form-errors';
+import { blankToNull, inactiveSuffix, invalidMessage, photosToDelete, selectableOptions } from './form-helpers';
 
 describe('photosToDelete', () => {
   it('on cancel deletes only what was uploaded, never the photo the article still has', () => {
@@ -88,37 +80,31 @@ describe('requiredText', () => {
   });
 });
 
-describe('decimalPlaces', () => {
-  it('counts the decimals as typed, not the float ones', () => {
-    expect(decimalPlaces(0.015005)).toBe(6);
-    expect(decimalPlaces(0.01500499)).toBe(8);
-    expect(decimalPlaces(53.3)).toBe(1);
-    expect(decimalPlaces(1000)).toBe(0);
-    expect(decimalPlaces(1e-7)).toBe(7);
-  });
-});
-
-describe('maxDecimals', () => {
-  it('refuses more decimals than the column keeps, with its own message', () => {
-    const control = new FormControl(10.005, maxDecimals(2));
+describe('invalidMessage, on the shared validators', () => {
+  const touched = (value: unknown, validator: ValidatorFn) => {
+    const control = new FormControl(value, validator);
     control.markAsTouched();
-    expect(control.errors).toEqual({ decimals: 2 });
-    expect(invalidMessage(control)).toBe('Hasta 2 decimales.');
+    return invalidMessage(control);
+  };
+
+  it('says how many decimals the column keeps, read from core\'s { decimals: n }', () => {
+    expect(touched(10.005, maxDecimals(2))).toBe('Hasta 2 decimales.');
+    expect(touched(1.0005, maxDecimals(1))).toBe('Hasta 1 decimal.');
+    expect(touched(1.5, maxDecimals(0))).toBe('Va entero, sin decimales.');
   });
 
-  it('reads the limit in either shape, so core/form-errors and this file can be mixed', () => {
-    const withShape = (decimals: unknown) => {
-      const control = new FormControl(1.5);
-      control.setErrors({ decimals });
-      control.markAsTouched();
-      return invalidMessage(control);
-    };
-    expect(withShape(0)).toBe('Va entero, sin decimales.');
-    expect(withShape(3)).toBe('Hasta 3 decimales.');
-    expect(withShape({ max: 2 })).toBe('Hasta 2 decimales.');
+  it('never prints «Hasta undefined decimales»', () => {
+    for (const decimals of [0, 1, 2, 3, 4, 6]) {
+      expect(touched(1.1234567, maxDecimals(decimals))).not.toContain('undefined');
+    }
   });
 
-  it('leaves an empty field to «required»', () => {
-    expect(maxDecimals(2)(new FormControl(null))).toBeNull();
+  it('says a whole quantity has no decimals', () => {
+    expect(touched(2.5, wholeNumber)).toBe('Va entero, sin decimales.');
+  });
+
+  it('says a date in the future cannot be', () => {
+    expect(touched('2999-01-01', notInFuture)).toBe('La fecha no puede ser futura.');
+    expect(touched('2999-01-01T10:00', notInFuture)).toBe('La fecha no puede ser futura.');
   });
 });

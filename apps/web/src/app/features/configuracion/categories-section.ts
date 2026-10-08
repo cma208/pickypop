@@ -1,5 +1,5 @@
 import { Component, computed, inject, output, signal } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
+import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { AsyncState, Badge, Card, Empty, Field } from '../../ui';
 import { ConfiguracionData } from './configuracion.data';
@@ -7,7 +7,7 @@ import type { CategoryRecord, MovementDirection } from './configuracion.models';
 import { errorOf, requiredText } from '../../core/form-errors';
 import { friendlyError } from '../../core/friendly-error';
 import { SECTION_STYLES } from '../../core/styles';
-import { isOwnerRole } from '../../core/workspace';
+import { CurrentWorkspace } from '../../core/workspace';
 
 const DIRECTION_LABEL: Record<MovementDirection, string> = {
   income: 'Ingreso',
@@ -28,7 +28,14 @@ const DIRECTION_LABEL: Record<MovementDirection, string> = {
  * Una categoría de ingreso puede ser «de ventas» (decisión del dueño): la usan
  * los cobros de pedidos y la Venta rápida, y un ingreso suelto de Caja no la
  * ofrece, porque una venta anotada ahí no sale del estante ni lleva su costo.
- * La base aplica la regla; aquí solo se marca.
+ *
+ * Una categoría puede ser «de capital» (decisión 3c del dueño, T5-06): la usan
+ * solo los aportes y retiros del dueño, y un ingreso, un egreso o el cobro de
+ * un pedido no la ofrecen. Una de ventas no puede serlo. La base la marca sola
+ * por el nombre («Aporte del dueño», «Retiro del dueño»); aquí el dueño la
+ * marca o la desmarca a mano.
+ *
+ * La base aplica las reglas; aquí solo se marca.
  */
 @Component({
   selector: 'app-categories-section',
@@ -40,7 +47,8 @@ const DIRECTION_LABEL: Record<MovementDirection, string> = {
         <p class="muted">
           Con qué se clasifica cada ingreso y cada egreso en la caja. Una categoría ya usada no se borra: se
           desactiva, deja de ofrecerse y sigue explicando los movimientos viejos. Las de ventas son para los cobros de
-          pedidos y la Venta rápida: un ingreso suelto de Caja no las ofrece.
+          pedidos y la Venta rápida: un ingreso suelto de Caja no las ofrece. Las de capital son para los aportes y
+          retiros del dueño, y solo para ellos.
         </p>
         @if (!canEdit()) {
           <p class="notice warn">Solo el dueño del taller puede cambiar las categorías. Aquí las ves en modo lectura.</p>
@@ -71,6 +79,16 @@ const DIRECTION_LABEL: Record<MovementDirection, string> = {
                 Es de ventas: la usan los cobros de pedidos y la Venta rápida, y un ingreso suelto no la ofrece
               </label>
             }
+            <label class="check">
+              <input type="checkbox" formControlName="capital" />
+              Es de capital: {{ isIncome() ? 'la plata que metes al taller (aportes)' : 'la plata que sacas para ti (retiros)' }}
+            </label>
+            <p class="muted hint">
+              Solo la usan los {{ isIncome() ? 'aportes' : 'retiros' }} del dueño, que no suman ni restan a la utilidad:
+              un {{ isIncome() ? 'ingreso, el cobro de un pedido o la Venta rápida' : 'egreso o el pago de una compra' }}
+              no la ofrecen. Una categoría de ventas no puede ser de capital. Un nombre como
+              «{{ isIncome() ? 'Aporte del dueño' : 'Retiro del dueño' }}» la marca solo.
+            </p>
             @if (error(); as message) {
               <p class="error" role="alert">{{ message }}</p>
             }
@@ -98,6 +116,9 @@ const DIRECTION_LABEL: Record<MovementDirection, string> = {
                       <span class="title">{{ category.name }}</span>
                       @if (category.sales) {
                         <pp-badge tone="info">De ventas</pp-badge>
+                      }
+                      @if (category.capital) {
+                        <pp-badge tone="warn">De capital</pp-badge>
                       }
                       <pp-badge [tone]="category.active ? 'good' : 'neutral'">
                         {{ category.active ? 'Activa' : 'Inactiva' }}
@@ -133,7 +154,9 @@ export class CategoriesSection {
   protected readonly categories = signal<CategoryRecord[]>([]);
   protected readonly loading = signal(true);
   protected readonly loadError = signal<string | null>(null);
-  protected readonly canEdit = signal(false);
+  private readonly workspace = inject(CurrentWorkspace);
+  /** Configuration is the owner's (ADR-025); anyone else reads it. Read from `CurrentWorkspace`, the one place that reads the role. */
+  protected readonly canEdit = this.workspace.isOwner;
   protected readonly formOpen = signal(false);
   protected readonly editing = signal<CategoryRecord | null>(null);
   protected readonly saving = signal(false);
@@ -149,6 +172,7 @@ export class CategoriesSection {
     name: new FormControl('', { nonNullable: true, validators: [requiredText] }),
     direction: new FormControl<MovementDirection>('expense', { nonNullable: true }),
     sales: new FormControl(false, { nonNullable: true }),
+    capital: new FormControl(false, { nonNullable: true }),
   });
 
   private readonly direction = toSignal(this.form.controls.direction.valueChanges, {
@@ -158,6 +182,13 @@ export class CategoriesSection {
   protected readonly isIncome = computed(() => this.direction() === 'income');
 
   constructor() {
+    // Sales and capital exclude each other: the database refuses both at once.
+    this.form.controls.capital.valueChanges.pipe(takeUntilDestroyed()).subscribe((capital) => {
+      if (capital) this.form.controls.sales.setValue(false, { emitEvent: false });
+    });
+    this.form.controls.sales.valueChanges.pipe(takeUntilDestroyed()).subscribe((sales) => {
+      if (sales) this.form.controls.capital.setValue(false, { emitEvent: false });
+    });
     void this.reload();
   }
 
@@ -166,6 +197,7 @@ export class CategoriesSection {
       name: category?.name ?? '',
       direction: category?.direction ?? 'expense',
       sales: category?.sales ?? false,
+      capital: category?.capital ?? false,
     });
     this.error.set(null);
     this.editing.set(category);
@@ -193,13 +225,14 @@ export class CategoriesSection {
         direction,
         active: editing?.active ?? true,
         sales: direction === 'income' && this.form.getRawValue().sales,
+        capital: this.form.getRawValue().capital,
       });
       this.formOpen.set(false);
       await this.reload();
       this.changed.emit();
     } catch (error) {
       this.error.set(friendlyError(error, 'No pudimos guardar la categoría.'));
-      if (await this.data.afterRefusal(error)) {
+      if (await this.workspace.afterRefusal(error)) {
         this.formOpen.set(false);
         this.listError.set(this.error());
         await this.reload();
@@ -221,12 +254,13 @@ export class CategoriesSection {
         direction: category.direction,
         active: !category.active,
         sales: category.sales,
+        capital: category.capital,
       });
       await this.reload();
       this.changed.emit();
     } catch (error) {
       this.listError.set(friendlyError(error, 'No pudimos cambiar el estado de la categoría.'));
-      if (await this.data.afterRefusal(error)) await this.reload();
+      if (await this.workspace.afterRefusal(error)) await this.reload();
     } finally {
       this.saving.set(false);
     }
@@ -235,9 +269,8 @@ export class CategoriesSection {
   /** Read again: choosing the category of collections marks it as one of sales in the database. */
   async reload(): Promise<void> {
     try {
-      const [categories, role] = await Promise.all([this.data.categories(), this.data.currentRole()]);
+      const [categories] = await Promise.all([this.data.categories(), this.workspace.info()]);
       this.categories.set(categories);
-      this.canEdit.set(isOwnerRole(role));
       this.loadError.set(null);
     } catch (error) {
       this.loadError.set(friendlyError(error, 'No pudimos cargar las categorías.'));

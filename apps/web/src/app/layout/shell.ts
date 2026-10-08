@@ -1,6 +1,7 @@
 import { Component, inject, signal } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { Session } from '../core/session';
+import { CurrentWorkspace } from '../core/workspace';
 import { Appearance } from '../core/appearance';
 import { NavIcons } from './nav-icons';
 
@@ -32,6 +33,15 @@ export class Shell {
   private readonly router = inject(Router);
   private readonly appearance = inject(Appearance);
   protected readonly session = inject(Session);
+
+  constructor() {
+    // Every screen reads the role from here (ADR-025) to offer only what it
+    // may do. Asked once as the signed-in app opens, it is there before any
+    // screen needs it; a failure is retried by the first screen that loads.
+    inject(CurrentWorkspace)
+      .info()
+      .catch(() => undefined);
+  }
 
   /** The slide-over on a phone. Separate from the rail, which is for wide screens. */
   protected readonly menuOpen = signal(false);

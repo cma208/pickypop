@@ -1,30 +1,32 @@
-import { FormControl } from '@angular/forms';
-import { hasAtMostHundredths, hundredths, toHundredths, wholeNumber } from './job-grams';
+import { FormControl, Validators } from '@angular/forms';
+import { maxDecimals } from '../../core/form-errors';
+import { GRAM_DECIMALS, toHundredths } from './job-grams';
+import { createOutputControl } from './print-job-outputs';
 
 describe('grams to the hundredth (T3-18)', () => {
-  it('takes two decimals and refuses three', () => {
-    expect(hasAtMostHundredths(50.13)).toBe(true);
-    expect(hasAtMostHundredths(0.1 + 0.2)).toBe(true);
-    expect(hasAtMostHundredths(50.126)).toBe(false);
-  });
-
   it('rounds like the job keeps them', () => {
     expect(toHundredths(50.126)).toBe(50.13);
     expect(toHundredths(14.3865)).toBe(14.39);
   });
 
-  it('validates a field, leaving an empty one to `required`', () => {
-    expect(hundredths(new FormControl(null))).toBeNull();
-    expect(hundredths(new FormControl(8.63))).toBeNull();
-    expect(hundredths(new FormControl(8.634))).toEqual({ hundredths: true });
+  it('takes two decimals and refuses three, with the key every form reads', () => {
+    const grams = (value: number | null) => new FormControl(value, [Validators.min(0), maxDecimals(GRAM_DECIMALS)]);
+    expect(grams(null).errors).toBeNull();
+    expect(grams(8.63).errors).toBeNull();
+    expect(grams(0.1 + 0.2).errors).toBeNull();
+    expect(grams(50.126).errors).toEqual({ decimals: 2 });
   });
 });
 
 describe('whole pieces (T3-04)', () => {
-  it('refuses 6.5 caps and takes 6', () => {
-    expect(wholeNumber(new FormControl(6.5))).toEqual({ wholeNumber: true });
-    expect(wholeNumber(new FormControl(6))).toBeNull();
-    expect(wholeNumber(new FormControl(0))).toBeNull();
-    expect(wholeNumber(new FormControl(null))).toBeNull();
+  it('refuses 6.5 caps and takes 6, with the key every form reads', () => {
+    expect(createOutputControl(7).errors).toBeNull();
+    const control = createOutputControl(7);
+    control.setValue(6.5);
+    expect(control.errors).toEqual({ integer: true });
+    control.setValue(6);
+    expect(control.errors).toBeNull();
+    control.setValue(0);
+    expect(control.errors).toBeNull();
   });
 });

@@ -4,11 +4,13 @@ import { borrowedPhoto } from '../../core/article-photos';
 import { ItemPicker, type PickerOption } from '../../ui';
 import { CatalogoData } from './catalogo.data';
 import type { PlateOutput } from './catalogo.models';
-import { CatalogoPermissions } from './catalogo.permissions';
 import { SHARED_STYLES } from './catalogo.styles';
 import { messageOf } from './catalogo.util';
-import { fieldError, LIMITS, limitText, wholeNumber } from './catalogo.validators';
+import { breaksItsRules, wholeNumber } from '../../core/form-errors';
+import { fieldError, LIMITS, limitText } from './catalogo.validators';
 import { removeOutputQuestion, swapOutputQuestion } from './plate-removal';
+import { CurrentWorkspace } from '../../core/workspace';
+import { lockWhileReadOnly } from '../../core/read-only';
 
 export interface PartOption {
   id: string;
@@ -22,7 +24,7 @@ const PART_MESSAGES: Record<string, string> = { required: 'Elige la pieza.' };
 const UNITS_MESSAGES: Record<string, string> = {
   required: 'Escribe cuántas salen por corrida.',
   min: 'Por corrida sale al menos 1.',
-  whole: 'Las piezas salen enteras: escribe un número sin decimales.',
+  integer: 'Las piezas salen enteras: escribe un número sin decimales.',
   max: `Hasta ${limitText(LIMITS.perRun)} por corrida.`,
 };
 
@@ -53,27 +55,31 @@ export const INACTIVE_PART_NOTE =
     `,
   ],
   template: `
+    @if (current() || canOperate()) {
     <form [formGroup]="form" (ngSubmit)="save()" novalidate>
       <label class="part">Pieza
         <pp-item-picker
           placeholder="Elige la pieza…"
           [options]="options()"
           [value]="form.controls.inventoryItemId.value"
+          [disabled]="!canOperate()"
           (chosen)="choose($event)"
         />
       </label>
       <label>Por corrida
         <input type="number" min="1" step="1" inputmode="numeric" formControlName="unitsPerRun" />
       </label>
-      <div class="actions">
-        <button type="submit" [disabled]="busy() || (current() !== null && form.pristine)"
-          [attr.aria-label]="current() ? 'Guardar pieza' : 'Agregar pieza'">
-          {{ current() ? 'Guardar' : 'Agregar' }}
-        </button>
-        @if (current() && permissions.isOwner()) {
-          <button type="button" class="ghost" [disabled]="busy()" (click)="remove()" aria-label="Quitar pieza">✕</button>
-        }
-      </div>
+      @if (canOperate()) {
+        <div class="actions">
+          <button type="submit" [disabled]="busy() || (current() !== null && form.pristine)"
+            [attr.aria-label]="current() ? 'Guardar pieza' : 'Agregar pieza'">
+            {{ current() ? 'Guardar' : 'Agregar' }}
+          </button>
+          @if (current() && isOwner()) {
+            <button type="button" class="ghost" [disabled]="busy()" (click)="remove()" aria-label="Quitar pieza">✕</button>
+          }
+        </div>
+      }
       @if (inactive()) {
         <p class="err muted hint">{{ inactiveNote }}</p>
       }
@@ -84,11 +90,16 @@ export const INACTIVE_PART_NOTE =
         <p class="err error" role="alert">{{ message }}</p>
       }
     </form>
+    }
   `,
 })
 export class SalidaFila {
   private readonly data = inject(CatalogoData);
-  protected readonly permissions = inject(CatalogoPermissions);
+  private readonly workspace = inject(CurrentWorkspace);
+  /** The day to day: owner and operator. A viewer is shown what there is, with nothing to change (ADR-025). */
+  protected readonly canOperate = this.workspace.canOperate;
+  /** Removing is the owner's: the database refuses everyone else (T2-10). */
+  protected readonly isOwner = this.workspace.isOwner;
   protected readonly inactiveNote = INACTIVE_PART_NOTE;
 
   readonly plateId = input.required<string>();
@@ -161,13 +172,14 @@ export class SalidaFila {
   }
 
   constructor() {
+    lockWhileReadOnly(this.form, this.canOperate);
     effect(() => {
       const output = this.current();
       untracked(() => {
         if (!this.form.dirty) {
           this.form.reset({ inventoryItemId: output?.inventoryItemId ?? '', unitsPerRun: output?.unitsPerRun ?? null });
           // Saved before pieces had to be whole: said at once, so it gets fixed.
-          if (this.form.controls.unitsPerRun.invalid && output) this.form.controls.unitsPerRun.markAsTouched();
+          if (output && breaksItsRules(this.form.controls.unitsPerRun)) this.form.controls.unitsPerRun.markAsTouched();
         }
       });
     });
@@ -190,7 +202,7 @@ export class SalidaFila {
     const saved = this.current();
     if (saved && this.soleSource() && saved.inventoryItemId !== input.inventoryItemId) {
       const newName = this.parts().find((part) => part.id === input.inventoryItemId)?.name ?? 'otra pieza';
-      const who = { asked: this.asked(), owner: this.permissions.isOwner() };
+      const who = { asked: this.asked(), owner: this.isOwner() };
       if (!confirm(swapOutputQuestion(this.partName(saved), newName, who))) return;
     }
 
@@ -207,6 +219,7 @@ export class SalidaFila {
       this.changed.emit();
     } catch (error) {
       this.error.set(messageOf(error, 'No pudimos guardar la pieza de la placa.'));
+      void this.workspace.afterRefusal(error);
       // A refusal may come from a tab that is behind: read the recipe again.
       this.changed.emit();
     } finally {
@@ -226,6 +239,7 @@ export class SalidaFila {
       await this.data.deletePlateOutput(current.id);
     } catch (error) {
       this.error.set(messageOf(error, 'No pudimos quitar la pieza de la placa.'));
+      void this.workspace.afterRefusal(error);
     } finally {
       this.busy.set(false);
     }

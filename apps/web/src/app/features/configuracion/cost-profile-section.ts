@@ -9,7 +9,7 @@ import { friendlyError } from '../../core/friendly-error';
 import { todayLocal } from '../../core/dates';
 import { date as fecha } from '../../core/format';
 import { SECTION_STYLES } from '../../core/styles';
-import { isOwnerRole } from '../../core/workspace';
+import { CurrentWorkspace } from '../../core/workspace';
 
 const STATE_LABELS: Record<ProfileState, string> = { current: 'Vigente', scheduled: 'Programada', past: 'Anterior' };
 const STATE_TONES: Record<ProfileState, 'good' | 'info' | 'neutral'> = {
@@ -121,7 +121,9 @@ export class CostProfileSection {
   protected readonly profiles = signal<CostProfileRecord[]>([]);
   protected readonly loading = signal(true);
   protected readonly error = signal<string | null>(null);
-  protected readonly canEdit = signal(false);
+  private readonly workspace = inject(CurrentWorkspace);
+  /** Configuration is the owner's (ADR-025); anyone else reads it. Read from `CurrentWorkspace`, the one place that reads the role. */
+  protected readonly canEdit = this.workspace.isOwner;
   protected readonly formOpen = signal(false);
   protected readonly busy = signal(false);
   protected readonly notice = signal<string | null>(null);
@@ -192,7 +194,7 @@ export class CostProfileSection {
       this.notice.set(`Se quitó la versión programada para el ${when}.`);
     } catch (error) {
       this.actionError.set(friendlyError(error, 'No pudimos quitar la versión.'));
-      await this.data.afterRefusal(error);
+      await this.workspace.afterRefusal(error);
     } finally {
       this.busy.set(false);
       // Also after a refusal: the version may have started, or be gone.
@@ -202,9 +204,8 @@ export class CostProfileSection {
 
   private async reload(): Promise<void> {
     try {
-      const [profiles, role] = await Promise.all([this.data.costProfiles(), this.data.currentRole()]);
+      const [profiles] = await Promise.all([this.data.costProfiles(), this.workspace.info()]);
       this.profiles.set(profiles);
-      this.canEdit.set(isOwnerRole(role));
       this.error.set(null);
     } catch (error) {
       this.error.set(friendlyError(error, 'No pudimos cargar los parámetros de costo.'));

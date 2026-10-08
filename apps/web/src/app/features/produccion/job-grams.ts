@@ -1,7 +1,5 @@
-import type { AbstractControl, ValidationErrors } from '@angular/forms';
-
 /**
- * Grams and pieces as the database keeps them.
+ * Grams as the database keeps them.
  *
  * A job keeps its grams to the hundredth (numeric 10,2) and the kardex to the
  * thousandth: 50.126 g used to be 50.13 on the job and −50.126 on the roll
@@ -10,6 +8,12 @@ import type { AbstractControl, ValidationErrors } from '@angular/forms';
  */
 
 const HUNDREDTHS = 100;
+
+/**
+ * The decimals a grams field takes, checked with `maxDecimals` from
+ * `core/form-errors` like every other number: 12.345 g is refused there.
+ */
+export const GRAM_DECIMALS = 2;
 
 /**
  * Bounds that no real job reaches, so an extra zero is caught next to the
@@ -21,34 +25,8 @@ export const MAX_MINUTES = 100000;
 
 /** The message of a grams field, with the bound it checks. */
 export const GRAMS_MESSAGE = `Escribe los gramos, de 0 a ${MAX_GRAMS}, con hasta dos decimales.`;
-/** Float noise allowed when checking that 12.34 × 100 is whole. */
-const TOLERANCE = 1e-6;
-
-/** Whether a number has at most two decimals. */
-export function hasAtMostHundredths(value: number): boolean {
-  return Math.abs(Math.round(value * HUNDREDTHS) - value * HUNDREDTHS) < TOLERANCE;
-}
 
 /** Rounded to the hundredth, the way the job keeps its grams. */
 export function toHundredths(value: number): number {
   return Math.round(value * HUNDREDTHS) / HUNDREDTHS;
-}
-
-/** Validator: an empty field passes (`required` says if it must not be empty); 12.345 g does not. */
-export function hundredths(control: AbstractControl): ValidationErrors | null {
-  const value: unknown = control.value;
-  if (value === null || value === undefined || value === '') return null;
-  return typeof value === 'number' && Number.isFinite(value) && hasAtMostHundredths(value) ? null : { hundredths: true };
-}
-
-/**
- * Validator: pieces come out whole. A number input in a reactive form takes
- * 6.5 as it is, and `step="1"` validates nothing: 6.5 caps went on the shelf
- * and «Contar el estante», which only takes whole numbers, could not be saved
- * until someone fixed that row (T3-04).
- */
-export function wholeNumber(control: AbstractControl): ValidationErrors | null {
-  const value: unknown = control.value;
-  if (value === null || value === undefined || value === '') return null;
-  return typeof value === 'number' && Number.isInteger(value) ? null : { wholeNumber: true };
 }

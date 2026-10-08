@@ -1,11 +1,21 @@
-import { addLineBlockers, clampPercent, losingLines, QUOTE_FIELD_ERRORS, validUntilFor, WHOLE_NUMBER } from './quote-form';
+import { FormControl } from '@angular/forms';
+import { requiredText, wholeNumber } from '../../core/form-errors';
+import { addLineBlockers, clampPercent, losingLines, QUOTE_FIELD_ERRORS, validUntilFor } from './quote-form';
 
 describe('quote form rules', () => {
   it('asks for whole units: 2.5 is not quoted as 3 (T4-13)', () => {
-    expect(WHOLE_NUMBER.test('3')).toBe(true);
-    expect(WHOLE_NUMBER.test('2.5')).toBe(false);
-    expect(WHOLE_NUMBER.test('-3')).toBe(false);
-    expect(QUOTE_FIELD_ERRORS['quantity']!['pattern']).toContain('número entero');
+    expect(wholeNumber(new FormControl(3))).toBeNull();
+    const errors = wholeNumber(new FormControl(2.5)) ?? {};
+    // The message is read by the key the shared validator gives.
+    const [key] = Object.keys(errors);
+    expect(QUOTE_FIELD_ERRORS['quantity']![key!]).toContain('número entero');
+    expect(QUOTE_FIELD_ERRORS['validityDays']![key!]).toContain('número entero');
+  });
+
+  it('says a description of only spaces is missing, by the key requiredText gives', () => {
+    const errors = requiredText(new FormControl('   ')) ?? {};
+    const [key] = Object.keys(errors);
+    expect(QUOTE_FIELD_ERRORS['description']![key!]).toContain('Escribe qué se cotiza');
   });
 
   it('says the discount range instead of cutting it silently (T4-14)', () => {

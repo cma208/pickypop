@@ -84,6 +84,16 @@ describe('friendlyError', () => {
     expect(duplicate('printers_name_ci_key')).toContain('impresora');
   });
 
+  it('explains the rules the third pass added, instead of the generic sentence', () => {
+    const refused = (code: string, constraint: string) =>
+      friendlyError({ code, message: `violates constraint "${constraint}"` }, FALLBACK);
+
+    expect(refused('23514', 'transaction_categories_capital_is_not_sales')).toContain('capital y de ventas');
+    expect(refused('23505', 'transactions_workspace_entry_key_key')).toContain('ya quedó registrado');
+    expect(refused('23514', 'filament_skus_color_name_not_blank')).toContain('nombre del color');
+    expect(refused('23514', 'inventory_items_unit_not_blank')).toContain('unidad');
+  });
+
   it('says a ledger is voided or corrected, never edited, when even the owner is refused', () => {
     const money = friendlyError({ code: '42501', message: 'permission denied for table transactions' }, FALLBACK);
     const stock = friendlyError({ code: '42501', message: 'permission denied for table stock_movements' }, FALLBACK);
@@ -109,6 +119,21 @@ describe('friendlyError', () => {
     expect(isPermissionError(permissionError())).toBe(true);
     expect(isPermissionError({ code: '23505', message: 'duplicate key' })).toBe(false);
     expect(isPermissionError(new UserFacingError('Faltan los gramos.'))).toBe(false);
+  });
+
+  it('takes a role refusal written as a plain raise exception for what it is (void_transaction)', () => {
+    const voiding = 'Solo el dueño del taller puede anular un movimiento de dinero.';
+    expect(isPermissionError({ code: 'P0001', message: voiding })).toBe(true);
+    expect(isPermissionError(new UserFacingError(voiding))).toBe(true);
+    expect(isPermissionError({ code: 'P0001', message: 'Este movimiento ya estaba anulado (motivo: «x»).' })).toBe(false);
+    // Shown as it is: the database knows the case.
+    expect(friendlyError({ code: 'P0001', message: voiding }, FALLBACK)).toBe(voiding);
+  });
+
+  it('sees the refusal behind an error a screen already translated', () => {
+    const owner = 'Solo el dueño del taller puede registrar o cambiar las impresoras.';
+    expect(isPermissionError(new UserFacingError(owner, { cause: { code: '42501', message: owner } }))).toBe(true);
+    expect(isPermissionError(new UserFacingError('Ya hay un producto.', { cause: { code: '23505' } }))).toBe(false);
   });
 
   it('falls back when it has nothing better, including on nothing at all', () => {

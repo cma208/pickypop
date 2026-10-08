@@ -2,11 +2,11 @@ import { Component, computed, inject, input, output, signal } from '@angular/cor
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Field } from '../../ui';
-import { errorOf, textOrNull } from '../../core/form-errors';
+import { errorOf, requiredText, textOrNull } from '../../core/form-errors';
 import { friendlyError } from '../../core/friendly-error';
 import { SECTION_STYLES } from '../../core/styles';
 import { ClientesData } from './clientes.data';
-import { isWalkInName, NOT_BLANK, sameName, type KnownCustomer } from './customer-match';
+import { isWalkInName, sameName, type KnownCustomer } from './customer-match';
 import {
   DOC_FORMAT_HINTS,
   DOC_TYPE_LABELS,
@@ -16,6 +16,7 @@ import {
   type CustomerRecord,
   type DocType,
 } from './clientes.models';
+import { CurrentWorkspace } from '../../core/workspace';
 
 /** Create or edit a customer, validating the document the way the database does. */
 @Component({
@@ -102,6 +103,7 @@ import {
 })
 export class CustomerForm {
   private readonly data = inject(ClientesData);
+  private readonly workspace = inject(CurrentWorkspace);
 
   readonly customer = input<CustomerRecord | null>(null);
   /** The customers already in the list, to recognise the name being typed (T4-10). */
@@ -119,7 +121,7 @@ export class CustomerForm {
   protected readonly form = new FormGroup(
     {
       kind: new FormControl<CustomerKind>('person', { nonNullable: true }),
-      name: new FormControl('', { nonNullable: true, validators: [Validators.required, Validators.pattern(NOT_BLANK)] }),
+      name: new FormControl('', { nonNullable: true, validators: [requiredText] }),
       docType: new FormControl<DocType>('none', { nonNullable: true }),
       docNumber: new FormControl('', { nonNullable: true }),
       phone: new FormControl('', { nonNullable: true }),
@@ -168,7 +170,6 @@ export class CustomerForm {
   protected nameError(): string | null {
     return errorOf(this.form.controls.name, {
       required: 'Escribe el nombre del cliente.',
-      pattern: 'Escribe el nombre del cliente: solo espacios no cuenta.',
     });
   }
 
@@ -205,6 +206,7 @@ export class CustomerForm {
       });
       this.saved.emit();
     } catch (error) {
+      void this.workspace.afterRefusal(error);
       this.error.set(friendlyError(error, 'No pudimos guardar el cliente. Inténtalo de nuevo.'));
     } finally {
       this.saving.set(false);

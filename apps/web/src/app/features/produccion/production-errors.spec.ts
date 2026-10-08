@@ -25,6 +25,12 @@ describe('production errors', () => {
     );
   });
 
+  it('does not claim the role changed: a function without its grant answers the same 42501', () => {
+    expect(NO_PRIVILEGE_MESSAGE).toContain('Si tu rol en el taller cambió');
+    expect(NO_PRIVILEGE_MESSAGE).toContain('puede faltar publicar una parte de la actualización');
+    expect(NO_PRIVILEGE_MESSAGE).not.toContain(': tu rol en el taller cambió');
+  });
+
   it('lets what the database wrote for a person through, as it is', () => {
     const message = 'La aplicación se actualizó mientras la tenías abierta: recarga la página y vuelve a cerrar la impresión. No se movió nada.';
     expect(explainProductionError({ code: 'P0001', message }, FALLBACK)).toBe(message);

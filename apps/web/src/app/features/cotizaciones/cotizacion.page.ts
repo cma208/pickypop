@@ -224,13 +224,18 @@ export class CotizacionPage {
   /** What the page offers, by the database's own rules (T4-03, T4-09). */
   private readonly actions = computed(() => {
     const quote = this.quote();
-    return quote === null ? null : quoteActions(quote);
+    // Sending, accepting, rejecting and a new version are writing: a viewer is offered none (ADR-025).
+    return quote === null || !this.workspace.canOperate() ? null : quoteActions(quote);
+  });
+  /** The hold card shows what the quote holds; only who may write gets its buttons. */
+  protected readonly holdState = computed(() => {
+    const quote = this.quote();
+    return quote === null ? null : quoteActions(quote).hold;
   });
   protected readonly canSend = computed(() => this.actions()?.canSend ?? false);
   protected readonly canAccept = computed(() => this.actions()?.canAccept ?? false);
   protected readonly canReject = computed(() => this.actions()?.canReject ?? false);
   protected readonly canVersion = computed(() => this.actions()?.canVersion ?? false);
-  protected readonly holdCard = computed(() => this.actions()?.hold ?? null);
 
   /** The order another version of this document became: this one is history. */
   protected readonly orderElsewhere = computed(() => {
@@ -375,6 +380,7 @@ export class CotizacionPage {
       this.actionError.set(
         cause instanceof DataError ? cause.message : 'No pudimos cambiar el estado.',
       );
+      void this.workspace.afterRefusal(cause);
       this.confirmingReject.set(false);
       await this.reload();
     } finally {

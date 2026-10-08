@@ -1,4 +1,5 @@
 import { FormArray, FormControl, FormGroup, Validators, type ValidatorFn } from '@angular/forms';
+import { UserFacingError } from '../../core/friendly-error';
 import type { Pair, ProductStatus, VariantUsage } from './catalogo.models';
 
 export const SLUG_PATTERN = /^[a-z0-9]+(-[a-z0-9]+)*$/;
@@ -93,12 +94,16 @@ export function readPairs(array: FormArray<PairGroup>): Pair[] {
 
 // ------------------------------------------------------------------- errors
 
-/** An error whose message is already written for the person using the app. */
-export class CatalogoError extends Error {}
+/**
+ * An error whose message is already written for the person using the app.
+ * It is a `UserFacingError`, so `friendlyError` and `afterRefusal` read it
+ * like any other: what the database said travels as its `cause`.
+ */
+export class CatalogoError extends UserFacingError {}
 
 /** Message to show for anything thrown by the data layer. */
 export function messageOf(error: unknown, fallback = 'Algo salió mal. Inténtalo otra vez.'): string {
-  if (error instanceof CatalogoError) return error.message;
+  if (error instanceof UserFacingError) return error.message;
   console.error(error);
   return fallback;
 }
@@ -170,8 +175,7 @@ export function variantUsageText(usage: Pick<VariantUsage, 'quotes' | 'orders' |
  * nothing is. A switched-off variant leaves Armar and the shelf count, so its
  * orders not delivered yet could not be assembled and its units on the shelf
  * could not be counted, while the screen said it changed nothing for what
- * was sold. It also leaves the quoting screen, so a new version of an open
- * quote lost its price list.
+ * was sold. It is no longer offered for new quote lines either.
  */
 export function deactivationWarning(usage: Pick<VariantUsage, 'openQuotes' | 'openOrders' | 'onHand'>): string | null {
   const said = [shelfWarning(usage.openOrders, usage.onHand), quotesWarning(usage.openQuotes)].filter(
@@ -182,8 +186,9 @@ export function deactivationWarning(usage: Pick<VariantUsage, 'openQuotes' | 'op
 
 /**
  * Open quotes keep the price they were sent with, so they can still be
- * accepted. A new version is quoted again, and the quoting screen offers only
- * active variants: it priced the line from its cost, as custom work.
+ * accepted. A new version is quoted again with today's parameters, and the
+ * quoting screen loads the variants its lines use even when switched off:
+ * the line keeps its list price and ladder. Only new lines cannot pick it.
  */
 function quotesWarning(openQuotes: number): string | null {
   if (openQuotes <= 0) return null;
@@ -191,8 +196,8 @@ function quotesWarning(openQuotes: number): string | null {
   return (
     `Tiene ${countOf(openQuotes, 'cotización abierta', 'cotizaciones abiertas')}: ` +
     `${one ? 'se puede aceptar con el precio que ya tiene' : 'se pueden aceptar con el precio que ya tienen'}, ` +
-    `pero desactivada no se ofrece al cotizar, y una versión nueva de ${one ? 'ella' : 'ellas'} ` +
-    'la cotizaría por costo, sin su precio de lista.'
+    `y una versión nueva de ${one ? 'ella' : 'ellas'} la sigue cotizando a su precio de lista y su escalera. ` +
+    'Desactivada, solo deja de ofrecerse para líneas nuevas del cotizador.'
   );
 }
 

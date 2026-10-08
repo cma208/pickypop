@@ -13,6 +13,7 @@ import {
   type StageChange,
 } from './oportunidades.data';
 import { closedBlockers, STAGE_LABEL, STAGE_TONE } from './oportunidades.models';
+import { CurrentWorkspace } from '../../core/workspace';
 
 const QUOTE_STATUS_LABEL: Record<string, string> = {
   draft: 'Borrador',
@@ -48,7 +49,9 @@ const QUOTE_STATUS_LABEL: Record<string, string> = {
           <pp-badge tone="warn">Esperando: {{ reason }}</pp-badge>
         }
         <span class="grow"></span>
-        <button type="button" class="secondary" (click)="edit.emit()">Editar</button>
+        @if (canOperate()) {
+          <button type="button" class="secondary" (click)="edit.emit()">Editar</button>
+        }
         <button type="button" class="ghost" (click)="closed.emit()">Cerrar ficha</button>
       </div>
 
@@ -94,7 +97,9 @@ const QUOTE_STATUS_LABEL: Record<string, string> = {
                   <td>{{ quote.issuedOn | fecha }}</td>
                   <td class="num">{{ quote.total | money }}</td>
                   <td class="num">
-                    <button type="button" class="ghost" (click)="unlinkQuote(quote)">Quitar</button>
+                    @if (canOperate()) {
+                      <button type="button" class="ghost" (click)="unlinkQuote(quote)">Quitar</button>
+                    }
                   </td>
                 </tr>
               }
@@ -103,6 +108,7 @@ const QUOTE_STATUS_LABEL: Record<string, string> = {
         </div>
       }
 
+      @if (canOperate()) {
       <div class="link-row">
         <label class="grow">
           <span class="muted">Enganchar una cotización suelta</span>
@@ -119,6 +125,7 @@ const QUOTE_STATUS_LABEL: Record<string, string> = {
           Enganchar
         </button>
       </div>
+      }
 
       <h3>Pedidos</h3>
       @if (orders().length === 0) {
@@ -138,7 +145,9 @@ const QUOTE_STATUS_LABEL: Record<string, string> = {
                   <td>{{ order.dueDate ? (order.dueDate | fecha) : '—' }}</td>
                   <td class="num">{{ order.total | money }}</td>
                   <td class="num">
-                    <button type="button" class="ghost" (click)="unlinkOrder(order)">Quitar</button>
+                    @if (canOperate()) {
+                      <button type="button" class="ghost" (click)="unlinkOrder(order)">Quitar</button>
+                    }
                   </td>
                 </tr>
               }
@@ -147,6 +156,7 @@ const QUOTE_STATUS_LABEL: Record<string, string> = {
         </div>
       }
 
+      @if (canOperate()) {
       <div class="link-row">
         <label class="grow">
           <span class="muted">Enganchar un pedido suelto</span>
@@ -163,6 +173,7 @@ const QUOTE_STATUS_LABEL: Record<string, string> = {
           Enganchar
         </button>
       </div>
+      }
 
       <h3>Por dónde ha pasado</h3>
       @if (history().length === 0) {
@@ -187,6 +198,9 @@ const QUOTE_STATUS_LABEL: Record<string, string> = {
 })
 export class OportunidadDetalle {
   private readonly data = inject(OportunidadesData);
+  private readonly workspace = inject(CurrentWorkspace);
+  /** Owner and operator sell; a viewer only reads (ADR-025). */
+  protected readonly canOperate = this.workspace.canOperate;
 
   readonly opportunity = input.required<OpportunityCard>();
   /** Algo cambió y el tablero tiene que volver a leerse. */
@@ -263,6 +277,7 @@ export class OportunidadDetalle {
       // La etapa puede haber cambiado sola: enganchar un pedido gana el trato.
       this.changed.emit();
     } catch (error) {
+      void this.workspace.afterRefusal(error);
       this.error.set(friendlyError(error, 'No pudimos cambiar lo que cuelga de este trato.'));
     } finally {
       this.busy.set(false);
@@ -285,6 +300,7 @@ export class OportunidadDetalle {
       this.freeOrders.set(freeOrders);
       this.error.set(null);
     } catch (error) {
+      void this.workspace.afterRefusal(error);
       this.error.set(friendlyError(error, 'No pudimos leer este trato.'));
     }
   }

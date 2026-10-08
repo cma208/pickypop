@@ -190,10 +190,11 @@ const ALL_YEARS = '';
                     @if (row.printCost > 0) {
                       <li>
                         <span>
-                          Impresiones fallidas
+                          Impresiones fallidas o canceladas a medias
                           <small class="sub">
                             {{ share(row) | percent1 }} de lo impreso para producir en el mes ({{ row.printCost | money }}),
-                            medido en costo y no en cantidad de impresiones. Moldes y pruebas no cuentan, tampoco
+                            medido en costo y no en cantidad de impresiones. Una impresión cancelada que alcanzó a correr
+                            cuenta como fallida: gastó filamento, luz y máquina. Moldes y pruebas no cuentan, tampoco
                             cuando fallan: van en «Producción no vendida». Las que ningún precio paga ya restan ahí;
                             aquí se comparan todas con lo que tus precios reservan para fallos.
                             @if (row.failureReserveRate !== null) {

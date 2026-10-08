@@ -5,14 +5,17 @@ import { CatalogoData } from './catalogo.data';
 import { STATUS_LABELS, type ProductDetail, type ProductStatus } from './catalogo.models';
 import { SHARED_STYLES } from './catalogo.styles';
 import { messageOf, pairArray, parseTags, readPairs, repeatedProductMessage, SLUG_PATTERN } from './catalogo.util';
-import { fieldError, LIMITS, requiredText, wholeNumber } from './catalogo.validators';
+import { requiredText, wholeNumber } from '../../core/form-errors';
+import { fieldError, LIMITS } from './catalogo.validators';
 import { PairsEditor } from './pairs-editor';
+import { CurrentWorkspace } from '../../core/workspace';
+import { lockWhileReadOnly } from '../../core/read-only';
 
 const STATUSES: ProductStatus[] = ['draft', 'published', 'archived'];
 
 const LEAD_MESSAGES: Record<string, string> = {
   min: 'No puede ser negativo.',
-  whole: 'Escribe días enteros.',
+  integer: 'Escribe días enteros.',
   max: `Hasta ${LIMITS.leadTimeDays} días.`,
 };
 
@@ -29,6 +32,7 @@ const LEAD_MESSAGES: Record<string, string> = {
             folder="productos"
             [path]="imagePath()"
             [name]="form.controls.name.value"
+            [readOnly]="!canOperate()"
             (changed)="setImage($event)"
           />
         </pp-field>
@@ -84,12 +88,14 @@ const LEAD_MESSAGES: Record<string, string> = {
           valuePlaceholder="Ej. 12 × 6 cm"
           addLabel="Agregar atributo"
           emptyText="Todavía no hay atributos en la ficha."
+          [readOnly]="!canOperate()"
         />
       </pp-card>
 
       @if (error(); as message) {
         <p class="error" role="alert">{{ message }}</p>
       }
+      @if (canOperate()) {
       <div class="bar">
         <button type="submit" [disabled]="busy() || form.pristine">
           {{ busy() ? 'Guardando…' : 'Guardar cambios' }}
@@ -101,11 +107,17 @@ const LEAD_MESSAGES: Record<string, string> = {
           <span class="ok" role="status">Guardado</span>
         }
       </div>
+      }
     </form>
   `,
 })
 export class ProductoDatos {
   private readonly data = inject(CatalogoData);
+  private readonly workspace = inject(CurrentWorkspace);
+  /** A viewer sees the product as it is, with nothing to change (ADR-025). */
+  protected readonly canOperate = this.workspace.canOperate;
+  /** A row pushed into a disabled list arrives enabled: locked again after each fill. */
+  private readonly relock: () => void;
 
   readonly product = input.required<ProductDetail>();
   readonly saved = output<void>();
@@ -139,6 +151,7 @@ export class ProductoDatos {
   });
 
   constructor() {
+    this.relock = lockWhileReadOnly(this.form, this.canOperate);
     // Follow the product after a reload, but never overwrite what is being typed.
     effect(() => {
       const product = this.product();
@@ -157,6 +170,7 @@ export class ProductoDatos {
       this.saved.emit();
     } catch (error) {
       this.error.set(messageOf(error, 'No pudimos guardar la foto.'));
+      void this.workspace.afterRefusal(error);
     }
   }
 
@@ -223,6 +237,7 @@ export class ProductoDatos {
       this.saved.emit();
     } catch (error) {
       this.error.set(messageOf(error, 'No pudimos guardar el producto.'));
+      void this.workspace.afterRefusal(error);
     } finally {
       this.busy.set(false);
     }
@@ -245,5 +260,6 @@ export class ProductoDatos {
     });
     this.form.markAsPristine();
     this.form.markAsUntouched();
+    this.relock();
   }
 }

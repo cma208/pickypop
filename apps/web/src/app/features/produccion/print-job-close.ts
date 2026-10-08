@@ -1,6 +1,7 @@
 import { Component, computed, inject, input, OnInit, output, signal } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { FormArray, FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { maxDecimals, wholeNumber } from '../../core/form-errors';
 import { Field, FORMAT_PIPES } from '../../ui';
 import { explainProductionError } from './production-errors';
 import { ProduccionData, type CloseJob, type CloseOutcome, type JobItem } from './produccion.data';
@@ -11,7 +12,8 @@ import { duration } from '../../core/format';
 import { filamentName } from '../../core/spool-label';
 import { secondsToSave, type ProposedTime } from './job-time';
 import { closeProposal } from './close-proposal';
-import { GRAMS_MESSAGE, hundredths, MAX_GRAMS, MAX_MINUTES, toHundredths } from './job-grams';
+import { GRAM_DECIMALS, GRAMS_MESSAGE, MAX_GRAMS, MAX_MINUTES, toHundredths } from './job-grams';
+import { CurrentWorkspace } from '../../core/workspace';
 
 type CloseResult = CloseJob['result'];
 
@@ -27,7 +29,7 @@ export const NOTE_MAX_LENGTH = 500;
 function createUsageRow(spoolId: string, actualG: number | null) {
   return new FormGroup({
     spoolId: new FormControl(spoolId, { nonNullable: true }),
-    actualG: new FormControl<number | null>(actualG, [Validators.min(0), Validators.max(MAX_GRAMS), hundredths]),
+    actualG: new FormControl<number | null>(actualG, [Validators.min(0), Validators.max(MAX_GRAMS), maxDecimals(GRAM_DECIMALS)]),
   });
 }
 
@@ -171,6 +173,7 @@ function createUsageRow(spoolId: string, actualG: number | null) {
 })
 export class PrintJobClose implements OnInit {
   private readonly data = inject(ProduccionData);
+  private readonly workspace = inject(CurrentWorkspace);
 
   readonly job = input.required<JobItem>();
   /**
@@ -195,7 +198,7 @@ export class PrintJobClose implements OnInit {
     result: new FormControl<CloseResult>('success', { nonNullable: true }),
     failureCause: new FormControl<FailureCause | ''>('', { nonNullable: true }),
     percentComplete: new FormControl<number | null>(null, [Validators.min(0), Validators.max(100)]),
-    actualMinutes: new FormControl<number | null>(null, [Validators.min(1), Validators.max(MAX_MINUTES), Validators.pattern(/^\d+$/)]),
+    actualMinutes: new FormControl<number | null>(null, [Validators.min(1), Validators.max(MAX_MINUTES), wholeNumber]),
     note: new FormControl('', { nonNullable: true, validators: [Validators.maxLength(NOTE_MAX_LENGTH)] }),
     usage: new FormArray<ReturnType<typeof createUsageRow>>([]),
     outputs: new FormArray<FormControl<number | null>>([]),
@@ -402,6 +405,7 @@ export class PrintJobClose implements OnInit {
       this.confirming.set(false);
       const message = explainProductionError(error, 'No pudimos cerrar la impresión. No se movió nada; inténtalo de nuevo.');
       this.error.set(message);
+      void this.workspace.afterRefusal(error);
       this.refused.emit(message);
     } finally {
       this.busy.set(false);

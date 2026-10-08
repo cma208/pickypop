@@ -19,14 +19,16 @@ import { pairGroup, type PairGroup } from './catalogo.util';
           [placeholder]="valuePlaceholder()"
           [attr.aria-label]="valueLabel() + ' ' + (i + 1)"
         />
-        <button
-          type="button"
-          class="ghost"
-          (click)="remove(i)"
-          [attr.aria-label]="'Quitar ' + nameLabel().toLowerCase() + ' ' + (i + 1)"
-        >
-          ✕
-        </button>
+        @if (!readOnly()) {
+          <button
+            type="button"
+            class="ghost"
+            (click)="remove(i)"
+            [attr.aria-label]="'Quitar ' + nameLabel().toLowerCase() + ' ' + (i + 1)"
+          >
+            ✕
+          </button>
+        }
       </div>
     } @empty {
       <p class="muted empty">{{ emptyText() }}</p>
@@ -34,7 +36,9 @@ import { pairGroup, type PairGroup } from './catalogo.util';
     @if (array().hasError('duplicateNames')) {
       <p class="error">Hay nombres repetidos. Cada uno debe aparecer una sola vez.</p>
     }
-    <button type="button" class="secondary" (click)="add()">{{ addLabel() }}</button>
+    @if (!readOnly()) {
+      <button type="button" class="secondary" (click)="add()">{{ addLabel() }}</button>
+    }
   `,
   styles: `
     :host { display: block; }
@@ -51,6 +55,8 @@ export class PairsEditor {
   readonly valuePlaceholder = input('Valor');
   readonly addLabel = input('Agregar');
   readonly emptyText = input('Todavía no hay nada.');
+  /** Only the pairs, for someone who may not change them (ADR-025). */
+  readonly readOnly = input(false);
 
   protected add(): void {
     this.array().push(pairGroup());
