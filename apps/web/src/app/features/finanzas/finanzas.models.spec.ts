@@ -1,5 +1,6 @@
 import {
   agingBucket,
+  cashCategoriesFor,
   categoriesFor,
   categoryFitsType,
   dayEnd,
@@ -9,16 +10,21 @@ import {
   monthLabel,
   num,
   numOrNull,
-  saysSale,
   TYPE_DIRECTION,
   yearOf,
   type CategoryOption,
 } from './finanzas.models';
 
 const CATEGORIES: CategoryOption[] = [
-  { id: 'in-1', name: 'Venta de productos', direction: 'income' },
-  { id: 'out-1', name: 'Luz', direction: 'expense' },
-  { id: 'out-2', name: 'Envíos', direction: 'expense' },
+  { id: 'in-1', name: 'Venta de productos', direction: 'income', sales: true },
+  { id: 'out-1', name: 'Luz', direction: 'expense', sales: false },
+  { id: 'out-2', name: 'Envíos', direction: 'expense', sales: false },
+];
+
+/** With a refund, which is an income that is not a sale. */
+const WITH_REFUNDS: CategoryOption[] = [
+  ...CATEGORIES,
+  { id: 'in-2', name: 'Reembolsos', direction: 'income', sales: false },
 ];
 
 describe('categoriesFor', () => {
@@ -38,10 +44,31 @@ describe('categoriesFor', () => {
   });
 });
 
+describe('cashCategoriesFor', () => {
+  it('does not offer a loose income the categories of sales', () => {
+    expect(cashCategoriesFor('income', WITH_REFUNDS).map((c) => c.id)).toEqual(['in-2']);
+  });
+
+  it('offers them to capital coming in, and leaves the expenses alone', () => {
+    expect(cashCategoriesFor('owner_contribution', WITH_REFUNDS).map((c) => c.id)).toEqual(['in-1', 'in-2']);
+    expect(cashCategoriesFor('expense', WITH_REFUNDS).map((c) => c.id)).toEqual(['out-1', 'out-2']);
+    expect(cashCategoriesFor('transfer', WITH_REFUNDS)).toEqual([]);
+  });
+
+  it('leaves the list of a collection whole: categoriesFor still has them', () => {
+    expect(categoriesFor('income', WITH_REFUNDS).map((c) => c.id)).toEqual(['in-1', 'in-2']);
+  });
+});
+
 describe('categoryFitsType', () => {
   it('keeps a category that matches the direction of the type', () => {
-    expect(categoryFitsType('income', 'in-1', CATEGORIES)).toBe(true);
+    expect(categoryFitsType('income', 'in-2', WITH_REFUNDS)).toBe(true);
+    expect(categoryFitsType('owner_contribution', 'in-1', CATEGORIES)).toBe(true);
     expect(categoryFitsType('expense', 'out-2', CATEGORIES)).toBe(true);
+  });
+
+  it('drops a category of sales when the movement becomes a loose income', () => {
+    expect(categoryFitsType('income', 'in-1', CATEGORIES)).toBe(false);
   });
 
   it('drops one that belongs to the other direction', () => {
@@ -142,28 +169,5 @@ describe('defaultMethodFor', () => {
   it('leaves a bank or a wallet to the person: they take more than one method', () => {
     expect(defaultMethodFor('bank')).toBeNull();
     expect(defaultMethodFor('wallet')).toBeNull();
-  });
-});
-
-describe('saysSale', () => {
-  const income = (id: string, name: string): CategoryOption => ({ id, name, direction: 'income' });
-
-  it('recognises the category collections of orders go to, whatever its name', () => {
-    expect(saysSale(income('in-9', 'Ingresos varios'), 'in-9')).toBe(true);
-  });
-
-  it('recognises a category whose name says sale, commission or order', () => {
-    expect(saysSale(income('a', 'Venta de productos'), null)).toBe(true);
-    expect(saysSale(income('b', 'Trabajos por encargo'), null)).toBe(true);
-    expect(saysSale(income('c', 'Ventas'), null)).toBe(true);
-    expect(saysSale(income('d', 'Cobros de pedidos'), null)).toBe(true);
-  });
-
-  it('leaves alone what is not a sale, and what is not an income', () => {
-    expect(saysSale(income('e', 'Reembolsos'), 'in-9')).toBe(false);
-    // «Eventos» has «vent» in it, but it is not a sale.
-    expect(saysSale(income('f', 'Eventos'), null)).toBe(false);
-    expect(saysSale({ id: 'g', name: 'Comisiones de venta', direction: 'expense' }, null)).toBe(false);
-    expect(saysSale(null, null)).toBe(false);
   });
 });

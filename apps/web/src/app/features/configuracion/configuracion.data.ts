@@ -327,17 +327,32 @@ export class ConfiguracionData {
   async categories(): Promise<CategoryRecord[]> {
     const { data, error } = await this.supabase
       .from('transaction_categories')
-      .select('id, name, direction, active')
+      .select('id, name, direction, active, sales')
       .order('direction')
       .order('name');
     if (error) throw error;
 
-    return data.map((row) => ({ id: row.id, name: row.name, direction: row.direction, active: row.active }));
+    return data.map((row) => ({
+      id: row.id,
+      name: row.name,
+      direction: row.direction,
+      active: row.active,
+      sales: row.sales,
+    }));
   }
 
+  /**
+   * The database refuses unmarking the category collections are filed under
+   * while it is chosen, with a message for a person: it travels as it is.
+   */
   async saveCategory(categoryId: string | null, draft: CategoryDraft): Promise<void> {
     const duplicate = 'Ya existe una categoría con ese nombre para ese tipo.';
-    const values = { name: draft.name.trim(), direction: draft.direction, active: draft.active };
+    const values = {
+      name: draft.name.trim(),
+      direction: draft.direction,
+      active: draft.active,
+      sales: draft.direction === 'income' && draft.sales,
+    };
 
     if (categoryId) {
       const { data, error } = await this.supabase

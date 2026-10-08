@@ -75,8 +75,8 @@ const TABS: { id: TabId; label: string }[] = [
         @case ('finishes') { <app-finishes-section /> }
         @case ('categories') {
           <div class="stack">
-            <app-payment-categories-section #defaults />
-            <app-categories-section (changed)="defaults.reload()" />
+            <app-payment-categories-section #defaults (defaultsSaved)="list.reload()" />
+            <app-categories-section #list (changed)="defaults.reload()" />
           </div>
         }
         @case ('appearance') { <app-appearance-section /> }

@@ -205,6 +205,8 @@ export interface CategoryRecord {
   name: string;
   direction: MovementDirection;
   active: boolean;
+  /** A category of sales: collections of orders and the quick sale use it, a loose income in Caja cannot. Income only. */
+  sales: boolean;
 }
 
 export type CategoryDraft = Omit<CategoryRecord, 'id'>;

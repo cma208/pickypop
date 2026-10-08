@@ -1671,13 +1671,13 @@ isOneToOne: false
                   ]
                 },"transaction_categories": {
                   Row: {
-                    "active": boolean,"created_at": string,"direction": Database["public"]['Enums']["transaction_direction"],"id": string,"name": string,"note": string | null,"updated_at": string,"workspace_id": string
+                    "active": boolean,"created_at": string,"direction": Database["public"]['Enums']["transaction_direction"],"id": string,"name": string,"note": string | null,"sales": boolean,"updated_at": string,"workspace_id": string
                   }
                   Insert: {
-                    "active"?: boolean,"created_at"?: string,"direction": Database["public"]['Enums']["transaction_direction"],"id"?: string,"name": string,"note"?: string | null,"updated_at"?: string,"workspace_id": string
+                    "active"?: boolean,"created_at"?: string,"direction": Database["public"]['Enums']["transaction_direction"],"id"?: string,"name": string,"note"?: string | null,"sales"?: boolean,"updated_at"?: string,"workspace_id": string
                   }
                   Update: {
-                    "active"?: boolean,"created_at"?: string,"direction"?: Database["public"]['Enums']["transaction_direction"],"id"?: string,"name"?: string,"note"?: string | null,"updated_at"?: string,"workspace_id"?: string
+                    "active"?: boolean,"created_at"?: string,"direction"?: Database["public"]['Enums']["transaction_direction"],"id"?: string,"name"?: string,"note"?: string | null,"sales"?: boolean,"updated_at"?: string,"workspace_id"?: string
                   }
                   Relationships: [
                     {

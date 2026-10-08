@@ -214,12 +214,12 @@ export class FinanzasData {
   async categories(): Promise<CategoryOption[]> {
     const { data, error } = await this.supabase
       .from('transaction_categories')
-      .select('id, name, direction')
+      .select('id, name, direction, sales')
       .eq('active', true)
       .order('name');
     if (error) throw error;
 
-    return data.map((row) => ({ id: row.id, name: row.name, direction: row.direction }));
+    return data.map((row) => ({ id: row.id, name: row.name, direction: row.direction, sales: row.sales }));
   }
 
   /**
