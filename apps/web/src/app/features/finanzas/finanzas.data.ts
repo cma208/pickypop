@@ -554,7 +554,7 @@ export class FinanzasData {
       this.supabase
         .from('monthly_income_statement')
         .select(
-          'month, sales, cost_of_sales, gross_profit, operating_expenses, net_profit, other_income, inventory_purchases, owner_contributions, owner_draws, unsold_production, tools_and_tests, shelf_count_losses, failed_prints, print_cost, failure_reserve_rate, uncovered_failed_prints',
+          'month, sales, cost_of_sales, gross_profit, operating_expenses, net_profit, other_income, inventory_purchases, owner_contributions, owner_draws, unsold_production, tools_and_tests, shelf_count_losses, failed_prints, print_cost, failure_reserve_rate, uncovered_failed_prints, stock_written_off',
         )
         .order('month', { ascending: false })
         .range(from, to),
@@ -578,6 +578,7 @@ export class FinanzasData {
         shelfCountLosses: num(row.shelf_count_losses),
         failedPrints: num(row.failed_prints),
         uncoveredFailedPrints: num(row.uncovered_failed_prints),
+        stockWrittenOff: num(row.stock_written_off),
         printCost: num(row.print_cost),
         failureReserveRate: row.failure_reserve_rate === null ? null : Number(row.failure_reserve_rate),
       }));

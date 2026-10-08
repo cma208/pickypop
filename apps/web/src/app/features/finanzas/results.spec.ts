@@ -17,6 +17,7 @@ function month(overrides: Partial<MonthResult> = {}): MonthResult {
     shelfCountLosses: 0,
     failedPrints: 0,
     uncoveredFailedPrints: 0,
+    stockWrittenOff: 0,
     printCost: 0,
     failureReserveRate: 0.1,
     ...overrides,
@@ -103,9 +104,25 @@ describe('addUpMonths', () => {
     expect(totals.toolsAndTests + totals.shelfCountLosses + totals.uncoveredFailedPrints).toBeCloseTo(totals.unsoldProduction, 10);
   });
 
+  it('adds what left the inventory without being sold, so the parts still make the unsold total', () => {
+    // A roll discarded with S/ 60 on it and a weighing 5 short; the next month
+    // a count found S/ 2 over and a mould cost S/ 7.72.
+    const totals = addUpMonths([
+      month({ unsoldProduction: 65, stockWrittenOff: 65 }),
+      month({ month: '2026-09-01', unsoldProduction: 5.72, toolsAndTests: 7.72, stockWrittenOff: -2 }),
+    ]);
+
+    expect(totals.stockWrittenOff).toBe(63);
+    expect(totals.unsoldProduction).toBe(70.72);
+    expect(
+      totals.toolsAndTests + totals.shelfCountLosses + totals.uncoveredFailedPrints + totals.stockWrittenOff,
+    ).toBeCloseTo(totals.unsoldProduction, 10);
+  });
+
   it('answers zeros for an empty period', () => {
     expect(addUpMonths([]).sales).toBe(0);
     expect(addUpMonths([]).netProfit).toBe(0);
+    expect(addUpMonths([]).stockWrittenOff).toBe(0);
   });
 });
 
