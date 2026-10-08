@@ -54,7 +54,7 @@ const lookupsWith = (...parts: string[]): Lookups => ({
   materials: [],
   skus: [],
   supplies: parts.map((name) => ({ id: name, name, unit: 'unidad', costPerUnit: null, kind: 'part' as const })),
-  printedParts: new Set(),
+  printedBy: new Map(),
 });
 
 async function open(data: { lookups: ReturnType<typeof vi.fn> }) {

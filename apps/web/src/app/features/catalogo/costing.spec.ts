@@ -6,6 +6,7 @@ import {
   isBelowTarget,
   itemsWithoutCost,
   marginOf,
+  partsPrintedElsewhere,
   priceFallsShort,
   splitRecipeRows,
   supplyOptions,
@@ -31,7 +32,7 @@ const lookups = (): Lookups => ({
     { id: 'green', materialId: 'pla', label: 'Verde', colorHex: null, trayInfoIdx: null, active: true, stockCostPerGram: null, replacementCostPerGram: null },
   ],
   supplies: [{ id: 'bag', name: 'Bolsa', unit: 'unidad', costPerUnit: null }],
-  printedParts: new Set(),
+  printedBy: new Map(),
 });
 
 const recipe = (overrides: Partial<Recipe> = {}): Recipe => ({
@@ -119,7 +120,7 @@ describe('computeCost', () => {
 
   it('names a part by its own row even when the options were read before it existed', () => {
     const withNewPart = recipe({ supplies: [row('s1', 'cap', 1, { kind: 'part', name: 'Tapa de calavera' })] });
-    const printedElsewhere = { ...sources(withNewPart), lookups: { ...lookups(), printedParts: new Set(['cap']) } };
+    const printedElsewhere = { ...sources(withNewPart), lookups: { ...lookups(), printedBy: new Map([['cap', new Set(['r2'])]]) } };
     const result = computeCost(printedElsewhere, 1);
 
     expect(result?.suppliesPerUnit).toEqual([{ label: 'Tapa de calavera', cost: 0, known: false }]);
@@ -129,6 +130,18 @@ describe('computeCost', () => {
   it('never says another recipe prints a part that no plate prints (T2-07)', () => {
     const orphan = recipe({ supplies: [row('s1', 'back', 1, { kind: 'part', name: 'Trasera de calavera' })] });
     const result = computeCost(sources(orphan), 10);
+
+    expect(result?.warnings).toContain(
+      'Trasera de calavera: ninguna placa la imprime, no suma al costo y el plan no sabe con qué placa hacerla.',
+    );
+    expect(result?.warnings.join(' ')).not.toContain('otra receta');
+  });
+
+  it('does not take the options read before a plate was removed for another recipe printing the part (T2-07)', () => {
+    // The page read its options while plate 3 of this very recipe still printed the back.
+    const stale = { ...lookups(), printedBy: new Map([['back', new Set(['r1'])]]) };
+    const orphan = recipe({ supplies: [row('s1', 'back', 1, { kind: 'part', name: 'Trasera de calavera' })] });
+    const result = computeCost({ ...sources(orphan), lookups: stale }, 10);
 
     expect(result?.warnings).toContain(
       'Trasera de calavera: ninguna placa la imprime, no suma al costo y el plan no sabe con qué placa hacerla.',
@@ -279,5 +292,17 @@ describe('text helpers', () => {
 
   it('cleans, lowercases and de-duplicates tags', () => {
     expect(parseTags(' Halloween, regalo ,, halloween ')).toEqual(['halloween', 'regalo']);
+  });
+});
+
+describe('partsPrintedElsewhere (T2-07)', () => {
+  it('counts the parts other recipes print, never the ones only this recipe printed', () => {
+    const printedBy = new Map([
+      ['back', new Set(['r1'])],
+      ['cap', new Set(['r1', 'r2'])],
+      ['hook', new Set(['r3'])],
+    ]);
+
+    expect([...partsPrintedElsewhere(printedBy, 'r1')].sort()).toEqual(['cap', 'hook']);
   });
 });

@@ -796,12 +796,12 @@ export class CatalogoData {
       this.supabase.from('inventory_item_costs').select('inventory_item_id, cost_per_unit'),
       // A printed part is never bought: what it costs is what printing it cost.
       this.supabase.from('part_stock').select('inventory_item_id, cost_per_unit'),
-      // Which parts some plate of an active recipe prints, to never say «la
-      // imprime otra receta» of one that nothing prints (T2-07).
+      // Which active recipes print each part, to never say «la imprime otra
+      // receta» of one that nothing else prints (T2-07).
       fetchAll((from, to) =>
         this.supabase
           .from('recipe_plate_outputs')
-          .select('inventory_item_id, recipe_plates(recipes(active))')
+          .select('inventory_item_id, recipe_plates(recipe_id, recipes(active))')
           .order('id')
           .range(from, to),
       ).catch((error: PostgrestError) => fail(error, 'No pudimos ver qué piezas imprime cada receta.')),
@@ -814,9 +814,14 @@ export class CatalogoData {
     if (partCosts.error) fail(partCosts.error, 'No pudimos cargar el costo de las piezas.');
 
     const stockCost = new Map(stock.data.map((row) => [row.filament_sku_id, numberOrNull(row.weighted_cost_per_gram)]));
-    const printedParts = new Set(
-      printed.filter((row) => row.recipe_plates?.recipes?.active).map((row) => row.inventory_item_id),
-    );
+    const printedBy = new Map<string, Set<string>>();
+    for (const row of printed) {
+      const plate = row.recipe_plates;
+      if (!plate?.recipes?.active) continue;
+      const recipes = printedBy.get(row.inventory_item_id) ?? new Set<string>();
+      recipes.add(plate.recipe_id);
+      printedBy.set(row.inventory_item_id, recipes);
+    }
     const materialCode = new Map(materials.data.map((row) => [row.id, row.code]));
 
     return {
@@ -839,7 +844,7 @@ export class CatalogoData {
         }),
       ),
       supplies: supplyOptions(items.data, costs.data, partCosts.data),
-      printedParts,
+      printedBy,
     };
   }
 

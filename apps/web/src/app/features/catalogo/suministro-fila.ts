@@ -86,7 +86,7 @@ const SMALLEST_SUPPLY = 0.001;
         } @else if (!onlyInRow()) {
           <!-- An item not among the options yet has no known cost: better silent than «sin costo». -->
           <p class="note muted hint">
-            @if (isPart() && !printed().has(item.id)) {
+            @if (isPart() && !printedElsewhere().has(item.id)) {
               <!-- Nothing prints it: «la imprime otra receta» was said without checking (T2-07). -->
               @if (item.costPerUnit === null) {
                 Ninguna placa la imprime: no suma al costo y el plan no sabe con qué placa hacerla. Agrégala a lo que
@@ -128,8 +128,8 @@ export class SuministroFila {
   readonly mode = input<'supply' | 'part'>('supply');
   /** The parts the recipe's own plates print, whose cost is already in the runs. */
   readonly madeHere = input<ReadonlySet<string>>(new Set());
-  /** The parts some plate of an active recipe prints, this one or another. */
-  readonly printed = input<ReadonlySet<string>>(new Set());
+  /** The parts that a plate of some other active recipe prints. */
+  readonly printedElsewhere = input<ReadonlySet<string>>(new Set());
   readonly changed = output<void>();
 
   protected readonly isPart = computed(() => this.mode() === 'part');

@@ -110,6 +110,22 @@ export function partsMadeByPlates(recipe: Pick<Recipe, 'plates'>): Set<string> {
 }
 
 /**
+ * The parts that some other active recipe prints. The recipe being edited is
+ * left out on purpose: the options are read once per page, and after removing
+ * the only plate that printed a part they still said this recipe printed it,
+ * so the screen called it «la imprime otra receta» until it was reloaded
+ * (T2-07). What this recipe prints is asked of its own plates, which are
+ * read again after every change.
+ */
+export function partsPrintedElsewhere(printedBy: Lookups['printedBy'], recipeId: string): Set<string> {
+  const parts = new Set<string>();
+  for (const [partId, recipes] of printedBy) {
+    if ([...recipes].some((id) => id !== recipeId)) parts.add(partId);
+  }
+  return parts;
+}
+
+/**
  * The recipe's printed parts and its bought supplies, told apart by what each
  * row says it is. The list of options cannot decide it: it is read once per
  * page, and a part created a moment ago by an import was missing from it, so
@@ -180,13 +196,14 @@ export function buildBatch(sources: CostSources, units: number): { batch: BatchI
   });
 
   const madeHere = partsMadeByPlates(recipe);
+  const elsewhere = partsPrintedElsewhere(lookups.printedBy, recipe.id);
   const suppliesPerUnit = recipe.supplies
     .filter((supply) => !madeHere.has(supply.inventoryItemId))
     .map((supply) => {
       // The row knows its own item, even one the options were read before.
       const label = supply.item.name;
       const { cost, known } = supplyCostPerUnit(supply.inventoryItemId, supply.quantityPerUnit, sources);
-      const warning = supplyWarning(supply, known, lookups.printedParts);
+      const warning = supplyWarning(supply, known, elsewhere);
       if (warning) warnings.push(warning);
       return { label, cost, known };
     });
@@ -208,10 +225,10 @@ export function buildBatch(sources: CostSources, units: number): { batch: BatchI
  * part that nothing prints used to be «la imprime otra receta» all the same,
  * and the cost dropped while the screen said something false (T2-07).
  */
-function supplyWarning(supply: RecipeSupply, known: boolean, printedParts: ReadonlySet<string>): string | null {
+function supplyWarning(supply: RecipeSupply, known: boolean, printedElsewhere: ReadonlySet<string>): string | null {
   const label = supply.item.name;
   if (supply.item.kind !== 'part') return known ? null : `${label}: no tiene costo registrado, no suma al costo.`;
-  if (!printedParts.has(supply.inventoryItemId)) {
+  if (!printedElsewhere.has(supply.inventoryItemId)) {
     return known
       ? `${label}: ninguna placa la imprime ahora; suma lo que costó imprimirla antes, pero el plan no sabe con qué placa hacer más.`
       : `${label}: ninguna placa la imprime, no suma al costo y el plan no sabe con qué placa hacerla.`;

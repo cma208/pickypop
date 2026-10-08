@@ -295,11 +295,13 @@ export interface Lookups {
   skus: SkuOption[];
   supplies: SupplyOption[];
   /**
-   * Las piezas que salen de alguna placa de una receta activa. Una pieza que
-   * no está aquí no la imprime nadie: la pantalla decía «la imprime otra
-   * receta» sin comprobarlo (T2-07).
+   * Qué recetas activas imprimen cada pieza (pieza → recetas). Se lee una vez
+   * por página, así que la receta que se está editando se mira en sus propias
+   * placas, que sí están al día, y aquí solo cuentan las demás: tras quitar la
+   * única placa que imprimía una pieza, la pantalla seguía diciendo «la
+   * imprime otra receta» hasta recargar (T2-07).
    */
-  printedParts: ReadonlySet<string>;
+  printedBy: ReadonlyMap<string, ReadonlySet<string>>;
 }
 
 export interface PrinterOption {

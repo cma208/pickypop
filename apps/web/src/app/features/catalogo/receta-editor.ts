@@ -8,7 +8,7 @@ import { SHARED_STYLES } from './catalogo.styles';
 import { CatalogoPermissions, OWNER_ONLY } from './catalogo.permissions';
 import { messageOf } from './catalogo.util';
 import { DECIMALS, decimalsText, fieldError, LIMITS, limitText, maxDecimals } from './catalogo.validators';
-import { partsMadeByPlates, splitRecipeRows } from './costing';
+import { partsMadeByPlates, partsPrintedElsewhere, splitRecipeRows } from './costing';
 import { buildDraft, importSummary, type ImportDraft, type ImportOutcome } from './importacion';
 import { ImportarPlacas } from './importar-placas';
 import { PlacaEditor } from './placa-editor';
@@ -168,9 +168,9 @@ function minutesControl() {
             está en las corridas.
           </p>
           @for (supply of partRows(); track supply.id) {
-            <app-suministro-fila mode="part" [recipeId]="current.id" [supply]="supply" [supplies]="partOptions()" [usedIds]="usedSupplyIds()" [madeHere]="madeHere()" [printed]="lookupData.printedParts" (changed)="changed.emit()" />
+            <app-suministro-fila mode="part" [recipeId]="current.id" [supply]="supply" [supplies]="partOptions()" [usedIds]="usedSupplyIds()" [madeHere]="madeHere()" [printedElsewhere]="printedElsewhere()" (changed)="changed.emit()" />
           }
-          <app-suministro-fila mode="part" [recipeId]="current.id" [supplies]="partOptions()" [usedIds]="usedSupplyIds()" [madeHere]="madeHere()" [printed]="lookupData.printedParts" (changed)="changed.emit()" />
+          <app-suministro-fila mode="part" [recipeId]="current.id" [supplies]="partOptions()" [usedIds]="usedSupplyIds()" [madeHere]="madeHere()" [printedElsewhere]="printedElsewhere()" (changed)="changed.emit()" />
 
           <h3>Insumos por unidad</h3>
           <p class="muted hint">Lo que se compra y se gasta en cada unidad terminada: dulces, empaque, imanes…</p>
@@ -232,6 +232,12 @@ export class RecetaEditor {
   protected readonly madeHere = computed(() => {
     const recipe = this.recipe();
     return recipe ? partsMadeByPlates(recipe) : new Set<string>();
+  });
+  /** What other active recipes print; this one is asked of its own plates, which are never stale. */
+  protected readonly printedElsewhere = computed(() => {
+    const recipe = this.recipe();
+    const lookups = this.lookups();
+    return recipe && lookups ? partsPrintedElsewhere(lookups.printedBy, recipe.id) : new Set<string>();
   });
 
   /** The file being reviewed before its plates are saved. */

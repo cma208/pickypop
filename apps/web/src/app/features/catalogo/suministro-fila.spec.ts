@@ -22,7 +22,7 @@ interface Inputs {
   supplies: SupplyOption[];
   usedIds?: string[];
   madeHere?: Set<string>;
-  printed?: Set<string>;
+  printedElsewhere?: Set<string>;
   mode?: 'part' | 'supply';
   owner?: boolean;
   data?: object;
@@ -44,7 +44,7 @@ function open(inputs: Inputs) {
   if (inputs.supply) fixture.componentRef.setInput('supply', inputs.supply);
   if (inputs.usedIds) fixture.componentRef.setInput('usedIds', inputs.usedIds);
   if (inputs.madeHere) fixture.componentRef.setInput('madeHere', inputs.madeHere);
-  if (inputs.printed) fixture.componentRef.setInput('printed', inputs.printed);
+  if (inputs.printedElsewhere) fixture.componentRef.setInput('printedElsewhere', inputs.printedElsewhere);
   fixture.detectChanges();
   return fixture;
 }
@@ -153,7 +153,7 @@ describe('SuministroFila, a part no plate prints (T2-07)', () => {
   });
 
   it('says another recipe prints it when one really does', () => {
-    const fixture = open({ supply: BACK, supplies: [BACK_OPTION], usedIds: ['back'], printed: new Set(['back']) });
+    const fixture = open({ supply: BACK, supplies: [BACK_OPTION], usedIds: ['back'], printedElsewhere: new Set(['back']) });
 
     expect(text(fixture.nativeElement)).toContain('La imprime otra receta');
   });
