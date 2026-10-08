@@ -1,5 +1,5 @@
 import { Component, computed, inject, signal } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { AsyncState, Badge, Empty, FORMAT_PIPES, Page, Thumb } from '../../ui';
 import { explainError } from './pedidos.errors';
 import { PedidosData, type OrderListItem } from './pedidos.data';
@@ -10,11 +10,12 @@ import {
   PURPOSES,
   STATUS_LABEL,
   STATUS_TONE,
+  statusFilterFromLink,
   type OrderPurpose,
   type OrderStatus,
+  type StatusFilter,
 } from './pedidos.labels';
 
-type StatusFilter = OrderStatus | 'all' | 'open';
 type PurposeFilter = OrderPurpose | 'all';
 
 const FINISHED: OrderStatus[] = ['delivered', 'closed', 'cancelled'];
@@ -24,6 +25,7 @@ const FINISHED: OrderStatus[] = ['delivered', 'closed', 'cancelled'];
   imports: [RouterLink, Page, Badge, AsyncState, Empty, Thumb, ...FORMAT_PIPES],
   template: `
     <pp-page title="Pedidos" subtitle="Ventas, uso personal y regalos">
+      <a actions class="button secondary" routerLink="/pedidos/venta-rapida">Venta rápida</a>
       <a actions class="button" routerLink="/pedidos/nuevo">+ Nuevo pedido</a>
 
       <div class="filters">
@@ -121,7 +123,9 @@ export class PedidosPage {
   protected readonly orders = signal<OrderListItem[]>([]);
   protected readonly loading = signal(true);
   protected readonly error = signal<string | null>(null);
-  protected readonly status = signal<StatusFilter>('open');
+  protected readonly status = signal<StatusFilter>(
+    statusFilterFromLink(inject(ActivatedRoute).snapshot.queryParamMap.get('estado')),
+  );
   protected readonly purpose = signal<PurposeFilter>('all');
 
   protected readonly visible = computed(() =>

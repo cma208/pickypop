@@ -9,6 +9,7 @@ import {
   monthLabel,
   num,
   numOrNull,
+  saysSale,
   TYPE_DIRECTION,
   yearOf,
   type CategoryOption,
@@ -141,5 +142,28 @@ describe('defaultMethodFor', () => {
   it('leaves a bank or a wallet to the person: they take more than one method', () => {
     expect(defaultMethodFor('bank')).toBeNull();
     expect(defaultMethodFor('wallet')).toBeNull();
+  });
+});
+
+describe('saysSale', () => {
+  const income = (id: string, name: string): CategoryOption => ({ id, name, direction: 'income' });
+
+  it('recognises the category collections of orders go to, whatever its name', () => {
+    expect(saysSale(income('in-9', 'Ingresos varios'), 'in-9')).toBe(true);
+  });
+
+  it('recognises a category whose name says sale, commission or order', () => {
+    expect(saysSale(income('a', 'Venta de productos'), null)).toBe(true);
+    expect(saysSale(income('b', 'Trabajos por encargo'), null)).toBe(true);
+    expect(saysSale(income('c', 'Ventas'), null)).toBe(true);
+    expect(saysSale(income('d', 'Cobros de pedidos'), null)).toBe(true);
+  });
+
+  it('leaves alone what is not a sale, and what is not an income', () => {
+    expect(saysSale(income('e', 'Reembolsos'), 'in-9')).toBe(false);
+    // «Eventos» has «vent» in it, but it is not a sale.
+    expect(saysSale(income('f', 'Eventos'), null)).toBe(false);
+    expect(saysSale({ id: 'g', name: 'Comisiones de venta', direction: 'expense' }, null)).toBe(false);
+    expect(saysSale(null, null)).toBe(false);
   });
 });

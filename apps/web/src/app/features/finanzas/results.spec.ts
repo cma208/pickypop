@@ -1,4 +1,4 @@
-import { addUpMonths, failedShare, netMargin, reserveCovers, subtractedSign, type MonthResult } from './results';
+import { addedSign, addUpMonths, failedShare, netMargin, reserveCovers, subtractedSign, type MonthResult } from './results';
 
 function month(overrides: Partial<MonthResult> = {}): MonthResult {
   return {
@@ -36,16 +36,43 @@ describe('addUpMonths', () => {
     expect(totals.netProfit).toBe(750.25);
   });
 
-  it('keeps the figures reported apart out of the bottom line', () => {
+  it('keeps purchases and capital out of the bottom line, and other income in it (E5-01)', () => {
+    // The view's net: 600 of gross profit, less 100 of expenses, plus 50 of other income.
     const totals = addUpMonths([
-      month({ inventoryPurchases: 300, ownerContributions: 1000, ownerDraws: 200, otherIncome: 50 }),
+      month({ inventoryPurchases: 300, ownerContributions: 1000, ownerDraws: 200, otherIncome: 50, netProfit: 550 }),
     ]);
 
-    expect(totals.netProfit).toBe(500);
+    expect(totals.netProfit).toBe(550);
+    expect(totals.otherIncome).toBe(50);
     expect(totals.inventoryPurchases).toBe(300);
     expect(totals.ownerContributions).toBe(1000);
     expect(totals.ownerDraws).toBe(200);
-    expect(totals.otherIncome).toBe(50);
+  });
+
+  it('adds up the period so that its lines still make the net profit, cent by cent', () => {
+    const rows = [
+      month({ otherIncome: 20.1, unsoldProduction: 7.77, netProfit: 600 - 100 - 7.77 + 20.1 }),
+      month({
+        month: '2026-09-01',
+        sales: 115.5,
+        costOfSales: 38.25,
+        grossProfit: 77.25,
+        operatingExpenses: 3,
+        otherIncome: 0.05,
+        netProfit: 74.3,
+      }),
+    ];
+    for (const row of rows) {
+      expect(row.grossProfit - row.operatingExpenses - row.unsoldProduction + row.otherIncome).toBeCloseTo(row.netProfit, 10);
+    }
+
+    const totals = addUpMonths(rows);
+    expect(totals.otherIncome).toBe(20.15);
+    expect(totals.netProfit).toBe(586.63);
+    expect(totals.grossProfit - totals.operatingExpenses - totals.unsoldProduction + totals.otherIncome).toBeCloseTo(
+      totals.netProfit,
+      10,
+    );
   });
 
   it('adds what was printed and never sold, and the failures apart', () => {
@@ -115,5 +142,12 @@ describe('subtractedSign', () => {
   it('puts a minus only in front of what takes something away (E5-07)', () => {
     expect(subtractedSign(18.69)).toBe('−');
     expect(subtractedSign(0)).toBe('');
+  });
+});
+
+describe('addedSign', () => {
+  it('puts a plus only in front of what adds something, like other income', () => {
+    expect(addedSign(20)).toBe('+');
+    expect(addedSign(0)).toBe('');
   });
 });

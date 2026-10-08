@@ -82,6 +82,26 @@ export const STATUS_FLOW: OrderStatus[] = [
 
 export const ALL_STATUSES: OrderStatus[] = [...STATUS_FLOW, 'on_hold', 'cancelled'];
 
+/** What the list of orders shows: one status, the ones still in progress, or all of them. */
+export type StatusFilter = OrderStatus | 'all' | 'open';
+
+/** How a link asks for a filter of the list, in `?estado=`, besides a status by its name. */
+const STATUS_FILTER_IN_LINKS = new Map<string, StatusFilter>([
+  ['todos', 'all'],
+  ['en-curso', 'open'],
+]);
+
+/**
+ * The filter a link asks for: «todos», «en-curso» or one status. Anything
+ * else opens on the orders in progress, as the list always did. A screen that
+ * sends people to look for a delivered order (a quick sale is born
+ * delivered) has to ask for it: «En curso» would never show it.
+ */
+export function statusFilterFromLink(value: string | null): StatusFilter {
+  if (value === null) return 'open';
+  return STATUS_FILTER_IN_LINKS.get(value) ?? ALL_STATUSES.find((status) => status === value) ?? 'open';
+}
+
 /** The step after the given one, or null when the order is at the end or off the path. */
 export function nextStatus(status: OrderStatus): OrderStatus | null {
   const index = STATUS_FLOW.indexOf(status);

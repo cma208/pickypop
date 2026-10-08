@@ -545,7 +545,7 @@ Ninguna de estas la debe decidir quien implementa:
 
 1. **Qué pierde un `operator`** frente a un dueño (M9).
 2. **Si `viewer` se vuelve de solo lectura o se elimina** (M9).
-3. **Si un ingreso sin pedido asociado** —una venta de mostrador anotada solo como dinero que entró— debe sumar a la utilidad del mes. Hoy se informa aparte y **no** suma. Si venden así a menudo, la utilidad se lee más baja de lo real.
+3. ~~**Si un ingreso sin pedido asociado** debe sumar a la utilidad del mes.~~ **Resuelta** (E5-01, [ADR-024](05-decisiones.md)): «Otros ingresos» suma a la utilidad neta, y las ventas van por Pedidos o por la Venta rápida. Queda abierto qué hacer con las categorías de ingreso que dicen venta o encargo, y con los ingresos viejos de Caja que eran ventas (ver ADR-024, consecuencias).
 4. **Saldos de apertura** de las cuatro cuentas de dinero, y la **compra real del rollo negro**, que entró como saldo inicial a S/ 50 sin compra registrada.
 5. **Cuánto rinde un plumón de acrílico.** Hasta saberlo, los consumibles que se usan en todo (plumón, alcohol, pegamento) van como **gasto indirecto** y no entran a la receta. Criterio acordado: si el consumible se ve en el producto, va en la receta con rendimiento estimado; si se usa en todo por igual, va a gasto. Y si cuesta menos del 1 % del precio del producto, no entra a la receta: el riesgo no es errar por tres céntimos, es que la receta se vuelva tan fastidiosa que nadie la llene.
 6. **Publicar o no la tarjeta de Pickypop** en el portafolio: está commiteada en `~/Developer/cma208.github.io` sin publicar, esperando su visto bueno.

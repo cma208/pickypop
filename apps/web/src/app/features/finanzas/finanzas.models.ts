@@ -113,6 +113,20 @@ export function defaultCategory(
   return ofDirection.length === 1 ? ofDirection[0]! : null;
 }
 
+/** Words that name a sale in a category: «Venta de productos», «Trabajos por encargo», «Cobros de pedidos». */
+const SALE_WORDS = /\b(ventas?|encargos?|pedidos?|cobros?)\b/i;
+
+/**
+ * True when a category says «sale»: the one collections of orders are filed
+ * under, or one whose name says it. A loose income in Caja under it is most
+ * likely a sale or the collection of an order typed in the wrong place, and
+ * since E5-01 it adds to the profit with no cost and nothing off the shelf.
+ */
+export function saysSale(category: CategoryOption | null | undefined, orderCategoryId: string | null): boolean {
+  if (!category || category.direction !== 'income') return false;
+  return category.id === orderCategoryId || SALE_WORDS.test(category.name);
+}
+
 /** True when the category can still be kept after the type changed. */
 export function categoryFitsType(
   type: TransactionType,

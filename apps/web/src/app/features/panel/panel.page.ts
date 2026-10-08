@@ -62,6 +62,7 @@ const TODAY = new Intl.DateTimeFormat('es-PE', {
   ],
   template: `
     <pp-page title="Hoy" [subtitle]="today">
+      <a actions class="button" routerLink="/pedidos/venta-rapida">Venta rápida</a>
       @if (steps().length > 0) {
         <pp-card class="first-steps" heading="Primeros pasos">
           <p class="muted">Para que el taller pueda cotizar, planificar y vender, falta cargar:</p>
