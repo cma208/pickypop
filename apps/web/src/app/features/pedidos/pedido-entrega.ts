@@ -3,6 +3,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormArray, FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { todayLocal } from '../../core/dates';
 import { errorOf, textOrNull } from '../../core/form-errors';
+import { RouterLink } from '@angular/router';
 import { PlanService } from '../../core/plan';
 import { Card, Field, FORMAT_PIPES, Item } from '../../ui';
 import { PedidoEntregas } from './pedido-entregas';
@@ -13,8 +14,11 @@ import {
   deliveredAtFor,
   deliveryConfirmation,
   deliveryPayload,
+  notAfterToday,
+  quantityProblem,
   readyByLine,
   unitsLeaving,
+  waitingPrints,
   type DeliveryQuantity,
 } from './pedidos.delivery';
 import { explainError } from './pedidos.errors';
@@ -30,7 +34,7 @@ const ASKING = undefined;
  */
 @Component({
   selector: 'app-pedido-entrega',
-  imports: [ReactiveFormsModule, Card, Field, Item, PedidoEntregas, ...FORMAT_PIPES],
+  imports: [ReactiveFormsModule, RouterLink, Card, Field, Item, PedidoEntregas, ...FORMAT_PIPES],
   template: `
     <pp-card heading="Entrega">
       @if (notice(); as message) { <p class="notice" role="status">{{ message }}</p> }
@@ -69,6 +73,11 @@ const ASKING = undefined;
                         [sub]="lineText(line)"
                       />
                       @if (beyondReady(line, i); as warning) { <small class="warn-text">{{ warning }}</small> }
+                      @if (waiting(line, i); as warning) {
+                        <small class="error-text" role="status">
+                          {{ warning }} <a routerLink="/produccion">Ir a Producción</a>
+                        </small>
+                      }
                     </td>
                     <td class="num">
                       <input
@@ -79,8 +88,11 @@ const ASKING = undefined;
                         step="1"
                         [max]="line.pending"
                         [formControl]="quantityAt(i)"
+                        [class.invalid]="problemAt(i) !== null"
+                        [attr.aria-invalid]="problemAt(i) !== null"
                         [attr.aria-label]="'Cuántas de ' + line.description + ' se entregan hoy'"
                       />
+                      @if (problemAt(i); as problem) { <small class="error-text">{{ problem }}</small> }
                     </td>
                   </tr>
                 }
@@ -107,7 +119,7 @@ const ASKING = undefined;
             </div>
           } @else {
             <div class="actions">
-              <button #submitButton type="submit" [disabled]="leaving() === 0">{{ buttonLabel() }}</button>
+              <button #submitButton type="submit" [disabled]="leaving() === 0 || blocked()">{{ buttonLabel() }}</button>
               @if (ready() !== null && !matchesReady()) {
                 <button type="button" class="ghost" (click)="fillReady()">Volver a lo que hay listo</button>
               }
@@ -131,6 +143,8 @@ const ASKING = undefined;
     .actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
     .error { margin: 0.6rem 0 0; }
     .warn-text { display: block; margin-top: 0.25rem; font-size: 0.8rem; color: var(--warn); }
+    .error-text { display: block; margin-top: 0.25rem; font-size: 0.8rem; color: var(--danger); text-align: left; }
+    .qty.invalid { border-color: var(--danger); }
     .confirm { padding: 0.8rem; border: 1px solid var(--warn); border-radius: var(--radius); background: var(--warn-soft); }
     .confirm p { margin: 0 0 0.6rem; }
     .notice { margin: 0 0 0.75rem; padding: 0.6rem 0.8rem; border-radius: var(--radius-sm); background: var(--good-soft); color: var(--good); font-size: 0.85rem; }
@@ -158,6 +172,8 @@ export class PedidoEntrega {
   readonly delivered = output<void>();
   /** The person wants to collect what is owed, in the existing collection card. */
   readonly collect = output<void>();
+  /** The database refused: the page reads the order again. */
+  readonly stale = output<void>();
 
   protected readonly today = todayLocal();
   protected readonly saving = signal(false);
@@ -172,7 +188,7 @@ export class PedidoEntrega {
 
   protected readonly form = new FormGroup({
     quantities: new FormArray<FormControl<number | null>>([]),
-    day: new FormControl(todayLocal(), { nonNullable: true, validators: [Validators.required] }),
+    day: new FormControl(todayLocal(), { nonNullable: true, validators: [Validators.required, notAfterToday] }),
     note: new FormControl('', { nonNullable: true }),
   });
 
@@ -180,20 +196,34 @@ export class PedidoEntrega {
 
   protected readonly pendingLines = computed(() => this.lines().filter((line) => line.pending > 0));
 
-  private readonly rows = computed<(DeliveryQuantity & { kind: OrderLine['kind'] })[]>(() =>
+  private readonly rows = computed<(DeliveryQuantity & { kind: OrderLine['kind']; printed?: boolean })[]>(() =>
     this.pendingLines().map((line, index) => ({
       orderLineId: line.id,
       pending: line.pending,
       quantity: this.entered()[index] ?? null,
       kind: line.kind,
+      printed: line.kind === 'custom' ? line.prints.printed > 0 : undefined,
     })),
+  );
+
+  /**
+   * Something typed that cannot go out: more than pending, a fraction, or the
+   * last of a made-to-order line whose print is still in the queue. The
+   * button waits for it to be fixed instead of asking «¿Entregar?» first.
+   */
+  protected readonly blocked = computed(() =>
+    this.pendingLines().some((line, index) => this.problemAt(index) !== null || this.waiting(line, index) !== null),
   );
 
   /** Where the form starts, and where «Volver a lo que hay listo» takes it back. */
   private readonly proposed = computed(() => deliverableToday(this.pendingLines(), this.ready() ?? null));
 
   protected readonly leaving = computed(() => unitsLeaving(this.rows()));
-  protected readonly buttonLabel = computed(() => deliverButtonLabel(this.rows()));
+  protected readonly buttonLabel = computed(() =>
+    this.pendingLines().some((_, index) => this.problemAt(index) !== null)
+      ? 'Revisa las cantidades'
+      : deliverButtonLabel(this.rows()),
+  );
   protected readonly confirmation = computed(() => deliveryConfirmation(this.rows()));
   protected readonly matchesReady = computed(() =>
     this.proposed().every((quantity, index) => (this.entered()[index] ?? 0) === quantity),
@@ -272,8 +302,22 @@ export class PedidoEntrega {
     return quantity > available ? `Según el plan hay ${available} listas para este pedido.` : null;
   }
 
+  /** What is wrong with the quantity typed for a line, or null. */
+  protected problemAt(index: number): string | null {
+    const line = this.pendingLines()[index];
+    return line ? quantityProblem(this.entered()[index] ?? null, line.pending) : null;
+  }
+
+  /** The last of a made-to-order line, with its print still in the queue. */
+  protected waiting(line: OrderLine, index: number): string | null {
+    return waitingPrints(line, this.entered()[index] ?? null);
+  }
+
   protected dayError(): string | null {
-    return errorOf(this.form.controls.day, { required: 'Indica qué día se entregó.' });
+    return errorOf(this.form.controls.day, {
+      required: 'Indica qué día se entregó.',
+      future: 'La entrega no puede tener fecha futura: anótala con el día en que salió.',
+    });
   }
 
   protected fillReady(): void {
@@ -285,14 +329,16 @@ export class PedidoEntrega {
     this.form.markAllAsTouched();
     this.error.set(null);
     this.notice.set(null);
-    if (this.form.controls.day.invalid || deliveryPayload(this.rows()).length === 0) return;
+    if (this.form.controls.day.invalid || this.blocked() || deliveryPayload(this.rows()).length === 0) return;
     this.confirming.set(true);
   }
 
   protected async submit(): Promise<void> {
+    // First: a second click arrives before the button is drawn disabled.
+    if (this.saving()) return;
     const rows = this.rows();
     const lines = deliveryPayload(rows);
-    if (this.form.controls.day.invalid || lines.length === 0 || this.saving()) return;
+    if (this.form.controls.day.invalid || this.blocked() || lines.length === 0) return;
 
     const { day, note } = this.form.getRawValue();
     this.saving.set(true);
@@ -306,6 +352,8 @@ export class PedidoEntrega {
     } catch (error) {
       this.error.set(explainError(error, 'No pudimos registrar la entrega. Inténtalo de nuevo.'));
       this.confirming.set(false);
+      // What is pending, on the shelf or in the queue may have changed elsewhere.
+      this.stale.emit();
       return;
     } finally {
       this.saving.set(false);

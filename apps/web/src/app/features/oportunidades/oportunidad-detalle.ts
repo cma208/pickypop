@@ -253,6 +253,8 @@ export class OportunidadDetalle {
   }
 
   private async run(action: () => Promise<void>): Promise<void> {
+    // A second click arrives before the buttons are drawn disabled.
+    if (this.busy()) return;
     this.busy.set(true);
     this.error.set(null);
     try {

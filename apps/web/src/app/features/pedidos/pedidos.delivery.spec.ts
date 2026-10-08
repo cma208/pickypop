@@ -10,8 +10,11 @@ import {
   deliveredAtFor,
   deliversEverything,
   deliveryPayload,
+  notAfterToday,
   partialDeliveries,
+  quantityProblem,
   unitsLeaving,
+  waitingPrints,
   type DeliveryQuantity,
 } from './pedidos.delivery';
 import type { PlanDemandPlan } from '@pickypop/domain';
@@ -151,6 +154,53 @@ describe('deliveryConfirmation', () => {
     expect(deliveryConfirmation([{ quantity: 2, kind: 'catalog' }, { quantity: 1, kind: 'custom' }])).toBe(
       'Van a salir 2 unidades del estante. Se entrega 1 unidad hecha para este pedido. Esto no se puede deshacer.',
     );
+  });
+
+  it('does not call «hecha» a made-to-order unit with no print closed for it (T4-08)', () => {
+    expect(deliveryConfirmation([{ quantity: 1, kind: 'custom', printed: false }])).toBe(
+      'Se entrega 1 unidad a medida sin ninguna impresión cerrada para ella. Esto no se puede deshacer.',
+    );
+    expect(deliveryConfirmation([{ quantity: 2, kind: 'custom', printed: true }])).toBe(
+      'Se entregan 2 unidades hechas para este pedido. Esto no se puede deshacer.',
+    );
+  });
+});
+
+describe('notAfterToday', () => {
+  it('takes today or before, never a day that has not come', () => {
+    expect(notAfterToday({ value: '2026-10-08' }, '2026-10-08')).toBeNull();
+    expect(notAfterToday({ value: '2026-10-01' }, '2026-10-08')).toBeNull();
+    expect(notAfterToday({ value: '2026-10-09' }, '2026-10-08')).toEqual({ future: true });
+  });
+});
+
+describe('quantityProblem', () => {
+  it('lets through whole units up to what is pending', () => {
+    expect(quantityProblem(3, 3)).toBeNull();
+    expect(quantityProblem(0, 3)).toBeNull();
+    expect(quantityProblem(null, 3)).toBeNull();
+  });
+
+  it('stops «Entregar 5» of 3 and «1.5» before the confirmation (T4-17)', () => {
+    expect(quantityProblem(5, 3)).toBe('Quedan 3 por entregar.');
+    expect(quantityProblem(2, 1)).toBe('Queda 1 por entregar.');
+    expect(quantityProblem(1.5, 4)).toBe('Escribe un número entero de 0 a 4.');
+    expect(quantityProblem(-1, 4)).toBe('Escribe un número entero de 0 a 4.');
+  });
+});
+
+describe('waitingPrints', () => {
+  const keychain = { kind: 'custom' as const, pending: 2, prints: { planned: 1, printing: 0 } };
+
+  it('holds the last units of a made-to-order line while its print is in the queue (T4-08)', () => {
+    expect(waitingPrints(keychain, 2)).toContain('Su impresión sigue en la cola');
+    expect(waitingPrints({ ...keychain, prints: { planned: 0, printing: 1 } }, 2)).toContain('Se está imprimiendo');
+  });
+
+  it('lets a part go, and anything from the catalogue', () => {
+    expect(waitingPrints(keychain, 1)).toBeNull();
+    expect(waitingPrints({ ...keychain, kind: 'catalog' }, 2)).toBeNull();
+    expect(waitingPrints({ ...keychain, prints: { planned: 0, printing: 0 } }, 2)).toBeNull();
   });
 });
 

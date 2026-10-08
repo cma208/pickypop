@@ -90,7 +90,7 @@ import { isFinal, PURPOSE_LABEL, PURPOSE_TONE, STATUS_LABEL, STATUS_TONE, type O
             </pp-card>
 
             @if (payment(); as p) {
-              <app-pedido-cobro [orderId]="o.id" [summary]="p" [cancelled]="o.status === 'cancelled'" (collected)="reloadPayment()" />
+              <app-pedido-cobro [orderId]="o.id" [summary]="p" [cancelled]="o.status === 'cancelled'" (collected)="reloadPayment()" (stale)="onDelivered()" />
             } @else if (paymentError(); as message) {
               <pp-card heading="Cobro"><p class="error">{{ message }}</p></pp-card>
             }
@@ -103,7 +103,6 @@ import { isFinal, PURPOSE_LABEL, PURPOSE_TONE, STATUS_LABEL, STATUS_TONE, type O
               [paid]="payment()?.paid ?? null"
               [prints]="queued()"
               (changed)="onDelivered()"
-              (printsStale)="reloadProduction()"
               (deliver)="goToDelivery()"
             />
 
@@ -117,6 +116,7 @@ import { isFinal, PURPOSE_LABEL, PURPOSE_TONE, STATUS_LABEL, STATUS_TONE, type O
                 [cancelled]="o.status === 'cancelled'"
                 [balance]="payment()?.balance ?? null"
                 (delivered)="onDelivered()"
+                (stale)="onDelivered()"
                 (collect)="goToPayment()"
               />
             }
