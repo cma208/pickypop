@@ -206,7 +206,8 @@ export interface NewQuoteLine {
 
 export interface NewQuote {
   workspaceId: string;
-  customerId: string | null;
+  /** Always someone: a quote has a name (the owner's rule, 2026-10-08). */
+  customerId: string;
   channelId: string | null;
   requestId: string | null;
   validUntil: string | null;
@@ -272,7 +273,9 @@ export function explain(error: unknown, fallback: string): string {
   if (code === '23505') return 'Ese documento ya existe. Vuelve a intentarlo.';
   if (code === '23503') return 'Falta un dato relacionado: revisa el cliente o la variante.';
 
-  return fallback;
+  // A `raise exception` written for a person (which line, which version, why
+  // not) travels as it is: the database knows the case better than this.
+  return friendlyError(error, fallback);
 }
 
 export class DataError extends Error {}
@@ -680,23 +683,6 @@ export class CotizadorData {
     return data ?? [];
   }
 
-  /**
-   * A customer with just a name and a phone, as «Nuevo pedido» creates one:
-   * the kind and the document keep the defaults the database gives them.
-   */
-  async createCustomer(name: string, phone: string | null): Promise<CustomerOption> {
-    const workspaceId = await this.workspace.requireId();
-    const { data, error } = await this.supabase
-      .from('customers')
-      .insert({ workspace_id: workspaceId, name, phone })
-      .select('id, name')
-      .single();
-
-    fail(error, 'No pudimos crear el cliente.');
-    if (data === null) throw new DataError('No pudimos crear el cliente.');
-    return data;
-  }
-
   private async channels(): Promise<ChannelOption[]> {
     const { data, error } = await this.supabase
       .from('sales_channels')
@@ -823,67 +809,24 @@ export class CotizadorData {
   // ------------------------------------------------------------ writing
 
   /**
-   * Saves a quote with its lines. The number comes from the database so the
-   * series has no holes, and a new version reuses the number it comes from.
+   * Saves a quote with its lines through the database, all or nothing: the
+   * number (or the next version of its document), the header and the lines
+   * (T4-02). It always has a customer, the owner's rule. `key` names this
+   * save: sent twice, it is made once. Its refusals name the line and the
+   * problem, and travel as they are.
    */
-  async saveQuote(quote: NewQuote): Promise<{ id: string; number: string; version: number }> {
-    let number: string;
-    let version = 1;
-    let parentQuoteId: string | null = null;
-
-    if (quote.previousVersionOf !== null) {
-      number = quote.previousVersionOf.number;
-      version = quote.previousVersionOf.version + 1;
-      parentQuoteId = quote.previousVersionOf.quoteId;
-    } else {
-      const { data, error } = await this.supabase.rpc('next_document_number', {
-        p_workspace: quote.workspaceId,
-        p_doc_kind: 'quote',
-      });
-
-      fail(error, 'No pudimos reservar un número de cotización.');
-      if (typeof data !== 'string' || data === '') {
-        throw new DataError('No pudimos reservar un número de cotización.');
-      }
-      number = data;
-    }
-
-    const { data: inserted, error: insertError } = await this.supabase
-      .from('quotes')
-      .insert({
-        // The column defaults to the database's day, which is UTC: after 19:00 in Lima it is tomorrow.
-        issued_on: todayLocal(),
-        workspace_id: quote.workspaceId,
-        number,
-        version,
-        parent_quote_id: parentQuoteId,
-        customer_id: quote.customerId,
-        channel_id: quote.channelId,
-        request_id: quote.requestId,
-        status: 'draft',
-        valid_until: quote.validUntil,
-        cost_profile_snapshot: JSON.parse(JSON.stringify(quote.snapshot)),
-        subtotal: quote.subtotal,
-        discount: quote.discount,
-        igv: quote.igv,
-        total: quote.total,
-        note: quote.note,
-      })
-      .select('id, number, version')
-      .single();
-
-    fail(insertError, 'No pudimos guardar la cotización.');
-    if (inserted === null) throw new DataError('No pudimos guardar la cotización.');
-
-    const { error: linesError } = await this.supabase.from('quote_lines').insert(
-      quote.lines.map((line, index) => ({
-        workspace_id: quote.workspaceId,
-        quote_id: inserted.id,
-        position: index + 1,
-        kind: line.variantId === null ? ('custom' as const) : ('catalog' as const),
-        variant_id: line.variantId,
+  async saveQuote(quote: NewQuote, key: string): Promise<{ id: string; number: string; version: number }> {
+    const { data, error } = await this.supabase.rpc('save_quote', {
+      p_workspace_id: quote.workspaceId,
+      p_customer_id: quote.customerId,
+      p_lines: quote.lines.map((line) => ({
         description: line.description,
+        variant_id: line.variantId,
         quantity: line.quantity,
+        setup_minutes: line.setupMinutes,
+        minutes_per_unit: line.minutesPerUnit,
+        unit_cost: line.unitCost,
+        unit_price: line.unitPrice,
         plates: JSON.parse(JSON.stringify(line.plates)),
         items: JSON.parse(
           JSON.stringify({
@@ -892,27 +835,23 @@ export class CotizadorData {
             filamentCostPerKg: line.filamentCostPerKg,
           }),
         ),
-        setup_minutes: line.setupMinutes,
-        minutes_per_unit: line.minutesPerUnit,
-        unit_cost: line.unitCost,
-        unit_price: line.unitPrice,
       })),
-    );
+      p_channel_id: quote.channelId ?? undefined,
+      p_request_id: quote.requestId ?? undefined,
+      p_valid_until: quote.validUntil ?? undefined,
+      p_note: quote.note ?? undefined,
+      p_snapshot: JSON.parse(JSON.stringify(quote.snapshot)),
+      p_subtotal: quote.subtotal,
+      p_discount: quote.discount,
+      p_igv: quote.igv,
+      p_total: quote.total,
+      p_previous_quote_id: quote.previousVersionOf?.quoteId ?? undefined,
+      p_save_key: key,
+    });
 
-    if (linesError !== null) {
-      // A quote with no lines is worse than no quote at all.
-      await this.supabase.from('quotes').delete().eq('id', inserted.id);
-      throw new DataError(explain(linesError, 'No pudimos guardar las líneas de la cotización.'));
-    }
-
-    if (quote.requestId !== null) {
-      await this.supabase
-        .from('quote_requests')
-        .update({ status: 'quoted' })
-        .eq('id', quote.requestId);
-    }
-
-    return inserted;
+    fail(error, 'No pudimos guardar la cotización.');
+    if (data === null) throw new DataError('No pudimos guardar la cotización.');
+    return { id: data.id, number: data.number, version: data.version };
   }
 
   async listQuotes(): Promise<QuoteSummary[]> {
@@ -1051,9 +990,26 @@ export class CotizadorData {
     return Object.fromEntries((data ?? []).map((item) => [item.id, item.unit]));
   }
 
-  async setStatus(id: string, status: QuoteStatus): Promise<void> {
-    const { error } = await this.supabase.from('quotes').update({ status }).eq('id', id);
+  /**
+   * Moves a quote from the status the person saw to the one they chose. The
+   * database guards the path (a closed quote stays closed, an old version is
+   * not sent) and its refusal travels as it is. If the quote is no longer in
+   * the status the screen showed, nothing changes and the person is told:
+   * an update that touches no row comes back without an error (T4-03).
+   */
+  async setStatus(id: string, from: QuoteStatus, to: QuoteStatus): Promise<void> {
+    const { data, error } = await this.supabase
+      .from('quotes')
+      .update({ status: to })
+      .eq('id', id)
+      .eq('status', from)
+      .select('id');
     fail(error, 'No pudimos cambiar el estado de la cotización.');
+    if ((data ?? []).length === 0) {
+      throw new DataError(
+        'La cotización cambió mientras la mirabas (en otra pestaña o en otro equipo). Ya la volvimos a leer: revisa cómo quedó.',
+      );
+    }
   }
 
   /**

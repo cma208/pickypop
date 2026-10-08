@@ -219,25 +219,23 @@
       <pp-card heading="El lote">
         <form [formGroup]="lineForm">
           <div class="grid two">
-            <pp-field label="Qué se cotiza" [required]="true" [error]="
-              lineForm.controls.description.touched && lineForm.controls.description.invalid
-                ? 'Escribe una descripción'
-                : null
-            ">
+            <pp-field label="Qué se cotiza" [required]="true" [error]="fieldError('line', 'description')">
               <input type="text" formControlName="description" placeholder="Botella de poción con dulces" />
             </pp-field>
-            <pp-field label="Cantidad de unidades" [required]="true">
-              <input type="number" min="1" step="1" formControlName="quantity" />
+            <pp-field label="Cantidad de unidades" [required]="true" [error]="fieldError('line', 'quantity')">
+              <input type="number" inputmode="numeric" min="1" step="1" formControlName="quantity" />
             </pp-field>
             <pp-field
               label="Preparación del lote (minutos)"
               hint="Se paga una sola vez y se reparte entre todas las unidades"
+              [error]="fieldError('line', 'setupMinutes')"
             >
               <input type="number" min="0" step="1" formControlName="setupMinutes" />
             </pp-field>
             <pp-field
               label="Trabajo por unidad (minutos)"
               hint="Armado, relleno y empaque de cada pieza"
+              [error]="fieldError('line', 'minutesPerUnit')"
             >
               <input type="number" min="0" step="1" formControlName="minutesPerUnit" />
             </pp-field>
@@ -350,6 +348,9 @@
             Agregar a la cotización
           </button>
         </div>
+        @if (addBlockers().length > 0 && plates().length > 0) {
+          <p class="muted blockers" role="status">Para agregarla: {{ addBlockers().join('; ') }}.</p>
+        }
 
         <form [formGroup]="priceForm" class="grid two">
           <pp-field label="Impresora">
@@ -369,11 +370,11 @@
               }
             </select>
           </pp-field>
-          <pp-field label="Descuento por volumen (%)">
-            <input type="number" min="0" max="90" step="1" formControlName="volumeDiscountPercent" />
+          <pp-field label="Descuento por volumen (%)" [error]="fieldError('price', 'volumeDiscountPercent')">
+            <input type="number" min="0" [max]="maxDiscount" step="1" formControlName="volumeDiscountPercent" />
           </pp-field>
-          <pp-field label="Recargo por urgencia (%)">
-            <input type="number" min="0" max="200" step="1" formControlName="urgencySurchargePercent" />
+          <pp-field label="Recargo por urgencia (%)" [error]="fieldError('price', 'urgencySurchargePercent')">
+            <input type="number" min="0" [max]="maxSurcharge" step="1" formControlName="urgencySurchargePercent" />
           </pp-field>
         </form>
 
@@ -420,6 +421,12 @@
                 {{ -calculated.price.marginAmount | money }} por unidad.
               </p>
             }
+          } @else if (calculated.price.marginAmount < 0) {
+            <!-- Made to order too: a 90 % discount sold at S/ 0.34 what cost S/ 1.72 (T4-14). -->
+            <p class="banner bad">
+              Este precio no cubre el costo: se pierden {{ -calculated.price.marginAmount | money }} por unidad.
+              Revisa el descuento y el canal antes de agregarla.
+            </p>
           }
 
           <pp-desglose
@@ -453,7 +460,12 @@
             <tbody>
               @for (line of lines(); track line.key) {
                 <tr>
-                  <td>{{ line.draft.description }}</td>
+                  <td>
+                    {{ line.draft.description }}
+                    @if (line.price.marginAmount < 0) {
+                      <small class="error">no cubre su costo</small>
+                    }
+                  </td>
                   <td class="num">{{ line.cost.units }}</td>
                   <td class="num">{{ line.cost.costPerUnit | money }}</td>
                   <td class="num">{{ line.price.total | money }}</td>
@@ -523,10 +535,19 @@
             </dl>
           }
 
+          @if (losing().length > 0) {
+            <p class="banner bad" role="status">
+              @for (line of losing(); track $index) {
+                «{{ line.description }}» no cubre su costo: se pierden {{ line.lossPerUnit | money }} por unidad.
+              }
+              Puedes guardarla igual, pero cada unidad vendida así resta.
+            </p>
+          }
+
           <form [formGroup]="quoteForm" class="grid two">
-            <pp-field label="Cliente">
+            <pp-field label="Cliente" [required]="true" [error]="fieldError('quote', 'customerId')">
               <select formControlName="customerId">
-                <option value="">Sin cliente todavía</option>
+                <option value="">Elige un cliente…</option>
                 <option [value]="newCustomer">+ Nuevo cliente</option>
                 @for (customer of ctx.customers; track customer.id) {
                   <option [value]="customer.id">{{ customer.name }}</option>
@@ -536,7 +557,9 @@
             @if (creatingCustomer()) {
               <app-cliente-rapido
                 class="quick-customer"
+                [customers]="ctx.customers"
                 (created)="onCustomerCreated($event)"
+                (chosen)="onCustomerChosen($event)"
                 (cancelled)="creatingCustomer.set(false)"
               />
             }
@@ -550,14 +573,17 @@
                 </select>
               </pp-field>
             }
-            <pp-field label="Vigencia (días)" hint="0 para que no venza">
-              <input type="number" min="0" max="365" step="1" formControlName="validityDays" />
+            <pp-field label="Vigencia (días)" hint="0 para que no venza" [error]="fieldError('quote', 'validityDays')">
+              <input type="number" inputmode="numeric" min="0" [max]="maxValidity" step="1" formControlName="validityDays" />
             </pp-field>
             <pp-field label="Nota para el cliente">
               <textarea rows="2" formControlName="note"></textarea>
             </pp-field>
           </form>
 
+          @if (saveError(); as message) {
+            <p class="error" role="alert">{{ message }}</p>
+          }
           <button type="button" [disabled]="saving()" (click)="save()">
             @if (saving()) { Guardando… } @else if (previousVersion(); as previous) {
               Guardar como versión {{ previous.version + 1 }} de {{ previous.number }}
