@@ -274,8 +274,10 @@ export class CuentasPage {
       this.notice.set(turningOff ? 'Cuenta desactivada.' : 'Cuenta reactivada.');
     } catch (error) {
       this.actionError.set(friendlyError(error, 'No pudimos cambiar el estado de la cuenta.'));
-      if (!isRefusal(error)) return;
+      // Refused for the role (the row policy answers 42501), the role is read
+      // again and the buttons go; refused at all, the list is read again.
       void this.workspace.afterRefusal(error);
+      if (!isRefusal(error)) return;
     } finally {
       this.switching.set(false);
     }

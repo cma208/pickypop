@@ -121,6 +121,15 @@ describe('friendlyError', () => {
     expect(isPermissionError(new UserFacingError('Faltan los gramos.'))).toBe(false);
   });
 
+  it('takes a role refusal written as a plain raise exception for what it is (void_transaction)', () => {
+    const voiding = 'Solo el dueño del taller puede anular un movimiento de dinero.';
+    expect(isPermissionError({ code: 'P0001', message: voiding })).toBe(true);
+    expect(isPermissionError(new UserFacingError(voiding))).toBe(true);
+    expect(isPermissionError({ code: 'P0001', message: 'Este movimiento ya estaba anulado (motivo: «x»).' })).toBe(false);
+    // Shown as it is: the database knows the case.
+    expect(friendlyError({ code: 'P0001', message: voiding }, FALLBACK)).toBe(voiding);
+  });
+
   it('sees the refusal behind an error a screen already translated', () => {
     const owner = 'Solo el dueño del taller puede registrar o cambiar las impresoras.';
     expect(isPermissionError(new UserFacingError(owner, { cause: { code: '42501', message: owner } }))).toBe(true);

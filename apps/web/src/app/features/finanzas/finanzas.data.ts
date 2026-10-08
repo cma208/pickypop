@@ -1,6 +1,6 @@
 import { inject, Injectable } from '@angular/core';
 import { fetchAll } from '../../core/fetch-all';
-import { permissionError, UserFacingError } from '../../core/friendly-error';
+import { isPermissionError, permissionError, UserFacingError } from '../../core/friendly-error';
 import { SUPABASE } from '../../core/supabase';
 import { CurrentWorkspace } from '../../core/workspace';
 import { accountChanges, type AccountInput, type AccountLeg } from './account-edit';
@@ -142,9 +142,16 @@ function withRaisedMessage(error: unknown): unknown {
   return code === RAISED_EXCEPTION && message ? new UserFacingError(message) : error;
 }
 
-/** Whether the database refused with a sentence of its own: the screen then reloads what it showed. */
+/**
+ * Whether the database refused, with a sentence of its own or for the role
+ * (a 42501 from a row policy): the screen then reloads what it showed.
+ */
 export function isRefusal(error: unknown): boolean {
-  return error instanceof UserFacingError || (error as ErrorLike | null)?.code === RAISED_EXCEPTION;
+  return (
+    error instanceof UserFacingError ||
+    (error as ErrorLike | null)?.code === RAISED_EXCEPTION ||
+    isPermissionError(error)
+  );
 }
 
 /**

@@ -116,16 +116,29 @@ export function permissionError(): UserFacingError {
 }
 
 /**
+ * A function that checks the role on its own may say so in words, as a plain
+ * `raise exception` (P0001) and not a 42501: «Solo el dueño del taller puede
+ * anular un movimiento de dinero.» (`void_transaction`), or the one about
+ * unmarking a sales category. It is as much a refusal of who is asking.
+ */
+const OWNER_ONLY_REFUSAL = /^Solo el dueño del taller puede /;
+
+/**
  * The database said no to who is asking, not to what they wrote. An error
  * already translated for a screen keeps what the database said as its
  * `cause`, so the role is read again after it too.
  */
 export function isPermissionError(error: unknown): boolean {
   if (error instanceof UserFacingError) {
-    return error.message === NO_PERMISSION || (error.cause !== undefined && isPermissionError(error.cause));
+    return (
+      error.message === NO_PERMISSION ||
+      OWNER_ONLY_REFUSAL.test(error.message) ||
+      (error.cause !== undefined && isPermissionError(error.cause))
+    );
   }
   const { code, message } = (error ?? {}) as PostgrestLike;
   const text = message ?? '';
+  if (code === 'P0001') return OWNER_ONLY_REFUSAL.test(text);
   return code === '42501' || text.includes('row-level security') || text.includes('permission denied');
 }
 

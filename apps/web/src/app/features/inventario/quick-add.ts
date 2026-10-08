@@ -1,4 +1,5 @@
-import { Component, input, output, signal } from '@angular/core';
+import { Component, inject, input, output, signal } from '@angular/core';
+import { CurrentWorkspace } from '../../core/workspace';
 import { describeError } from './inventario.errors';
 
 /**
@@ -34,6 +35,8 @@ import { describeError } from './inventario.errors';
   `,
 })
 export class QuickAdd {
+  private readonly workspace = inject(CurrentWorkspace);
+
   readonly label = input.required<string>();
   readonly placeholder = input('');
   /** Creates the entry. Throwing keeps the form open and shows a friendly error. */
@@ -61,6 +64,8 @@ export class QuickAdd {
       this.done.emit();
     } catch (error) {
       this.error.set(describeError(error, 'No pudimos guardarlo. Inténtalo de nuevo.'));
+      // Refused for the role, the form that holds this shortcut stops offering it.
+      void this.workspace.afterRefusal(error);
     } finally {
       this.busy.set(false);
     }
