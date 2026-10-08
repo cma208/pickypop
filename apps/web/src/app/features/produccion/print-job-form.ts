@@ -13,7 +13,7 @@ import { describeCounts } from './produccion.outputs';
 import { rowsForPlate, suggestSpool } from './produccion.spools';
 import { labelForPlate } from './job-label';
 import { proposeTime, secondsToSave, type ProposedTime } from './job-time';
-import { hundredths } from './job-grams';
+import { GRAMS_MESSAGE, hundredths, MAX_GRAMS, MAX_MINUTES } from './job-grams';
 import { requestKey, type SentRequest } from './request-key';
 import { NOTE_MAX_LENGTH } from './print-job-close';
 
@@ -33,7 +33,7 @@ function createFilamentRow(spoolId = '', estimatedG = 0, slot: number | null = n
     spoolId: new FormControl(spoolId, { nonNullable: true, validators: [Validators.required] }),
     estimatedG: new FormControl(estimatedG, {
       nonNullable: true,
-      validators: [Validators.required, Validators.min(0), hundredths],
+      validators: [Validators.required, Validators.min(0), Validators.max(MAX_GRAMS), hundredths],
     }),
     slot: new FormControl<number | null>(slot),
   });
@@ -122,7 +122,7 @@ function createFilamentRow(spoolId = '', estimatedG = 0, slot: number | null = n
             </p>
           }
 
-          <pp-field label="Tiempo estimado (minutos)" hint="Se llena con el de la placa; puedes ajustarlo." [error]="fieldError('estimatedMinutes', 'Escribe minutos enteros mayores que cero.')">
+          <pp-field label="Tiempo estimado (minutos)" hint="Se llena con el de la placa; puedes ajustarlo." [error]="fieldError('estimatedMinutes', minutesMessage)">
             <input type="number" inputmode="numeric" min="1" step="1" formControlName="estimatedMinutes" />
           </pp-field>
 
@@ -138,7 +138,7 @@ function createFilamentRow(spoolId = '', estimatedG = 0, slot: number | null = n
                     }
                   </select>
                 </pp-field>
-                <pp-field label="Gramos estimados" [error]="fieldErrorOn(row, 'estimatedG', 'Escribe los gramos, cero o más, con hasta dos decimales.')">
+                <pp-field label="Gramos estimados" [error]="fieldErrorOn(row, 'estimatedG', gramsMessage)">
                   <input type="number" inputmode="decimal" min="0" step="0.01" formControlName="estimatedG" />
                 </pp-field>
                 <button type="button" class="ghost" (click)="removeFilament(i)" [attr.aria-label]="'Quitar el rollo ' + (i + 1)">Quitar</button>
@@ -197,7 +197,7 @@ export class PrintJobForm implements OnInit {
     label: new FormControl('', { nonNullable: true, validators: [Validators.maxLength(LABEL_MAX_LENGTH)] }),
     printerId: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
     plateId: new FormControl('', { nonNullable: true }),
-    estimatedMinutes: new FormControl<number | null>(null, [Validators.min(1), Validators.pattern(/^\d+$/)]),
+    estimatedMinutes: new FormControl<number | null>(null, [Validators.min(1), Validators.max(MAX_MINUTES), Validators.pattern(/^\d+$/)]),
     note: new FormControl('', { nonNullable: true, validators: [Validators.maxLength(NOTE_MAX_LENGTH)] }),
     filaments: new FormArray([createFilamentRow()]),
   });
@@ -214,6 +214,8 @@ export class PrintJobForm implements OnInit {
   protected readonly submitted = signal(false);
   protected readonly labelMaxLength = LABEL_MAX_LENGTH;
   protected readonly noteMaxLength = NOTE_MAX_LENGTH;
+  protected readonly minutesMessage = `Escribe minutos enteros, de 1 a ${MAX_MINUTES}.`;
+  protected readonly gramsMessage = GRAMS_MESSAGE;
   /** The last submission and its key, kept for a retry of the very same job. */
   private lastSent: SentRequest<JobToCreate> | null = null;
 

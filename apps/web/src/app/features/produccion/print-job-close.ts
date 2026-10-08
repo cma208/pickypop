@@ -11,7 +11,7 @@ import { duration } from '../../core/format';
 import { filamentName } from '../../core/spool-label';
 import { secondsToSave, type ProposedTime } from './job-time';
 import { closeProposal } from './close-proposal';
-import { hundredths, toHundredths } from './job-grams';
+import { GRAMS_MESSAGE, hundredths, MAX_GRAMS, MAX_MINUTES, toHundredths } from './job-grams';
 
 type CloseResult = CloseJob['result'];
 
@@ -27,7 +27,7 @@ export const NOTE_MAX_LENGTH = 500;
 function createUsageRow(spoolId: string, actualG: number | null) {
   return new FormGroup({
     spoolId: new FormControl(spoolId, { nonNullable: true }),
-    actualG: new FormControl<number | null>(actualG, [Validators.min(0), hundredths]),
+    actualG: new FormControl<number | null>(actualG, [Validators.min(0), Validators.max(MAX_GRAMS), hundredths]),
   });
 }
 
@@ -82,7 +82,7 @@ function createUsageRow(spoolId: string, actualG: number | null) {
           label="Tiempo real (minutos)"
           [required]="result() !== 'cancelled'"
           [hint]="timeHint()"
-          [error]="fieldError('actualMinutes', 'Escribe los minutos reales, en número entero mayor que cero.')"
+          [error]="fieldError('actualMinutes', minutesMessage)"
         >
           <input type="number" inputmode="numeric" min="1" step="1" formControlName="actualMinutes" />
         </pp-field>
@@ -177,12 +177,13 @@ export class PrintJobClose implements OnInit {
   protected readonly causes = FAILURE_CAUSES;
   protected readonly causeLabel = FAILURE_CAUSE_LABEL;
   protected readonly noteMaxLength = NOTE_MAX_LENGTH;
+  protected readonly minutesMessage = `Escribe los minutos reales, en número entero de 1 a ${MAX_MINUTES}.`;
 
   protected readonly form = new FormGroup({
     result: new FormControl<CloseResult>('success', { nonNullable: true }),
     failureCause: new FormControl<FailureCause | ''>('', { nonNullable: true }),
     percentComplete: new FormControl<number | null>(null, [Validators.min(0), Validators.max(100)]),
-    actualMinutes: new FormControl<number | null>(null, [Validators.min(1), Validators.pattern(/^\d+$/)]),
+    actualMinutes: new FormControl<number | null>(null, [Validators.min(1), Validators.max(MAX_MINUTES), Validators.pattern(/^\d+$/)]),
     note: new FormControl('', { nonNullable: true, validators: [Validators.maxLength(NOTE_MAX_LENGTH)] }),
     usage: new FormArray<ReturnType<typeof createUsageRow>>([]),
     outputs: new FormArray<FormControl<number | null>>([]),
@@ -287,7 +288,7 @@ export class PrintJobClose implements OnInit {
     const control = this.usage.at(index).controls.actualG;
     const show = control.touched || this.submitted();
     if (!show) return null;
-    if (control.invalid) return 'Escribe los gramos, cero o más, con hasta dos decimales.';
+    if (control.invalid) return GRAMS_MESSAGE;
     if (this.result() !== 'cancelled' && control.value === null) return 'Escribe cuántos gramos gastó.';
     if (this.spentWithoutTime(control.value)) return 'Sin tiempo no gastó filamento: escribe cuánto corrió o deja los gramos vacíos.';
     return null;

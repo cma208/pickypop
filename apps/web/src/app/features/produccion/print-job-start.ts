@@ -5,14 +5,14 @@ import { spoolLabel } from '../../core/spool-label';
 import { explainError } from '../pedidos/pedidos.errors';
 import { ProduccionData, type JobItem, type SpoolOption } from './produccion.data';
 import { rowsForPlate, suggestSpool, type SpoolStatus } from './produccion.spools';
-import { hundredths } from './job-grams';
+import { GRAMS_MESSAGE, hundredths, MAX_GRAMS } from './job-grams';
 
 const STATUS_LABEL: Record<SpoolStatus, string> = { in_use: 'en uso', open: 'abierto', sealed: 'sellado' };
 
 function createRollRow(spoolId = '', estimatedG = 0, slot: number | null = null) {
   return new FormGroup({
     spoolId: new FormControl(spoolId, { nonNullable: true, validators: [Validators.required] }),
-    estimatedG: new FormControl(estimatedG, { nonNullable: true, validators: [Validators.required, Validators.min(0), hundredths] }),
+    estimatedG: new FormControl(estimatedG, { nonNullable: true, validators: [Validators.required, Validators.min(0), Validators.max(MAX_GRAMS), hundredths] }),
     slot: new FormControl<number | null>(slot),
   });
 }
@@ -101,7 +101,7 @@ export class PrintJobStart implements OnInit {
 
   protected gramsError(index: number): string | null {
     const control = this.rows.at(index).controls.estimatedG;
-    return control.invalid && (control.touched || this.submitted()) ? 'Escribe los gramos, cero o más, con hasta dos decimales.' : null;
+    return control.invalid && (control.touched || this.submitted()) ? GRAMS_MESSAGE : null;
   }
 
   /** A warning, never a block: the scale knows better than the estimate. */

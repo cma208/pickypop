@@ -10,6 +10,17 @@ import type { AbstractControl, ValidationErrors } from '@angular/forms';
  */
 
 const HUNDREDTHS = 100;
+
+/**
+ * Bounds that no real job reaches, so an extra zero is caught next to the
+ * field instead of ending in the database's generic «Inténtalo de nuevo»
+ * (`integer` seconds overflow past 35 791 394 minutes).
+ */
+export const MAX_GRAMS = 100000;
+export const MAX_MINUTES = 100000;
+
+/** The message of a grams field, with the bound it checks. */
+export const GRAMS_MESSAGE = `Escribe los gramos, de 0 a ${MAX_GRAMS}, con hasta dos decimales.`;
 /** Float noise allowed when checking that 12.34 × 100 is whole. */
 const TOLERANCE = 1e-6;
 
