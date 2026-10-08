@@ -740,9 +740,13 @@ begin
     'select public.next_document_number(' || c_ws || ', ''order'')', 'error:42501:Solo el dueño o un operador');
   perform pg_temp.expect('Pedir un número de pedido', 'outsider',
     'select public.next_document_number(' || c_ws || ', ''order'')', 'error:P0001:No perteneces a este taller');
+  -- Un rollo y un empaque: los movimientos que escribe pasan por la
+  -- política como el operador, porque se mueven a mano.
   perform pg_temp.expect('Registrar una compra', 'operator',
     'select public.register_purchase(' || c_ws || ', ''[{"inventory_item_id": "00000000-7e57-4000-8000-000000000465", '
-    || '"quantity": 4, "unit_price": 0.5, "allocated_extra_cost": 0, "unit_cost": 0.5}]'')', 'ok:1');
+    || '"quantity": 4, "unit_price": 0.5, "allocated_extra_cost": 0, "unit_cost": 0.5}, '
+    || '{"filament_sku_id": "00000000-7e57-4000-8000-000000000421", "quantity": 1, "unit_price": 60, '
+    || '"allocated_extra_cost": 0, "unit_costs": [60]}]'')', 'ok:1');
   perform pg_temp.expect('Registrar una compra', 'viewer',
     'select public.register_purchase(' || c_ws || ', ''[{"inventory_item_id": "00000000-7e57-4000-8000-000000000465", '
     || '"quantity": 4, "unit_price": 0.5, "allocated_extra_cost": 0, "unit_cost": 0.5}]'')',
