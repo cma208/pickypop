@@ -1,4 +1,28 @@
-import { ledgerTotals, markVoidable, type LedgerAmount } from './ledger-totals';
+import { ledgerOrder, ledgerTotals, markVoidable, type LedgerAmount, type LedgerPlace } from './ledger-totals';
+
+describe('ledgerOrder', () => {
+  const place = (transactionId: string, occurredAt: string, isCounterLeg = false): LedgerPlace & { label: string } => ({
+    transactionId,
+    occurredAt,
+    isCounterLeg,
+    label: `${transactionId}${isCounterLeg ? '-in' : ''}`,
+  });
+
+  it('puts the newest first', () => {
+    const rows = [place('a', '2026-10-07T15:00:00+00:00'), place('b', '2026-10-07T16:00:00+00:00')];
+    expect(rows.sort(ledgerOrder).map((row) => row.label)).toEqual(['b', 'a']);
+  });
+
+  it('keeps the two legs of a transfer together when another movement shares the minute (E5-13)', () => {
+    const minute = '2026-10-07T20:54:00+00:00';
+    const rows = [
+      place('94e0ba63', minute, true),
+      place('b8131817', minute),
+      place('94e0ba63', minute, false),
+    ];
+    expect(rows.sort(ledgerOrder).map((row) => row.label)).toEqual(['94e0ba63', '94e0ba63-in', 'b8131817']);
+  });
+});
 
 function leg(overrides: Partial<LedgerAmount> = {}): LedgerAmount {
   return {

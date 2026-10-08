@@ -13,6 +13,7 @@ import {
   type PaymentMethod,
   type TransactionType,
 } from './finanzas.models';
+import { ledgerOrder } from './ledger-totals';
 import type { MonthResult } from './results';
 import type { TransactionDraft } from './transaction-draft';
 
@@ -314,7 +315,7 @@ export class FinanzasData {
         beforeOpening: false,
       }));
 
-    return [...rows, ...voided].sort((a, b) => b.occurredAt.localeCompare(a.occurredAt));
+    return [...rows, ...voided].sort(ledgerOrder);
   }
 
   async createTransaction(draft: TransactionDraft): Promise<void> {
@@ -460,7 +461,12 @@ export class FinanzasData {
         .select(
           'transaction_id, account_id, is_counter_leg, occurred_at, type, category_id, payment_method, signed_amount, order_id, purchase_id, maintenance_log_id, counterparty, note, before_opening',
         )
+        // The form saves to the minute, so ties are common. Without a tie-break
+        // the two legs of a transfer could land apart, and pages could repeat
+        // or skip a row past the first thousand.
         .order('occurred_at', { ascending: false })
+        .order('transaction_id')
+        .order('is_counter_leg')
         .range(from, to);
 
       if (filter.accountId) query = query.eq('account_id', filter.accountId);
@@ -484,6 +490,7 @@ export class FinanzasData {
           'id, account_id, counter_account_id, type, category_id, amount, occurred_at, payment_method, counterparty, reference, note, voided_at, void_reason, order_id, purchase_id, maintenance_log_id, orders(number)',
         )
         .order('occurred_at', { ascending: false })
+        .order('id')
         .range(from, to);
 
       // A transfer is only visible from the account it left or the one it

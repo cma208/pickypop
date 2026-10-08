@@ -48,6 +48,27 @@ export function ledgerTotals(rows: readonly LedgerAmount[]): LedgerTotals {
   };
 }
 
+/** What decides where a row sits in the book. */
+export interface LedgerPlace {
+  occurredAt: string;
+  transactionId: string;
+  isCounterLeg: boolean;
+}
+
+/**
+ * Newest first. The form saves to the minute, so two movements often share
+ * it: they are then kept apart by their id, which keeps the two legs of a
+ * transfer together («Va a…» right before «Viene de…») instead of letting an
+ * expense of that same minute slip between them (E5-13).
+ */
+export function ledgerOrder(a: LedgerPlace, b: LedgerPlace): number {
+  return (
+    b.occurredAt.localeCompare(a.occurredAt) ||
+    a.transactionId.localeCompare(b.transactionId) ||
+    Number(a.isCounterLeg) - Number(b.isCounterLeg)
+  );
+}
+
 /**
  * Marks the one leg of each movement that carries the "anular" button. A
  * transfer shows twice when no account is picked, and offering to annul the
