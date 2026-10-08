@@ -21,6 +21,10 @@ export interface PlanLineInput {
 }
 
 export interface PlanLine {
+  /** The quantity as it is stored: three decimals. */
+  quantity: number;
+  /** The price per unit as it is stored: cents for a roll, six decimals for a supply. */
+  unitPrice: number;
   subtotal: number;
   /** Share of shipping and other costs that landed on this line. */
   extra: number;
@@ -42,6 +46,61 @@ export interface PurchasePlan {
 }
 
 const CENTS_PER_SOL = 100;
+const QUANTITY_SCALE = 1_000;
+const PRICE_SCALE = 1_000_000;
+/** From billionths of a sol (thousandths of a unit × millionths of a sol) to cents. */
+const NANO_PER_CENT = 10_000_000n;
+
+/**
+ * What a purchase can hold before it stops being a purchase of this workshop
+ * and becomes a typing mistake: ten billion grams of sweets went through once
+ * and left a purchase with no lines (tercera pasada, T1-06). The database
+ * applies the same caps in `register_purchase`; change them in both places.
+ */
+export const PURCHASE_LIMITS = {
+  rollsPerLine: 500,
+  quantityPerLine: 1_000_000,
+  unitPrice: 100_000,
+  /** Shipping, and other costs, each. */
+  extraCost: 100_000,
+  total: 1_000_000,
+  /** What `purchase_lines` keeps. */
+  quantityDecimals: 3,
+  priceDecimals: 6,
+  /** A roll is priced in cents: each spool carries a whole number of them. */
+  rollPriceDecimals: 2,
+} as const;
+
+/** The quantity of a line as `purchase_lines.quantity` keeps it: three decimals. */
+export function storedQuantity(quantity: number): number {
+  return Number.isFinite(quantity) ? Math.round(quantity * QUANTITY_SCALE) / QUANTITY_SCALE : 0;
+}
+
+/**
+ * The price per unit as it is stored and paid. A supply keeps six decimals,
+ * the column's; a roll keeps cents, because each spool carries a whole number
+ * of them. The preview has to multiply this one: with the raw 0.01500499 it
+ * said S/ 15.00, the database kept 0.015005 and charged S/ 15.01 (T1-16).
+ */
+export function storedUnitPrice(kind: 'sku' | 'item', unitPrice: number): number {
+  if (!Number.isFinite(unitPrice)) return 0;
+  return kind === 'sku' ? roundMoney(unitPrice) : Math.round(unitPrice * PRICE_SCALE) / PRICE_SCALE;
+}
+
+/**
+ * quantity × price in cents, rounded half away from zero exactly like the
+ * database's `round(quantity * unit_price, 2)`. Done in integers: a float
+ * product lands on either side of half a cent and would disagree with the
+ * total the purchase is paid by.
+ */
+export function lineSubtotalCents(quantity: number, unitPrice: number): number {
+  const nano =
+    BigInt(Math.round(storedQuantity(quantity) * QUANTITY_SCALE)) *
+    BigInt(Math.round((Number.isFinite(unitPrice) ? unitPrice : 0) * PRICE_SCALE));
+  const magnitude = (nano < 0n ? -nano : nano) + NANO_PER_CENT / 2n;
+  const cents = Number(magnitude / NANO_PER_CENT);
+  return nano < 0n ? -cents : cents;
+}
 
 function toCents(amount: number): number {
   return Math.round(roundMoney(Number.isFinite(amount) ? amount : 0) * CENTS_PER_SOL);
@@ -95,10 +154,15 @@ export function planPurchase(
   otherCosts: number,
   requested: AllocationMethod,
 ): PurchasePlan {
-  const subtotalsCents = lines.map((line) => toCents(line.quantity * line.unitPrice));
+  const stored = lines.map((line) => ({
+    ...line,
+    quantity: storedQuantity(line.quantity),
+    unitPrice: storedUnitPrice(line.kind, line.unitPrice),
+  }));
+  const subtotalsCents = stored.map((line) => lineSubtotalCents(line.quantity, line.unitPrice));
   const extraCents = toCents(shippingCost) + toCents(otherCosts);
 
-  const weights = lines.map((line) =>
+  const weights = stored.map((line) =>
     line.kind === 'sku' && line.unitWeightG ? line.quantity * line.unitWeightG : 0,
   );
   const hasWeights = weights.some((weight) => weight > 0);
@@ -107,7 +171,7 @@ export function planPurchase(
 
   const lineExtras = allocateCents(extraCents, method === 'by_weight' ? weights : subtotalsCents);
 
-  const planLines = lines.map((line, index): PlanLine => {
+  const planLines = stored.map((line, index): PlanLine => {
     const subtotalCents = subtotalsCents[index];
     const lineExtraCents = lineExtras[index];
     const totalCents = subtotalCents + lineExtraCents;
@@ -116,6 +180,8 @@ export function planPurchase(
       line.kind === 'sku' ? unitCostsFor(line.unitPrice, line.quantity, lineExtraCents) : [];
 
     return {
+      quantity: line.quantity,
+      unitPrice: line.unitPrice,
       subtotal: fromCents(subtotalCents),
       extra: fromCents(lineExtraCents),
       total: fromCents(totalCents),
