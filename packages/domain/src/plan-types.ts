@@ -155,7 +155,11 @@ export interface PlanCustomWork {
   supplies: PlanCustomSupply[];
   setupMinutes: number;
   minutesPerUnit: number;
-  /** Finished units already printed for the line (closed jobs), not yet delivered. */
+  /**
+   * Units already printed for the line (closed jobs), not yet delivered,
+   * counted as the queue counts its jobs. It can be fractional: a line of
+   * two plates with only one of them printed has half a unit begun.
+   */
   printedUnits: number;
 }
 

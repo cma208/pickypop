@@ -61,8 +61,13 @@ export class ClientesData {
   private readonly supabase = inject(SUPABASE);
   private readonly workspace = inject(CurrentWorkspace);
 
+  /**
+   * How many orders each one has comes from `customer_history`, the same
+   * count its story shows. Counted here, it took cancelled orders in: the
+   * list said 2 and the story 1 for the same customer.
+   */
   async list(): Promise<CustomerRecord[]> {
-    const [customers, orders] = await Promise.all([
+    const [customers, histories] = await Promise.all([
       fetchAll((from, to) =>
         this.supabase
           .from('customers')
@@ -72,18 +77,14 @@ export class ClientesData {
       ),
       fetchAll((from, to) =>
         this.supabase
-          .from('orders')
-          .select('id, customer_id')
-          .not('customer_id', 'is', null)
-          .order('id')
+          .from('customer_history')
+          .select('customer_id, orders')
+          .order('customer_id')
           .range(from, to),
       ),
     ]);
 
-    const counts = new Map<string, number>();
-    for (const order of orders) {
-      if (order.customer_id) counts.set(order.customer_id, (counts.get(order.customer_id) ?? 0) + 1);
-    }
+    const counts = new Map(histories.map((row) => [row.customer_id, Number(row.orders ?? 0)]));
 
     return customers.map((row) => ({
       id: row.id,

@@ -189,9 +189,9 @@
                         <td>
                           <pp-item size="option" kind="supply" [photo]="{ kind: 'item', id: supply.inventoryItemId }" [name]="supply.label" />
                         </td>
-                        <td class="num">{{ supply.quantity }}</td>
+                        <td class="num">{{ supplyQuantity(supply) }}</td>
                         <td>{{ supply.scope === 'batch' ? 'una vez por lote' : 'por unidad' }}</td>
-                        <td class="num">{{ supply.quantity * supply.unitCost | money }}</td>
+                        <td class="num">{{ supplyCost(supply) | money }}</td>
                       </tr>
                     }
                   </tbody>

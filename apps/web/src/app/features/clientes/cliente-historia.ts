@@ -39,7 +39,7 @@ import { ClientesData, type CustomerStory } from './clientes.data';
       } @else if (story(); as s) {
         <div class="figures">
           <span class="figure">
-            <span class="value">{{ s.orders }}</span><span class="label">Pedidos</span>
+            <span class="value">{{ s.orders }}</span><span class="label">{{ s.orders === 1 ? 'Pedido' : 'Pedidos' }}</span>
           </span>
           <span class="figure">
             <span class="value">{{ s.sold | money }}</span><span class="label">Comprado</span>
@@ -49,7 +49,7 @@ import { ClientesData, type CustomerStory } from './clientes.data';
             <span class="label">Debe</span>
           </span>
           <span class="figure">
-            <span class="value">{{ s.openOpportunities }}</span><span class="label">Tratos abiertos</span>
+            <span class="value">{{ s.openOpportunities }}</span><span class="label">{{ s.openOpportunities === 1 ? 'Trato abierto' : 'Tratos abiertos' }}</span>
           </span>
           <span class="figure">
             <span class="value">{{ s.lastOrderOn ? (s.lastOrderOn | fecha) : '—' }}</span>
@@ -96,9 +96,16 @@ import { ClientesData, type CustomerStory } from './clientes.data';
                   <tr>
                     <td><a [routerLink]="['/pedidos', order.id]">{{ order.number }}</a></td>
                     <td><pp-badge [tone]="statusTone[order.status]">{{ statusLabel[order.status] }}</pp-badge></td>
-                    <td><pp-badge [tone]="paymentTone[order.paymentStatus]">{{ paymentLabel[order.paymentStatus] }}</pp-badge></td>
-                    <td class="num">{{ order.total | money }}</td>
-                    <td class="num">{{ order.balance | money }}</td>
+                    <!-- A cancelled order owes nothing: «Sin cobrar · Saldo S/ 10» beside «Debe S/ 0» said otherwise. -->
+                    @if (order.status === 'cancelled') {
+                      <td class="muted">—</td>
+                      <td class="num">{{ order.total | money }}</td>
+                      <td class="num muted">—</td>
+                    } @else {
+                      <td><pp-badge [tone]="paymentTone[order.paymentStatus]">{{ paymentLabel[order.paymentStatus] }}</pp-badge></td>
+                      <td class="num">{{ order.total | money }}</td>
+                      <td class="num">{{ order.balance | money }}</td>
+                    }
                   </tr>
                 }
               </tbody>

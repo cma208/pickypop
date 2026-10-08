@@ -11,6 +11,7 @@ import { ProduccionData, type JobItem } from '../produccion/produccion.data';
 import { PedidoCobro } from './pedido-cobro';
 import { PedidoEntrega } from './pedido-entrega';
 import { PedidoEstimado } from './pedido-estimado';
+import { queuedPrints } from './order-prints';
 import { lineEstimate, orderEstimate } from './pedidos.delivery';
 import { PedidoAvance } from './pedido-avance';
 import { PedidoSituacion } from './pedido-situacion';
@@ -79,7 +80,11 @@ import { isFinal, PURPOSE_LABEL, PURPOSE_TONE, STATUS_LABEL, STATUS_TONE, type O
                   <dt>{{ o.purpose === 'gift' ? 'Para' : 'Uso' }}</dt><dd>{{ o.recipient ?? '—' }}</dd>
                 }
                 <dt>Pedido</dt><dd>{{ o.orderedOn | fecha }}</dd>
-                <dt>Entrega</dt><dd>{{ o.dueDate | fecha }}</dd>
+                <!-- The promise and the fact apart: «Entrega —» on a delivered order read as never delivered. -->
+                <dt>Fecha comprometida</dt><dd>{{ o.dueDate ? (o.dueDate | fecha) : 'Sin fecha' }}</dd>
+                @if (lastDelivery(); as last) {
+                  <dt>{{ hasPending() ? 'Última entrega' : 'Entregado' }}</dt><dd>{{ last | fecha }}</dd>
+                }
                 @if (o.note) { <dt>Nota</dt><dd>{{ o.note }}</dd> }
               </dl>
             </pp-card>
@@ -96,7 +101,9 @@ import { isFinal, PURPOSE_LABEL, PURPOSE_TONE, STATUS_LABEL, STATUS_TONE, type O
               [hasPending]="hasPending()"
               [hasDeliveries]="deliveries().length > 0"
               [paid]="payment()?.paid ?? null"
+              [prints]="queued()"
               (changed)="onDelivered()"
+              (printsStale)="reloadProduction()"
               (deliver)="goToDelivery()"
             />
 
@@ -196,6 +203,7 @@ import { isFinal, PURPOSE_LABEL, PURPOSE_TONE, STATUS_LABEL, STATUS_TONE, type O
               [error]="summaryError()"
               [lines]="o.lines"
               [purpose]="o.purpose"
+              [cancelled]="o.status === 'cancelled'"
               [printsForIt]="printsForIt()"
             />
           </div>
@@ -251,10 +259,15 @@ export class PedidoPage {
   protected readonly jobsError = signal<string | null>(null);
   protected readonly jobLine = signal<FixedOrderLine | null>(null);
 
+  /** The most recent time something left: deliveries come newest first. */
+  protected readonly lastDelivery = computed(() => this.deliveries()[0]?.deliveredAt ?? null);
+
   protected readonly subtitle = computed(() => {
     const order = this.order();
     if (!order) return undefined;
-    return order.dueDate ? `entrega ${date(order.dueDate)}` : `pedido del ${date(order.orderedOn)}`;
+    const last = this.lastDelivery();
+    if (last && !this.hasPending()) return `entregado el ${date(last)}`;
+    return order.dueDate ? `para el ${date(order.dueDate)}` : `pedido del ${date(order.orderedOn)}`;
   });
 
   /** Who it is for and what it is, before its number: "Ana Quispe · 10 × Botella de poción". */
@@ -267,6 +280,9 @@ export class PedidoPage {
 
   /** Something of the order has not left yet: "Entregado" is reached by delivering it. */
   protected readonly hasPending = computed(() => (this.order()?.lines ?? []).some((line) => line.pending > 0));
+
+  /** What the order still has in the print queue: cancelling it has to decide about these. */
+  protected readonly queued = computed(() => queuedPrints(this.jobs()));
 
   /** In cents, line by line, as the database adds it up: no arithmetic of money here. */
   protected readonly estimatedTotal = computed(() => orderEstimate(this.order()?.lines ?? []));

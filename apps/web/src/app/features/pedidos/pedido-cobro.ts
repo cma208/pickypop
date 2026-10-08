@@ -26,7 +26,10 @@ const NO_METHOD = '';
   template: `
     <pp-card heading="Cobro">
       <div class="row badge-row">
-        <pp-badge [tone]="statusTone[summary().paymentStatus]">{{ statusLabel[summary().paymentStatus] }}</pp-badge>
+        <!-- «Sin cobrar» on a cancelled order read as money still owed: the list leaves it out too. -->
+        @if (!cancelled()) {
+          <pp-badge [tone]="statusTone[summary().paymentStatus]">{{ statusLabel[summary().paymentStatus] }}</pp-badge>
+        }
         @if (summary().lastPaymentAt; as last) {
           <span class="muted">Último cobro: {{ last | fecha }}</span>
         }
@@ -35,7 +38,12 @@ const NO_METHOD = '';
       <dl class="totals">
         <dt>Total</dt><dd class="num">{{ summary().total | money }}</dd>
         <dt>Cobrado</dt><dd class="num">{{ summary().paid | money }}</dd>
-        <dt>Saldo pendiente</dt><dd class="num balance" [class.owed]="summary().balance > 0">{{ summary().balance | money }}</dd>
+        <dt>Saldo pendiente</dt>
+        @if (cancelled()) {
+          <dd class="num muted">No aplica</dd>
+        } @else {
+          <dd class="num balance" [class.owed]="summary().balance > 0">{{ summary().balance | money }}</dd>
+        }
       </dl>
 
       @if (notice(); as message) { <p class="notice" role="status">{{ message }}</p> }
@@ -46,6 +54,9 @@ const NO_METHOD = '';
         <p class="muted">Este pedido está cobrado por completo.</p>
       } @else if (accountsError(); as message) {
         <p class="error" role="alert">{{ message }}</p>
+      } @else if (accountsLoading()) {
+        <!-- Until they arrive there are none, and «no hay cuentas» flashed on every new order. -->
+        <p class="muted">Cargando las cuentas…</p>
       } @else if (accounts().length === 0) {
         <p class="muted">No hay cuentas activas donde recibir el dinero.</p>
       } @else {
@@ -120,6 +131,7 @@ export class PedidoCobro {
   protected readonly noMethod = NO_METHOD;
 
   protected readonly accounts = signal<AccountOption[]>([]);
+  protected readonly accountsLoading = signal(true);
   protected readonly accountsError = signal<string | null>(null);
   protected readonly saving = signal(false);
   protected readonly error = signal<string | null>(null);
@@ -224,6 +236,8 @@ export class PedidoCobro {
       this.accounts.set(await this.data.paymentAccounts());
     } catch (error) {
       this.accountsError.set(friendlyError(error, 'No pudimos leer las cuentas. Recarga la pantalla.'));
+    } finally {
+      this.accountsLoading.set(false);
     }
   }
 }

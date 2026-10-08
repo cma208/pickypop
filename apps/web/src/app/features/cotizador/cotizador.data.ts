@@ -176,6 +176,8 @@ export interface QuoteDetail extends QuoteSummary {
   holdUntil: string | null;
   /** The order it became, once the customer accepted. A cancelled one does not count. */
   order: { id: string; number: string } | null;
+  /** The unit of each stock supply its lines use, by inventory item id. */
+  supplyUnits: Record<string, string>;
 }
 
 /** What the person fills in when the customer says yes. */
@@ -977,6 +979,28 @@ export class CotizadorData {
 
     const latest = (siblings ?? []).reduce((top, item) => Math.max(top, item.version), row.version);
 
+    const storedLines = (lines.data ?? []).map((line) => {
+      const items = record(line.items);
+
+      return {
+        id: line.id,
+        position: line.position,
+        kind: line.kind,
+        variantId: line.variant_id,
+        description: line.description,
+        quantity: line.quantity,
+        setupMinutes: num(line.setup_minutes),
+        minutesPerUnit: num(line.minutes_per_unit),
+        unitCost: num(line.unit_cost),
+        unitPrice: num(line.unit_price),
+        lineTotal: num(line.line_total),
+        plates: parsePlates(line.plates),
+        supplies: parseSupplies(items['supplies']),
+        filamentLabels: parseStringMap(items['filamentLabels']),
+        filamentCostPerKg: parseNumberMap(items['filamentCostPerKg']),
+      };
+    });
+
     return {
       id: row.id,
       number: row.number,
@@ -1003,28 +1027,23 @@ export class CotizadorData {
       heldAt: row.held_at,
       holdUntil: row.hold_until,
       order: order.data?.[0] ?? null,
-      storedLines: (lines.data ?? []).map((line) => {
-        const items = record(line.items);
-
-        return {
-          id: line.id,
-          position: line.position,
-          kind: line.kind,
-          variantId: line.variant_id,
-          description: line.description,
-          quantity: line.quantity,
-          setupMinutes: num(line.setup_minutes),
-          minutesPerUnit: num(line.minutes_per_unit),
-          unitCost: num(line.unit_cost),
-          unitPrice: num(line.unit_price),
-          lineTotal: num(line.line_total),
-          plates: parsePlates(line.plates),
-          supplies: parseSupplies(items['supplies']),
-          filamentLabels: parseStringMap(items['filamentLabels']),
-          filamentCostPerKg: parseNumberMap(items['filamentCostPerKg']),
-        };
-      }),
+      storedLines,
+      supplyUnits: await this.unitsOf(storedLines.flatMap((line) => line.supplies)),
     };
+  }
+
+  /**
+   * The unit each stock supply of a saved quote is counted in. The quote
+   * keeps the quantity but not the unit, and a bare «50» beside «Dulces
+   * surtidos» did not say whether it was grams or pieces.
+   */
+  private async unitsOf(supplies: readonly SupplyDraft[]): Promise<Record<string, string>> {
+    const ids = [...new Set(supplies.map((supply) => supply.inventoryItemId).filter((id) => id !== null))];
+    if (ids.length === 0) return {};
+
+    const { data, error } = await this.supabase.from('inventory_items').select('id, unit').in('id', ids);
+    fail(error, 'No pudimos leer las unidades de los insumos.');
+    return Object.fromEntries((data ?? []).map((item) => [item.id, item.unit]));
   }
 
   async setStatus(id: string, status: QuoteStatus): Promise<void> {

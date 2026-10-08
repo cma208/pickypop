@@ -54,7 +54,8 @@ import type { OrderPurpose } from './pedidos.labels';
             <dt>Trabajos</dt><dd>{{ s.jobs }} ({{ s.successfulJobs }} exitosos, {{ s.failedJobs }} fallidos)</dd>
             <dt>Horas impresas</dt><dd>{{ s.printedHours }} h</dd>
           }
-          @if (purpose() === 'sale') {
+          <!-- A cancelled sale sold nothing: «Vendido por» beside «no admite cobros» said otherwise. -->
+          @if (purpose() === 'sale' && !cancelled()) {
             <dt>Vendido por</dt><dd>{{ s.soldFor | money }}</dd>
             @if (printsForIt() && closedJobs()) {
               <dt>Ganancia real</dt><dd>{{ difference(s.soldFor, s.realProductionCost) | money }}</dd>
@@ -64,16 +65,22 @@ import type { OrderPurpose } from './pedidos.labels';
           }
         </dl>
         <p class="muted note">
-          @if (s.deliveredUnits > 0) {
-            Lo entregado cuesta lo que salió del estante: piezas, insumos y empaque al promedio de lo que había, sin la mano de obra de armar, que el estimado sí incluye.
-          }
-          @if (printsForIt()) {
-            El costo real de producción suma material, luz y máquina de las impresiones de lo hecho a medida, y es parcial mientras falten por imprimir.
-            @if (!closedJobs()) { Todavía no hay impresiones cerradas, por eso no hay costo real. }
-          } @else if (s.deliveredUnits === 0) {
-            Lo del catálogo sale del estante: su costo real es «Lo entregado», lo que cuesta lo que sale al entregarlo. Aparece con la primera entrega.
-          } @else if (!allDelivered()) {
-            El resto tendrá su costo real cuando se entregue.
+          @if (cancelled()) {
+            <!-- Nothing more will be printed or delivered for it: what is still to come never comes. -->
+            El pedido se canceló{{ purpose() === 'sale' ? ': no hubo venta' : '' }}.
+            @if (printsForIt() && closedJobs()) { El costo real es lo que se llegó a imprimir para él. }
+          } @else {
+            @if (s.deliveredUnits > 0) {
+              Lo entregado cuesta lo que salió del estante: piezas, insumos y empaque al promedio de lo que había, sin la mano de obra de armar, que el estimado sí incluye.
+            }
+            @if (printsForIt()) {
+              El costo real de producción suma material, luz y máquina de las impresiones de lo hecho a medida, y es parcial mientras falten por imprimir.
+              @if (!closedJobs()) { Todavía no hay impresiones cerradas, por eso no hay costo real. }
+            } @else if (s.deliveredUnits === 0) {
+              Lo del catálogo sale del estante: su costo real es «Lo entregado», lo que cuesta lo que sale al entregarlo. Aparece con la primera entrega.
+            } @else if (!allDelivered()) {
+              El resto tendrá su costo real cuando se entregue.
+            }
           }
         </p>
       } @else if (error(); as message) {
@@ -96,6 +103,7 @@ export class PedidoEstimado {
   readonly error = input<string | null>(null);
   readonly lines = input.required<OrderLine[]>();
   readonly purpose = input.required<OrderPurpose>();
+  readonly cancelled = input(false);
   /** Made-to-order lines, or jobs already tied to the order: the real cost has prints. */
   readonly printsForIt = input(false);
 

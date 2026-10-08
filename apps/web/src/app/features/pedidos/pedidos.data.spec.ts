@@ -89,3 +89,45 @@ describe('PedidosData.deliver', () => {
     expect(calls[0]!.args['p_note']).toBeUndefined();
   });
 });
+
+describe('PedidosData.cancelOrder', () => {
+  const PRINTING =
+    '«Llavero grande» se está imprimiendo en A1 mini para el pedido ORD-2026-0002, y ya gastó filamento. Ciérrala en la cola de impresión y después cancela el pedido.';
+
+  it('sends the person’s answer and the prints it covers to the database function', async () => {
+    const calls: { name: string; args: Record<string, unknown> }[] = [];
+    const data = dataWith(async (name, args) => {
+      calls.push({ name, args });
+      return { error: null };
+    });
+
+    await data.cancelOrder('order-1', ['job-1'], false);
+
+    expect(calls).toEqual([
+      { name: 'cancel_order', args: { p_order_id: 'order-1', p_seen_prints: ['job-1'], p_cancel_prints: false } },
+    ]);
+  });
+
+  // With nothing shown there was no question: no answer is made up for it,
+  // so the database cannot read one into prints queued meanwhile.
+  it('sends no answer when there was nothing to ask', async () => {
+    const calls: { name: string; args: Record<string, unknown> }[] = [];
+    const data = dataWith(async (name, args) => {
+      calls.push({ name, args });
+      return { error: null };
+    });
+
+    await data.cancelOrder('order-1', [], null);
+
+    expect(calls).toEqual([{ name: 'cancel_order', args: { p_order_id: 'order-1', p_seen_prints: [] } }]);
+  });
+
+  it('shows the refusal for a print on the printer word for word', async () => {
+    const data = dataWith(async () => ({ error: { code: 'P0001', message: PRINTING } }));
+
+    const failure = await data.cancelOrder('order-1', ['job-1'], true).catch((error: unknown) => error);
+
+    expect(failure).toBeInstanceOf(UserFacingError);
+    expect(friendlyError(failure, 'generic')).toBe(PRINTING);
+  });
+});
