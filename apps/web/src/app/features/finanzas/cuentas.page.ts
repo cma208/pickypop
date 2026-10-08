@@ -49,7 +49,7 @@ function deactivateQuestion(account: AccountSummary): string {
       @if (actionError(); as text) {
         <p class="alert" role="alert">{{ text }}</p>
       }
-      @if (!isOwner()) {
+      @if (isOwner() === false) {
         <p class="muted">Solo el dueño del taller crea, edita o desactiva cuentas. Aquí las ves para saber cuánto hay.</p>
       }
 
@@ -195,7 +195,7 @@ export class CuentasPage {
   protected readonly formOpen = signal(false);
   protected readonly editing = signal<AccountSummary | null>(null);
   /** Accounts are the owner's to set up: an operator sees them without the buttons the database would refuse. */
-  protected readonly isOwner = signal(false);
+  protected readonly isOwner = signal<boolean | null>(null);
   protected readonly switching = signal(false);
 
   /** Every account holds workshop money, active or not. */

@@ -66,7 +66,7 @@ const NO_FILTER: LedgerFilter = { accountId: null, type: null, from: null, to: n
         }
       </div>
 
-      @if (!isOwner()) {
+      @if (isOwner() === false) {
         <p class="muted">Solo el dueño del taller puede anular un movimiento.</p>
       }
 
@@ -228,7 +228,7 @@ export class MovimientosFinancierosPage {
   private readonly forms = viewChild<ElementRef<HTMLElement>>('forms');
 
   /** Only the owner voids: an operator is not offered the button the database would refuse. */
-  protected readonly isOwner = signal(false);
+  protected readonly isOwner = signal<boolean | null>(null);
 
   protected readonly types = TRANSACTION_TYPES;
   protected readonly typeLabels = TRANSACTION_TYPE_LABELS;
