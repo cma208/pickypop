@@ -30,7 +30,7 @@ const MINUTES_TEXT = new Intl.NumberFormat('es-PE').format(MAX_MINUTES);
 /** What each field says for each problem, in the words shown under it. */
 export const QUOTE_FIELD_ERRORS: Record<string, Record<string, string>> = {
   description: {
-    required: 'Escribe qué se cotiza: solo espacios no cuenta.',
+    required: 'Escribe qué se cotiza.',
     maxlength: 'La descripción es demasiado larga: hasta 180 letras.',
   },
   quantity: {

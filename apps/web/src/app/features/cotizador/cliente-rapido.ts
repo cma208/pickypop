@@ -119,7 +119,7 @@ export class ClienteRapido {
 
   protected nameError(): string | null {
     return errorOf(this.form.controls.name, {
-      required: 'Escribe el nombre del cliente: solo espacios no cuenta.',
+      required: 'Escribe el nombre del cliente.',
       maxlength: 'El nombre es demasiado largo.',
     });
   }
