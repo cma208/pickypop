@@ -22,6 +22,10 @@
 -- como las demás (20261027100000): «Solo lectura» lee qué no puede antes de
 -- que se pida un número, en vez de chocar con la política de `orders`.
 --
+-- `assemble_product`, `deliver_order` y `assembly_unit_cost` (que `count_shelf`
+-- lee como su dueño) leen la receta y sus líneas solo del taller de lo que
+-- arman, entregan o cuentan, como en 20261027100000.
+--
 -- Se recrean desde su última versión sin cambiar nada más: `assemble_product`
 -- y `deliver_order` de 20261027100000 (como su dueño), `quick_sale` de
 -- 20261020150000, `assembly_unit_cost` de 20261020100000, y las vistas
@@ -111,6 +115,9 @@ begin
   select r.id, r.assembled into v_recipe, v_assembled
   from public.recipes r
   where r.variant_id = p_variant_id
+    -- Running as its owner it sees every workshop: only this one's rows,
+    -- here and in every read below.
+    and r.workspace_id = v_workspace
   order by r.active desc, r.version desc
   limit 1;
 
@@ -120,7 +127,7 @@ begin
   if not v_assembled then
     raise exception 'Este producto no se arma: se entrega tal como sale de la impresora. Entrégalo desde su pedido.';
   end if;
-  if not exists (select 1 from public.recipe_items where recipe_id = v_recipe) then
+  if not exists (select 1 from public.recipe_items where recipe_id = v_recipe and workspace_id = v_workspace) then
     raise exception 'La receta de este producto no tiene piezas ni insumos: no hay nada que armar.';
   end if;
 
@@ -128,7 +135,9 @@ begin
   -- do not wait for each other crosswise.
   perform 1
   from public.inventory_items
-  where id in (select inventory_item_id from public.recipe_items where recipe_id = v_recipe)
+  where id in (
+    select inventory_item_id from public.recipe_items where recipe_id = v_recipe and workspace_id = v_workspace
+  )
   order by id
   for update;
 
@@ -141,9 +150,10 @@ begin
            '; ' order by i.name)
     into v_shortage
   from public.recipe_items ri
-  join public.inventory_items i on i.id = ri.inventory_item_id
+  join public.inventory_items i on i.id = ri.inventory_item_id and i.workspace_id = v_workspace
   left join public.inventory_balances b on b.inventory_item_id = i.id
   where ri.recipe_id = v_recipe
+    and ri.workspace_id = v_workspace
     and coalesce(b.on_hand, 0) < ri.quantity_per_unit * p_units;
 
   if v_shortage is not null then
@@ -172,6 +182,7 @@ begin
     left join public.inventory_item_costs c on c.inventory_item_id = ri.inventory_item_id
     left join public.part_stock ps on ps.inventory_item_id = ri.inventory_item_id
     where ri.recipe_id = v_recipe
+      and ri.workspace_id = v_workspace
     returning *
   ),
   produced as (
@@ -272,7 +283,11 @@ begin
     select 1 from jsonb_array_elements(p_lines) e
     where not exists (
       select 1 from public.order_lines l
-      where l.id = (e ->> 'order_line_id')::uuid and l.order_id = p_order_id
+      where l.id = (e ->> 'order_line_id')::uuid
+        and l.order_id = p_order_id
+        -- Running as its owner it sees every workshop: only this one's rows,
+        -- here and in every read below.
+        and l.workspace_id = v_order.workspace_id
     )
   ) then
     raise exception 'Una de las líneas no es de este pedido.';
@@ -295,6 +310,7 @@ begin
     from public.order_lines l
     join public.order_line_delivery_status s on s.order_line_id = l.id
     where l.order_id = p_order_id
+      and l.workspace_id = v_order.workspace_id
     order by l.position
   loop
     if p_lines is null then
@@ -323,7 +339,9 @@ begin
              count(*) filter (where j.status = 'printing')
         into v_planned, v_printing
       from public.print_jobs j
-      where j.order_line_id = v_line.id and j.status in ('planned', 'printing');
+      where j.order_line_id = v_line.id
+        and j.workspace_id = v_order.workspace_id
+        and j.status in ('planned', 'printing');
 
       if v_printing > 0 then
         raise exception '«%» se está imprimiendo para este pedido. Ciérrala en la cola de impresión con lo que salió, y después entrégala.',
@@ -352,6 +370,7 @@ begin
     select r.id, r.assembled into v_recipe, v_assembled
     from public.recipes r
     where r.variant_id = (v_request ->> 'variant')::uuid
+      and r.workspace_id = v_order.workspace_id
     order by r.active desc, r.version desc
     limit 1;
 
@@ -373,7 +392,8 @@ begin
              )), '[]'::jsonb)
         into v_needs
       from public.recipe_items ri
-      where ri.recipe_id = v_recipe;
+      where ri.recipe_id = v_recipe
+        and ri.workspace_id = v_order.workspace_id;
 
       -- Its handling happens now: the minutes per unit assembling would have added.
       v_line_labor := coalesce(app.recipe_unit_labor(v_recipe, (v_request ->> 'quantity')::numeric, v_day), 0);
@@ -401,7 +421,7 @@ begin
     from jsonb_array_elements(v_needs) n
     group by 1
   ) x
-  join public.inventory_items i on i.id = x.item
+  join public.inventory_items i on i.id = x.item and i.workspace_id = v_order.workspace_id
   left join public.inventory_balances b on b.inventory_item_id = x.item
   where coalesce(b.on_hand, 0) < x.needed;
 
@@ -474,6 +494,7 @@ begin
     join public.order_line_delivery_status s on s.order_line_id = l.id
    where j.order_line_id = l.id
      and l.order_id = p_order_id
+     and l.workspace_id = v_order.workspace_id
      and l.variant_id is not null
      and s.pending = 0
      and j.status in ('planned', 'printing')
@@ -484,7 +505,7 @@ begin
   -- the order where it was.
   if not exists (
     select 1 from public.order_line_delivery_status
-    where order_id = p_order_id and pending > 0
+    where order_id = p_order_id and workspace_id = v_order.workspace_id and pending > 0
   ) then
     update public.orders set status = 'delivered' where id = p_order_id;
   end if;
@@ -790,6 +811,8 @@ as $$
     select r.id, r.workspace_id, r.minutes_per_unit
     from public.recipes r
     where r.variant_id = p_variant_id
+      -- Read as their owner by count_shelf: only the variant's workshop.
+      and r.workspace_id = (select v.workspace_id from public.product_variants v where v.id = p_variant_id)
     order by r.active desc, r.version desc
     limit 1
   ),
@@ -797,7 +820,7 @@ as $$
     select ri.quantity_per_unit as quantity,
            coalesce(ps.cost_per_unit, c.cost_per_unit) as unit_cost
     from public.recipe_items ri
-    join recipe on recipe.id = ri.recipe_id
+    join recipe on recipe.id = ri.recipe_id and recipe.workspace_id = ri.workspace_id
     left join public.part_stock ps on ps.inventory_item_id = ri.inventory_item_id
     left join public.inventory_item_costs c on c.inventory_item_id = ri.inventory_item_id
   ),

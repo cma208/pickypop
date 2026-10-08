@@ -18,11 +18,13 @@
 --    alguien de otro taller, el mismo «no encontramos» que recibía antes,
 --    cuando la seguridad por fila le escondía la fila. Sin esa comprobación,
 --    una función así abriría un hueco entre talleres.
--- 2. **Lo que tocan es de ese taller.** Además de lo que cada función mira al
---    principio, un disparador rechaza cualquier movimiento de stock cuyo rollo
---    o artículo sea de otro taller (`stock_movements_stay_in_their_workshop`):
---    un rollo de otro taller atado a un trabajo, o un artículo ajeno en una
---    receta o una placa, ya no mueve stock ajeno, lo escriba quien lo escriba.
+-- 2. **Lo que tocan es de ese taller.** Como su dueño ven todos los talleres,
+--    así que cada lectura (la receta, sus líneas, las líneas del pedido, los
+--    rollos y la placa del trabajo) se queda en el taller que comprobaron al
+--    principio. Debajo está la red de 20261027090000: ninguna fila apunta a
+--    algo de otro taller. Y un disparador rechaza cualquier movimiento de
+--    stock cuyo rollo o artículo sea de otro taller
+--    (`stock_movements_stay_in_their_workshop`), lo escriba quien lo escriba.
 -- 3. **El insert directo en `stock_movements` queda para lo que se mueve a
 --    mano**: rollos, insumos, empaques y repuestos, del propio taller
 --    (`app.movable_by_hand`). Es lo que escriben `register_purchase`,
@@ -284,8 +286,11 @@ begin
     select string_agg(coalesce(s.code, 'un rollo sin código'), ', ' order by s.code)
       into v_missing
     from public.print_job_filaments f
-    left join public.spools s on s.id = f.spool_id
+    left join public.spools s on s.id = f.spool_id and s.workspace_id = v_job.workspace_id
     where f.print_job_id = p_job_id
+      -- Running as its owner it sees every workshop: only this one's rows,
+      -- here and in every read below.
+      and f.workspace_id = v_job.workspace_id
       and not exists (
         select 1 from jsonb_array_elements(v_usage_all) u
         where nullif(u ->> 'spool_id', '')::uuid = f.spool_id
@@ -310,8 +315,9 @@ begin
            ) order by o.position, i.name), '[]'::jsonb)
       into v_outputs
     from public.recipe_plate_outputs o
-    join public.inventory_items i on i.id = o.inventory_item_id
-    where o.recipe_plate_id = v_job.recipe_plate_id;
+    join public.inventory_items i on i.id = o.inventory_item_id and i.workspace_id = v_job.workspace_id
+    where o.recipe_plate_id = v_job.recipe_plate_id
+      and o.workspace_id = v_job.workspace_id;
 
     select exists (
       select 1
@@ -364,7 +370,8 @@ begin
     v_grams := round(nullif(v_usage ->> 'actual_g', '')::numeric, 2);
 
     if not exists (
-      select 1 from public.print_job_filaments where print_job_id = p_job_id and spool_id = v_spool
+      select 1 from public.print_job_filaments
+      where print_job_id = p_job_id and spool_id = v_spool and workspace_id = v_job.workspace_id
     ) then
       raise exception 'Uno de los rollos no es de este trabajo. Recarga la cola y vuelve a cerrarlo.';
     end if;
@@ -374,7 +381,7 @@ begin
 
     update public.print_job_filaments
        set actual_g = v_grams
-     where print_job_id = p_job_id and spool_id = v_spool;
+     where print_job_id = p_job_id and spool_id = v_spool and workspace_id = v_job.workspace_id;
 
     if coalesce(v_grams, 0) > 0 then
       insert into public.stock_movements (
@@ -387,7 +394,7 @@ begin
                else 'Merma por impresión cancelada'
              end
       from public.spools s
-      where s.id = v_spool;
+      where s.id = v_spool and s.workspace_id = v_job.workspace_id;
     end if;
   end loop;
 
@@ -519,6 +526,9 @@ begin
   select r.id, r.assembled into v_recipe, v_assembled
   from public.recipes r
   where r.variant_id = p_variant_id
+    -- Running as its owner it sees every workshop: only this one's rows,
+    -- here and in every read below.
+    and r.workspace_id = v_workspace
   order by r.version desc
   limit 1;
 
@@ -528,7 +538,7 @@ begin
   if not v_assembled then
     raise exception 'Este producto no se arma: se entrega tal como sale de la impresora. Entrégalo desde su pedido.';
   end if;
-  if not exists (select 1 from public.recipe_items where recipe_id = v_recipe) then
+  if not exists (select 1 from public.recipe_items where recipe_id = v_recipe and workspace_id = v_workspace) then
     raise exception 'La receta de este producto no tiene piezas ni insumos: no hay nada que armar.';
   end if;
 
@@ -536,7 +546,9 @@ begin
   -- do not wait for each other crosswise.
   perform 1
   from public.inventory_items
-  where id in (select inventory_item_id from public.recipe_items where recipe_id = v_recipe)
+  where id in (
+    select inventory_item_id from public.recipe_items where recipe_id = v_recipe and workspace_id = v_workspace
+  )
   order by id
   for update;
 
@@ -549,9 +561,10 @@ begin
            '; ' order by i.name)
     into v_shortage
   from public.recipe_items ri
-  join public.inventory_items i on i.id = ri.inventory_item_id
+  join public.inventory_items i on i.id = ri.inventory_item_id and i.workspace_id = v_workspace
   left join public.inventory_balances b on b.inventory_item_id = i.id
   where ri.recipe_id = v_recipe
+    and ri.workspace_id = v_workspace
     and coalesce(b.on_hand, 0) < ri.quantity_per_unit * p_units;
 
   if v_shortage is not null then
@@ -580,6 +593,7 @@ begin
     left join public.inventory_item_costs c on c.inventory_item_id = ri.inventory_item_id
     left join public.part_stock ps on ps.inventory_item_id = ri.inventory_item_id
     where ri.recipe_id = v_recipe
+      and ri.workspace_id = v_workspace
     returning *
   ),
   produced as (
@@ -664,7 +678,9 @@ begin
     if v_entry ? 'variant_id' then
       select id into v_item
       from public.inventory_items
-      where product_variant_id = (v_entry ->> 'variant_id')::uuid and kind = 'finished_good';
+      where product_variant_id = (v_entry ->> 'variant_id')::uuid
+        and kind = 'finished_good'
+        and workspace_id = v_workspaces[1];
 
       if v_item is null then
         -- Nobody has assembled it yet. Counting none of it leaves it that way
@@ -834,7 +850,11 @@ begin
     select 1 from jsonb_array_elements(p_lines) e
     where not exists (
       select 1 from public.order_lines l
-      where l.id = (e ->> 'order_line_id')::uuid and l.order_id = p_order_id
+      where l.id = (e ->> 'order_line_id')::uuid
+        and l.order_id = p_order_id
+        -- Running as its owner it sees every workshop: only this one's rows,
+        -- here and in every read below.
+        and l.workspace_id = v_order.workspace_id
     )
   ) then
     raise exception 'Una de las líneas no es de este pedido.';
@@ -857,6 +877,7 @@ begin
     from public.order_lines l
     join public.order_line_delivery_status s on s.order_line_id = l.id
     where l.order_id = p_order_id
+      and l.workspace_id = v_order.workspace_id
     order by l.position
   loop
     if p_lines is null then
@@ -885,7 +906,9 @@ begin
              count(*) filter (where j.status = 'printing')
         into v_planned, v_printing
       from public.print_jobs j
-      where j.order_line_id = v_line.id and j.status in ('planned', 'printing');
+      where j.order_line_id = v_line.id
+        and j.workspace_id = v_order.workspace_id
+        and j.status in ('planned', 'printing');
 
       if v_printing > 0 then
         raise exception '«%» se está imprimiendo para este pedido. Ciérrala en la cola de impresión con lo que salió, y después entrégala.',
@@ -913,6 +936,7 @@ begin
     select r.id, r.assembled into v_recipe, v_assembled
     from public.recipes r
     where r.variant_id = (v_request ->> 'variant')::uuid
+      and r.workspace_id = v_order.workspace_id
     order by r.version desc
     limit 1;
 
@@ -934,7 +958,8 @@ begin
              )), '[]'::jsonb)
         into v_needs
       from public.recipe_items ri
-      where ri.recipe_id = v_recipe;
+      where ri.recipe_id = v_recipe
+        and ri.workspace_id = v_order.workspace_id;
 
       -- Its handling happens now: the minutes per unit assembling would have added.
       v_line_labor := coalesce(app.recipe_unit_labor(v_recipe, (v_request ->> 'quantity')::numeric, v_day), 0);
@@ -962,7 +987,7 @@ begin
     from jsonb_array_elements(v_needs) n
     group by 1
   ) x
-  join public.inventory_items i on i.id = x.item
+  join public.inventory_items i on i.id = x.item and i.workspace_id = v_order.workspace_id
   left join public.inventory_balances b on b.inventory_item_id = x.item
   where coalesce(b.on_hand, 0) < x.needed;
 
@@ -1035,6 +1060,7 @@ begin
     join public.order_line_delivery_status s on s.order_line_id = l.id
    where j.order_line_id = l.id
      and l.order_id = p_order_id
+     and l.workspace_id = v_order.workspace_id
      and l.variant_id is not null
      and s.pending = 0
      and j.status in ('planned', 'printing')
@@ -1045,7 +1071,7 @@ begin
   -- the order where it was.
   if not exists (
     select 1 from public.order_line_delivery_status
-    where order_id = p_order_id and pending > 0
+    where order_id = p_order_id and workspace_id = v_order.workspace_id and pending > 0
   ) then
     update public.orders set status = 'delivered' where id = p_order_id;
   end if;
