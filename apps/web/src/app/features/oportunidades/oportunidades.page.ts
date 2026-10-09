@@ -177,7 +177,7 @@ import { CurrentWorkspace, READ_ONLY_NOTE } from '../../core/workspace';
                         <span>Mover a</span>
                         <select [value]="stage" (change)="onPick(card, $event)">
                           @for (target of droppable; track target) {
-                            <option [value]="target">{{ labels[target] }}</option>
+                            <option [value]="target" [selected]="target === stage">{{ labels[target] }}</option>
                           }
                         </select>
                       </label>

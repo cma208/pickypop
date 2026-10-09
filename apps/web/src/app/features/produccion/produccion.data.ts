@@ -302,15 +302,16 @@ export class ProduccionData {
     }));
   }
 
-  /** Plates of every active recipe, labelled with the variant they make. */
+  /** Plates of every active recipe of an active variant, labelled with the variant they make. */
   async plates(): Promise<PlateOption[]> {
     const [plates, catalog] = await Promise.all([
       this.supabase
         .from('recipe_plates')
         .select(
-          'id, label, plate_index, print_time_s, thumbnail_path, recipes!inner(variant_id, active), recipe_plate_filaments(slot, grams, filament_sku_id, color_hex), recipe_plate_outputs(inventory_item_id, units_per_run, position, inventory_items(name, image_path))',
+          'id, label, plate_index, print_time_s, thumbnail_path, recipes!inner(variant_id, active, product_variants!inner(active)), recipe_plate_filaments(slot, grams, filament_sku_id, color_hex), recipe_plate_outputs(inventory_item_id, units_per_run, position, inventory_items(name, image_path))',
         )
         .eq('recipes.active', true)
+        .eq('recipes.product_variants.active', true)
         .order('plate_index'),
       this.workshop.catalog(),
     ]);

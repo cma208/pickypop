@@ -362,7 +362,7 @@
           </pp-field>
           <pp-field label="Canal de venta" hint="Su comisión se suma al precio sin comerse el margen">
             <select formControlName="channelId">
-              <option value="">Venta directa</option>
+              <option value="">Sin canal</option>
               @for (channel of ctx.channels; track channel.id) {
                 <option [value]="channel.id">
                   {{ channel.name }} ({{ channel.commissionRate | percent1 }})

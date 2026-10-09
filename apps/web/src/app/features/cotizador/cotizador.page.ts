@@ -61,6 +61,7 @@ import type { NewQuote } from './cotizador.data';
 import { CurrentWorkspace, READ_ONLY_NOTE } from '../../core/workspace';
 
 const PERCENT = 100;
+const FIELDS_IN_RED = 'Revisa los campos marcados en rojo antes de guardar.';
 
 @Component({
   selector: 'app-cotizador',
@@ -205,7 +206,13 @@ export class CotizadorPage {
   private watch(changes: Observable<unknown>): void {
     changes
       .pipe(takeUntilDestroyed())
-      .subscribe(() => this.formTick.update((tick) => tick + 1));
+      .subscribe(() => {
+        this.formTick.update((tick) => tick + 1);
+        // The notice only points at the fields in red: once none is, it goes.
+        if (this.saveError() === FIELDS_IN_RED && this.quoteForm.valid && this.priceForm.valid) {
+          this.saveError.set(null);
+        }
+      });
   }
 
   // ----------------------------------------------------------- loading
@@ -841,7 +848,7 @@ export class CotizadorPage {
     this.priceForm.markAllAsTouched();
     this.formTick.update((tick) => tick + 1);
     if (this.quoteForm.invalid || this.priceForm.invalid) {
-      this.saveError.set('Revisa los campos marcados en rojo antes de guardar.');
+      this.saveError.set(FIELDS_IN_RED);
       return;
     }
 
