@@ -70,7 +70,7 @@ h1, h2, h3 { font-family: var(--display); text-wrap: balance; line-height: 1.15 
 h1 { font-size: clamp(2rem, 5vw, 2.8rem); margin: .3rem 0 .8rem }
 header.cover .lede { font-size: 1.1rem; color: var(--muted); max-width: 40rem; margin: 0 }
 .legend-key { display: flex; flex-wrap: wrap; gap: .5rem 1.5rem; margin-top: 1.2rem; font-size: .9rem; color: var(--muted) }
-.legend-key span { display: inline-flex; align-items: center; gap: .45rem }
+.legend-key > span { display: inline-flex; align-items: center; gap: .45rem }
 section.chapter { padding-block: 1.5rem 1rem; border-top: 1px solid var(--line); margin-top: 1.5rem }
 section.chapter:first-of-type { border-top: 0; margin-top: 0 }
 .chapter-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: .4rem 1rem }
@@ -241,7 +241,17 @@ details.mobile-toc { display: none }
     target.chapterLink.classList.add('current');
     target.link.setAttribute('aria-current', 'location');
     mobile.forEach((link, id) => link.classList.toggle('current', id === target.chapterLink.hash.slice(1)));
-    try { history.replaceState(null, '', '#' + target.id); } catch {}
+  };
+  // The address carries the section being read, so a copied link opens on that
+  // step. It changes only after the reader scrolls: written while the page is
+  // still loading, the browser would jump to it and skip the cover.
+  let address = location.hash;
+  const remember = () => {
+    const onCover = targets[0].element.getBoundingClientRect().top > innerHeight * 0.33;
+    const next = onCover ? '' : '#' + active.id;
+    if (next === address) return;
+    address = next;
+    try { history.replaceState(null, '', next || location.pathname + location.search); } catch {}
   };
   const follow = (smooth) => {
     // Move the index only when the item is out of its comfortable middle.
@@ -257,6 +267,7 @@ details.mobile-toc { display: none }
     const moved = target !== active;
     if (moved) mark(target);
     if (browsing) { browsing = false; follow(true); } else if (moved) follow(true);
+    remember();
   };
   addEventListener('scroll', () => { if (!queued) { queued = true; requestAnimationFrame(update); } }, { passive: true });
   mark(reading());
