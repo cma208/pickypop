@@ -1,0 +1,1586 @@
+{
+  "n": 5,
+  "title": "Ventas: cotizar, pedir, entregar y cobrar",
+  "intro": "Aquí está todo lo que pasa desde que alguien pregunta «¿cuánto me sale?» hasta que se lleva su pedido y lo paga: crear al cliente, cotizar, enviar la cotización, aceptarla para crear el pedido, entregar, cobrar y, cuando hace falta, cancelar. También verás la Venta rápida, para lo que ya está armado en el estante, y un vistazo a Clientes y Oportunidades.",
+  "who": "todos",
+  "sections": [
+    {
+      "title": "Crear a la clienta",
+      "intro": "Toda cotización y todo pedido de venta lleva cliente, así que lo primero es tenerlo en la lista. Aquí creas a Ana Quispe, la clienta que usaremos en todo el capítulo.",
+      "steps": [
+        {
+          "text": "Haz clic en «Clientes», en el grupo «Ventas» del menú. Si todavía no hay ninguno, la pantalla dice «Todavía no tienes clientes. Crea el primero para poder vender a su nombre.» Haz clic en «Nuevo cliente»."
+        },
+        {
+          "text": "Rellena el formulario «Nuevo cliente». En «Tipo de cliente» deja «Persona». En «Nombre o razón social» escribe «Ana Quispe». En «Tipo de documento» elige «DNI» y en «Número de documento» escribe su DNI (8 dígitos). «Teléfono», «Correo» y «Notas» son opcionales, pero útiles: aquí van su celular, su correo y que prefiere que le escriban por WhatsApp. Deja marcado «Cliente activo» y haz clic en «Guardar cliente».",
+          "image": "img/05-01-nuevo-cliente.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "Título del formulario: «Nuevo cliente»"
+            },
+            {
+              "n": 2,
+              "label": "«Nombre o razón social»: escribe «Ana Quispe»"
+            },
+            {
+              "n": 3,
+              "label": "«Tipo de documento»: elige «DNI»"
+            },
+            {
+              "n": 4,
+              "label": "«Número de documento»: el DNI, 8 dígitos y sin espacios"
+            },
+            {
+              "n": 5,
+              "label": "«Guardar cliente»"
+            }
+          ]
+        },
+        {
+          "text": "Ana aparece en la lista con su documento, su teléfono y su correo, y con «0» en la columna «Pedidos». Desde esa lista puedes buscar a cualquier cliente por nombre, documento, teléfono o correo, abrir «Editar» o abrir «Ver historia».",
+          "image": "img/05-02-cliente-creada.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "La fila de Ana Quispe, con su documento y su contacto"
+            },
+            {
+              "n": 2,
+              "label": "«Ver historia»: abre su ficha comercial (se explica al final del capítulo)"
+            },
+            {
+              "n": 3,
+              "label": "Buscador: nombre, documento, teléfono o correo"
+            }
+          ]
+        }
+      ],
+      "tips": [
+        "El DNI tiene exactamente 8 dígitos. Si te equivocas, la pantalla te dice el formato de cada tipo de documento antes de guardar.",
+        "Si escribes el nombre de alguien que ya está en la lista, la pantalla avisa: «Ya tienes a … en la lista. Si es la misma persona, edítala en lugar de crear otra». Dos fichas de la misma persona reparten sus pedidos entre las dos.",
+        "Una cotización o un pedido de venta no se pueden guardar sin cliente. Si estás en pleno trabajo y falta crearlo, el Cotizador y «Nuevo pedido» te dejan crearlo ahí mismo, sin salir (lo verás más adelante)."
+      ],
+      "warnings": [
+        "En la lista no hay botón para borrar clientes. Si alguien ya no compra, haz clic en «Editar» y desmarca «Cliente activo»: queda en la lista con la marca «Inactivo»."
+      ]
+    },
+    {
+      "title": "El Cotizador: de dónde parte una cotización",
+      "intro": "El Cotizador calcula cuánto cuesta un lote y a cuánto venderlo. Lo abres desde «Cotizador», en el grupo «Ventas». Hay tres formas de empezar. Para algo que ya vendes, lo más rápido es partir de su variante del catálogo.",
+      "steps": [
+        {
+          "text": "Haz clic en «Cotizador». En «De dónde salen los datos» tienes tres caminos: arrastrar un archivo laminado (.gcode.3mf), que se lee en tu navegador y no se sube a ningún lado; «Partir de una variante del catálogo», que carga su receta de producción; o «A mano», con «Agregar una placa».",
+          "image": "img/05-03-cotizador-inicio.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "Zona de arrastre del archivo laminado (.gcode.3mf)"
+            },
+            {
+              "n": 2,
+              "label": "«Partir de una variante del catálogo»"
+            },
+            {
+              "n": 3,
+              "label": "«Agregar una placa»: armar el lote a mano"
+            }
+          ]
+        },
+        {
+          "text": "Abre «Elige una variante…» y escoge «Calavera dulcera · Con dulces surtidos». Solo salen las variantes activas: la desactivada «Con chocolates» no aparece.",
+          "image": "img/05-04-elegir-variante.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "La variante que vas a cotizar"
+            }
+          ]
+        },
+        {
+          "text": "La pantalla responde «Cargamos la receta de «Calavera dulcera · Con dulces surtidos». Revisa los filamentos y la cantidad.» y llena sola las «Placas del lote» (aquí «Tapas y ganchos», «Frente» y «Trasera»), el tiempo de cada una, los filamentos y los insumos. Si quieres volver a empezar, usa «Empezar de cero»."
+        }
+      ],
+      "tips": [
+        "No hace falta tener el archivo laminado a mano si el producto ya está en el catálogo con su receta (se arma en el capítulo de Catálogo).",
+        "Cuando cotizas algo hecho a medida con un archivo laminado, el costo sale de los gramos y el tiempo que reporta Bambu Studio, que ya incluyen la purga y la torre de limpieza: no las sumes aparte."
+      ],
+      "warnings": []
+    },
+    {
+      "title": "El lote, el costo y el canal",
+      "intro": "Con la receta cargada, lo que tú cambias es el lote: cuántas unidades, y cuánto tiempo de preparación y de trabajo manual lleva. Más abajo eliges la impresora y el canal de venta.",
+      "steps": [
+        {
+          "text": "En «El lote», «Qué se cotiza» ya dice «Calavera dulcera · Con dulces surtidos». Cambia «Cantidad de unidades» a 10. «Preparación del lote (minutos)» se paga una sola vez y se reparte entre todas las unidades; «Trabajo por unidad (minutos)» es el armado, relleno y empaque de cada pieza.",
+          "image": "img/05-05-el-lote.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "«Qué se cotiza»: el nombre que verá el cliente"
+            },
+            {
+              "n": 2,
+              "label": "«Cantidad de unidades»: escribe 10"
+            },
+            {
+              "n": 3,
+              "label": "«Preparación del lote (minutos)»: se paga una vez por lote"
+            },
+            {
+              "n": 4,
+              "label": "«Trabajo por unidad (minutos)»: armado, relleno y empaque"
+            },
+            {
+              "n": 5,
+              "label": "«¿Para cuándo?»: la fecha que saldría si el cliente confirma hoy"
+            }
+          ]
+        },
+        {
+          "text": "Mira «¿Para cuándo?». Con 10 unidades dice «Listo mañana 14:52», «Para esta venta: 3 en el estante · 7 por fabricar» y «El material alcanza.» Es el mismo plan que usan la cola de impresión y los pedidos: descuenta lo que ya está armado y lo que ya reclaman otros pedidos."
+        },
+        {
+          "text": "En «Insumos» están los de la receta (dulces, lámina y bolsa) con su cantidad y su costo. Puedes cambiarlos con «Quitar» y «Agregar insumo»."
+        },
+        {
+          "text": "Baja a «Costo y precio». Elige la «Impresora» (A1 mini) y el «Canal de venta». «Descuento por volumen (%)» y «Recargo por urgencia (%)» van en 0 salvo que quieras ajustar. Lee el aviso que sale debajo: «Es un producto del catálogo: va a su precio de lista para 10 unidades, S/ 13.50 c/u, el mismo que cobra el pedido. Según el costo saldría S/ 14.50.» Cuando todo esté bien, haz clic en «Agregar a la cotización».",
+          "image": "img/05-06-costo-y-precio.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "«Impresora»"
+            },
+            {
+              "n": 2,
+              "label": "«Canal de venta»: su comisión se suma al precio sin comerse tu margen"
+            },
+            {
+              "n": 3,
+              "label": "«Descuento por volumen (%)»"
+            },
+            {
+              "n": 4,
+              "label": "Aviso del precio de catálogo: de la escalera de precios, no del costo"
+            },
+            {
+              "n": 5,
+              "label": "«Agregar a la cotización»"
+            }
+          ]
+        }
+      ],
+      "tips": [
+        "Debajo del canal hay una línea gris con los parámetros vigentes del taller (merma, fallos, mano de obra por hora y margen). Los fija la Configuración; el filamento se valoriza al costo promedio del stock.",
+        "El descuento por volumen, el recargo por urgencia y la comisión del canal solo se aplican a lo hecho a medida. Un producto del catálogo siempre va a su precio de lista o de su escalera, el mismo que cobrará el pedido.",
+        "El canal sirve para saber por dónde entra la plata. Si el cliente llegó por Instagram o por la feria, elígelo: la comisión del canal se suma al precio de lo hecho a medida."
+      ],
+      "warnings": [
+        "En «Canal de venta», «Sin canal» deja la cotización sin canal. Elige el canal por donde llegó el cliente («Venta directa», «Instagram», «Feria»…) para que los reportes por canal cuenten bien."
+      ]
+    },
+    {
+      "title": "Leer el desglose y la escalera de precios",
+      "intro": "Debajo de «Costo y precio» está el desglose: de dónde sale el costo, cómo se llega al precio y cuánto queda para ti. Es la misma tabla que verá la cotización guardada.",
+      "steps": [
+        {
+          "text": "Recorre el desglose de arriba abajo. Primero la producción: «Material» (los gramos de cada filamento, S/ 8.79), «Energía», «Máquina» (por hora de impresión) y «Provisión por fallos»; la suma es «Producción» (S/ 15.29). Después «Preparación del lote», «Trabajo por unidad» (10 unidades × S/ 1.25) e «Insumos». Todo junto es el «Costo del lote» (S/ 72.51), y dividido entre 10, el «Costo por unidad» (S/ 7.25).",
+          "image": "img/05-07-desglose.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "«Material»: los gramos de filamento al costo promedio del stock"
+            },
+            {
+              "n": 2,
+              "label": "«Producción»: material, energía, máquina y provisión por fallos"
+            },
+            {
+              "n": 3,
+              "label": "«Costo del lote»: producción, preparación, trabajo e insumos"
+            },
+            {
+              "n": 4,
+              "label": "«Precio de catálogo»: sale de la escalera de precios, sin IGV"
+            },
+            {
+              "n": 5,
+              "label": "«Total por 10 unidades»: lo que verá y pagará el cliente (S/ 135.00)"
+            }
+          ]
+        },
+        {
+          "text": "Sigue «Del costo al precio». El «Precio de catálogo» (S/ 13.50) no sale de multiplicar el costo: sale de la escalera de precios de la variante. «Precio por unidad» y «Total por 10 unidades» (S/ 135.00) son lo que verá el cliente. «Margen que queda» dice cuánto ganas: S/ 6.25, el 46.3 % del precio. La línea «Sin IGV: el taller está sin RUC» recuerda que los precios van sin impuesto."
+        },
+        {
+          "text": "Al final hay dos cifras: la que sale del bolsillo hoy (S/ 51.47: material, energía e insumos) y la que es tiempo y desgaste (S/ 19.51: máquina y mano de obra). La primera es la plata que de verdad pones antes de cobrar."
+        }
+      ],
+      "tips": [
+        "La escalera de precios es el descuento por cantidad de cada variante, que se define en el Catálogo: una unidad cuesta S/ 19.00, desde 5 unidades S/ 15.00 y desde 10 unidades S/ 13.50. Rige el escalón más alto cuyo mínimo se alcanza: con 10 calaveras el precio es S/ 13.50 cada una; con 4, seguirían a S/ 19.00.",
+        "Por qué existe la escalera: vender una sola unidad suelta es antieconómico, porque para una tapa se imprime una placa de nueve. Pidiendo más, el costo por unidad baja y el precio también.",
+        "El margen se toma sobre el precio, no sobre el costo: precio = costo ÷ (1 − margen). Con un margen objetivo de 50 % y un costo de S/ 7.25, el precio saldría S/ 14.50. La escalera lo deja en S/ 13.50 y el margen real en 46.3 %: esa diferencia es una decisión tuya, y el Catálogo la avisa en rojo.",
+        "Cada componente del desglose se redondea a céntimos por separado, para que las partes sumen exactamente el total."
+      ],
+      "warnings": []
+    },
+    {
+      "title": "Guardar la cotización: siempre lleva cliente",
+      "intro": "Cuando el lote está bien, lo agregas a la cotización y la guardas. Una cotización siempre lleva un cliente: no hay cotizaciones anónimas.",
+      "steps": [
+        {
+          "text": "Haz clic en «Agregar a la cotización». Abajo, en «La cotización», aparece la línea con su cantidad, costo unitario, precio unitario y total (10 × S/ 13.50 = S/ 135.00), el «¿Para cuándo?» de toda la cotización y los totales: «Valor de venta», «Total» y «Costo del trabajo». Con «Editar» y «Quitar» corriges la línea; puedes volver arriba y agregar otras."
+        },
+        {
+          "text": "Antes de elegir cliente, prueba «Guardar como cotización»: no la guarda y te avisa en rojo «Elige el cliente: una cotización siempre lleva un nombre. Si es nuevo, créalo con «+ Nuevo cliente».» y «Revisa los campos marcados en rojo antes de guardar.»",
+          "image": "img/05-08-cotizacion-sin-cliente.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "«Cliente»: obligatorio"
+            },
+            {
+              "n": 2,
+              "label": "El aviso: una cotización siempre lleva un nombre"
+            },
+            {
+              "n": 3,
+              "label": "«Guardar como cotización»"
+            }
+          ]
+        },
+        {
+          "text": "Elige a «Ana Quispe» en «Cliente». (Si el cliente es nuevo, elige «+ Nuevo cliente» y créalo ahí mismo.) «Vigencia (días)» dice cuánto vale el precio: 15 por defecto, y con 0 no vence; aquí pon 7. En «Nota para el cliente» escribe lo que quieras que lea. Haz clic en «Guardar como cotización».",
+          "image": "img/05-09-cotizacion-lista.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "«Cliente»: Ana Quispe"
+            },
+            {
+              "n": 2,
+              "label": "«Vigencia (días)»: 7 días; con 0 no vence"
+            },
+            {
+              "n": 3,
+              "label": "«Nota para el cliente»"
+            },
+            {
+              "n": 4,
+              "label": "«Guardar como cotización»"
+            }
+          ]
+        },
+        {
+          "text": "La app te lleva a la cotización recién guardada, con su número (COT-2026-0001) y el estado «Borrador». Un borrador todavía no separa nada: el recuadro «Separo» dice «Todavía no separa nada. Al marcarla como enviada, separará lo que pide hasta el viernes 9 de octubre, 23:00.»",
+          "image": "img/05-10-cotizacion-borrador.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "Número de la cotización"
+            },
+            {
+              "n": 2,
+              "label": "Estado: «Borrador»"
+            },
+            {
+              "n": 3,
+              "label": "«Marcar como enviada»"
+            },
+            {
+              "n": 4,
+              "label": "Menú «Más»"
+            },
+            {
+              "n": 5,
+              "label": "«Separo»: un borrador todavía no aparta nada"
+            }
+          ]
+        }
+      ],
+      "tips": [
+        "La vigencia cuenta desde hoy: con 7 días la cotización vale hasta el 15 oct. 2026 (la ves en «Válida hasta»).",
+        "El desglose queda congelado con los parámetros del día (tarjeta «Parámetros congelados»): la cotización sigue diciendo lo mismo aunque después cambies precios o parámetros.",
+        "Una cotización guardada no se edita. Para cambiarla usa «Más» > «Crear versión nueva»."
+      ],
+      "warnings": []
+    },
+    {
+      "title": "Enviar la cotización",
+      "intro": "Un borrador no compromete nada. Al enviar la cotización empieza el separo: reserva lo que pide por un plazo corto, para que otra venta no se lo lleve mientras el cliente decide.",
+      "steps": [
+        {
+          "text": "Para ver todas tus cotizaciones haz clic en «Cotizaciones», en el grupo «Ventas». Los botones «Todas», «Borradores», «Enviadas», «Aceptadas», «Rechazadas» y «Vencidas» filtran la lista, y «+ Nueva cotización» abre el Cotizador.",
+          "image": "img/05-50-cotizaciones-lista.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "Filtros por estado"
+            },
+            {
+              "n": 2,
+              "label": "«+ Nueva cotización»: abre el Cotizador"
+            },
+            {
+              "n": 3,
+              "label": "Una cotización: número, cliente, estado, vigencia y total"
+            }
+          ]
+        },
+        {
+          "text": "En la cotización, el menú «Más» tiene «Descargar PDF», para mandarle la cotización al cliente, y «Crear versión nueva», para corregirla: la versión anterior queda como historial.",
+          "image": "img/05-11-cotizacion-menu-mas.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "«Descargar PDF»"
+            },
+            {
+              "n": 2,
+              "label": "«Crear versión nueva»"
+            },
+            {
+              "n": 3,
+              "label": "«Marcar como enviada»"
+            }
+          ]
+        },
+        {
+          "text": "Haz clic en «Marcar como enviada». No pide confirmación: la cotización pasa a «Enviada», el botón principal cambia a «El cliente aceptó» y el recuadro «Separo» dice «Separa lo que pide hasta el viernes 9 de octubre, 23:00.» con los botones «Cambiar» y «Soltar ya».",
+          "image": "img/05-12-cotizacion-enviada.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "Estado: «Enviada»"
+            },
+            {
+              "n": 2,
+              "label": "«El cliente aceptó»: convierte la cotización en pedido"
+            },
+            {
+              "n": 3,
+              "label": "«Separo»: lo que pide queda apartado hasta esa hora"
+            },
+            {
+              "n": 4,
+              "label": "«Cambiar»: mover la hora del separo"
+            },
+            {
+              "n": 5,
+              "label": "«Soltar ya»: liberar lo separado"
+            }
+          ]
+        }
+      ],
+      "tips": [
+        "El separo por defecto dura hasta las 23:00 del día siguiente, que es el plazo que tiene configurado el taller.",
+        "Si el cliente no acepta, abre «Más» y elige «El cliente la rechazó». La app pregunta «¿Confirmas que el cliente la rechazó? Lo que separa queda libre desde ya.» y se confirma con «Sí, la rechazó».",
+        "Solo la versión más reciente de una cotización se envía o se acepta. Las anteriores quedan como historial."
+      ],
+      "warnings": [
+        "Rechazar una cotización la cierra para siempre. Si el cliente vuelve, haz una versión nueva o una cotización nueva."
+      ]
+    },
+    {
+      "title": "El separo: lo que una cotización aparta",
+      "intro": "Mientras una cotización está enviada y su separo corre, lo que pide queda apartado: producción y los demás vendedores lo ven como de esa cotización y no se lo ofrecen a nadie más. La tarjeta «Situación» lo dice: «Separa lo que pide y su lugar en la fila hasta el viernes 9 de octubre, 23:00. Así la ven producción y los demás vendedores.»",
+      "steps": [
+        {
+          "text": "Para dar más plazo, haz clic en «Cambiar», elige el día y la hora en «Separar hasta (hora de Lima)» y haz clic en «Separar hasta esa hora». «Cancelar» cierra sin cambiar nada.",
+          "image": "img/05-13-separo-cambiar.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "«Separar hasta (hora de Lima)»: el nuevo día y hora"
+            },
+            {
+              "n": 2,
+              "label": "«Separar hasta esa hora»: guarda el nuevo plazo"
+            },
+            {
+              "n": 3,
+              "label": "«Cancelar»"
+            }
+          ]
+        },
+        {
+          "text": "Para liberar lo separado ahora mismo, haz clic en «Soltar ya». La app pregunta «¿Soltar el separo ahora? Lo que aparta queda libre para otros pedidos desde ya. Si el cliente vuelve, la proforma entra al final de la fila.» Se confirma con «Sí, soltar ya»; «No» deja todo como estaba."
+        },
+        {
+          "text": "Si nadie hace nada, el separo termina solo a su hora: la tarjeta pasa a decir «El separo venció el … Ya no aparta nada.» y ofrece «Volver a separar». No hace falta que nadie lo suelte."
+        }
+      ],
+      "tips": [
+        "El lugar en la fila lo da el momento en que se separó o se confirmó: prioridad al que confirma primero. Una cotización que vuelve a separar después de vencer entra al final de la fila: quien separó o confirmó mientras tanto va antes.",
+        "No se acepta una hora que ya pasó: la app dice «Esa hora ya pasó. Elige una más adelante.» Para liberar hay un botón aparte, «Soltar ya», para que nadie lo haga por error desde un campo de fecha.",
+        "En «Nuevo pedido» y en el Cotizador, la app te informa de qué es de quién y no te impide vender. En «Venta rápida», en cambio, solo se ofrece lo que está libre."
+      ],
+      "warnings": []
+    },
+    {
+      "title": "Aceptar la cotización: se crea el pedido",
+      "intro": "Cuando Ana acepta, la cotización se convierte en pedido con las mismas líneas, precios y cliente: no hay que volver a escribir nada.",
+      "steps": [
+        {
+          "text": "Abre la cotización y haz clic en «El cliente aceptó». Se abre el panel «El cliente aceptó: se crea este pedido», que cuenta antes de que pase qué se va a crear: cada línea con su foto y su total, el «Total del pedido» y el lugar que ocupará en la fila."
+        },
+        {
+          "text": "Lee el aviso del lugar. En verde, «Conserva su lugar en la fila: separó el jueves 8 de octubre, 20:40.» significa que el separo seguía vivo y el pedido hereda el lugar de la cotización. Si el separo ya había vencido dice «El separo venció el …: entra a la fila ahora, después de los pedidos que ya están.» «¿Para cuándo?» compara lo que se prometió al cotizar con lo que dice el plan hoy."
+        },
+        {
+          "text": "Rellena «Fecha de entrega» (la fecha que le prometes a Ana, opcional) y «Nota del pedido» (opcional) y haz clic en «Crear el pedido». «Cancelar» cierra el panel sin crear nada.",
+          "image": "img/05-14-cotizacion-aceptar.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "Las líneas del pedido que se va a crear, con su foto y su total"
+            },
+            {
+              "n": 2,
+              "label": "Lugar en la fila: conserva el de la cotización"
+            },
+            {
+              "n": 3,
+              "label": "«¿Para cuándo?»: lo prometido al cotizar frente a lo que dice el plan hoy"
+            },
+            {
+              "n": 4,
+              "label": "«Fecha de entrega»"
+            },
+            {
+              "n": 5,
+              "label": "«Nota del pedido»"
+            },
+            {
+              "n": 6,
+              "label": "«Crear el pedido»"
+            }
+          ]
+        },
+        {
+          "text": "La app abre el pedido nuevo (ORD-2026-0001, «Confirmado»). La cotización pasa a «Aceptada» y muestra el botón «Ver el pedido» y, en «Datos», el número del pedido.",
+          "image": "img/05-51-cotizacion-aceptada.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "Estado: «Aceptada»"
+            },
+            {
+              "n": 2,
+              "label": "«Ver el pedido»"
+            },
+            {
+              "n": 3,
+              "label": "El número del pedido que salió de esta cotización"
+            }
+          ]
+        }
+      ],
+      "tips": [
+        "El pedido nace «Confirmado». Desde ese momento reclama lo que necesita: lo armado del estante y lo que falte producir, y el plan lo ordena por quién confirmó primero."
+      ],
+      "warnings": [
+        "Aceptar no se deshace: el pedido ya existe. Si el cliente cambia de idea, se cancela el pedido (ver «Cancelar un pedido»)."
+      ]
+    },
+    {
+      "title": "Los pedidos: la lista y la ficha",
+      "intro": "«Pedidos» reúne todo lo que se vendió o se va a vender, y también lo que se produce para uso del taller o de regalo. Cada pedido tiene una ficha con todo lo que hace falta para llevarlo hasta que se entrega y se cobra.",
+      "steps": [
+        {
+          "text": "Haz clic en «Pedidos», en «Ventas». Los filtros «Estado» (por defecto «En curso») y «Propósito» (Todos, Venta, Uso personal, Regalo) acotan la lista; cambia «Estado» a «Todos» para ver también los entregados y los cancelados. Cada fila dice el cliente, el estado, el número, la fecha de entrega, el total y si está cobrado. Arriba están «Venta rápida» y «+ Nuevo pedido».",
+          "image": "img/05-36-pedidos-lista.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "«Estado»: «En curso» por defecto"
+            },
+            {
+              "n": 2,
+              "label": "«Propósito»: venta, uso personal o regalo"
+            },
+            {
+              "n": 3,
+              "label": "«Venta rápida»"
+            },
+            {
+              "n": 4,
+              "label": "«+ Nuevo pedido»"
+            },
+            {
+              "n": 5,
+              "label": "Una fila: cliente, estado, número, entrega, total y cobro"
+            }
+          ]
+        },
+        {
+          "text": "Abre el pedido de Ana. La ficha tiene, de arriba abajo: «Datos» (cliente, fechas y nota), «Cobro», «Avance», «Situación», «Entrega», «Líneas», «Impresiones de este pedido» (solo si hay líneas a medida) y «Estimado contra real». El botón «Entregar» de arriba te baja a la tarjeta «Entrega».",
+          "image": "img/05-15-pedido-ficha.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "Número del pedido"
+            },
+            {
+              "n": 2,
+              "label": "Estado: «Confirmado»"
+            },
+            {
+              "n": 3,
+              "label": "«Entregar»: lleva a la tarjeta «Entrega»"
+            },
+            {
+              "n": 4,
+              "label": "«Datos»: cliente, fecha comprometida y nota"
+            }
+          ]
+        },
+        {
+          "text": "«Avance» muestra el camino del pedido: «Confirmado», «En cola», «Imprimiendo», «Post-proceso», «Listo», «Entregado» y «Cerrado». El botón de al lado es el paso siguiente («Pasar a En cola»); «Poner en espera» y «Cancelar pedido» solo aparecen mientras nada haya salido del taller. «Situación» es lo que dice el plan: cuándo estaría listo, si llega a tiempo para la fecha prometida, cuántas calaveras hay en el estante y cuántas faltan por fabricar, y en qué lugar de la fila va.",
+          "image": "img/05-16-pedido-avance-situacion.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "«Avance»: el camino del pedido"
+            },
+            {
+              "n": 2,
+              "label": "«Pasar a En cola»: el paso siguiente"
+            },
+            {
+              "n": 3,
+              "label": "«Poner en espera»"
+            },
+            {
+              "n": 4,
+              "label": "«Cancelar pedido»"
+            },
+            {
+              "n": 5,
+              "label": "«Situación»: fecha estimada, estante y lugar en la fila"
+            }
+          ]
+        }
+      ],
+      "tips": [
+        "Un pedido no llega a «Entregado» porque alguien cambie el estado: llega porque se entregó. La app no ofrece ese atajo y la base lo rechaza.",
+        "«Situación» sale del mismo plan que ve la cola de impresión y que usa el Cotizador. Si algo no cuadra, el plan es la referencia.",
+        "Un pedido no manda trabajos a la cola por su cuenta. Lo que se imprime lo decides tú (siguiente sección)."
+      ],
+      "warnings": []
+    },
+    {
+      "title": "Qué falta imprimir: «Ver qué falta imprimir»",
+      "intro": "Cada línea del pedido que todavía no se entregó tiene, a la derecha, un botón que lleva a producir lo que falta.",
+      "steps": [
+        {
+          "text": "En la tarjeta «Líneas», una línea del catálogo (como las calaveras) muestra «Ver qué falta imprimir». Una línea hecha «A medida» muestra, en cambio, «Imprimir para este pedido» (se explica más adelante, con un ejemplo). Los botones desaparecen cuando ya se entregó todo o el pedido se cancela.",
+          "image": "img/05-17-pedido-lineas.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "La línea: producto con su foto"
+            },
+            {
+              "n": 2,
+              "label": "Cantidad pedida"
+            },
+            {
+              "n": 3,
+              "label": "«Ver qué falta imprimir»"
+            },
+            {
+              "n": 4,
+              "label": "Total del pedido y costo estimado"
+            }
+          ]
+        },
+        {
+          "text": "Haz clic en «Ver qué falta imprimir». Se abre la «Cola de impresión» con la tarjeta «Por lanzar» filtrada a ese pedido: «Solo lo que falta para ORD-2026-0001» (con «Ver todo» para quitar el filtro). Cada fila es una placa que conviene imprimir: en el ejemplo, «Tapas y ganchos» (1 corrida de 44 min), «Frente» (7 corridas × 33 min) y «Trasera» (7 corridas × 22 min). Dice qué deja cada corrida, los gramos de cada filamento («Alcanza el filamento»), «Cubre, en este orden: ORD-2026-0001 (Ana Quispe)» y cuándo empezaría la primera corrida. «Poner en cola» crea las corridas.",
+          "image": "img/05-18-por-lanzar-pedido.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "Filtro: solo lo que falta para este pedido"
+            },
+            {
+              "n": 2,
+              "label": "Una placa por imprimir, con sus corridas y su filamento"
+            },
+            {
+              "n": 3,
+              "label": "«Poner en cola»: tú decides cuántas corridas lanzar"
+            },
+            {
+              "n": 4,
+              "label": "«Cubre, en este orden»: los pedidos que cubre, el que confirmó antes va primero"
+            }
+          ]
+        }
+      ],
+      "tips": [
+        "«Por lanzar» solo propone: tú decides qué poner en cola. Ya descuenta lo que hay en el estante y lo que ya está en la cola. Las corridas se imprimen y se cierran como se explica en el capítulo de Producción.",
+        "Hay una sola cuenta para todos los pedidos: «Por lanzar» imprime para todos a la vez, y por eso un trabajo hecho a mano desde la ficha de un pedido del catálogo no quedaría atado a ese pedido."
+      ],
+      "warnings": []
+    },
+    {
+      "title": "Entregar el pedido: entrega parcial",
+      "intro": "Entregar es lo que saca las calaveras del estante hacia el cliente. Se puede entregar por partes: lo que ya está listo hoy, y el resto cuando esté. En este ejemplo había 3 calaveras armadas, pero una se vendió antes en la Venta rápida (sección más adelante), así que quedan 2 para Ana.",
+      "steps": [
+        {
+          "text": "Baja a la tarjeta «Entrega». Arriba dice cuántas unidades hay listas para este pedido: «Ya está lleno con lo que hay listo: 2 de 10. Lo demás todavía no está en el estante.» La columna «Entregar hoy» viene llena con lo listo. Revisa «Entregado el» (hoy, salvo que anotes una entrega de otro día) y escribe una «Nota»: quién lo recogió, dónde se entregó. El botón dice «Entregar 2 de 10».",
+          "image": "img/05-31-pedido-entrega-parcial.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "Cuántas hay listas para este pedido"
+            },
+            {
+              "n": 2,
+              "label": "«Entregar hoy»: cuántas unidades salen ahora"
+            },
+            {
+              "n": 3,
+              "label": "«Entregado el»: hoy, salvo que anotes otro día"
+            },
+            {
+              "n": 4,
+              "label": "«Nota»: quién lo recogió y dónde"
+            },
+            {
+              "n": 5,
+              "label": "«Entregar 2 de 10»"
+            }
+          ]
+        },
+        {
+          "text": "Si escribes más de lo que hay listo (por ejemplo 5), la app te avisa bajo la línea: «Según el plan hay 2 listas para este pedido.» y aparece «Volver a lo que hay listo», que devuelve la cifra.",
+          "image": "img/05-32-entrega-mas-de-lo-listo.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "La cantidad escrita: 5"
+            },
+            {
+              "n": 2,
+              "label": "El aviso: según el plan solo hay 2 listas"
+            },
+            {
+              "n": 3,
+              "label": "El botón ahora dice «Entregar 5 de 10»"
+            },
+            {
+              "n": 4,
+              "label": "«Volver a lo que hay listo»"
+            }
+          ]
+        },
+        {
+          "text": "Aunque insistas y confirmes, el estante es el que manda: la base rechaza lo que no existe y lo dice con sus palabras, «No alcanza para entregar. Falta: Calavera dulcera · Con dulces surtidos (hacen falta 5 y hay 2). Arma o imprime lo que falta, o entrega una parte.» No se mueve nada.",
+          "image": "img/05-33-entrega-no-alcanza.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "La cantidad escrita"
+            },
+            {
+              "n": 2,
+              "label": "El rechazo de la base, con lo que falta"
+            },
+            {
+              "n": 3,
+              "label": "«Volver a lo que hay listo»"
+            }
+          ]
+        },
+        {
+          "text": "Con la cifra en 2, haz clic en «Entregar 2 de 10». La app pregunta «Van a salir 2 unidades del estante. Esto no se puede deshacer.» Confirma con «Sí, entregar», o corrige con «Volver».",
+          "image": "img/05-34-entrega-confirmar.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "La pregunta: cuántas unidades salen del estante"
+            },
+            {
+              "n": 2,
+              "label": "«Sí, entregar»"
+            },
+            {
+              "n": 3,
+              "label": "«Volver»"
+            }
+          ]
+        },
+        {
+          "text": "Listo: aparece «Entrega registrada: salieron 2 unidades.», la tarjeta avisa «Falta cobrar S/ 85.00.» con el botón «Cobrar saldo», y debajo, en «Entregas registradas», queda cada entrega con su fecha, sus unidades y su nota. El pedido sigue en «Confirmado» («Entregado: 2 de 10 · faltan 8»); el resto se entrega cuando esté listo.",
+          "image": "img/05-35-entrega-registrada.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "Confirmación de la entrega"
+            },
+            {
+              "n": 2,
+              "label": "Lo que falta cobrar, con «Cobrar saldo»"
+            },
+            {
+              "n": 3,
+              "label": "«Entregas registradas»: fecha, unidades y nota"
+            }
+          ]
+        }
+      ],
+      "tips": [
+        "El estante solo se mueve imprimiendo, armando, entregando o contando. Entregar es lo que descuenta del estante lo que sale.",
+        "Para entregar una calavera tiene que estar armada. Si solo hay piezas (tapas, ganchos, frentes y traseras), primero se arma en «Armar productos».",
+        "Las líneas «A medida» no sacan nada del estante al entregarlas: lo que imprimes es lo que entregas.",
+        "«Entregado el» no puede ser una fecha futura: anota el día en que de verdad salió."
+      ],
+      "warnings": [
+        "Una entrega no se deshace.",
+        "Una vez que algo salió, el pedido ya no se puede poner en espera ni cancelar: los botones «Poner en espera» y «Cancelar pedido» desaparecen."
+      ]
+    },
+    {
+      "title": "Cobrar un adelanto",
+      "intro": "La tarjeta «Cobro» del pedido registra lo que el cliente paga: el total, lo cobrado y el saldo pendiente. Se puede cobrar todo de una vez o por partes, como un adelanto.",
+      "steps": [
+        {
+          "text": "Ve a la tarjeta «Cobro»: «Total S/ 135.00», «Cobrado S/ 0.00», «Saldo pendiente S/ 135.00» y la insignia «Sin cobrar». En «Registrar un cobro» elige la «Cuenta» donde entró el dinero (Yape), escribe el «Monto (S/)» (por defecto viene el saldo pendiente; aquí 50), deja la «Fecha y hora» y, si quieres, elige el «Medio de pago» (en blanco, usa el de la cuenta) y la «Referencia» (el código de operación de Yape o del banco). Haz clic en «Registrar cobro».",
+          "image": "img/05-28-pedido-cobro-adelanto.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "Estado de cobro: «Sin cobrar»"
+            },
+            {
+              "n": 2,
+              "label": "Total, cobrado y saldo pendiente"
+            },
+            {
+              "n": 3,
+              "label": "«Cuenta»: dónde entró el dinero"
+            },
+            {
+              "n": 4,
+              "label": "«Monto (S/)»: 50 de adelanto"
+            },
+            {
+              "n": 5,
+              "label": "«Medio de pago»"
+            },
+            {
+              "n": 6,
+              "label": "«Referencia»: el código de operación"
+            },
+            {
+              "n": 7,
+              "label": "«Registrar cobro»"
+            }
+          ]
+        },
+        {
+          "text": "No puedes cobrar más que el saldo: si escribes 200, el campo avisa «No puede pasar del saldo pendiente, S/ 135.00.»",
+          "image": "img/05-29-cobro-no-pasa-del-saldo.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "«Monto (S/)»: 200"
+            },
+            {
+              "n": 2,
+              "label": "El aviso: no puede pasar del saldo pendiente"
+            }
+          ]
+        },
+        {
+          "text": "Con 50 registrado, la tarjeta pasa a «Cobro parcial», con «Cobrado S/ 50.00», «Saldo pendiente S/ 85.00» y el aviso «Cobro registrado.» El formulario queda listo con 85 (el saldo) para el próximo cobro.",
+          "image": "img/05-30-pedido-cobro-registrado.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "Estado de cobro: «Cobro parcial»"
+            },
+            {
+              "n": 2,
+              "label": "Total, cobrado y saldo pendiente actualizados"
+            },
+            {
+              "n": 3,
+              "label": "«Cobro registrado.»"
+            }
+          ]
+        }
+      ],
+      "tips": [
+        "El cobro entra a «Caja» como un ingreso en la categoría «Venta de productos» (puedes cambiarla con «Cambiarla»), en la cuenta que elegiste.",
+        "Los saldos de las cuentas no se escriben: salen de sus movimientos. Por eso el cobro suma solo a la cuenta, y lo ves en «Caja» y en «Cuentas».",
+        "Un pedido ya entregado que todavía debe plata aparece en «Por cobrar»."
+      ],
+      "warnings": [
+        "Un cobro no se borra: se anula, con un motivo obligatorio, y solo el dueño anula (ver «Cancelar un pedido»)."
+      ]
+    },
+    {
+      "title": "Nuevo pedido directo, sin cotización",
+      "intro": "Cuando el cliente ya sabe lo que quiere, no hace falta cotizar: crea el pedido directo desde «Pedidos» > «+ Nuevo pedido». En este ejemplo, un pedido para Luis Paredes: 5 calaveras del catálogo y 2 llaveros hechos a medida.",
+      "steps": [
+        {
+          "text": "Haz clic en «+ Nuevo pedido». En «Propósito» elige para qué es: «Venta» (se cobra a un cliente; necesita cliente y lleva precio), «Uso personal» (para el taller o para ti; no lleva precio: se registra cuánto costó) o «Regalo» (algo que regalas; necesita una categoría y no lleva precio). Para una venta, elige el «Cliente» y, si quieres, una «Fecha de entrega» y una «Nota».",
+          "image": "img/05-37-nuevo-pedido-proposito.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "«¿Para qué es este pedido?»: venta, uso personal o regalo"
+            },
+            {
+              "n": 2,
+              "label": "«Cliente»: obligatorio en una venta"
+            },
+            {
+              "n": 3,
+              "label": "«+ Crear cliente rápido»"
+            },
+            {
+              "n": 4,
+              "label": "«Fecha de entrega» (opcional)"
+            }
+          ]
+        },
+        {
+          "text": "Si el cliente es nuevo, haz clic en «+ Crear cliente rápido». Pide solo el «Nombre del cliente» y, si quieres, el «Teléfono»; «Crear y elegir» lo crea y lo deja elegido. Los demás datos los completas después en «Clientes».",
+          "image": "img/05-38-cliente-rapido.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "El cuadro «Nuevo cliente»"
+            },
+            {
+              "n": 2,
+              "label": "«Nombre del cliente»"
+            },
+            {
+              "n": 3,
+              "label": "«Teléfono» (opcional)"
+            },
+            {
+              "n": 4,
+              "label": "«Crear y elegir»"
+            }
+          ]
+        },
+        {
+          "text": "En «Líneas», cada línea es «Del catálogo» o «A medida». Del catálogo: elige «Producto y variante» y la «Cantidad»; el «Precio unitario (S/)» viene lleno con lo que dice la escalera («Sugerido por la escalera: S/ 15.00 por unidad.» para 5 unidades) y «Usar sugerido» lo devuelve si lo cambias. A medida: escribe «Qué es», la «Cantidad», el «Precio unitario (S/)» y el «Costo estimado por unidad (S/)». «+ Agregar línea» suma otra.",
+          "image": "img/05-39-nuevo-pedido-lineas.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "«Del catálogo»: el producto y su variante"
+            },
+            {
+              "n": 2,
+              "label": "«Cantidad»"
+            },
+            {
+              "n": 3,
+              "label": "«Precio unitario (S/)»: viene de la escalera"
+            },
+            {
+              "n": 4,
+              "label": "Precio sugerido por la escalera de la variante"
+            },
+            {
+              "n": 5,
+              "label": "«A medida»: se describe, se cuenta y se pone precio y costo a mano"
+            }
+          ]
+        },
+        {
+          "text": "En «Resumen» ves el «Total de la venta» (S/ 99.00), el «Costo estimado» y la «Ganancia estimada». «Guardar pedido» crea el pedido (el número se asigna al guardar) y te lleva a su ficha.",
+          "image": "img/05-40-nuevo-pedido-resumen.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "«Total de la venta»"
+            },
+            {
+              "n": 2,
+              "label": "«Costo estimado»: lo que cuesta producirlo"
+            },
+            {
+              "n": 3,
+              "label": "«Guardar pedido»"
+            }
+          ]
+        },
+        {
+          "text": "En la ficha, «Situación» dice cuándo estaría listo y el lugar en la fila: «Va 2.º en la fila. Antes: ORD-2026-0001 · Ana Quispe.» Como la línea a medida no tiene placas, el plan no sabe cuánto tarda y avisa «Sin fecha: hay una línea que el plan no sabe cuánto tarda.» «Pasar adelante» sirve para cambiar el lugar en la fila cuando decides que este pedido va antes.",
+          "image": "img/05-41-pedido-situacion-fila.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "Aviso: sin fecha para la línea a medida"
+            },
+            {
+              "n": 2,
+              "label": "Lugar en la fila y el pedido que va antes"
+            },
+            {
+              "n": 3,
+              "label": "«Pasar adelante»: cambiar el lugar en la fila"
+            },
+            {
+              "n": 4,
+              "label": "«Ver la cola»: lleva a la cola de impresión"
+            }
+          ]
+        }
+      ],
+      "tips": [
+        "Con «Venta», el total no puede ser S/ 0.00: la app dice «La venta suma S/ 0.00. Escribe el precio, o si lo regalas, regístralo como un pedido de regalo.»",
+        "«Uso personal» y «Regalo» no llevan precio ni cobro: su total es S/ 0.00 y el costo estimado es lo que cuesta producirlos.",
+        "Lo hecho a medida con archivo laminado conviene cotizarlo en el Cotizador: al aceptar la cotización, el pedido ya trae sus placas y su fecha."
+      ],
+      "warnings": []
+    },
+    {
+      "title": "«Imprimir para este pedido»: lo hecho a medida",
+      "intro": "Las líneas «A medida» no están en el catálogo, así que «Por lanzar» no sabe imprimirlas. Para eso hay un botón en su línea: «Imprimir para este pedido» crea un trabajo de impresión atado a este pedido.",
+      "steps": [
+        {
+          "text": "En la tarjeta «Líneas» del pedido de Luis hay dos botones distintos: «Ver qué falta imprimir» para la línea del catálogo e «Imprimir para este pedido» para la línea «A medida».",
+          "image": "img/05-42-pedido-botones-imprimir.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "«Ver qué falta imprimir»: línea del catálogo"
+            },
+            {
+              "n": 2,
+              "label": "«Imprimir para este pedido»: línea a medida"
+            },
+            {
+              "n": 3,
+              "label": "La línea a medida, marcada como «A medida»"
+            }
+          ]
+        },
+        {
+          "text": "Haz clic en «Imprimir para este pedido». Se abre «Nuevo trabajo de impresión» con la «Línea del pedido» ya puesta. Elige la «Impresora», escribe el «Tiempo estimado (minutos)», elige el «Rollo 1» y los «Gramos estimados» (con «+ Agregar rollo» sumas otro color) y, si quieres, una «Nota». Haz clic en «Crear trabajo».",
+          "image": "img/05-43-imprimir-para-este-pedido.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "«Línea del pedido»: ya viene fija"
+            },
+            {
+              "n": 2,
+              "label": "«Impresora»"
+            },
+            {
+              "n": 3,
+              "label": "«Tiempo estimado (minutos)»"
+            },
+            {
+              "n": 4,
+              "label": "«Rollo 1»: de qué rollo sale el filamento"
+            },
+            {
+              "n": 5,
+              "label": "«Gramos estimados»"
+            },
+            {
+              "n": 6,
+              "label": "«Crear trabajo»"
+            }
+          ]
+        },
+        {
+          "text": "El trabajo aparece en «Impresiones de este pedido» como «Planificado». Desde ahí, «Iniciar» y «Cerrar…» lo llevan por el flujo normal de impresión, que se explica en el capítulo de Producción.",
+          "image": "img/05-44-impresion-del-pedido.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "El trabajo, atado a este pedido"
+            },
+            {
+              "n": 2,
+              "label": "«Iniciar»"
+            },
+            {
+              "n": 3,
+              "label": "«Cerrar…»"
+            }
+          ]
+        }
+      ],
+      "tips": [
+        "En «Estimado contra real», el costo real de lo hecho a medida suma material, luz y máquina de las impresiones, y es parcial mientras falten por imprimir.",
+        "Una línea a medida no sale del estante al entregarla: lo que imprimes es lo que entregas."
+      ],
+      "warnings": [
+        "Si cancelas el pedido mientras el trabajo sigue planificado, la app te pregunta qué hacer con él (ver «Cancelar un pedido»)."
+      ]
+    },
+    {
+      "title": "La Venta rápida: vender lo armado en un solo paso",
+      "intro": "Para el mostrador o la feria: vendes lo que ya está armado en el estante, lo entregas y lo cobras en un solo paso. Se abre desde «Pedidos» > «Venta rápida». Aquí se vende 1 calavera a «Clientes varios», cobrada al momento.",
+      "steps": [
+        {
+          "text": "A la izquierda, «Libre en el estante» muestra con su foto cada producto armado que nadie tiene reservado: aquí «Calavera dulcera · Con dulces surtidos», S/ 19.00, «3 libres». Si no hay nada libre, la pantalla dice «No hay nada armado y libre en el estante.» y ofrece «Armar productos» y «Nuevo pedido» (mira la sección «Poner un pedido en espera y soltar su separo»).",
+          "image": "img/05-22-venta-rapida-libre.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "Un producto armado y libre, con su precio y cuántas hay"
+            },
+            {
+              "n": 2,
+              "label": "«La venta»: lo que llevas hasta ahora"
+            }
+          ]
+        },
+        {
+          "text": "Cuando el estante no ofrece nada, se ve así. La pantalla no dice por qué: puede que no haya nada armado, o que lo armado ya sea de un pedido confirmado.",
+          "image": "img/05-19-venta-rapida-sin-libre.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "El aviso: no hay nada armado y libre"
+            },
+            {
+              "n": 2,
+              "label": "«Armar productos»"
+            },
+            {
+              "n": 3,
+              "label": "«Nuevo pedido»: para lo que no está armado"
+            },
+            {
+              "n": 4,
+              "label": "«La venta»: vacía"
+            }
+          ]
+        },
+        {
+          "text": "Toca el producto para agregarlo a «La venta». Sale la línea con su foto, la cantidad (con − y +), el precio por unidad (S/ 19.00, editable), cuántas quedan libres y el «Costo en el estante» (S/ 7.62 c/u). Cada toque suma una unidad, hasta lo libre.",
+          "image": "img/05-23-venta-rapida-armando.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "El producto elegido: «1 en la venta»"
+            },
+            {
+              "n": 2,
+              "label": "La línea de la venta: cantidad y precio"
+            },
+            {
+              "n": 3,
+              "label": "«Cliente»: «Clientes varios» o uno de la lista"
+            },
+            {
+              "n": 4,
+              "label": "«Canal»"
+            }
+          ]
+        },
+        {
+          "text": "En «Cliente» deja «Clientes varios» (la venta queda a su nombre) o elige a un cliente de la lista. En «Canal» elige por dónde llegó la venta («Feria», «Instagram» o «Venta directa») y, si quieres, escribe una «Nota» (por ejemplo «Feria de Barranco»).",
+          "image": "img/05-24-venta-rapida-canal-cobro.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "«Canal»: por dónde llegó la venta"
+            },
+            {
+              "n": 2,
+              "label": "«Nota»: por ejemplo «Feria de Barranco»"
+            },
+            {
+              "n": 3,
+              "label": "«Cobrado ahora (S/)»"
+            },
+            {
+              "n": 4,
+              "label": "«Cuenta»: dónde entró el dinero"
+            }
+          ]
+        },
+        {
+          "text": "En «Cobro», «Cobrado ahora (S/)» dice cuánto te pagaron (el botón «Todo» pone el total) y «Cuenta» dónde entró el dinero (Efectivo). «Medio de pago» y «Referencia» son opcionales; «Fue otro día» sirve para anotar una venta de otra fecha. Lee «Al vender, lo vendido sale del estante y queda entregado: no se deshace.» y haz clic en «Vender S/ 19.00».",
+          "image": "img/05-25-venta-rapida-cobro.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "«Cobrado ahora (S/)»: lo que te pagaron"
+            },
+            {
+              "n": 2,
+              "label": "«Me paga después»: deja saldo por cobrar (necesita un cliente con nombre)"
+            },
+            {
+              "n": 3,
+              "label": "«Cuenta»: dónde entró el dinero"
+            },
+            {
+              "n": 4,
+              "label": "«Vender S/ 19.00»"
+            }
+          ]
+        },
+        {
+          "text": "Aparece «Venta registrada: ORD-2026-0002 · Clientes varios» con lo vendido, lo cobrado y el saldo, y la pantalla queda lista para la siguiente venta. El estante ya muestra una calavera menos («2 libres»). La venta es un pedido ya «Entregado» y «Cobrado»: sale en «Pedidos» y su dinero está en «Caja».",
+          "image": "img/05-27-venta-rapida-hecha.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "Venta registrada: número, cliente, vendido, cobrado y saldo"
+            },
+            {
+              "n": 2,
+              "label": "«Libre en el estante»"
+            },
+            {
+              "n": 3,
+              "label": "El estante ya sin la unidad vendida"
+            }
+          ]
+        }
+      ],
+      "tips": [
+        "La Venta rápida solo vende lo armado y libre. Lo que no está armado va por un pedido normal, que lo separa y lo manda a producir.",
+        "El canal que elijas sirve para saber por dónde entra la plata. Puedes cambiar el que sale de siempre en Configuración > Canales de venta.",
+        "Si el cliente no es «Clientes varios», la venta queda en su historia en «Clientes»."
+      ],
+      "warnings": [
+        "Vender no se deshace: lo vendido ya salió del estante y quedó entregado. Si el cobro estaba mal, el dueño puede anularlo en «Caja», pero la calavera no vuelve al estante."
+      ]
+    },
+    {
+      "title": "«Clientes varios» no puede deber",
+      "intro": "«Clientes varios» es el cliente de las ventas al paso, las que se cobran al momento y no piden nombre. Justamente por eso no puede quedar debiendo: una deuda sin nombre no tiene a quién cobrársela.",
+      "steps": [
+        {
+          "text": "En la Venta rápida, deja «Clientes varios» y haz clic en «Me paga después». La app no te deja vender: «Cobrado ahora (S/)» queda en 0, pide el nombre de quien debe («Queda saldo por cobrar: elige quién te debe, o escribe su nombre. A nombre de «Clientes varios» no habría a quién cobrárselo.») y el botón «Vender» se apaga con el aviso «Quedan S/ 19.00 por cobrar. Escribe el nombre de quien te debe, o elige al cliente: una deuda sin nombre no hay a quién cobrársela.»",
+          "image": "img/05-26-venta-rapida-no-puede-deber.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "«Cobrado ahora (S/)»: 0 con «Me paga después»"
+            },
+            {
+              "n": 2,
+              "label": "El aviso: una deuda sin nombre no se puede cobrar"
+            },
+            {
+              "n": 3,
+              "label": "«Vender S/ 19.00» apagado hasta que haya un nombre"
+            }
+          ]
+        },
+        {
+          "text": "Para seguir, elige a un cliente de la lista (por ejemplo «Ana Quispe») o escribe un «Nombre» y un «Teléfono» para guardarlo. La venta queda en «Por cobrar» a su nombre."
+        },
+        {
+          "text": "«Clientes varios» también aparece en la lista de «Clientes», pero no puedes crear otro cliente con ese nombre: al escribirlo en «Nuevo cliente» la app dice ««Clientes varios» es el nombre del cliente de las ventas al paso, y no puede haber otro: a su nombre no se le puede cobrar a nadie. Escribe el nombre de la persona.»",
+          "image": "img/05-53-cliente-clientes-varios.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "«Nombre o razón social»: «Clientes varios»"
+            },
+            {
+              "n": 2,
+              "label": "El aviso: ese nombre es de las ventas al paso"
+            },
+            {
+              "n": 3,
+              "label": "«Guardar cliente»"
+            }
+          ]
+        },
+        {
+          "text": "Si guardas igual, la base lo rechaza con las mismas palabras y no se crea nada.",
+          "image": "img/05-54-cliente-clientes-varios-rechazado.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "El rechazo de la base, mostrado tal cual"
+            },
+            {
+              "n": 2,
+              "label": "«Guardar cliente»"
+            }
+          ]
+        }
+      ],
+      "tips": [
+        "Una deuda siempre tiene nombre: un pedido que quedará debiendo necesita un cliente de verdad.",
+        "En «Por cobrar» solo aparecen pedidos ya entregados que todavía deben, y siempre con el nombre de quien debe."
+      ],
+      "warnings": []
+    },
+    {
+      "title": "Poner un pedido en espera y soltar su separo",
+      "intro": "El estante no es de nadie hasta que alguien lo reclama. Un pedido confirmado reclama las unidades armadas que le tocan, y la Venta rápida solo vende lo libre. Si de verdad necesitas vender algo que un pedido tiene reclamado, la forma ordenada es poner ese pedido en espera y soltar su separo.",
+      "steps": [
+        {
+          "text": "Abre el pedido y haz clic en «Poner en espera». «Avance» dice «El pedido está en espera. Elige en qué paso retomarlo.» y aparece un recuadro azul: «Conserva lo separado y su lugar en la fila hasta el viernes 9 de octubre, 23:00.» Con «Cambiar» mueves la hora; con «Soltar ya» lo liberas.",
+          "image": "img/05-20-pedido-en-espera.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "«El pedido está en espera…»"
+            },
+            {
+              "n": 2,
+              "label": "El separo del pedido: conserva lo apartado y su lugar en la fila"
+            },
+            {
+              "n": 3,
+              "label": "«Soltar ya»"
+            },
+            {
+              "n": 4,
+              "label": "«Retomar en»: el paso donde seguirá"
+            },
+            {
+              "n": 5,
+              "label": "«Retomar»"
+            }
+          ]
+        },
+        {
+          "text": "Haz clic en «Soltar ya». La app pregunta «¿Soltar ya? Lo separado pasa en este momento a los demás pedidos y, al retomarlo, este entra al final de la fila.» Si confirmas con «Sí, soltar ya», lo que estaba reclamado queda libre y la Venta rápida ya lo ofrece.",
+          "image": "img/05-21-soltar-separo-pedido.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "La pregunta: lo separado pasa a los demás pedidos"
+            },
+            {
+              "n": 2,
+              "label": "«Sí, soltar ya»"
+            },
+            {
+              "n": 3,
+              "label": "«No»"
+            }
+          ]
+        },
+        {
+          "text": "Cuando termines de vender, elige en «Retomar en» el paso donde seguía el pedido (por ejemplo «Confirmado») y haz clic en «Retomar». El pedido vuelve a reclamar lo que necesita, ahora con lo que quedó, y entra al final de la fila. En el ejemplo, la «Situación» pasó de «3 en el estante · 7 por fabricar» a «2 en el estante · 8 por fabricar»."
+        }
+      ],
+      "tips": [
+        "«Poner en espera» y «Cancelar pedido» solo se ofrecen mientras no salió nada del taller. Con una entrega hecha, ya no.",
+        "Soltar un separo es una decisión: lo que era de tu cliente pasa a los demás. Prioridad al que confirma primero: al retomar, el pedido va detrás de quienes confirmaron mientras tanto."
+      ],
+      "warnings": [
+        "Si el separo de un pedido en espera termina, lo separado pasa solo a los demás pedidos: la tarjeta dice «El separo terminó… Si lo retomas, entra al final de la fila.»"
+      ]
+    },
+    {
+      "title": "Cancelar un pedido",
+      "intro": "Un pedido se cancela mientras nada haya salido del taller. La app pregunta lo que importa, en orden: si hay dinero cobrado, qué hacer con las impresiones que el pedido puso en la cola y, al final, confirmar. Nada se borra: el pedido queda «Cancelado» y su historia se conserva. El ejemplo es el pedido de Luis, con un adelanto cobrado y un llavero planificado en la cola.",
+      "steps": [
+        {
+          "text": "En la ficha, haz clic en «Cancelar pedido». Si el pedido tiene cobros, la app no cancela: «Este pedido tiene S/ 10.00 cobrados. Para cancelarlo, primero anula esos cobros en Caja.» «Ir a Caja» te lleva allá; «Entendido» cierra el aviso.",
+          "image": "img/05-45-cancelar-bloqueado-por-cobro.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "El aviso: hay dinero cobrado"
+            },
+            {
+              "n": 2,
+              "label": "«Ir a Caja»"
+            },
+            {
+              "n": 3,
+              "label": "«Entendido»"
+            }
+          ]
+        },
+        {
+          "text": "En «Caja», busca el cobro y haz clic en «Anular». Escribe el «Motivo de la anulación» (es obligatorio) y haz clic en «Anular movimiento». La app lo advierte: «El movimiento no se borra: deja de contar en los saldos y queda registrado como anulado.» y «El pedido ORD-2026-0003 vuelve a deber S/ 10.00».",
+          "image": "img/05-46-anular-cobro-en-caja.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "Lo que va a pasar con el movimiento: no se borra, se anula"
+            },
+            {
+              "n": 2,
+              "label": "«Motivo de la anulación»: obligatorio"
+            },
+            {
+              "n": 3,
+              "label": "«Anular movimiento»"
+            }
+          ]
+        },
+        {
+          "text": "El cobro queda en la lista con la insignia «Anulado», tachado y con su «Motivo», y deja de sumar en «Entradas». Con «Ver anulados» marcado lo sigues viendo.",
+          "image": "img/05-47-cobro-anulado.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "«Movimiento anulado. Los saldos ya no lo cuentan.»"
+            },
+            {
+              "n": 2,
+              "label": "El movimiento anulado: tachado, con su motivo"
+            },
+            {
+              "n": 3,
+              "label": "«Ver anulados»"
+            }
+          ]
+        },
+        {
+          "text": "Vuelve al pedido y haz clic otra vez en «Cancelar pedido». Si el pedido puso trabajos en la cola de impresión, la app los lista («Este pedido puso esto en la cola de impresión:») con su tiempo y su rollo, y pregunta «¿Cancelas también la impresión planificada? Nunca se imprimió: se cancela sin tiempo ni costo. Si no, queda en la cola como trabajo suelto, sin pedido.» Tienes tres botones: «Cancelar el pedido y sus impresiones», «Cancelar solo el pedido» (la impresión sigue en la cola, suelta) y «No cancelar».",
+          "image": "img/05-48-cancelar-pregunta-impresiones.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "«Este pedido puso esto en la cola de impresión»"
+            },
+            {
+              "n": 2,
+              "label": "La impresión planificada: tiempo, impresora y rollo"
+            },
+            {
+              "n": 3,
+              "label": "La pregunta: ¿se cancela también la impresión?"
+            },
+            {
+              "n": 4,
+              "label": "«Cancelar el pedido y sus impresiones»"
+            },
+            {
+              "n": 5,
+              "label": "«Cancelar solo el pedido»: la impresión queda suelta en la cola"
+            },
+            {
+              "n": 6,
+              "label": "«No cancelar»"
+            }
+          ]
+        },
+        {
+          "text": "Con «Cancelar el pedido y sus impresiones», el pedido pasa a «Cancelado». «Avance» dice «Este pedido fue cancelado.» y «También se canceló una impresión planificada, sin tiempo ni costo.» La tarjeta «Cobro» muestra «Cobrado S/ 0.00» y «Un pedido cancelado no admite cobros.»",
+          "image": "img/05-49-pedido-cancelado.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "Estado: «Cancelado»"
+            },
+            {
+              "n": 2,
+              "label": "«Este pedido fue cancelado.»"
+            },
+            {
+              "n": 3,
+              "label": "Dónde fue la impresión: se canceló con el pedido"
+            }
+          ]
+        }
+      ],
+      "tips": [
+        "El dinero no se borra, se anula, con motivo obligatorio y dejando rastro. Y solo el dueño anula: si eres operador, al intentar cancelar un pedido con cobros la app te dice que anular es solo del dueño y que se lo pidas.",
+        "Si el pedido no tiene cobros ni impresiones en la cola, la pregunta es una sola: «¿Cancelar este pedido? No se puede deshacer.» con «Sí, cancelar pedido».",
+        "Una impresión que ya está en la impresora no se cancela desde el pedido: la base lo rechaza y la app te lleva a la cola de impresión, donde se cierra con lo que salió."
+      ],
+      "warnings": [
+        "Cancelar no se deshace.",
+        "Si algo ya se entregó, el botón «Cancelar pedido» ni aparece: lo que salió del estante no vuelve por cambiar un estado."
+      ]
+    },
+    {
+      "title": "Clientes: la historia de cada uno",
+      "intro": "La lista de «Clientes» sirve para buscar, editar y ver cómo viene cada uno.",
+      "steps": [
+        {
+          "text": "En «Clientes», haz clic en «Ver historia» junto a Ana Quispe. Arriba salen sus cifras (pedidos, lo comprado, lo que debe, tratos abiertos y fecha del último pedido) y abajo «Sus tratos», «Sus pedidos» (número, estado, cobro, total y saldo) y «Lo que ha comprado» (producto, unidades, total y última vez). «Ocultar historia» la cierra.",
+          "image": "img/05-52-cliente-historia.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "Cifras de la clienta: pedidos, comprado, debe y último pedido"
+            },
+            {
+              "n": 2,
+              "label": "«Sus tratos»: las oportunidades que tiene abiertas"
+            },
+            {
+              "n": 3,
+              "label": "«Sus pedidos»: cada uno con su estado y su saldo"
+            },
+            {
+              "n": 4,
+              "label": "«Lo que ha comprado»: producto y unidades"
+            }
+          ]
+        }
+      ],
+      "tips": [
+        "La columna «Pedidos» de la lista no cuenta los cancelados.",
+        "En «Lo que ha comprado» se cuentan las unidades del pedido aunque todavía no se hayan entregado todas: en el ejemplo, las 10 de Ana, con 2 entregadas.",
+        "«Editar» abre el mismo formulario que «Nuevo cliente», con los datos del cliente ya escritos."
+      ],
+      "warnings": []
+    },
+    {
+      "title": "Oportunidades: seguir los tratos",
+      "intro": "Un trato agrupa lo que un cliente pidió, lo que se le cotizó y lo que compró. El tablero de «Oportunidades» (en «Ventas») dice en qué quedó cada uno. No es obligatorio para vender, pero ayuda cuando hay varios clientes a la vez.",
+      "steps": [
+        {
+          "text": "Haz clic en «Nuevo trato». Escribe «De qué va el trato» (lo que diría el cliente), elige el «Cliente», «Quién lo lleva» y «Para cuándo se decide»; si el trato está trabado, anótalo en «Esperando algo». «Notas» y «Guardar trato» completan el formulario.",
+          "image": "img/05-55-nuevo-trato.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "«De qué va el trato»"
+            },
+            {
+              "n": 2,
+              "label": "«Cliente»"
+            },
+            {
+              "n": 3,
+              "label": "«Quién lo lleva»"
+            },
+            {
+              "n": 4,
+              "label": "«Para cuándo se decide»"
+            },
+            {
+              "n": 5,
+              "label": "«Esperando algo»: la marca se ve en la tarjeta"
+            },
+            {
+              "n": 6,
+              "label": "«Guardar trato»"
+            }
+          ]
+        },
+        {
+          "text": "Abre el trato con un clic en su título. Para vincular lo que ya hiciste, usa «Enganchar una cotización suelta» (elige COT-2026-0001 y «Enganchar») y «Enganchar un pedido suelto» (elige ORD-2026-0001). «Quitar» los desengancha.",
+          "image": "img/05-56-trato-enganchar.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "Lista de cotizaciones sueltas"
+            },
+            {
+              "n": 2,
+              "label": "«Enganchar» la cotización"
+            },
+            {
+              "n": 3,
+              "label": "Lista de pedidos sueltos"
+            },
+            {
+              "n": 4,
+              "label": "«Enganchar» el pedido"
+            }
+          ]
+        },
+        {
+          "text": "Al enganchar el pedido, el trato pasa solo a «Ganado» y la ficha dice qué falta para llegar a «Cerrado»: «Falta entregar 1 pedido y cobrar 1 pedido.»",
+          "image": "img/05-57-trato-ganado.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "Etapa: «Ganado»"
+            },
+            {
+              "n": 2,
+              "label": "Qué falta para «Cerrado»"
+            },
+            {
+              "n": 3,
+              "label": "«Cotizaciones» del trato"
+            },
+            {
+              "n": 4,
+              "label": "«Pedidos» del trato"
+            }
+          ]
+        },
+        {
+          "text": "El tablero tiene seis columnas: «Nuevo», «Cotizado», «Negociando», «Ganado», «Cerrado» y «Perdido». Cada tarjeta muestra el cliente, el monto, los días sin movimiento y cuántas cotizaciones y pedidos tiene. Se mueve arrastrándola o con «Mover a»; al pasar un trato a «Perdido», la app pregunta por qué se perdió.",
+          "image": "img/05-58-oportunidades-tablero.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "Columna «Nuevo»: alguien preguntó"
+            },
+            {
+              "n": 2,
+              "label": "Columna «Ganado»: ya es pedido"
+            },
+            {
+              "n": 3,
+              "label": "La tarjeta del trato"
+            },
+            {
+              "n": 4,
+              "label": "«Mover a»"
+            },
+            {
+              "n": 5,
+              "label": "«Nuevo trato»"
+            }
+          ]
+        }
+      ],
+      "tips": [
+        "«Cerrado» no se arrastra: llega solo, cuando todos los pedidos del trato están entregados y cobrados.",
+        "Los tratos no mueven stock ni dinero: son una libreta comercial."
+      ],
+      "warnings": []
+    },
+    {
+      "title": "Qué puede hacer cada rol",
+      "intro": "Todo este capítulo lo hacen el dueño y el operador, con una excepción: anular dinero es solo del dueño. Quien entra con el rol de solo lectura ve todo y no cambia nada.",
+      "steps": [
+        {
+          "text": "El operador registra clientes, cotiza, envía, acepta, vende, entrega y cobra. En «Caja», en cambio, no tiene el botón «Anular»: la pantalla dice «Solo el dueño del taller puede anular un movimiento.»",
+          "image": "img/05-59-operador-caja-no-anula.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "El aviso: anular es solo del dueño"
+            },
+            {
+              "n": 2,
+              "label": "Un cobro sin botón «Anular» para el operador"
+            }
+          ]
+        },
+        {
+          "text": "Quien entra como solo lectura ve las mismas pantallas, sin botones. En «Pedidos» dice «Tu rol en el taller es de solo lectura: ves todo, pero no registras ni cambias nada.» y en la ficha de un pedido, el cobro y la entrega dicen que los hacen el dueño o un operador.",
+          "image": "img/05-60-lectura-pedido.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "«Falta cobrar S/ 85.00. Lo cobran el dueño o un operador.»"
+            },
+            {
+              "n": 3,
+              "label": "«Avance»: el camino del pedido, sin botones"
+            }
+          ]
+        }
+      ],
+      "tips": [
+        "Ocultar un botón no es seguridad: las reglas de acceso viven en la base de datos. Por eso, aunque alguien llegue por un enlace directo (por ejemplo a «Venta rápida»), solo ve el aviso de solo lectura.",
+        "El dueño anula cobros; el operador se lo pide. Es la única diferencia entre ambos en este capítulo."
+      ],
+      "warnings": []
+    }
+  ]
+}

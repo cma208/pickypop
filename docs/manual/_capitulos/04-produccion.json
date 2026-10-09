@@ -1,0 +1,914 @@
+{
+  "n": 4,
+  "title": "Producción: imprimir, armar y contar",
+  "intro": "La producción es el camino de la impresora al estante: creas un trabajo de impresión, lo inicias, lo cierras con lo que de verdad salió, armas el producto con esas piezas y, de vez en cuando, cuentas el estante para corregir lo que no coincide. En este capítulo imprimes las piezas de 3 Calaveras dulceras, las armas y terminas con 3 calaveras armadas en el estante. Esta parte la hace normalmente el operador; el dueño puede hacer exactamente lo mismo.",
+  "who": "todos",
+  "sections": [
+    {
+      "title": "La cola de impresión y «Por lanzar»",
+      "intro": "La cola de impresión es la pantalla de producción: lo que está corriendo, lo que sigue y lo que falta producir. Vive en el grupo «Producción» del menú y es donde empieza todo lo de este capítulo.",
+      "steps": [
+        {
+          "text": "Haz clic en «Cola de impresión», en el grupo «Producción» del menú de la izquierda. Arriba a la derecha está «Nuevo trabajo» (solo lo ven el dueño y el operador). Debajo, la tarjeta «Por lanzar» dice qué falta imprimir. Más abajo aparecen los bloques «Imprimiendo» y «Planificado»; mientras no haya ninguno, la pantalla dice «Todavía no hay impresiones registradas».",
+          "image": "img/04-01-cola-vacia.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "«Nuevo trabajo»: abre el formulario de un trabajo de impresión"
+            },
+            {
+              "n": 2,
+              "label": "«Por lanzar»: lo que piden los pedidos confirmados y todavía no está impreso"
+            },
+            {
+              "n": 3,
+              "label": "Mensaje de cola vacía: todavía no hay impresiones"
+            }
+          ]
+        },
+        {
+          "text": "Lee «Por lanzar» así: es la lista de placas que conviene imprimir para cumplir los pedidos confirmados, ya descontado lo que hay en el estante y en la cola. Primero va lo del pedido que se confirmó antes. Si no hay pedidos confirmados dice «Nada por lanzar: no hay pedidos confirmados esperando piezas», que es lo normal en este punto del manual."
+        },
+        {
+          "text": "Cuando sí haya pedidos confirmados, cada fila de «Por lanzar» trae: la foto y el nombre de la placa; cuántas corridas hacen falta y cuánto tardan (por ejemplo «3 corridas × 33 min · 1 h 39 min en total»); lo que deja cada corrida («Cada corrida deja Frente de calavera × 1»); los gramos de cada filamento con la etiqueta «Alcanza el filamento» o «No alcanza el filamento»; los pedidos que cubre, en el orden en que se atienden; y cuándo empezaría la primera corrida. El botón «Poner en cola» te deja elegir la «Impresora» y cuántas «Corridas» lanzar."
+        },
+        {
+          "text": "«Por lanzar» solo propone; tú decides qué poner en cola. Un pedido no empuja trabajos a la cola por su cuenta. Lo que pones en cola aparece abajo, en «Planificado», con el aviso «Pusiste N corridas de … en la cola de …»."
+        }
+      ],
+      "tips": [
+        "El plan es uno solo para toda la app: lo que dice «Por lanzar», lo que ve quien vende y lo que dice la pantalla de un pedido salen del mismo cálculo. Si algo no cuadra, arriba aparece una tarjeta «Avisos del plan» o un aviso como «Con la cola como está, un pedido llega tarde», con el enlace al pedido.",
+        "Una cotización enviada o un pedido en espera solo separan piezas por un plazo: no lanzan corridas. Por eso «Por lanzar» mira únicamente los pedidos confirmados.",
+        "Una placa empieza entre las 6:00 y las 23:00 y termina antes de medianoche (el horario se cambia en Configuración). Lo que no cabe hoy se planifica para mañana."
+      ],
+      "warnings": [
+        "La aplicación nunca controla la impresora: no lamina, no manda trabajos ni habla con la máquina. El laminado se hace en Bambu Studio. Aquí solo anotas que la impresión empezó y cómo terminó."
+      ]
+    },
+    {
+      "title": "Crear un trabajo de una placa",
+      "intro": "Un trabajo de impresión es una placa, una impresora y los rollos que va a gastar. Aquí creas el primero: la placa «Tapas y ganchos» de la Calavera dulcera, que en una corrida deja 7 tapas y 7 ganchos.",
+      "steps": [
+        {
+          "text": "Haz clic en «Nuevo trabajo». Se abre la tarjeta «Nuevo trabajo de impresión» y el botón pasa a decir «Cerrar formulario».",
+          "image": "img/04-02-nuevo-trabajo-formulario.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "«Qué se imprime»: el nombre del trabajo (se llena solo al elegir la placa)"
+            },
+            {
+              "n": 2,
+              "label": "«Impresora»: ya viene elegida si el taller tiene una sola"
+            },
+            {
+              "n": 3,
+              "label": "«Placa de la receta»: abre la lista de placas"
+            },
+            {
+              "n": 4,
+              "label": "«Rollo 1»: el filamento que va a gastar"
+            }
+          ]
+        },
+        {
+          "text": "Deja «Línea a medida de un pedido» en «Sin pedido (estante, molde o prueba)». Los pedidos de catálogo no se lanzan desde aquí sino desde «Por lanzar»; esta lista solo sirve para una línea a medida de un pedido."
+        },
+        {
+          "text": "Haz clic en «Placa de la receta» y elige «Tapas y ganchos». Cada opción muestra la foto de la placa, las piezas que deja y, a la derecha, a qué variante pertenece: elige la de «Calavera dulcera — Con dulces surtidos». Si la lista es larga, escribe parte del nombre en «Busca por nombre…».",
+          "image": "img/04-03-elegir-placa.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "«Placa de la receta» abierta, con su caja «Busca por nombre…»"
+            },
+            {
+              "n": 2,
+              "label": "La placa «Tapas y ganchos» de la variante «Con dulces surtidos» (la variante está a la derecha)"
+            }
+          ]
+        },
+        {
+          "text": "Mira lo que se llenó solo. Aparece la vista de la placa con «Una corrida completa deja en el estante: Tapa de calavera × 7, Gancho de calavera × 7». «Qué se imprime» toma el nombre de la placa, «Impresora» dice A1 mini, «Tiempo estimado (minutos)» llena 44 y en «Rollos que va a consumir» se propone el rollo PLA-BLANCO-01 con 6.41 «Gramos estimados». Puedes ajustar lo que quieras. Escribe una «Nota» útil para después y haz clic en «Crear trabajo».",
+          "image": "img/04-04-nuevo-trabajo-lleno.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "Vista de la placa y de lo que deja en el estante"
+            },
+            {
+              "n": 2,
+              "label": "«Tiempo estimado (minutos)»: sale de la placa"
+            },
+            {
+              "n": 3,
+              "label": "Rollo propuesto: PLA-BLANCO-01"
+            },
+            {
+              "n": 4,
+              "label": "«Gramos estimados» del rollo: 6.41"
+            },
+            {
+              "n": 5,
+              "label": "«Crear trabajo»"
+            }
+          ]
+        },
+        {
+          "text": "El trabajo aparece en el bloque «Planificado» con su turno (1), la hora a la que empezaría («Empezaría ya»), lo que dejará y el rollo. Tiene dos botones: «Iniciar» y «Cerrar…».",
+          "image": "img/04-05-trabajo-planificado.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "«Planificado (1, se imprimen en este orden)»"
+            },
+            {
+              "n": 2,
+              "label": "«Empezaría ya»: la hora en que el plan pone a empezar este trabajo"
+            },
+            {
+              "n": 3,
+              "label": "«Una corrida completa deja»: lo que entrará al estante"
+            },
+            {
+              "n": 4,
+              "label": "«Iniciar»"
+            },
+            {
+              "n": 5,
+              "label": "«Cerrar…»"
+            }
+          ]
+        }
+      ],
+      "tips": [
+        "El rollo que se propone es el que ya está en la impresora; si no, uno abierto y, al final, uno sellado. Los gramos estimados salen del archivo laminado, que ya incluye la purga y la torre de limpieza: no los sumes aparte.",
+        "El tiempo y los gramos estimados son solo un punto de partida. Lo que cuenta de verdad es lo que escribes al cerrar el trabajo."
+      ],
+      "warnings": [
+        "Sin placa no entra nada al estante. Si eliges «Sin placa (a mano)», la app avisa que el costo va a «Producción no vendida» (moldes, herramientas y pruebas). Es el camino del molde; para imprimir piezas del estante, elige siempre su placa.",
+        "Un trabajo necesita al menos un rollo: sin él no se puede descontar el filamento al cerrar. Tampoco repitas el mismo rollo en dos filas."
+      ]
+    },
+    {
+      "title": "Una placa de dos colores: elegir los dos rollos",
+      "intro": "La placa «Frente» usa PLA Blanco y PLA Negro. Al elegirla, el formulario propone los dos rollos con sus gramos, y creas el trabajo igual que antes.",
+      "steps": [
+        {
+          "text": "Haz clic en «Nuevo trabajo», abre «Placa de la receta» y elige «Frente» de la variante «Con dulces surtidos». La vista dice «Una corrida completa deja en el estante: Frente de calavera × 1»."
+        },
+        {
+          "text": "Revisa «Rollo 1» (PLA-BLANCO-01, 7.75 g) y «Rollo 2» (PLA-NEGRO-01, 0.88 g). Si necesitas otro rollo, haz clic en «+ Agregar rollo»; si sobra uno, en «Quitar». Escribe una «Nota» («Frente de la primera calavera.») y haz clic en «Crear trabajo».",
+          "image": "img/04-10-trabajo-dos-rollos.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "Vista de la placa «Frente» y lo que deja"
+            },
+            {
+              "n": 2,
+              "label": "«Rollo 1»: PLA Blanco con 7.75 g estimados"
+            },
+            {
+              "n": 3,
+              "label": "«Rollo 2»: PLA Negro con 0.88 g estimados"
+            },
+            {
+              "n": 4,
+              "label": "«+ Agregar rollo»: para una placa de más colores"
+            },
+            {
+              "n": 5,
+              "label": "«Crear trabajo»"
+            }
+          ]
+        }
+      ],
+      "tips": [
+        "Cada opción de rollo muestra su código, su filamento y cuánto queda («PLA-BLANCO-01 · PLA Blanco · 968.4 g»). Si en la impresora tienes otro rollo del mismo filamento, cámbialo aquí. Si un rollo no alcanza para los gramos estimados, la fila lo avisa en naranja."
+      ],
+      "warnings": []
+    },
+    {
+      "title": "Iniciar el trabajo",
+      "intro": "«Iniciar» le dice a la app que la placa ya está imprimiendo. No arranca nada en la máquina: solo anota la hora y mueve el trabajo a «Imprimiendo».",
+      "steps": [
+        {
+          "text": "En el trabajo planificado, haz clic en «Iniciar»."
+        },
+        {
+          "text": "El trabajo pasa al bloque «Imprimiendo». Muestra una barra de avance con «0 % · faltan 44 min» que se va llenando con el tiempo estimado, y su único botón ahora es «Cerrar…».",
+          "image": "img/04-06-imprimiendo.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "Bloque «Imprimiendo»"
+            },
+            {
+              "n": 2,
+              "label": "Etiqueta de estado «Imprimiendo»"
+            },
+            {
+              "n": 3,
+              "label": "Barra de avance y tiempo que falta"
+            },
+            {
+              "n": 4,
+              "label": "«Cerrar…»: se usa cuando la impresión termina"
+            }
+          ]
+        }
+      ],
+      "tips": [
+        "El filamento todavía no sale del rollo: eso pasa al cerrar el trabajo, con los gramos reales.",
+        "Si la impresión pasa de su tiempo estimado, la barra se pone naranja y dice «va N min más de lo estimado». Debajo aparece «¿Terminó? Ciérrala: mientras siga abierta, el plan la da por terminada ahora.»",
+        "Un trabajo que viene de «Por lanzar» llega sin rollos: su botón dice «Iniciar…» y te pide elegirlos («Confirma los rollos que va a usar. Se proponen el que está en la impresora, luego uno abierto y al final uno sellado.»). Elige los rollos y haz clic en «Iniciar con estos rollos»."
+      ],
+      "warnings": [
+        "Una impresora imprime un trabajo a la vez. Si intentas iniciar otro mientras uno corre, la base de datos lo rechaza y la app muestra «A1 mini ya está imprimiendo «…». Ciérrala antes de empezar otra.»"
+      ]
+    },
+    {
+      "title": "Cerrar un trabajo como exitoso",
+      "intro": "Al cerrar un trabajo dices lo que de verdad pasó: cuánto tardó, cuántas piezas salieron de cada tipo y cuántos gramos gastó cada rollo. Con eso la app descuenta el filamento y mete las piezas al estante.",
+      "steps": [
+        {
+          "text": "En el trabajo que está imprimiendo, haz clic en «Cerrar…». Se abre el formulario de cierre con «Resultado» en «Exitosa»."
+        },
+        {
+          "text": "Escribe el «Tiempo real (minutos)»: cuánto tardó de verdad (46; el estimado era 44). En «Piezas que salieron, una por una» pon cuántas salieron de cada pieza: 7 de 7 tapas y 6 de 7 ganchos (uno se rompió al quitarlo de la placa). En «Gramos usados por rollo» pon los «Gramos reales» (6.6; el estimado era 6.41). Si quieres, escribe una «Nota».",
+          "image": "img/04-07-cerrar-exitosa.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "«Resultado»: Exitosa, Fallida o Cancelada"
+            },
+            {
+              "n": 2,
+              "label": "«Tiempo real (minutos)»"
+            },
+            {
+              "n": 3,
+              "label": "«Piezas que salieron, una por una»: 7 de 7 tapas y 6 de 7 ganchos"
+            },
+            {
+              "n": 4,
+              "label": "«Gramos reales» que gastó el rollo"
+            }
+          ]
+        },
+        {
+          "text": "Haz clic en «Revisar y cerrar». Antes de guardar, la app dice exactamente qué va a pasar: «Esto no se puede deshacer. Se descontarán 6.6 g de 1 rollo. Entran al estante: Tapa de calavera × 7 y Gancho de calavera × 6.» Si algo no cuadra, haz clic en «Volver»; si cuadra, en «Sí, cerrar impresión».",
+          "image": "img/04-08-cerrar-confirmar.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "Resumen de lo que va a pasar con el rollo y con el estante"
+            },
+            {
+              "n": 2,
+              "label": "«Sí, cerrar impresión»: cierra para siempre"
+            },
+            {
+              "n": 3,
+              "label": "«Volver»: regresa al formulario sin cerrar nada"
+            }
+          ]
+        },
+        {
+          "text": "Aparece la tarjeta «Stock que quedó» con el rollo, lo que tenía «Antes» (975 g), lo que tiene «Ahora» (968.4 g) y el «Cambio» (-6.6 g). Haz clic en «Entendido» para quitarla. El trabajo ya no está en la cola: pasó al historial.",
+          "image": "img/04-09-stock-que-quedo.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "Tabla «Stock que quedó»: Rollo, Antes, Ahora y Cambio"
+            },
+            {
+              "n": 2,
+              "label": "«Entendido»: quita la tarjeta"
+            },
+            {
+              "n": 3,
+              "label": "La cola quedó vacía: lo cerrado está en el historial"
+            }
+          ]
+        }
+      ],
+      "tips": [
+        "Lo que escribes en «Piezas que salieron» es lo que entra al estante: 7 tapas y 6 ganchos, no 7 y 7. Si una pieza se rompió o se soltó, baja su número; no la dejes en el máximo «por si acaso».",
+        "Cada fila dice «de 7» (o el número que deja la placa) para que no escribas más de lo que la placa hace. Solo se aceptan números enteros.",
+        "Cada pieza entra al estante con su costo: lo que costó esa impresión (filamento, luz y máquina) repartido entre las piezas que salieron. Por eso importa contarlas bien.",
+        "El filamento sale del rollo con los gramos reales, no con los estimados. Si no los sabes con precisión, deja el estimado: ya trae la purga y la torre de limpieza."
+      ],
+      "warnings": [
+        "Cerrar una impresión mueve filamento y piezas y no se puede deshacer. La pantalla de confirmación es tu última oportunidad: léela antes de hacer clic en «Sí, cerrar impresión».",
+        "El estante solo se mueve imprimiendo (al cerrar), armando, entregando o contando. No hay otro botón para sumar piezas."
+      ]
+    },
+    {
+      "title": "Cerrar un trabajo que nunca iniciaste en la app",
+      "intro": "A veces la placa se lanza directo desde la impresora y nadie marcó «Iniciar». Se puede cerrar igual, pero entonces la app no tiene tiempos reales que proponer.",
+      "steps": [
+        {
+          "text": "En un trabajo «Planificado», haz clic en «Cerrar…» sin pasar por «Iniciar»."
+        },
+        {
+          "text": "La app avisa con un cuadro amarillo: «Este trabajo nunca se inició en la aplicación. Escribe lo que de verdad pasó: el tiempo y los gramos que gastó.» Escribe el «Tiempo real (minutos)» (23), las piezas que salieron (1 de 1) y los «Gramos reales» (5.9), y sigue igual que antes: «Revisar y cerrar» y «Sí, cerrar impresión».",
+          "image": "img/04-16-cerrar-sin-iniciar.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "Aviso: el trabajo nunca se inició en la aplicación"
+            },
+            {
+              "n": 2,
+              "label": "«Tiempo real (minutos)»: escríbelo tú, no hay uno medido"
+            },
+            {
+              "n": 3,
+              "label": "«Piezas que salieron»: 1 de 1"
+            },
+            {
+              "n": 4,
+              "label": "«Gramos reales» del rollo"
+            }
+          ]
+        }
+      ],
+      "tips": [
+        "Es el camino corto cuando la placa ya se imprimió y solo falta registrarla. Así se cerró la primera trasera del ejemplo."
+      ],
+      "warnings": [
+        "Un trabajo que salió de «Por lanzar» no tiene rollos hasta que lo inicias. Si lo cierras antes, la app avisa «Este trabajo no tiene rollos, así que cerrarlo no descuenta filamento» y te manda a usar «Iniciar…» primero para elegir con qué rollos se imprimió."
+      ]
+    },
+    {
+      "title": "Cerrar un trabajo como fallido",
+      "intro": "Una impresión puede salir mal. La app la anota con su causa, descuenta el filamento que se desperdició y no mete ninguna pieza al estante. Aquí el primer «Frente» se despegó de la placa a mitad de camino.",
+      "steps": [
+        {
+          "text": "Crea el trabajo «Frente» como en la sección anterior, haz clic en «Iniciar» y luego en «Cerrar…»."
+        },
+        {
+          "text": "En «Resultado» elige «Fallida». Aparecen dos campos nuevos: «Causa del fallo» (obligatoria) y «Porcentaje completado». Elige «Adhesión a la placa» y escribe 40 en «Porcentaje completado». Con ese porcentaje la app propone el «Tiempo real (minutos)» (13) y los «Gramos reales» desperdiciados de cada rollo (3.1 g de PLA Blanco y 0.35 g de PLA Negro); puedes cambiarlos si sabes los reales. En «Nota» cuenta qué pasó.",
+          "image": "img/04-11-cerrar-fallida.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "«Resultado» en «Fallida»"
+            },
+            {
+              "n": 2,
+              "label": "«Causa del fallo»: obligatoria"
+            },
+            {
+              "n": 3,
+              "label": "«Porcentaje completado»: con él se proponen el tiempo y los gramos"
+            },
+            {
+              "n": 4,
+              "label": "«Tiempo real (minutos)» propuesto: 13"
+            },
+            {
+              "n": 5,
+              "label": "«Gramos desperdiciados por rollo»: uno por cada rollo"
+            }
+          ]
+        },
+        {
+          "text": "Haz clic en «Revisar y cerrar». La confirmación dice «Esto no se puede deshacer. Se registrarán como merma 3.45 g de 2 rollos.» Haz clic en «Sí, cerrar impresión»."
+        },
+        {
+          "text": "«Stock que quedó» muestra los dos rollos con su descuento (-0.35 g el negro y -3.1 g el blanco). No entró ninguna pieza al estante.",
+          "image": "img/04-12-stock-fallida.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "Los dos rollos descontados por lo que se desperdició"
+            }
+          ]
+        }
+      ],
+      "tips": [
+        "Las causas posibles son: Adhesión a la placa, Atasco de boquilla, Spaghetti (hilos sueltos), Capa desplazada, Se acabó el filamento, Corte de luz, Configuración equivocada, Warping / deformación y Otra causa.",
+        "«Cancelada» es para un trabajo que paraste por decisión tuya, no porque saliera mal. Pide el porcentaje y los gramos que alcanzó a gastar; déjalos vacíos o en cero si no llegó a empezar.",
+        "Un fallo no desaparece: el dueño lo ve en «Resultados» y todos lo ven en Hoy, en «Impresiones de la semana» (ver «Dónde se nota lo que hiciste»)."
+      ],
+      "warnings": [
+        "Cierra los fallos siempre con su causa y su porcentaje, aunque dé pereza: sin ellos nadie sabe después por qué falla tanto una placa."
+      ]
+    },
+    {
+      "title": "Un trabajo cerrado no se edita",
+      "intro": "Cuando haces clic en «Sí, cerrar impresión», el trabajo queda cerrado para siempre. No tiene botón de editar, de reabrir ni de borrar.",
+      "steps": [
+        {
+          "text": "Compruébalo en «Historial de impresiones» (la sección siguiente): las tarjetas de lo cerrado solo muestran datos, sin «Iniciar» ni «Cerrar…». Si una pestaña vieja intentara cerrar un trabajo que ya se cerró en otra, la base de datos lo rechaza y la pantalla se recarga para mostrar lo que de verdad pasó."
+        }
+      ],
+      "tips": [
+        "Si te equivocaste en las piezas que salieron, no se corrige en el trabajo: se cuenta el estante (ver «Contar el estante») y la diferencia queda anotada.",
+        "Si te equivocaste en los gramos, se corrige pesando el rollo en «Filamentos» (capítulo 2).",
+        "La regla es la misma de todo el taller: lo que ya pasó no se borra ni se reescribe; se corrige con un movimiento nuevo encima, que deja rastro. Un trabajo nunca se borra, ni siquiera el dueño puede: se cierra como exitoso, fallido o cancelado y queda en el historial."
+      ],
+      "warnings": [
+        "No hay forma de deshacer un cierre. Revisa la pantalla de confirmación: es el único momento para volver atrás."
+      ]
+    },
+    {
+      "title": "El historial de impresiones",
+      "intro": "El historial es lo que ya pasó: todos los trabajos cerrados, el último arriba. La cola responde «¿qué hago ahora?» y el historial «¿qué pasó?».",
+      "steps": [
+        {
+          "text": "Haz clic en «Historial de impresiones», en el grupo «Producción». Cada tarjeta dice el nombre del trabajo, su estado (Exitoso, Fallido o Cancelado), la fecha, la impresora, la placa, el tiempo real, los gramos reales de cada rollo (con el estimado entre paréntesis), lo que entró al estante o la causa del fallo con su porcentaje, la nota y el «Costo real».",
+          "image": "img/04-13-historial.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "Filtro «Resultado»"
+            },
+            {
+              "n": 2,
+              "label": "Causa del fallo y porcentaje completado"
+            },
+            {
+              "n": 3,
+              "label": "«Costo real» de la impresión fallida: S/ 0.28"
+            },
+            {
+              "n": 4,
+              "label": "«Entró al estante»: lo que de verdad salió"
+            },
+            {
+              "n": 5,
+              "label": "Cuántas tarjetas ves de cuántas hay: «2 de 2»"
+            }
+          ]
+        },
+        {
+          "text": "Para ver solo un tipo, elige en «Resultado»: «Todos», «Exitoso», «Fallido» o «Cancelado». A la derecha dice cuántos ves de cuántos hay («1 de 8»).",
+          "image": "img/04-17-historial-filtro.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "«Resultado» filtrado por «Fallido»"
+            },
+            {
+              "n": 2,
+              "label": "«1 de 8»: una tarjeta visible de ocho cerradas"
+            },
+            {
+              "n": 3,
+              "label": "La causa del fallo"
+            }
+          ]
+        }
+      ],
+      "tips": [
+        "El «Costo real» sale de lo que de verdad gastó: los gramos reales por lo que costó cada rollo, más luz y máquina por el tiempo real. En el ejemplo, las tapas y ganchos costaron S/ 0.69 y el frente fallido S/ 0.28.",
+        "El historial no tiene botones de acción: es solo para mirar y para buscar qué pasó con una placa."
+      ],
+      "warnings": []
+    },
+    {
+      "title": "Imprimir lo necesario para 3 calaveras",
+      "intro": "Una Calavera dulcera lleva 4 piezas: 1 tapa, 1 gancho, 1 frente y 1 trasera. Cuántos trabajos hacen falta depende de cuánto deja cada placa.",
+      "steps": [
+        {
+          "text": "Haz las cuentas. «Tapas y ganchos» deja 7 tapas y 7 ganchos por corrida, así que una corrida alcanza para 3 calaveras y sobran. «Frente» y «Trasera» dejan 1 pieza por corrida: hacen falta 3 corridas de cada una, más una de «Frente» por el que falló. En total son 8 trabajos: 1 de «Tapas y ganchos», 4 de «Frente» (uno fallido) y 3 de «Trasera»."
+        },
+        {
+          "text": "Ya hiciste los dos primeros (el de tapas y ganchos y el frente fallido). Te faltan 6: 3 de «Frente» y 3 de «Trasera». Créalos uno tras otro con «Nuevo trabajo» (placa, nota y «Crear trabajo»). La cola los ordena en «Planificado (6, se imprimen en este orden)» y cada uno dice cuándo empezaría: «Empezaría ya» el primero y «Empezaría hoy 21:08» el segundo.",
+          "image": "img/04-14-cola-planificada.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "«Planificado (6, se imprimen en este orden)»"
+            },
+            {
+              "n": 2,
+              "label": "«Empezaría ya»: el primero de la cola"
+            },
+            {
+              "n": 3,
+              "label": "Número de turno del segundo trabajo"
+            },
+            {
+              "n": 4,
+              "label": "«Empezaría hoy 21:08»: la hora que calcula el plan para el segundo"
+            }
+          ]
+        },
+        {
+          "text": "Fíjate en las horas de los últimos: como una placa solo empieza entre las 6:00 y las 23:00 y debe terminar antes de medianoche, lo que no cabe hoy se pasa a mañana («Empezaría mañana 06:00»).",
+          "image": "img/04-15-cola-turno-manana.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "«Empezaría hoy 22:44»: la última que cabe hoy"
+            },
+            {
+              "n": 2,
+              "label": "«Empezaría mañana 06:00»: ya no cabe antes de medianoche"
+            },
+            {
+              "n": 3,
+              "label": "«Empezaría mañana 06:37»"
+            }
+          ]
+        },
+        {
+          "text": "Atiéndelos en orden: «Iniciar» y luego «Cerrar…» en el primero de la lista, como en las secciones anteriores. Cuando cierras uno, el siguiente sube de turno y su hora se corre. En el ejemplo, los tres frentes tardaron 34, 33 y 35 minutos y gastaron unos 8 g de PLA Blanco y 0.9 g de PLA Negro cada uno; las tres traseras, entre 22 y 23 minutos y unos 5.9 g de PLA Blanco."
+        }
+      ],
+      "tips": [
+        "No hace falta crear todos los trabajos de antemano: puedes crear uno, cerrarlo y crear el siguiente. Crearlos juntos sirve para ver el orden y las horas de la cola.",
+        "Lo que sobra (4 tapas y 3 ganchos) se queda en el estante para la próxima calavera: cuando el estante ya tiene piezas, «Por lanzar» no pide imprimir lo que ya hay.",
+        "Cuando un trabajo termina, el plan recalcula todo: la cola, «Por lanzar» y las horas de cada pedido cambian solas."
+      ],
+      "warnings": []
+    },
+    {
+      "title": "Piezas impresas: lo que hay y su foto",
+      "intro": "Al cerrar impresiones, las piezas entran a «Piezas impresas». Ahí ves cuántas hay de cada una y es el momento de ponerles su foto.",
+      "steps": [
+        {
+          "text": "Haz clic en «Piezas impresas», en el grupo «Inventario». Las piezas que todavía no tienen foto propia muestran la de su placa y el texto «Foto de la placa · Agregar la suya»."
+        },
+        {
+          "text": "Haz clic en «Agregar la suya» en «Frente de calavera». Se abre «Editar pieza»: en «Foto» haz clic en «Subir foto», elige la imagen (se achica sola antes de subir) y luego en «Guardar». Aparece «Cambios guardados». Repite con «Trasera de calavera».",
+          "image": "img/04-18-pieza-foto.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "La foto ya subida"
+            },
+            {
+              "n": 2,
+              "label": "«Cambiar foto» (antes de subirla decía «Subir foto»)"
+            },
+            {
+              "n": 3,
+              "label": "«Guardar»"
+            }
+          ]
+        },
+        {
+          "text": "Lee la lista. «Hay» es lo que hay en el estante: ahora 3 frentes, 6 ganchos, 7 tapas y 3 traseras. «Separado» es lo apartado para pedidos o cotizaciones, «Libre» lo que queda sin dueño y «Falta» lo que falta imprimir. A la derecha, el «Costo por unidad». El botón «Armar productos» te lleva a la siguiente sección.",
+          "image": "img/04-19-piezas-estante.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "«Hay»: las piezas que salieron de las impresiones"
+            },
+            {
+              "n": 2,
+              "label": "El frente ya con su foto propia"
+            },
+            {
+              "n": 3,
+              "label": "«Agregar la suya»: el gancho todavía muestra la foto de su placa"
+            },
+            {
+              "n": 4,
+              "label": "«Costo por unidad»"
+            },
+            {
+              "n": 5,
+              "label": "«Armar productos»"
+            }
+          ]
+        }
+      ],
+      "tips": [
+        "Todo artículo se reconoce por su foto: en un taller donde casi todo se llama «la tapa chica», el nombre solo no alcanza. Las tapas y los ganchos seguirán con la foto de su placa hasta que les agregues la suya.",
+        "El costo por unidad de una pieza impresa sale del promedio de lo que costaron sus impresiones, no de una compra: una pieza se produce, no se compra. Mientras no se imprima ninguna dice «Sin costo». En el ejemplo: tapa y gancho S/ 0.053, frente S/ 0.717 y trasera S/ 0.487.",
+        "«Separado», «Libre» y «Falta» salen del plan, y mientras no haya pedidos ni cotizaciones separando piezas, todo lo que hay está libre."
+      ],
+      "warnings": [
+        "No hay un campo para escribir la cantidad a mano: el stock sale de sus movimientos. Una pieza sube imprimiendo y baja armando, entregando o contando."
+      ]
+    },
+    {
+      "title": "Armar 3 calaveras",
+      "intro": "Armar junta las piezas, los dulces, la lámina y la bolsa en un producto terminado. Es una de las cuatro formas (imprimir, armar, entregar y contar) en que se mueve el estante.",
+      "steps": [
+        {
+          "text": "Haz clic en «Armar productos», en el grupo «Inventario» (o en el botón de «Piezas impresas»). Cada producto con receta aparece como una tarjeta con su foto, su variante y dos datos: «Alcanza para 3» (lo que se puede armar con lo que hay) y «0 armadas en el estante».",
+          "image": "img/04-20-armar-elegir.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "Tarjeta de «Calavera dulcera · Con dulces surtidos»"
+            },
+            {
+              "n": 2,
+              "label": "«Alcanza para 3»: lo que se puede armar con lo que hay"
+            },
+            {
+              "n": 3,
+              "label": "«0 armadas en el estante»"
+            }
+          ]
+        },
+        {
+          "text": "Haz clic en la tarjeta. Debajo se abre «Armar Calavera dulcera · Con dulces surtidos». Escribe 3 en «¿Cuántas?». La tabla dice, por cada componente, cuánto «Hace falta», cuánto «Hay» y su «Estado» («Alcanza»): 3 bolsas con etiqueta, 150 g de dulces surtidos, 3 frentes, 3 ganchos, 3 láminas PET, 3 tapas y 3 traseras. El botón dice «Armar 3».",
+          "image": "img/04-21-armar-tres.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "La tarjeta elegida"
+            },
+            {
+              "n": 2,
+              "label": "«¿Cuántas?»: escribe 3"
+            },
+            {
+              "n": 3,
+              "label": "«Armar 3»"
+            },
+            {
+              "n": 4,
+              "label": "Tabla: lo que hace falta, lo que hay y si alcanza"
+            }
+          ]
+        },
+        {
+          "text": "Prueba, si quieres, con 4: la app avisa «Falta stock para 4. Alcanza para 3.», marca en rojo lo que falta («Falta 1 unidad» de frente y de trasera) y desactiva el botón. Vuelve a escribir 3.",
+          "image": "img/04-22-armar-falta-stock.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "«Falta stock para 4. Alcanza para 3.»"
+            },
+            {
+              "n": 2,
+              "label": "«Armar 4» desactivado"
+            },
+            {
+              "n": 3,
+              "label": "«Falta 1 unidad» de frente"
+            },
+            {
+              "n": 4,
+              "label": "«Falta 1 unidad» de trasera"
+            }
+          ]
+        },
+        {
+          "text": "Haz clic en «Armar 3». La app te muestra qué sale y qué entra: «Esto no se puede deshacer. Salen del estante: …» y «Entra al estante: 3 unidades de Calavera dulcera (Con dulces surtidos)». Haz clic en «Sí, armar».",
+          "image": "img/04-23-armar-confirmar.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "«Esto no se puede deshacer. Salen del estante:»"
+            },
+            {
+              "n": 2,
+              "label": "Lo que sale: bolsas, dulces, piezas y lámina, cada uno con su foto"
+            },
+            {
+              "n": 3,
+              "label": "Lo que entra: 3 Calavera dulcera (Con dulces surtidos)"
+            },
+            {
+              "n": 4,
+              "label": "«Sí, armar»"
+            },
+            {
+              "n": 5,
+              "label": "«Volver»"
+            }
+          ]
+        },
+        {
+          "text": "Aparece «Se armaron 3 unidades de Calavera dulcera (Con dulces surtidos). Los componentes salieron del estante.» La tarjeta ahora dice «3 armadas en el estante», y su etiqueta pasa a «No alcanza» porque ya no quedan frentes ni traseras para armar otra.",
+          "image": "img/04-24-armado-listo.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "«3 armadas en el estante»"
+            },
+            {
+              "n": 2,
+              "label": "«No alcanza»: ya no quedan piezas para armar otra"
+            },
+            {
+              "n": 3,
+              "label": "Aviso de que se armaron 3 unidades"
+            }
+          ]
+        }
+      ],
+      "tips": [
+        "Armar es todo o nada: si falta un solo componente no se arma nada, y la base de datos vuelve a comprobar el stock al guardar. Dos personas armando a la vez no pueden gastar la misma pieza.",
+        "Las 3 calaveras entran al estante valoradas en lo que costó armarlas: las piezas, los dulces, la lámina y la bolsa, más la mano de obra de la receta (la preparación una vez por armado y los minutos por unidad). En el ejemplo, unos S/ 7.62 cada una. Cuando se vendan, saldrán al promedio de lo que costó producirlas.",
+        "El producto armado es lo que después se entrega en un pedido: entregar saca del estante."
+      ],
+      "warnings": [
+        "Armar no se puede deshacer y no hay un botón para desarmar. Si armaste de más o una unidad se dañó, se corrige contando el estante."
+      ]
+    },
+    {
+      "title": "Contar el estante y qué pasa con la diferencia",
+      "intro": "«Contar el estante» sirve para decirle a la app cuántas hay de verdad. Es la forma de corregir lo que no coincide: una tapa que se rompió, una calavera regalada sin pedido. El saldo nunca se escribe a mano: se cuenta, y la diferencia queda como un ajuste con rastro.",
+      "steps": [
+        {
+          "text": "Haz clic en «Contar el estante», en el grupo «Inventario». Hay dos tarjetas: «Productos armados» (la Calavera dulcera) y «Piezas impresas». Cada fila dice «La app cree N» y trae el campo «Hay» ya lleno con ese mismo número.",
+          "image": "img/04-25-contar-estante.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "«La app cree 3»: lo que el sistema tiene anotado"
+            },
+            {
+              "n": 2,
+              "label": "«Hay»: lo que cuentas, ya lleno con el mismo número"
+            },
+            {
+              "n": 3,
+              "label": "«Hay» de la tapa: el sistema cree 4"
+            }
+          ]
+        },
+        {
+          "text": "Cuenta de verdad lo que hay en el estante y cambia solo lo que no coincide. En el ejemplo quedan 3 tapas y la app creía 4 (una se quebró al sacarla de la placa): escribe 3 en «Hay» de «Tapa de calavera». La fila se pinta y aparece la etiqueta «−1». En «Nota» cuenta qué pasó. El botón pasa de «Todo coincide» a «Guardar 1 corrección».",
+          "image": "img/04-26-contar-diferencia.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "«Hay» de la tapa, ahora en 3"
+            },
+            {
+              "n": 2,
+              "label": "Etiqueta «−1»: la diferencia"
+            },
+            {
+              "n": 3,
+              "label": "La fila cambiada se resalta"
+            },
+            {
+              "n": 4,
+              "label": "«Nota»: por qué cambió"
+            },
+            {
+              "n": 5,
+              "label": "«Guardar 1 corrección»"
+            }
+          ]
+        },
+        {
+          "text": "Haz clic en «Guardar 1 corrección». La pantalla dice «Listo: se corrigió 1 artículo. Queda en el kardex como «Conteo del estante».» La fila de la tapa ahora dice «La app cree 3» y el botón vuelve a «Todo coincide».",
+          "image": "img/04-27-contar-guardado.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "«La app cree 3»: ya corregido"
+            },
+            {
+              "n": 2,
+              "label": "Aviso: «Listo: se corrigió 1 artículo»"
+            },
+            {
+              "n": 3,
+              "label": "«Todo coincide»: ya no hay nada que corregir"
+            }
+          ]
+        },
+        {
+          "text": "Para ver el rastro, abre «Kardex», en el grupo «Inventario». El conteo aparece como un movimiento de tipo «Ajuste», «−1 unidad», con origen «Conteo del estante» y tu nota. Más abajo ves lo que hizo el armado: las calaveras entran como «Producción» y los componentes salen como «Consumo».",
+          "image": "img/04-28-kardex-armado-y-conteo.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "Filtro «Tipo»: para ver solo ajustes, consumos o producción"
+            },
+            {
+              "n": 2,
+              "label": "El ajuste de la tapa: −1 unidad, «Conteo del estante»"
+            },
+            {
+              "n": 3,
+              "label": "Las 3 calaveras que entraron por el armado, como «Producción»"
+            }
+          ]
+        }
+      ],
+      "tips": [
+        "Qué pasa con la diferencia: lo que falta sale del estante como un ajuste negativo y lo que sobra entra como uno positivo. La app compara contra lo que hay en el momento de guardar y mueve solo las diferencias; nada se sobrescribe. Si lo que sobra es de algo sin costo conocido, te pide el «Costo aproximado por unidad (S/)»; si ya lo tiene, dice «Entran a S/ … cada una».",
+        "Lo que falta al contar costó y ningún pedido lo va a pagar: el dueño lo ve restando en «Resultados», dentro de «Producción no vendida» (en el ejemplo, S/ 0.05 por la tapa). Lo que sobra lo compensa.",
+        "Cuenta lo que tienes en la mano, no lo que crees que debería haber. El conteo no sirve para esconder errores: sirve para que la app diga la verdad y entregar no se trabe.",
+        "Solo se aceptan números enteros, de 0 en adelante."
+      ],
+      "warnings": [
+        "El estante solo se mueve imprimiendo, armando, entregando o contando. El stock no se edita a mano: no hay otro camino para sumar o restar piezas.",
+        "Si no cambias ninguna fila, el botón dice «Todo coincide» y no se puede guardar: no hay nada que corregir."
+      ]
+    },
+    {
+      "title": "Dónde se nota lo que hiciste",
+      "intro": "Producción deja huella en cuatro lugares que ya conoces: Hoy, Filamentos, el Kardex y Resultados.",
+      "steps": [
+        {
+          "text": "En «Hoy», la tarjeta «Impresiones de la semana» dice el porcentaje que salió bien (87.5 %), cuántas fueron exitosas (7), fallidas (1) e intentadas (8), y la causa más común del fallo (adhesión a la placa). «Ver la cola» te lleva a la cola de impresión.",
+          "image": "img/04-29-hoy-impresiones.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "«Impresiones de la semana»: porcentaje, exitosas, fallidas e intentadas"
+            },
+            {
+              "n": 2,
+              "label": "«Ver la cola»"
+            }
+          ]
+        },
+        {
+          "text": "En «Filamentos», abre el filamento «Blanco» con el triángulo (▸) para ver sus rollos. El rollo PLA-BLANCO-01 bajó de 975 g a 924.2 g: lo que gastaron las tapas y ganchos, el frente fallido, los tres frentes buenos y las tres traseras. Si el peso de la balanza no coincide con el que dice la app, «Pesar» lo corrige.",
+          "image": "img/04-30-rollo-descontado.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "Rollo PLA-BLANCO-01: ahora 924.2 g de 1 kg"
+            },
+            {
+              "n": 2,
+              "label": "«Pesar»: corrige el peso del rollo con lo que marca la balanza"
+            }
+          ]
+        },
+        {
+          "text": "En «Resultados» (grupo «Finanzas»), «Producción no vendida» suma lo que se imprimió o se perdió sin venderse: S/ 0.28 de impresiones fallidas y S/ 0.05 del conteo de la tapa (el resto, S/ 3.80, viene de pesadas y ajustes de capítulos anteriores). Más abajo, «Impresiones fallidas o canceladas a medias» muestra el mismo S/ 0.28, medido en costo.",
+          "image": "img/04-33-resultados-fallida-y-conteo.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "«Producción no vendida»: lo que costó y no se vende"
+            },
+            {
+              "n": 2,
+              "label": "«Impresiones fallidas o canceladas a medias»: S/ 0.28"
+            }
+          ]
+        }
+      ],
+      "tips": [
+        "Un fallo tiene un costo que ningún precio paga por sí solo: por eso el precio lleva una reserva para fallos (10 % en este taller) y por eso cada fallo se anota con su causa.",
+        "La producción no mueve dinero: imprimir, armar y contar mueven filamento, piezas y productos, pero nunca cuentas ni caja. El dinero se mueve en Finanzas."
+      ],
+      "warnings": []
+    },
+    {
+      "title": "Qué puede hacer cada rol en producción",
+      "intro": "Dueño y operador hacen lo mismo en este capítulo. El rol de solo lectura lo ve todo y no cambia nada.",
+      "steps": [
+        {
+          "text": "Con el rol de solo lectura, «Cola de impresión» dice «Tienes acceso de solo lectura: ves la cola y el plan, pero solo el dueño y los operadores crean, ponen en cola, inician y cierran trabajos.» No aparece «Nuevo trabajo», ni «Iniciar», ni «Cerrar…», ni «Poner en cola».",
+          "image": "img/04-31-lectura-cola.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "Aviso de solo lectura: no hay botón «Nuevo trabajo»"
+            }
+          ]
+        },
+        {
+          "text": "«Armar productos» deja ver la tarjeta y la tabla de componentes, pero en lugar de «¿Cuántas?» dice «Tienes acceso de solo lectura: solo el dueño y los operadores pueden armar.» «Contar el estante» muestra «La app cree N» en cada fila, sin campos «Hay» para contar.",
+          "image": "img/04-32-lectura-contar.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "Aviso: el rol es de solo lectura"
+            },
+            {
+              "n": 2,
+              "label": "«La app cree 3»: se ve, pero no hay dónde escribir lo contado"
+            }
+          ]
+        }
+      ],
+      "tips": [
+        "Dueño y operador pueden crear, iniciar y cerrar trabajos, armar productos, contar el estante y ponerles foto a las piezas. Ninguno de los dos puede borrar un trabajo cerrado: no existe.",
+        "Los botones que un rol no puede usar no se muestran, para que nadie llene un formulario y luego lo rechacen. Pero ocultar un botón no es lo que protege: las reglas de acceso viven en la base de datos y rechazan lo que tu rol no puede hacer aunque alguien llame por otro camino."
+      ],
+      "warnings": []
+    },
+    {
+      "title": "Cómo queda todo al terminar",
+      "intro": "Si hiciste todo el capítulo, esto es lo que debes encontrar. Úsalo para comprobar que no te saltaste nada, porque el capítulo siguiente parte de aquí.",
+      "steps": [
+        {
+          "text": "Abre «Armar productos» y comprueba que la Calavera dulcera dice «3 armadas en el estante»; abre «Contar el estante» y comprueba que dice «La app cree 3» para la calavera."
+        }
+      ],
+      "tips": [
+        "Estante: 3 Calavera dulcera (Con dulces surtidos) armadas; piezas sobrantes: 3 tapas y 3 ganchos; 0 frentes y 0 traseras.",
+        "Historial: 8 impresiones cerradas, 7 exitosas y 1 fallida (el primer frente).",
+        "Insumos: 850 g de dulces surtidos, 16 láminas PET y 47 bolsas con etiqueta.",
+        "Rollos: PLA-BLANCO-01 con 924.2 g y PLA-NEGRO-01 con 996.95 g. Los otros dos rollos no se tocaron.",
+        "Dinero: sin cambios. Producción no mueve cuentas."
+      ],
+      "warnings": []
+    }
+  ]
+}

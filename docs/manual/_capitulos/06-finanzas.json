@@ -1,0 +1,1311 @@
+{
+  "n": 6,
+  "title": "Finanzas: cuentas, caja, cobros y resultados",
+  "intro": "Aquí está todo el dinero del taller: dónde está (Cuentas), cada movimiento que entró o salió (Caja), lo que te deben (Por cobrar) y si el mes dejó ganancia o pérdida (Resultados). Aprendes a registrar aportes, gastos y transferencias, a cobrar el saldo de un pedido, a anular lo que se anotó mal y a leer cada línea de Resultados.",
+  "who": "dueño",
+  "sections": [
+    {
+      "title": "El grupo «Finanzas» y cómo piensa la app el dinero",
+      "intro": "Todo el dinero del taller vive en cuatro pantallas del grupo «Finanzas» del menú. Antes de usarlas conviene saber tres ideas que se repiten en todas: el saldo se calcula, el dinero no se borra y las ventas no son lo mismo que los cobros.",
+      "steps": [
+        {
+          "text": "Haz clic en «Cuentas», «Caja», «Por cobrar» o «Resultados», en el grupo «Finanzas» del menú. «Cuentas» dice dónde está el dinero y cuánto hay en cada sitio; «Caja» es el libro de todo lo que entró, salió o cambió de cuenta; «Por cobrar» lista los pedidos ya entregados que todavía no están pagados; y «Resultados» dice cuánto ganó el taller, mes a mes.",
+          "image": "img/06-37-menu-finanzas.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "«Cuentas»: dónde está el dinero y cuánto hay"
+            },
+            {
+              "n": 2,
+              "label": "«Caja»: el libro de movimientos"
+            },
+            {
+              "n": 3,
+              "label": "«Por cobrar»: pedidos entregados sin pagar del todo"
+            },
+            {
+              "n": 4,
+              "label": "«Resultados»: lo que ganó el taller, mes a mes"
+            }
+          ]
+        }
+      ],
+      "tips": [
+        "El saldo de una cuenta no se escribe: sale de su saldo de apertura más lo que entró menos lo que salió. Por eso no hay un botón para «poner» un saldo. Si un saldo no cuadra con lo que ves en la caja o en el banco, se corrige con un movimiento (un ingreso, un egreso o una transferencia) o, si lo que está mal es el punto de partida, con «Editar» en la cuenta.",
+        "Las ventas no son los cobros. «Resultados» cuenta como venta todo el pedido en cuanto se confirma, aunque el cliente solo haya pagado una parte; «Caja» solo cuenta el dinero que de verdad entró. Un pedido de S/ 135.00 con S/ 50.00 cobrados vale S/ 135.00 de venta y S/ 50.00 en Caja.",
+        "Todo se paga y se cobra desde su sitio: los pedidos se cobran desde el pedido o desde «Por cobrar», las compras de inventario se pagan desde la compra (capítulo 2). «Caja» es para lo demás: la luz, el internet, los aportes tuyos, las transferencias entre cuentas.",
+        "Los movimientos de dinero llevan siempre fecha y hora, y no pueden ser futuros: el dinero se anota cuando ya se movió.",
+        "El monto máximo de un movimiento es S/ 1,000,000.00. Si pasa, la pantalla dice que revises que esté bien escrito."
+      ],
+      "warnings": [
+        "El dinero no se borra: se anula, con un motivo obligatorio, y el movimiento queda en el libro. Solo el dueño anula. Más adelante, en este capítulo, está paso a paso.",
+        "Las cuentas tampoco se borran: se desactivan."
+      ]
+    },
+    {
+      "title": "Cuentas: dónde está el dinero y cuánto hay",
+      "intro": "«Cuentas» muestra cada lugar donde el taller guarda dinero (la caja de efectivo, Yape, un banco) con su saldo. Es la pantalla que miras para saber cuánta plata hay y dónde.",
+      "steps": [
+        {
+          "text": "Haz clic en «Cuentas». Arriba, «Total del taller» suma el saldo de todas las cuentas y «Cuentas activas» dice cuántas están en uso. Debajo hay una fila por cuenta con su «Apertura» (lo que había el día que la registraste, con su fecha), sus «Entradas», sus «Salidas», su «Saldo» y cuántos «Movimientos» tiene.",
+          "image": "img/06-01-cuentas-lista.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "«Total del taller»: la suma de todas las cuentas"
+            },
+            {
+              "n": 2,
+              "label": "«Apertura»: el saldo con el que empezó la cuenta y la fecha de ese día"
+            },
+            {
+              "n": 3,
+              "label": "«Saldo»: apertura más entradas menos salidas"
+            },
+            {
+              "n": 4,
+              "label": "El saldo de Yape en rojo: la cuenta está en negativo"
+            },
+            {
+              "n": 5,
+              "label": "«Editar»: cambia el nombre, el tipo, la apertura, el medio de pago o la nota"
+            },
+            {
+              "n": 6,
+              "label": "«Desactivar»: la cuenta deja de recibir cobros y pagos"
+            },
+            {
+              "n": 7,
+              "label": "«Nueva cuenta»: crea otra cuenta"
+            }
+          ]
+        },
+        {
+          "text": "Lee los saldos en rojo con atención: un saldo negativo (como el de Yape en este ejemplo, S/ -104.50) significa que salió más dinero del que la app sabe que entró. Casi siempre es que falta registrar un ingreso o un aporte, o que el saldo de apertura está mal. En las secciones siguientes se arregla con un aporte del dueño y una transferencia."
+        }
+      ],
+      "tips": [
+        "En el ejemplo del manual, Efectivo empezó con S/ 120.00 y Yape con S/ 85.50, ambos con fecha 08 oct. 2026. Yape quedó en negativo porque se pagó una compra de S/ 240.00 con Yape y solo había S/ 85.50 más lo que entró de Ana Quispe.",
+        "«Entradas» y «Salidas» de cada cuenta cuentan las dos partes de una transferencia: lo que sale de una cuenta es una salida de esa y una entrada de la otra.",
+        "El «Total del taller» cuenta todas las cuentas, también las desactivadas que todavía tengan dinero."
+      ],
+      "warnings": []
+    },
+    {
+      "title": "Crear una cuenta",
+      "intro": "Una cuenta nueva sirve para otro lugar donde guardas dinero: un banco, otra billetera, una caja chica. Solo el dueño las crea. Aquí creas «BCP ahorros», que luego usarás para ver cómo se cierra una cuenta.",
+      "steps": [
+        {
+          "text": "Haz clic en «Nueva cuenta». Se abre el formulario «Nueva cuenta» encima de la lista. En «Nombre» escribe «BCP ahorros». En «Tipo» elige «Banco» (las otras opciones son «Caja (efectivo)» y «Billetera (Yape, Plin)»). En «Saldo de apertura» escribe lo que ya hay en esa cuenta hoy: 30. «Fecha del saldo de apertura» trae la de hoy. En «Medio de pago por defecto» elige «Transferencia bancaria»: así el cobro de un pedido que entre en esta cuenta no vuelve a preguntarlo. En «Nota» puedes escribir para qué es.",
+          "image": "img/06-02-cuenta-nueva.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "«Nombre»: cómo se llama la cuenta en toda la app"
+            },
+            {
+              "n": 2,
+              "label": "«Tipo»: «Caja (efectivo)», «Banco» o «Billetera (Yape, Plin)»"
+            },
+            {
+              "n": 3,
+              "label": "«Saldo de apertura»: lo que ya había en la cuenta ese día"
+            },
+            {
+              "n": 4,
+              "label": "«Fecha del saldo de apertura»: no puede ser posterior a hoy"
+            },
+            {
+              "n": 5,
+              "label": "«Medio de pago por defecto»: el que se usa al cobrar en esta cuenta"
+            },
+            {
+              "n": 6,
+              "label": "«Guardar cuenta»"
+            }
+          ]
+        },
+        {
+          "text": "Haz clic en «Guardar cuenta». Arriba de la lista aparece «Cuenta creada.» y la nueva fila sale con su saldo de apertura como saldo. «Total del taller» sube lo mismo.",
+          "image": "img/06-03-cuenta-creada.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "«Cuenta creada.»"
+            },
+            {
+              "n": 2,
+              "label": "La fila de «BCP ahorros»"
+            },
+            {
+              "n": 3,
+              "label": "Su saldo: S/ 30.00, igual a su apertura porque todavía no tiene movimientos"
+            },
+            {
+              "n": 4,
+              "label": "«Total del taller» ya suma esos S/ 30.00"
+            }
+          ]
+        }
+      ],
+      "tips": [
+        "El saldo de apertura es lo que ya había en la cuenta el día que la registras. Puede ser cero («Indica el saldo de apertura, aunque sea cero.») o negativo, si la cuenta debe dinero.",
+        "El nombre no se puede repetir en el taller, aunque cambien las mayúsculas.",
+        "Si no eliges «Medio de pago por defecto», cada cobro te preguntará con qué medio se pagó."
+      ],
+      "warnings": []
+    },
+    {
+      "title": "Editar una cuenta y el saldo de apertura",
+      "intro": "Con «Editar» cambias el nombre, el tipo, el saldo de apertura, la fecha de apertura, el medio de pago por defecto o la nota. Es la forma de corregir el punto de partida de una cuenta.",
+      "steps": [
+        {
+          "text": "En la fila de la cuenta haz clic en «Editar». Se abre «Editar cuenta» con los datos actuales. Cambia lo que haga falta y haz clic en «Guardar cuenta»; si no cambiaste nada, la pantalla dice «No había cambios: la cuenta quedó como estaba.». «Cancelar» cierra el formulario sin guardar.",
+          "image": "img/06-19-cuenta-editar.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "«Editar cuenta»: el mismo formulario, con los datos de la cuenta"
+            },
+            {
+              "n": 2,
+              "label": "«Saldo de apertura»"
+            },
+            {
+              "n": 3,
+              "label": "«Fecha del saldo de apertura»"
+            },
+            {
+              "n": 4,
+              "label": "«Medio de pago por defecto»"
+            },
+            {
+              "n": 5,
+              "label": "«Guardar cuenta»"
+            }
+          ]
+        }
+      ],
+      "tips": [
+        "Si al cambiar la fecha de apertura algún movimiento cambia de lado (deja de contar o empieza a contar), el formulario lo avisa antes de guardar: te dice cuántos movimientos son, de cuánto es el cambio y cuánto quedaría la cuenta, y te pide marcar «Sí, cambiar la fecha igual». No se guarda nada hasta que lo marques.",
+        "Editar no activa ni desactiva la cuenta: para eso están los botones «Desactivar» y «Reactivar».",
+        "Si abriste «Editar» y otra persona cambió la misma cuenta mientras tanto, la pantalla no guarda tus cambios: te avisa y vuelve a leer la lista, para que no deshagas lo que hizo la otra persona."
+      ],
+      "warnings": []
+    },
+    {
+      "title": "Caja: el libro de todo el dinero",
+      "intro": "«Caja» es el libro del taller: cada vez que entra, sale o cambia de cuenta dinero, queda una fila. Desde aquí se registran los movimientos que no pasan por un pedido o una compra, y se anulan los que se hicieron mal.",
+      "steps": [
+        {
+          "text": "Haz clic en «Caja». Las filas van de la más nueva a la más vieja, cada una con su fecha y hora, su tipo (Ingreso, Egreso, Transferencia, Aporte), de quién o a quién, de qué pedido o compra viene, la cuenta, la categoría y el monto. Los ingresos van en verde, los egresos en rojo. Arriba, «Entradas», «Salidas» y «Neto» suman lo que ves. El botón «Registrar movimiento» abre el formulario.",
+          "image": "img/06-04-caja-libro.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "«Registrar movimiento»"
+            },
+            {
+              "n": 2,
+              "label": "Filtro «Cuenta»"
+            },
+            {
+              "n": 3,
+              "label": "Filtro «Tipo»"
+            },
+            {
+              "n": 4,
+              "label": "«Ver anulados»: muestra u oculta los movimientos anulados"
+            },
+            {
+              "n": 5,
+              "label": "Los totales de lo que ves: «Entradas», «Salidas», «Neto» y «Anulados (no suman)»"
+            },
+            {
+              "n": 6,
+              "label": "Un movimiento anulado: tachado, con su motivo, y sin contar en nada"
+            },
+            {
+              "n": 7,
+              "label": "«Anular»: solo lo ve el dueño"
+            }
+          ]
+        },
+        {
+          "text": "Para buscar algo en el libro usa los filtros. Elige una «Cuenta», un «Tipo», una fecha «Desde» y otra «Hasta». Los totales de arriba se recalculan con lo que filtraste. Desmarca «Ver anulados» para esconder los movimientos anulados y haz clic en «Limpiar filtros» para volver a ver todo.",
+          "image": "img/06-32-caja-filtros.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "Filtro «Cuenta»: aquí, solo Efectivo"
+            },
+            {
+              "n": 2,
+              "label": "Filtro «Tipo»: ingreso, egreso, transferencia, aporte o retiro"
+            },
+            {
+              "n": 3,
+              "label": "Filtro «Desde»; junto a él está «Hasta»"
+            },
+            {
+              "n": 4,
+              "label": "«Ver anulados», desmarcado: los anulados desaparecen de la lista y de los totales"
+            },
+            {
+              "n": 5,
+              "label": "«Limpiar filtros»"
+            },
+            {
+              "n": 6,
+              "label": "Los totales se recalculan con lo filtrado"
+            }
+          ]
+        }
+      ],
+      "tips": [
+        "Los cobros de pedidos, los pagos de compras y las ventas rápidas también aparecen aquí, con el pedido o la compra de donde vienen: «Caja» es el libro de todo el dinero, aunque lo hayas registrado en otra pantalla.",
+        "Una transferencia ocupa dos filas, una por cada cuenta («Va a Efectivo» en la que sale y «Viene de Yape» en la que entra), pero es un solo movimiento. Sus totales no se suman a «Entradas» ni a «Salidas»: salen aparte, en «Transferencias (no cambian el total)».",
+        "El filtro «Desde» no puede ser posterior a «Hasta»: la pantalla avisa «La fecha «desde» no puede ser posterior a «hasta».»."
+      ],
+      "warnings": []
+    },
+    {
+      "title": "Registrar un aporte del dueño",
+      "intro": "Un aporte es plata tuya que metes al taller. Es capital, no ganancia: sube el dinero que hay en la cuenta, pero no entra en la utilidad de «Resultados». Aquí metes S/ 200.00 en Yape, que estaba en negativo.",
+      "steps": [
+        {
+          "text": "Haz clic en «Registrar movimiento». En «Tipo de movimiento» elige «Aporte del dueño». En «Cuenta» elige «Yape» y, en «Categoría», «Aporte del dueño». Escribe el «Monto» (200) y elige el «Medio de pago» (Yape). En «De quién lo recibiste» puedes poner tu nombre, en «Referencia» el código de la operación y en «Nota» el motivo. Antes de guardar, el recuadro de abajo dice cómo queda la cuenta: «Yape: -S/ 104.50 → S/ 95.50».",
+          "image": "img/06-05-aporte-dueno.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "«Tipo de movimiento»: «Aporte del dueño»"
+            },
+            {
+              "n": 2,
+              "label": "«Cuenta»: la que recibe el dinero"
+            },
+            {
+              "n": 3,
+              "label": "«Categoría»: solo se ofrecen las de capital"
+            },
+            {
+              "n": 4,
+              "label": "«Monto»"
+            },
+            {
+              "n": 5,
+              "label": "«Medio de pago»"
+            },
+            {
+              "n": 6,
+              "label": "Vista previa del saldo: de -S/ 104.50 a S/ 95.50"
+            },
+            {
+              "n": 7,
+              "label": "«Registrar movimiento»"
+            }
+          ]
+        },
+        {
+          "text": "Haz clic en «Registrar movimiento». Aparece «Movimiento registrado.» y la fila sube al principio del libro con la etiqueta «Aporte».",
+          "image": "img/06-06-aporte-registrado.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "«Movimiento registrado.»"
+            },
+            {
+              "n": 2,
+              "label": "La fila nueva, arriba del libro"
+            },
+            {
+              "n": 3,
+              "label": "La etiqueta «Aporte»"
+            },
+            {
+              "n": 4,
+              "label": "Los totales: «Entradas» subió S/ 200.00"
+            }
+          ]
+        }
+      ],
+      "tips": [
+        "«Retiro del dueño» es lo contrario: plata del taller que sacas para ti. También es capital y no cuenta como gasto. Se registra igual, eligiendo ese tipo.",
+        "Las categorías de capital («Aporte del dueño», «Retiro del dueño») solo se ofrecen con sus tipos, y a un aporte solo se le ofrecen categorías de capital. Así el dinero tuyo no se cuela en la utilidad.",
+        "Un aporte sube el «Total del taller» en Cuentas, pero en «Resultados» aparece aparte, en «Aportes del dueño», fuera de la utilidad."
+      ],
+      "warnings": []
+    },
+    {
+      "title": "Registrar un egreso: el recibo de la luz",
+      "intro": "Un egreso es dinero que sale del taller: la luz, el internet, los envíos, la publicidad, los repuestos. Resta de la cuenta y, en «Resultados», entra en los gastos de operación del mes.",
+      "steps": [
+        {
+          "text": "Haz clic en «Registrar movimiento». En «Tipo de movimiento» elige «Egreso». En «Cuenta» elige «Efectivo», en «Categoría» «Luz e internet», y escribe el «Monto» (45). Elige el «Medio de pago» (Efectivo). En «A quién le pagaste» escribe «Luz del Sur», en «Referencia» el número del recibo y en «Nota» de qué es. El recuadro de abajo dice cómo queda la cuenta: «Efectivo: S/ 58.00 → S/ 13.00».",
+          "image": "img/06-07-egreso-luz.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "«Tipo de movimiento»: «Egreso»"
+            },
+            {
+              "n": 2,
+              "label": "«Cuenta»: de dónde salió el dinero, con su saldo actual"
+            },
+            {
+              "n": 3,
+              "label": "«Categoría»: «Luz e internet»"
+            },
+            {
+              "n": 4,
+              "label": "«Monto»"
+            },
+            {
+              "n": 5,
+              "label": "«A quién le pagaste»"
+            },
+            {
+              "n": 6,
+              "label": "Vista previa del saldo: de S/ 58.00 a S/ 13.00"
+            },
+            {
+              "n": 7,
+              "label": "«Registrar movimiento»"
+            }
+          ]
+        },
+        {
+          "text": "Haz clic en «Registrar movimiento». El egreso aparece en el libro con su monto en rojo.",
+          "image": "img/06-08-egreso-registrado.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "«Movimiento registrado.»"
+            },
+            {
+              "n": 2,
+              "label": "La fila del egreso, con el nombre de a quién le pagaste y el número de recibo"
+            },
+            {
+              "n": 3,
+              "label": "El monto, en rojo y con signo menos: -S/ 45.00"
+            }
+          ]
+        }
+      ],
+      "tips": [
+        "Las categorías de un egreso son las de «Configuración › Categorías de dinero» (capítulo 1). Si falta una (por ejemplo «Envíos»), el dueño la crea allí.",
+        "No registres aquí las compras de inventario (filamento, dulces, bolsas): se pagan desde «Compras» (capítulo 2), que además suben el stock."
+      ],
+      "warnings": [
+        "Si te equivocas de monto o de cuenta, no hay forma de editar el movimiento: se anula y se registra de nuevo bien (ver «Anular un movimiento» más abajo)."
+      ]
+    },
+    {
+      "title": "Registrar un ingreso que no es una venta",
+      "intro": "Un ingreso suelto es dinero que entra y no es venta, ni cobro de un pedido, ni aporte tuyo: un reembolso, la devolución de un proveedor. Suma a la utilidad como «Otros ingresos».",
+      "steps": [
+        {
+          "text": "Haz clic en «Registrar movimiento» y en «Tipo de movimiento» elige «Ingreso». Debajo aparece un aviso azul: «¿Es una venta? Va por Pedidos o por la Venta rápida…». Léelo: si es una venta o un cobro, no se anota aquí. Si de verdad es un reembolso, elige la cuenta (Yape), la «Categoría» «Otros ingresos», el «Monto» (15) y, en «De quién lo recibiste», quién te lo devolvió.",
+          "image": "img/06-11-ingreso-otros.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "«Tipo de movimiento»: «Ingreso»"
+            },
+            {
+              "n": 2,
+              "label": "Aviso: las ventas y los cobros no se anotan aquí"
+            },
+            {
+              "n": 3,
+              "label": "«Categoría»: «Otros ingresos» (las de ventas y de capital no se ofrecen)"
+            },
+            {
+              "n": 4,
+              "label": "«Monto»"
+            },
+            {
+              "n": 5,
+              "label": "«Registrar movimiento»"
+            }
+          ]
+        }
+      ],
+      "tips": [
+        "La app no te deja anotar una venta como ingreso suelto: una venta tiene que salir del estante y llevar su costo, y eso solo lo hacen «Pedidos» y la «Venta rápida». La base de datos lo rechaza también.",
+        "Anotar aquí el cobro de un pedido lo contaría dos veces: una como venta del pedido y otra como otros ingresos."
+      ],
+      "warnings": []
+    },
+    {
+      "title": "Transferir dinero entre cuentas: de Yape a Efectivo",
+      "intro": "Una transferencia mueve dinero de una cuenta a otra: sacas plata de Yape para tener sencillo en la caja, depositas el efectivo en el banco. No es ganancia ni gasto: el total del taller no cambia.",
+      "steps": [
+        {
+          "text": "Haz clic en «Registrar movimiento» y en «Tipo de movimiento» elige «Transferencia entre cuentas». El formulario cambia: ahora pide «Sale de la cuenta» (Yape) y «Llega a la cuenta» (Efectivo), y no pide categoría. Escribe el «Monto» (40), elige el «Medio de pago» y, si quieres, la «Referencia» y una «Nota». El recuadro de abajo muestra las dos cuentas y dice «El total del taller no cambia: el dinero solo cambia de bolsillo.».",
+          "image": "img/06-09-transferencia-form.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "«Tipo de movimiento»: «Transferencia entre cuentas»"
+            },
+            {
+              "n": 2,
+              "label": "«Sale de la cuenta»: Yape"
+            },
+            {
+              "n": 3,
+              "label": "«Llega a la cuenta»: Efectivo"
+            },
+            {
+              "n": 4,
+              "label": "«Monto»"
+            },
+            {
+              "n": 5,
+              "label": "Vista previa de las dos cuentas: Yape de S/ 95.50 a S/ 55.50 y Efectivo de S/ 13.00 a S/ 53.00"
+            },
+            {
+              "n": 6,
+              "label": "«Registrar movimiento»"
+            }
+          ]
+        },
+        {
+          "text": "Haz clic en «Registrar movimiento». En el libro aparecen dos filas del mismo movimiento: «Va a Efectivo» en Yape (-S/ 40.00) y «Viene de Yape» en Efectivo (S/ 40.00). Arriba sale un total nuevo: «Transferencias (no cambian el total)».",
+          "image": "img/06-10-transferencia-registrada.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "«Movimiento registrado.»"
+            },
+            {
+              "n": 2,
+              "label": "La parte que sale: «Va a Efectivo», en la cuenta Yape"
+            },
+            {
+              "n": 3,
+              "label": "La parte que entra: «Viene de Yape», en la cuenta Efectivo"
+            },
+            {
+              "n": 4,
+              "label": "«Transferencias (no cambian el total)»: S/ 40.00"
+            }
+          ]
+        }
+      ],
+      "tips": [
+        "La cuenta de destino tiene que ser distinta de la de origen. Si eliges la misma, la pantalla dice «La cuenta de destino tiene que ser distinta de la de origen.».",
+        "Solo se ofrecen cuentas activas como destino. Una cuenta desactivada con dinero se ofrece únicamente como origen, para poder vaciarla (ver más abajo).",
+        "Una transferencia es un solo movimiento con dos partes: no puede quedar a medias. Si la anulas, se anulan las dos."
+      ],
+      "warnings": []
+    },
+    {
+      "title": "Un movimiento con fecha anterior a la apertura",
+      "intro": "El saldo de apertura es lo que había en la cuenta el día que la registraste. Si anotas un movimiento con una fecha anterior a ese día, ya está dentro de ese saldo: contarlo otra vez lo restaría o sumaría dos veces. La app lo anota, lo cuenta en «Resultados» del mes que le toca, y no toca el saldo de la cuenta.",
+      "steps": [
+        {
+          "text": "Haz clic en «Registrar movimiento», elige «Egreso» y llena el recibo del internet de setiembre, que pagaste antes de usar la app: en «Cuenta» elige «Efectivo», en «Categoría» «Luz e internet», en «Monto» 79.90 y en «Fecha y hora» una fecha anterior a la apertura (3 de octubre). Al cambiar la fecha aparece un aviso amarillo y el recuadro de abajo dice «Efectivo: sigue en S/ 53.00»: el saldo no se mueve.",
+          "image": "img/06-12-movimiento-anterior-apertura.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "«Fecha y hora»: 03/10/2026, antes de la apertura de Efectivo (8 de octubre)"
+            },
+            {
+              "n": 2,
+              "label": "Aviso: cuenta en Resultados, pero no cambia el saldo, porque ya está dentro del saldo de apertura"
+            },
+            {
+              "n": 3,
+              "label": "Vista previa: Efectivo sigue en S/ 53.00"
+            },
+            {
+              "n": 4,
+              "label": "«Registrar movimiento»"
+            }
+          ]
+        },
+        {
+          "text": "Haz clic en «Registrar movimiento». En el libro, la fila queda con su fecha del 03 oct. 2026 y una nota en ámbar: «Anterior a la apertura de Efectivo: no cambia su saldo, ya está dentro del saldo de apertura». Como el libro va de lo más nuevo a lo más viejo, esta fila está al final de la lista.",
+          "image": "img/06-13-fila-anterior-apertura.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "La fila, con fecha anterior al 8 de octubre"
+            },
+            {
+              "n": 2,
+              "label": "La nota «Anterior a la apertura de Efectivo…»"
+            },
+            {
+              "n": 3,
+              "label": "El monto: -S/ 79.90, que no se descontó del saldo"
+            }
+          ]
+        },
+        {
+          "text": "Abre «Cuentas». Arriba aparece el recuadro «Lo anterior a la apertura no cambia el saldo.», y en la fila de Efectivo, debajo del saldo, una nota que cuenta cuántos movimientos anteriores hay y de cuánto: «1 movimiento anterior al 8 de octubre (−S/ 79.90) no cambia el saldo». Fíjate también en que Yape ya no está en negativo: el aporte, la transferencia y el reembolso lo dejaron en S/ 70.50.",
+          "image": "img/06-18-cuentas-despues.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "«Total del taller»: S/ 153.50"
+            },
+            {
+              "n": 2,
+              "label": "El recuadro que explica la regla de la apertura"
+            },
+            {
+              "n": 3,
+              "label": "La nota en Efectivo: un movimiento anterior que no cambia el saldo"
+            },
+            {
+              "n": 4,
+              "label": "El saldo de Yape, ya positivo: S/ 70.50"
+            }
+          ]
+        }
+      ],
+      "tips": [
+        "Este movimiento sí cuenta en «Resultados»: el internet de setiembre se suma a los gastos de octubre, porque su fecha, el 3 de octubre, cae en octubre.",
+        "Una fecha anterior es normal cuando empiezas a usar la app a mitad de mes. Lo que no puedes es poner fechas futuras: «Esa fecha todavía no llega: el dinero se registra cuando ya se movió.».",
+        "Si lo que quieres es que ese movimiento sí cambie el saldo, lo que está mal es la fecha de apertura: en «Editar» de la cuenta puedes moverla, y el formulario te avisa qué movimientos cambian de lado."
+      ],
+      "warnings": []
+    },
+    {
+      "title": "El aviso de saldo negativo",
+      "intro": "Si un egreso o una transferencia saca más dinero del que hay en la cuenta, la app no lo bloquea, pero te lo dice antes de guardar y te pide confirmarlo. Un saldo negativo casi nunca es real: suele ser que falta anotar algo.",
+      "steps": [
+        {
+          "text": "Haz clic en «Registrar movimiento», elige «Egreso» y, en «Cuenta», «Efectivo» (que tiene S/ 53.00). Escribe un «Monto» de 80, categoría «Publicidad». Aparece un aviso amarillo: «Efectivo quedaría en -S/ 27.00: sale más de lo que hay (S/ 53.00). ¿Falta registrar un ingreso, o el saldo de apertura está mal?». El botón «Registrar movimiento» se apaga hasta que marques la casilla «Sí, registrarlo aunque la cuenta quede en negativo».",
+          "image": "img/06-14-aviso-negativo.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "«Cuenta»: Efectivo, con S/ 53.00"
+            },
+            {
+              "n": 2,
+              "label": "«Monto»: 80, más de lo que hay"
+            },
+            {
+              "n": 3,
+              "label": "El aviso: la cuenta quedaría en -S/ 27.00"
+            },
+            {
+              "n": 4,
+              "label": "«Sí, registrarlo aunque la cuenta quede en negativo»: hay que marcarla"
+            },
+            {
+              "n": 5,
+              "label": "«Registrar movimiento», apagado hasta que marques la casilla"
+            }
+          ]
+        },
+        {
+          "text": "Antes de marcar la casilla, piensa: ¿entró dinero que no anotaste (un cobro en efectivo, un aporte tuyo)? Regístralo primero. ¿Es el saldo de apertura el que está mal? Corrígelo en «Cuentas › Editar». ¿Te equivocaste de cuenta o de monto? Cámbialos en el formulario. Marca la casilla solo si de verdad la cuenta tiene que quedar así."
+        }
+      ],
+      "tips": [
+        "El aviso sale con cualquier movimiento que reste de una cuenta que ya está en negativo, aunque sea poco: «ya estaba en -S/ … y sigue bajando».",
+        "Una transferencia que saca más de lo que hay también avisa, con el mismo texto."
+      ],
+      "warnings": [
+        "En este manual marcamos la casilla y registramos el egreso, pero fue un error: los volantes se habían pagado con la tarjeta del dueño. En la siguiente sección se anula."
+      ]
+    },
+    {
+      "title": "Anular un movimiento",
+      "intro": "Un movimiento mal anotado no se edita ni se borra: se anula. Queda en el libro tachado y con su motivo, y deja de contar en los saldos y en «Resultados». Solo el dueño anula.",
+      "steps": [
+        {
+          "text": "En la fila del movimiento, haz clic en «Anular». Se abre «Anular movimiento» encima del libro, con un resumen de lo que vas a anular («Egreso de S/ 80.00 en Efectivo, del 08 oct. 2026») y la frase «El movimiento no se borra: deja de contar en los saldos y queda registrado como anulado.». Escribe el «Motivo de la anulación», que es obligatorio: hasta que escribas algo, «Anular movimiento» está apagado.",
+          "image": "img/06-15-anular-form.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "«Anular movimiento»: el formulario"
+            },
+            {
+              "n": 2,
+              "label": "Resumen: qué movimiento es, de qué cuenta y de qué fecha"
+            },
+            {
+              "n": 3,
+              "label": "«Motivo de la anulación»: obligatorio"
+            },
+            {
+              "n": 4,
+              "label": "«Anular movimiento»"
+            },
+            {
+              "n": 5,
+              "label": "«Cancelar»: cierra sin anular nada"
+            }
+          ]
+        },
+        {
+          "text": "Haz clic en «Anular movimiento». Aparece «Movimiento anulado. Los saldos ya no lo cuentan.». La fila sigue en el libro, tachada, con la etiqueta «Anulado» y el motivo en rojo. Arriba, «Anulados (no suman)» cuenta uno más y «Salidas» baja lo que valía.",
+          "image": "img/06-16-anulado.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "«Movimiento anulado. Los saldos ya no lo cuentan.»"
+            },
+            {
+              "n": 2,
+              "label": "La fila, tachada y con la etiqueta «Anulado»"
+            },
+            {
+              "n": 3,
+              "label": "El motivo, en rojo, debajo del movimiento"
+            },
+            {
+              "n": 4,
+              "label": "«Anulados (no suman)»: 2 en total (este y el cobro cancelado del capítulo 5)"
+            }
+          ]
+        }
+      ],
+      "tips": [
+        "Para esconder los anulados del libro desmarca «Ver anulados»; vuelven al marcarla.",
+        "Una transferencia se anula completa: se anulan sus dos partes, y el formulario lo dice («Se anulan sus dos partes…») con el nombre de las dos cuentas.",
+        "Si anotaste un monto o una cuenta mal, anula el movimiento y regístralo otra vez bien. El libro conserva los dos, y el motivo explica por qué.",
+        "Escribe motivos que entienda alguien más: «Lo registré por error: los volantes se pagaron con la tarjeta del dueño, no con la caja.» le sirve a quien revise el libro dentro de seis meses; «error» no."
+      ],
+      "warnings": [
+        "Solo el dueño anula. Un operador ve el libro y registra movimientos, pero no tiene el botón «Anular»; y aunque lo llamara a mano, la base de datos lo rechaza.",
+        "No hay botón para deshacer una anulación. Si anulaste algo que estaba bien, regístralo de nuevo.",
+        "Nada se borra: ni siquiera el dueño puede quitar un movimiento del libro. Lo anulado sigue ahí, para que nadie pueda esconder dinero."
+      ]
+    },
+    {
+      "title": "Desactivar una cuenta con saldo y vaciarla",
+      "intro": "Cuando dejas de usar una cuenta, la desactivas: deja de recibir cobros y pagos pero su historia se queda. Si todavía tiene dinero, ese dinero sigue contando en el total del taller hasta que lo saques con una transferencia.",
+      "steps": [
+        {
+          "text": "En «Cuentas», en la fila de «BCP ahorros» (que tiene S/ 30.00), haz clic en «Desactivar». El navegador pregunta: «¿Desactivar la cuenta «BCP ahorros»? Dejará de recibir cobros y pagos. Todavía tiene S/ 30.00: para sacarlos, haz en Caja una transferencia desde ella a otra cuenta.». Acepta. Aparece «Cuenta desactivada.», la fila queda en gris con la etiqueta «Desactivada» y un aviso amarillo explica cómo sacar el dinero: «Hay cuentas desactivadas con saldo. Siguen contando en el total del taller hasta que saques ese dinero…».",
+          "image": "img/06-20-cuenta-desactivada.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "«Cuenta desactivada.»"
+            },
+            {
+              "n": 2,
+              "label": "El aviso amarillo: la cuenta desactivada todavía tiene saldo y sigue contando"
+            },
+            {
+              "n": 3,
+              "label": "La fila de «BCP ahorros», en gris, con la etiqueta «Desactivada»"
+            },
+            {
+              "n": 4,
+              "label": "«Reactivar»: vuelve a dejarla en uso"
+            }
+          ]
+        },
+        {
+          "text": "Ve a «Caja», haz clic en «Registrar movimiento» y elige «Transferencia entre cuentas». En «Sale de la cuenta» la cuenta desactivada sí aparece, con la marca «(desactivada)» y su saldo: «BCP ahorros (desactivada) · S/ 30.00»; el formulario lo explica («Una cuenta desactivada con saldo aparece aquí solo para sacar ese dinero a otra cuenta.»). En «Llega a la cuenta» elige «Efectivo» y en «Monto» escribe todo el saldo: 30. La vista previa dice «BCP ahorros: S/ 30.00 → S/ 0.00» y «Efectivo: S/ 53.00 → S/ 83.00». Haz clic en «Registrar movimiento».",
+          "image": "img/06-21-vaciar-cuenta.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "«Tipo de movimiento»: «Transferencia entre cuentas»"
+            },
+            {
+              "n": 2,
+              "label": "«Sale de la cuenta»: la cuenta desactivada, marcada «(desactivada)»"
+            },
+            {
+              "n": 3,
+              "label": "«Llega a la cuenta»: una cuenta activa"
+            },
+            {
+              "n": 4,
+              "label": "«Monto»: todo el saldo, 30"
+            },
+            {
+              "n": 5,
+              "label": "Vista previa: BCP queda en S/ 0.00 y Efectivo sube a S/ 83.00"
+            },
+            {
+              "n": 6,
+              "label": "«Registrar movimiento»"
+            }
+          ]
+        },
+        {
+          "text": "Vuelve a «Cuentas». «BCP ahorros» muestra S/ 0.00 de saldo, con sus salidas de S/ 30.00, y el aviso amarillo desapareció. El «Total del taller» no cambió (S/ 153.50): el dinero solo cambió de bolsillo.",
+          "image": "img/06-22-cuenta-vacia.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "«Total del taller»: igual que antes de vaciar la cuenta"
+            },
+            {
+              "n": 2,
+              "label": "La fila de la cuenta desactivada"
+            },
+            {
+              "n": 3,
+              "label": "Su saldo, en S/ 0.00"
+            },
+            {
+              "n": 4,
+              "label": "Efectivo, que recibió los S/ 30.00: S/ 83.00"
+            }
+          ]
+        }
+      ],
+      "tips": [
+        "El saldo de una cuenta desactivada se ve tachado en la lista. Es solo el estilo de «fuera de uso»: sigue contando en el «Total del taller» mientras no sea cero.",
+        "Una cuenta desactivada con saldo negativo (debe dinero) no puede recibir una transferencia. Para dejarla en cero, reactívala, transfiérele lo que falta desde otra cuenta y vuelve a desactivarla; la pantalla de Cuentas lo explica con un aviso.",
+        "Una cuenta desactivada ya no sale en los formularios de cobro ni en el de «Caja» (salvo como origen de una transferencia, como viste), y su fila queda al final de la lista.",
+        "«Reactivar» la deja otra vez en uso; sus movimientos y su historia no cambian."
+      ],
+      "warnings": [
+        "Las cuentas no se borran, solo se desactivan, porque sus movimientos son parte del libro del taller.",
+        "Solo el dueño crea, edita, desactiva o reactiva cuentas."
+      ]
+    },
+    {
+      "title": "Por cobrar: los pedidos entregados que todavía deben dinero",
+      "intro": "«Por cobrar» es la lista de lo que te deben: pedidos que ya entregaste y que no están pagados del todo, con cuánto falta y cuánto llevan esperando. Es la pantalla para perseguir cobros.",
+      "steps": [
+        {
+          "text": "Antes de abrirla, comprueba que el pedido esté entregado entero. «Por cobrar» solo lista pedidos en estado «Entregado» (o «Cerrado») con saldo pendiente. El pedido de Ana Quispe, ORD-2026-0001, tenía S/ 85.00 de saldo pero solo 2 de sus 10 calaveras entregadas, así que todavía no salía aquí: la pantalla decía «No hay nada por cobrar: ningún pedido entregado tiene saldo pendiente.». Para que saliera se hicieron los pasos de los capítulos 4 y 5: «Por lanzar» pedía 1 corrida de «Tapas y ganchos» y 8 de «Frente» y de «Trasera»; se pusieron en cola con «Poner en cola», se iniciaron y se cerraron esos 17 trabajos; se armaron 8 calaveras en «Armar productos»; y en el pedido se hizo clic en «Entregar todo (8 unidades)»."
+        },
+        {
+          "text": "Haz clic en «Por cobrar». Arriba, «Total por cobrar» suma lo que te deben, «Vencido» lo que ya pasó de su fecha y «Pedidos» cuántos pedidos son. Cada fila muestra el pedido, el cliente con su teléfono y la fecha del pedido, el «Vencimiento» con una etiqueta de atraso («Al día», o los días de atraso), el «Total», lo «Cobrado» y lo «Pendiente». Con «Buscar» encuentras un pedido por su número o por el cliente, y «Solo vencidos» deja únicamente los que ya pasaron de fecha.",
+          "image": "img/06-23-por-cobrar-lista.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "Los totales: «Total por cobrar», «Vencido» y «Pedidos»"
+            },
+            {
+              "n": 2,
+              "label": "«Buscar»: por número de pedido o por cliente"
+            },
+            {
+              "n": 3,
+              "label": "La fila del pedido ORD-2026-0001, de Ana Quispe, con su teléfono"
+            },
+            {
+              "n": 4,
+              "label": "La etiqueta de atraso: «Al día» porque la fecha de vencimiento (10 oct.) no ha pasado"
+            },
+            {
+              "n": 5,
+              "label": "«Pendiente»: lo que todavía te debe, S/ 85.00"
+            },
+            {
+              "n": 6,
+              "label": "«Cobrar»: abre el formulario de cobro"
+            }
+          ]
+        }
+      ],
+      "tips": [
+        "El vencimiento es la fecha comprometida del pedido; si no tiene fecha, dice «Sin fecha». Pasada esa fecha, la etiqueta dice cuántos días de atraso lleva y cambia de color: gris al día, azul hasta 15 días, ámbar de 16 a 30 y rojo con más de 30.",
+        "Un pedido sale de la lista apenas deja de deber. Si Ana pagara solo una parte, seguiría aquí con lo que falta.",
+        "Antes de entregar también se puede cobrar un adelanto, desde el propio pedido (capítulo 5), con el botón «Cobrar saldo». Lo cobrado siempre se ve igual en el pedido, en «Por cobrar» y en «Caja».",
+        "Los pedidos de «Clientes varios» nunca salen aquí: se pagan en el acto y no pueden deber.",
+        "Los pedidos cancelados tampoco: aunque tengan un saldo en su ficha, no son plata que te deban."
+      ],
+      "warnings": []
+    },
+    {
+      "title": "Cobrar el saldo del pedido de Ana Quispe",
+      "intro": "Aquí cobras los S/ 85.00 que Ana Quispe todavía debe. El cobro queda ligado a su pedido, entra en la cuenta que elijas y aparece también en «Caja».",
+      "steps": [
+        {
+          "text": "En la fila de ORD-2026-0001 haz clic en «Cobrar». Se abre «Cobrar el pedido ORD-2026-0001» con un resumen («total S/ 135.00 · ya cobrado S/ 50.00 · pendiente S/ 85.00»). En «Cuenta donde entra el dinero» elige «Yape»: el «Medio de pago» pasa a decir «El de la cuenta (Yape)», así que no hace falta tocarlo. El «Monto» ya viene con lo pendiente, 85. Deja la fecha de hoy, escribe en «Referencia» el código de operación de Yape y, si quieres, una «Nota». «Categoría» queda en la de «Configuración › Categorías de dinero» (aquí «Venta de productos»). Antes de guardar, la pantalla dice «Después de este cobro quedará pendiente S/ 0.00.».",
+          "image": "img/06-24-cobrar-form.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "«Cobrar el pedido ORD-2026-0001» y su resumen"
+            },
+            {
+              "n": 2,
+              "label": "«Cuenta donde entra el dinero»: Yape"
+            },
+            {
+              "n": 3,
+              "label": "«Medio de pago»: el de la cuenta"
+            },
+            {
+              "n": 4,
+              "label": "«Monto»: viene con el saldo pendiente"
+            },
+            {
+              "n": 5,
+              "label": "«Categoría»: por defecto «Venta de productos»"
+            },
+            {
+              "n": 6,
+              "label": "«Referencia»: el código de la operación de Yape"
+            },
+            {
+              "n": 7,
+              "label": "Lo que pasará: quedará pendiente S/ 0.00"
+            },
+            {
+              "n": 8,
+              "label": "«Registrar cobro»"
+            }
+          ]
+        },
+        {
+          "text": "Prueba, si quieres, cobrar de más: escribe 90 en «Monto». Antes de guardar, la pantalla avisa «Es más de lo que debe este pedido…». Si haces clic en «Registrar cobro» igual, la base de datos lo rechaza y la pantalla muestra su mensaje tal cual: «El cobro excede el saldo del pedido ORD-2026-0001: el total es S/ 135.00, ya se cobró S/ 50.00, queda pendiente S/ 85.00 y se intentó cobrar S/ 90.00.». No se registró nada. Vuelve a escribir 85.",
+          "image": "img/06-25-cobro-excede.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "«Monto»: 90, más de lo pendiente"
+            },
+            {
+              "n": 2,
+              "label": "Aviso del formulario: es más de lo que debe el pedido"
+            },
+            {
+              "n": 3,
+              "label": "El rechazo de la base de datos, con las cifras exactas"
+            },
+            {
+              "n": 4,
+              "label": "«Registrar cobro»"
+            }
+          ]
+        },
+        {
+          "text": "Con 85 en «Monto», haz clic en «Registrar cobro». Aparece «Cobro registrado en el pedido ORD-2026-0001.». Como ya no debe nada, el pedido sale de la lista y la pantalla dice «No hay nada por cobrar: ningún pedido entregado tiene saldo pendiente.».",
+          "image": "img/06-26-cobro-registrado.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "«Cobro registrado en el pedido ORD-2026-0001.»"
+            },
+            {
+              "n": 2,
+              "label": "La lista queda vacía: nadie te debe nada"
+            }
+          ]
+        }
+      ],
+      "tips": [
+        "El cobro es un ingreso más del libro: abre «Caja» y lo verás con el pedido, el cliente, la referencia y la categoría «Venta de productos». Yape subió de S/ 70.50 a S/ 155.50.",
+        "Puedes cobrar en partes: si Ana pagara S/ 50.00 hoy, el formulario diría «quedará pendiente S/ 35.00» y el pedido seguiría en «Por cobrar» con ese saldo.",
+        "Cada cobro lleva una llave que evita duplicados: si haces clic dos veces en «Registrar cobro», o se corta la conexión y vuelves a intentarlo, el cobro se registra una sola vez.",
+        "Si la fecha del cobro es anterior a la apertura de la cuenta donde entra, el cobro cuenta para el pedido pero no cambia el saldo de la cuenta, como cualquier movimiento anterior a la apertura. El formulario te lo avisa.",
+        "Las ventas de «Resultados» no cambian al cobrar: el pedido ya contaba entero como venta desde que se confirmó. Lo que cambia es el dinero en Cuentas y en Caja."
+      ],
+      "warnings": [
+        "Un cobro no se edita. Si te equivocaste de cuenta o de monto, anula el cobro en «Caja» (solo el dueño) y vuelve a cobrar: el pedido reaparece en «Por cobrar» con su saldo.",
+        "No registres el cobro de un pedido como «Ingreso» en «Caja»: contaría dos veces, una como venta del pedido y otra como otros ingresos."
+      ]
+    },
+    {
+      "title": "Lo que cambia al anular un cobro, y lo que no se deja anular",
+      "intro": "Algunos movimientos están ligados a otra cosa: un cobro, a un pedido; el pago de una compra, a la compra. Anularlos cambia también esa otra cosa, y la app te lo dice antes de que escribas el motivo.",
+      "steps": [
+        {
+          "text": "Abre «Anular» en el cobro de S/ 85.00 de Ana Quispe, el que registraste en la sección anterior. Antes del motivo, un aviso amarillo dice «El pedido ORD-2026-0001 vuelve a deber S/ 85.00: si ya se entregó, aparece en Por cobrar.». Si no quieres anularlo, haz clic en «Cancelar»: no pasa nada.",
+          "image": "img/06-36-anular-cobro-consecuencia.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "«Anular movimiento»: el formulario"
+            },
+            {
+              "n": 2,
+              "label": "El aviso: el pedido vuelve a deber, y reaparece en «Por cobrar»"
+            },
+            {
+              "n": 3,
+              "label": "«Motivo de la anulación»: sigue siendo obligatorio"
+            },
+            {
+              "n": 4,
+              "label": "«Anular movimiento»: apagado hasta que escribas el motivo"
+            },
+            {
+              "n": 5,
+              "label": "«Cancelar»: aquí, sin anular"
+            }
+          ]
+        },
+        {
+          "text": "Prueba ahora con el cobro de la Venta rápida de S/ 19.00 (el pedido ORD-2026-0002, a «Clientes varios»). El formulario no te pide motivo: dice «Este cobro es de ORD-2026-0002, una venta a «Clientes varios», que se paga en el acto y nunca debe: anulado, el pedido quedaría debiendo S/ 19.00 a nombre de nadie, así que no se anula.» y te ofrece dos salidas. Haz clic en «Cerrar» para salir.",
+          "image": "img/06-17-anular-bloqueado.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "«Anular movimiento»"
+            },
+            {
+              "n": 2,
+              "label": "El aviso: este cobro no se anula"
+            },
+            {
+              "n": 3,
+              "label": "«Registrar la transferencia»: si el dinero entró en otra cuenta"
+            },
+            {
+              "n": 4,
+              "label": "«Registrar el egreso»: si el dinero nunca llegó (un Yape que no entró, un billete falso)"
+            },
+            {
+              "n": 5,
+              "label": "«Cerrar»"
+            }
+          ]
+        }
+      ],
+      "tips": [
+        "«Registrar la transferencia» abre el formulario de Caja ya lleno con una transferencia que sale de la cuenta donde quedó anotado el cobro, por el mismo monto: tú eliges a qué cuenta llegó de verdad el dinero, revisas y guardas.",
+        "«Registrar el egreso» abre el formulario con un egreso por lo que no llegó: la venta queda hecha, lo que no se cobró queda como pérdida.",
+        "Anular el pago de una compra hace que la compra vuelva a quedar por pagar, por el mismo monto.",
+        "Anular un reembolso hace que el pedido vuelva a contar ese dinero como cobrado; si ya se volvió a cobrar, la base no deja anularlo porque el pedido quedaría cobrado de más."
+      ],
+      "warnings": [
+        "«Clientes varios» no puede deber: una venta a «Clientes varios» se paga en el acto, y por eso su cobro no se anula. Se corrige con una transferencia o con un egreso, nunca borrando el cobro."
+      ]
+    },
+    {
+      "title": "Resultados: cómo leer la pantalla",
+      "intro": "«Resultados» responde «¿ganó o perdió el taller este mes?». Pone, mes a mes, lo vendido, lo que costó, lo que se gastó y lo que quedó. Antes de la tabla, la pantalla explica sus propias reglas en siete párrafos cortos; conviene leerlos una vez.",
+      "steps": [
+        {
+          "text": "Haz clic en «Resultados». Arriba hay siete párrafos que explican cómo se cuenta cada cosa. Resumidos: (1) el costo de ventas es lo que de verdad costó lo vendido; (2) las compras de inventario no restan de la utilidad; (3) los aportes y retiros del dueño son capital, no utilidad; (4) los otros ingresos sí suman; (5) lo que se imprime y no se vende sí resta; (6) lo que sale del inventario sin venderse también resta; (7) las fallas se miden en costo, no en cantidad de impresiones. Más abajo se explica cada una con números.",
+          "image": "img/06-27-resultados-explicacion.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "El costo de ventas es lo que de verdad costó lo vendido"
+            },
+            {
+              "n": 2,
+              "label": "Las compras de inventario no restan de la utilidad"
+            },
+            {
+              "n": 3,
+              "label": "Los aportes y los retiros del dueño son capital, no utilidad"
+            },
+            {
+              "n": 4,
+              "label": "Los otros ingresos sí suman"
+            },
+            {
+              "n": 5,
+              "label": "Lo que se imprime y no se vende sí resta"
+            },
+            {
+              "n": 6,
+              "label": "Lo que sale del inventario sin venderse también resta"
+            },
+            {
+              "n": 7,
+              "label": "Las fallas se miden en costo, no en cantidad de impresiones"
+            }
+          ]
+        },
+        {
+          "text": "Baja hasta la tabla: tiene una fila por mes, con «Ventas», «Costo de ventas», «Utilidad bruta», «Gastos», «No vendido», «Otros ingresos», «Utilidad neta» y «Margen», y al final «Total del periodo». Haz clic en el nombre del mes («Octubre de 2026») para abrir o cerrar su detalle. La utilidad neta sale en verde si ganaste y en rojo si perdiste.",
+          "image": "img/06-28-resultados-tabla.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "El mes: haz clic para abrir o cerrar su detalle"
+            },
+            {
+              "n": 2,
+              "label": "«Ventas»: lo vendido en el mes"
+            },
+            {
+              "n": 3,
+              "label": "«Costo de ventas»: lo que costó lo vendido"
+            },
+            {
+              "n": 4,
+              "label": "«Utilidad bruta»: ventas menos costo de ventas"
+            },
+            {
+              "n": 5,
+              "label": "«Gastos»: luz, envíos, publicidad, comisiones"
+            },
+            {
+              "n": 6,
+              "label": "«No vendido»: lo que se produjo o se perdió sin venderse"
+            },
+            {
+              "n": 7,
+              "label": "«Otros ingresos»: plata que entró sin ser venta ni aporte"
+            },
+            {
+              "n": 8,
+              "label": "«Utilidad neta»: lo que quedó del mes"
+            },
+            {
+              "n": 9,
+              "label": "«Margen»: la utilidad neta sobre las ventas"
+            },
+            {
+              "n": 10,
+              "label": "«Total del periodo»: suma de los meses que ves"
+            }
+          ]
+        }
+      ],
+      "tips": [
+        "El mes más nuevo se abre solo al entrar. Si hay más de un año de datos, aparece un filtro «Año» para ver solo uno; el total del periodo suma lo que estés viendo.",
+        "El «Margen» es la utilidad neta dividida entre las ventas del mes. Si no hubo ventas, dice «—»: un margen sobre cero no significa nada.",
+        "Resultados muestra siempre al mes completo, también el mes en curso: por eso cambia cada vez que vendes, entregas, gastas o imprimes."
+      ],
+      "warnings": []
+    },
+    {
+      "title": "Resultados: línea por línea",
+      "intro": "Abre el detalle del mes. De arriba abajo, cada línea sale de la anterior hasta llegar a la utilidad neta. Estos son los números del ejemplo del manual (octubre de 2026) y de dónde sale cada uno.",
+      "steps": [
+        {
+          "text": "Lee el detalle de «Octubre de 2026» con los números del ejemplo: «Ventas» S/ 154.00, menos «Costo de ventas» S/ 80.65, igual a «Utilidad bruta» S/ 73.35; menos «Gastos de operación» S/ 124.90 y «Producción no vendida» S/ 4.13, más «Otros ingresos» S/ 15.00, igual a «Utilidad neta» -S/ 40.68. El mes salió en pérdida porque los gastos (la luz y el internet) fueron más que lo que dejaron las ventas.",
+          "image": "img/06-29-resultados-detalle.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "«Ventas»: S/ 154.00"
+            },
+            {
+              "n": 2,
+              "label": "«Costo de ventas»: -S/ 80.65, lo que costó lo vendido"
+            },
+            {
+              "n": 3,
+              "label": "«Utilidad bruta»: S/ 73.35"
+            },
+            {
+              "n": 4,
+              "label": "«Gastos de operación»: -S/ 124.90"
+            },
+            {
+              "n": 5,
+              "label": "«Producción no vendida»: -S/ 4.13, con su desglose en letra pequeña"
+            },
+            {
+              "n": 6,
+              "label": "«Otros ingresos»: +S/ 15.00"
+            },
+            {
+              "n": 7,
+              "label": "«Utilidad neta»: -S/ 40.68"
+            }
+          ]
+        }
+      ],
+      "tips": [
+        "«Ventas» (S/ 154.00) son los pedidos del mes, al precio al que se vendieron: los S/ 135.00 del pedido de Ana (10 × S/ 13.50) más los S/ 19.00 de la Venta rápida. Cuentan enteros desde que se confirman, estén cobrados o no. El pedido cancelado de Luis Paredes no cuenta.",
+        "«Costo de ventas» (S/ 80.65) es lo que de verdad costó lo vendido. Lo que ya se entregó cuesta lo que salió del estante: piezas, insumos y empaque al promedio de lo que valían, más la luz, la máquina y la mano de obra de armar y empacar. Lo que todavía falta entregar de un pedido va a su costo estimado hasta que se entregue. En el ejemplo, antes de entregar las últimas 8 calaveras el costo de ventas era S/ 80.86; al entregarlas, el costo real de esas 8 reemplazó a su estimado y bajó a S/ 80.65 (el pedido de Ana costó S/ 73.03 contra S/ 72.51 estimados, más S/ 7.62 de la calavera de la Venta rápida).",
+        "«Utilidad bruta» es ventas menos costo de ventas: S/ 154.00 - S/ 80.65 = S/ 73.35.",
+        "«Gastos de operación» (S/ 124.90) son los egresos del mes con categoría de gasto: la luz (S/ 45.00) y el internet de setiembre (S/ 79.90). No entran las compras de inventario, las transferencias, los aportes ni los retiros, ni los movimientos anulados (los S/ 80.00 de los volantes no cuentan).",
+        "«Otros ingresos» (+S/ 15.00) es la plata que entra sin ser venta ni aporte: aquí, el reembolso del proveedor. Suma a la utilidad en su propia línea. Si no hubo, la línea no aparece.",
+        "«Utilidad neta» = utilidad bruta - gastos - producción no vendida + otros ingresos: S/ 73.35 - S/ 124.90 - S/ 4.13 + S/ 15.00 = -S/ 40.68. El margen de -26.42 % es esa utilidad sobre las ventas de S/ 154.00."
+      ],
+      "warnings": []
+    },
+    {
+      "title": "Producción no vendida: lo que se pagó y no se vendió",
+      "intro": "Esta línea junta cosas que costaron plata y que ningún pedido va a pagar. Aparece solo cuando hay algo. En letra pequeña, debajo de su nombre, la pantalla la desglosa en cuatro partes.",
+      "steps": [
+        {
+          "text": "Mira el desglose de «Producción no vendida» (S/ 4.13 en el ejemplo): «moldes, herramientas, pruebas e impresiones de pedidos cancelados: S/ 0.00 · conteo del estante: S/ 0.05 · impresiones fallidas que ningún precio paga (estante, regalos, pedidos cancelados): S/ 0.28 · lo que salió del inventario sin venderse (rollos agotados o descartados, pesajes, mermas y conteos a mano): S/ 3.80». Cada parte se explica en los consejos de abajo."
+        }
+      ],
+      "tips": [
+        "Herramientas y pruebas: un molde, un soporte o una placa de prueba gastan filamento, luz y máquina, y no se venden. Si fallan, ese intento también resta. En el ejemplo no hay: S/ 0.00. Las impresiones de un pedido que luego se canceló también van aquí.",
+        "Conteo del estante: lo que faltó al contar el estante (capítulo 4), menos lo que sobró. En el ejemplo, la tapa que se quebró al sacarla de la placa y se descontó al contar: S/ 0.05. Si sobra más de lo que falta, la línea sale positiva y dice «sobró más de lo que faltó».",
+        "Impresiones fallidas que ningún precio paga: un intento fallido de lo que va al estante, de un regalo o de un pedido cancelado. En el ejemplo, el primer frente de la calavera que falló: S/ 0.28. Un intento fallido nunca llega al estante, así que su costo no está en lo vendido.",
+        "Lo que salió del inventario sin venderse: un rollo marcado como agotado o descartado con filamento, lo que faltó al pesar un rollo, una merma y lo que faltó al contar un insumo, un empaque o un repuesto. En el ejemplo: una lámina PET que se rompió al cortar (S/ 2.50) y 25 g de filamento que faltaron al pesar un rollo (S/ 1.30), S/ 3.80 en total. Un rollo marcado «Descartado» con 1,000 g (S/ 56.00) que luego se pesó y se encontró lleno quedó compensado: lo que sobra al pesar o al contar compensa.",
+        "No cuentan aquí: una entrada a mano de stock, el primer conteo de un artículo (es lo que ya había) ni un consumo a mano (ya está en el estimado del pedido o en el costo de máquina).",
+        "No se vende, pero se pagó: por eso resta. Ocultarlo haría que la utilidad pareciera mejor de lo que fue."
+      ],
+      "warnings": []
+    },
+    {
+      "title": "Se informa aparte: fallas contra la reserva, compras y capital",
+      "intro": "Debajo de la utilidad neta, «Se informa aparte, fuera de la utilidad» muestra cuatro cifras que no cambian la utilidad pero que conviene mirar.",
+      "steps": [
+        {
+          "text": "Mira el bloque «Se informa aparte, fuera de la utilidad». «Impresiones fallidas o canceladas a medias» (S/ 0.28) compara lo que falló con lo que se imprimió para producir en el mes (S/ 14.77): 1.9 %. Abajo dice «La reserva por fallos de tus precios es 10 %: alcanza.». «Compras de inventario» (S/ 321.00), «Aportes del dueño» (S/ 200.00) y «Retiros del dueño» (S/ 0.00) son informativos.",
+          "image": "img/06-30-resultados-aparte.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "«Impresiones fallidas o canceladas a medias»: lo que falló, medido en costo, contra la reserva de tus precios"
+            },
+            {
+              "n": 2,
+              "label": "«Compras de inventario»: lo comprado en el mes, que no resta"
+            },
+            {
+              "n": 3,
+              "label": "«Aportes del dueño»: capital que entra"
+            },
+            {
+              "n": 4,
+              "label": "«Retiros del dueño»: capital que sale"
+            }
+          ]
+        }
+      ],
+      "tips": [
+        "Fallas contra la reserva: tus precios llevan un colchón (la «reserva por fallos», en «Configuración › Parámetros de costo») para pagar las impresiones que fallan. Esta línea mide si alcanza: divide lo que costaron las impresiones fallidas entre lo que costó todo lo impreso para producir. Con 1.9 % contra una reserva de 10 %, alcanza. Si lo que falló pasa de la reserva, la pantalla dice «no alcanzó, súbela o revisa qué está fallando»: o subes la reserva en tus precios, o buscas por qué fallan las impresiones.",
+        "Las fallas se miden en costo, no en cantidad: fallar una placa chica pesa poco. Por eso no es la misma cifra que «fallos» en «Hoy», que cuenta impresiones (1 de 25, un 4 %).",
+        "Moldes y pruebas no llevan reserva, así que no cuentan aquí ni cuando salen ni cuando fallan: van en «Producción no vendida». Las fallidas que ningún precio paga ya restaron ahí; aquí se comparan todas con lo que tus precios reservan.",
+        "Por qué las compras no restan: lo que compras (filamento, dulces, bolsas) no se gasta, se guarda en el estante. Llega al costo de ventas solo cuando se vende lo que se hizo con ello. Si además restaras las compras, lo contarías dos veces: una cuando lo compras y otra cuando lo vendes. Mientras tanto sigue en el estante, así que solo se informa. Por eso los S/ 321.00 de compras de octubre no aparecen en la utilidad, y el costo de las 11 calaveras vendidas sí.",
+        "Los aportes y los retiros del dueño son capital: meter o sacar plata tuya cambia cuánto dinero hay en el taller, no cuánto ganó. Por eso no entran en la utilidad, ni a favor ni en contra."
+      ],
+      "warnings": []
+    },
+    {
+      "title": "Hoy: qué resume",
+      "intro": "«Hoy» es la pantalla de entrada. No muestra dinero: resume lo que hay que atender hoy en el taller, para que sepas por dónde empezar. El dinero está en «Cuentas», «Caja», «Por cobrar» y «Resultados».",
+      "steps": [
+        {
+          "text": "Haz clic en «Hoy» (o entra a la aplicación: es la primera pantalla). Cada tarjeta resume una cosa y tiene un enlace a su pantalla: «Lo que vence» (separos por vencer, pedidos que llegan tarde, lo que hay que comprar), «Filamentos bajo mínimo», «Piezas e insumos bajo mínimo», «Pedidos en curso» (cuántos hay en cada estado), «Mantenimiento» (lo que toca en las impresoras) e «Impresiones de la semana» (cuántas de los últimos 7 días salieron bien). El botón «Venta rápida», arriba, abre la venta rápida.",
+          "image": "img/06-31-hoy.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "«Venta rápida»: atajo para vender lo armado"
+            },
+            {
+              "n": 2,
+              "label": "«Lo que vence»: lo urgente, ordenado por atraso"
+            },
+            {
+              "n": 3,
+              "label": "«Filamentos bajo mínimo»: rollos que bajaron de su mínimo"
+            },
+            {
+              "n": 4,
+              "label": "«Piezas e insumos bajo mínimo»: aquí, Lámina PET (8, mínimo 10) y Dulces surtidos (450 g, mínimo 500)"
+            },
+            {
+              "n": 5,
+              "label": "«Pedidos en curso»: lo que falta producir o entregar"
+            },
+            {
+              "n": 6,
+              "label": "«Mantenimiento»: avisos de las impresoras"
+            },
+            {
+              "n": 7,
+              "label": "«Impresiones de la semana»: 96 % salieron bien (24 de 25)"
+            }
+          ]
+        }
+      ],
+      "tips": [
+        "En el ejemplo, «Lo que vence» dice «Nada vencido ni por vencer» y «Pedidos en curso» dice «Sin pedidos en curso: nada pendiente de producir ni entregar», porque el pedido de Ana ya se entregó. «Piezas e insumos bajo mínimo» sí tiene avisos: al armar 8 calaveras se gastaron dulces y láminas por debajo de su mínimo. Es la señal para comprar (capítulo 2).",
+        "«Impresiones de la semana» cuenta impresiones, no plata: 1 fallida de 25 es un 4 % histórico. En «Resultados», lo fallido se mide en costo (1.9 %), porque fallar una placa chica cuesta poco.",
+        "Las deudas de clientes no salen en «Hoy»: míralas en «Por cobrar». Lo que ganó el mes, en «Resultados».",
+        "Si el taller es nuevo, «Hoy» muestra además la tarjeta «Primeros pasos», con lo que falta cargar para poder cotizar, planificar y vender; desaparece sola cuando todo está cargado."
+      ],
+      "warnings": []
+    },
+    {
+      "title": "Qué puede hacer cada rol en Finanzas",
+      "intro": "Las cuatro pantallas del grupo «Finanzas» las ven los tres roles. Lo que cambia es quién puede escribir.",
+      "steps": [
+        {
+          "text": "Entra como operador. En «Cuentas» ves los saldos pero no hay botones «Nueva cuenta», «Editar» ni «Desactivar», y la pantalla dice «Solo el dueño del taller crea, edita o desactiva cuentas. Aquí las ves para saber cuánto hay.».",
+          "image": "img/06-33-operador-cuentas.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "El aviso: solo el dueño crea, edita o desactiva cuentas"
+            },
+            {
+              "n": 2,
+              "label": "La columna de acciones, sin botones"
+            },
+            {
+              "n": 3,
+              "label": "Los totales, igual que los ve el dueño"
+            }
+          ]
+        },
+        {
+          "text": "Como operador, en «Caja» sí tienes «Registrar movimiento» (y cobras en «Por cobrar»), pero no hay botón «Anular» en ninguna fila y la pantalla dice «Solo el dueño del taller puede anular un movimiento.».",
+          "image": "img/06-34-operador-caja.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "«Registrar movimiento»: el operador sí registra"
+            },
+            {
+              "n": 2,
+              "label": "El aviso: solo el dueño anula"
+            },
+            {
+              "n": 3,
+              "label": "Sin botón «Anular» en las filas"
+            }
+          ]
+        },
+        {
+          "text": "Con el rol de solo lectura, «Caja» muestra el libro y los filtros, pero no hay «Registrar movimiento», y la pantalla dice «Tu rol en el taller es de consulta: ves el libro, pero registrar movimientos es del dueño y de los operadores, y anularlos, solo del dueño.». En «Por cobrar» tampoco hay «Cobrar».",
+          "image": "img/06-35-lectura-caja.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "El aviso: tu rol es de consulta"
+            },
+            {
+              "n": 2,
+              "label": "Los filtros funcionan igual: sirven para mirar"
+            },
+            {
+              "n": 3,
+              "label": "Los totales de lo que ves"
+            }
+          ]
+        }
+      ],
+      "tips": [
+        "Dueño: todo. Crea, edita, desactiva y reactiva cuentas; registra y anula movimientos; cobra pedidos.",
+        "Operador: ve todo, registra movimientos en «Caja» y cobra en «Por cobrar». No crea ni cambia cuentas y no anula.",
+        "Solo lectura: ve los saldos, el libro, lo que falta cobrar y los resultados; no escribe nada.",
+        "Ocultar un botón no es seguridad: la base de datos revisa el rol en cada operación y rechaza lo que no te toca, aunque alguien llame a la aplicación por otro camino."
+      ],
+      "warnings": []
+    },
+    {
+      "title": "Cómo queda todo al terminar",
+      "intro": "Si hiciste todo el capítulo, esto es lo que debes encontrar. Úsalo para comprobar que no te saltaste nada, porque el capítulo siguiente parte de aquí.",
+      "steps": [
+        {
+          "text": "Abre «Cuentas» y comprueba que dice «Total del taller» S/ 238.50, con Efectivo en S/ 83.00, Yape en S/ 155.50 y «BCP ahorros» desactivada en S/ 0.00. Abre «Resultados» y comprueba el mes de octubre: ventas S/ 154.00, costo de ventas S/ 80.65, gastos S/ 124.90, utilidad neta -S/ 40.68."
+        }
+      ],
+      "tips": [
+        "Dinero: Efectivo S/ 83.00 (apertura S/ 120.00), Yape S/ 155.50 (apertura S/ 85.50), BCP ahorros desactivada con S/ 0.00 (apertura S/ 30.00). Total del taller S/ 238.50.",
+        "Caja: un aporte del dueño de S/ 200.00 (Yape), la luz de S/ 45.00 (Efectivo), una transferencia de S/ 40.00 de Yape a Efectivo, un reembolso de S/ 15.00 (Yape, «Otros ingresos»), el internet de S/ 79.90 con fecha del 3 de octubre (anterior a la apertura), una transferencia de S/ 30.00 de BCP ahorros a Efectivo y el cobro de S/ 85.00 de Ana Quispe por Yape. Anulados: los volantes de S/ 80.00 y el adelanto cancelado de S/ 10.00 de Luis Paredes.",
+        "Pedidos: ORD-2026-0001 de Ana Quispe, entregado entero (10 de 10) y cobrado (S/ 135.00); ORD-2026-0002 (Venta rápida a «Clientes varios», S/ 19.00), entregado y cobrado; ORD-2026-0003 de Luis Paredes, cancelado. «Por cobrar» está vacío.",
+        "Producción: la cola está vacía. Se cerraron 17 trabajos más (1 de «Tapas y ganchos», 8 de «Frente» y 8 de «Trasera»): en total hay 24 impresiones exitosas, 1 fallida y 1 cancelada. Se armaron 8 calaveras más y se entregaron: 0 calaveras armadas en el estante.",
+        "Estante y rollos: Tapa de calavera 2, Gancho de calavera 2, Frente 0, Trasera 0. Dulces surtidos 450 g, Lámina PET 8, Bolsa con etiqueta 39. PLA-BLANCO-01 con 808.75 g, PLA-NEGRO-01 con 989.91 g, PLA-BLANCO-02 con 1,000 g y PETG-NEGRO-01 sellado con 1,000 g.",
+        "Resultados de octubre: ventas S/ 154.00, costo de ventas S/ 80.65, utilidad bruta S/ 73.35, gastos S/ 124.90, producción no vendida S/ 4.13, otros ingresos S/ 15.00, utilidad neta -S/ 40.68 (margen -26.42 %). Aparte: compras S/ 321.00, aportes S/ 200.00, retiros S/ 0.00; fallas 1.9 % contra una reserva de 10 %."
+      ],
+      "warnings": []
+    }
+  ]
+}

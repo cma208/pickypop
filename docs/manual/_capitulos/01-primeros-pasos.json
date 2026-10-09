@@ -1,0 +1,1317 @@
+{
+  "n": 1,
+  "title": "Primeros pasos y configuración del taller",
+  "intro": "Aquí aprendes a entrar a Pickypop, a moverte por la pantalla y a dejar el taller listo para trabajar: los costos, el horario, las personas, las categorías de dinero, la impresora y las cuentas donde está el dinero. Se hace una sola vez, el primer día, y después solo se retoca. Al final está la lista de lo que puede hacer cada rol.",
+  "who": "dueño",
+  "sections": [
+    {
+      "title": "Entrar y salir",
+      "intro": "Pickypop se abre en el navegador, sin instalar nada. Las cuentas las da de alta el taller: la pantalla de entrada no tiene botón para registrarse.",
+      "steps": [
+        {
+          "text": "Abre Pickypop en el navegador. Aparece la pantalla «Entrar», con los campos «Correo» y «Contraseña» y el botón «Entrar».",
+          "image": "img/01-01-entrar.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "Correo: el correo de tu cuenta del taller"
+            },
+            {
+              "n": 2,
+              "label": "Contraseña: la contraseña de tu cuenta"
+            },
+            {
+              "n": 3,
+              "label": "Entrar: abre Pickypop"
+            }
+          ]
+        },
+        {
+          "text": "En «Correo», escribe tu correo. Si el campo ya trae uno escrito, bórralo y pon el tuyo."
+        },
+        {
+          "text": "En «Contraseña», escribe tu contraseña."
+        },
+        {
+          "text": "Haz clic en «Entrar». Pickypop te lleva a la pantalla «Hoy»."
+        },
+        {
+          "text": "Para salir, baja hasta el final de la barra lateral (a la izquierda) y haz clic en «Salir». Justo encima está el correo de la cuenta con la que estás dentro.",
+          "image": "img/01-03-menu-y-salir.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "Título «Finanzas»: uno de los grupos de la barra lateral"
+            },
+            {
+              "n": 2,
+              "label": "Configuración, en el grupo «Ajustes»: aquí se prepara el taller"
+            },
+            {
+              "n": 3,
+              "label": "Tu correo y el botón «Salir», al final de la barra"
+            }
+          ]
+        }
+      ],
+      "tips": [
+        "Lo que ves y lo que puedes tocar depende del rol de tu cuenta (dueño, operador o solo lectura). La última sección de este capítulo explica qué puede hacer cada uno.",
+        "La sesión queda abierta en ese navegador. Si compartes la computadora, haz clic en «Salir» al terminar."
+      ],
+      "warnings": [
+        "No hay forma de crear una cuenta desde «Entrar»: las cuentas se dan de alta por invitación del taller. Si no tienes una, pídesela a un dueño."
+      ]
+    },
+    {
+      "title": "La barra lateral y sus grupos",
+      "intro": "La barra de la izquierda es el menú de Pickypop. Está ordenada por la parte del negocio en la que estás, y cada grupo lleva su título en mayúsculas.",
+      "steps": [
+        {
+          "text": "«Taller» tiene una sola pantalla: «Hoy», el resumen del día."
+        },
+        {
+          "text": "«Ventas» reúne todo lo que pasa antes de entregar: «Oportunidades», «Cotizador», «Cotizaciones», «Pedidos» y «Clientes»."
+        },
+        {
+          "text": "«Producción» tiene «Cola de impresión», «Historial de impresiones», «Catálogo y recetas» e «Impresoras»."
+        },
+        {
+          "text": "«Inventario» tiene «Filamentos», «Piezas impresas», «Armar productos», «Contar el estante», «Insumos», «Empaque», «Compras» y «Kardex»."
+        },
+        {
+          "text": "«Finanzas» tiene «Cuentas», «Caja», «Por cobrar» y «Resultados»."
+        },
+        {
+          "text": "«Ajustes» tiene «Configuración», donde se prepara el taller. Es lo que haces en el resto de este capítulo."
+        },
+        {
+          "text": "La pantalla en la que estás aparece resaltada en color dentro del menú."
+        },
+        {
+          "text": "Para ganar espacio, haz clic en la flecha « que está arriba de la barra. El menú se queda solo con los iconos. Haz clic en » para volver a abrirlo.",
+          "image": "img/01-47-menu-contraido.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "Botón » : vuelve a abrir el menú completo"
+            },
+            {
+              "n": 2,
+              "label": "El menú contraído: solo iconos, en el mismo orden de los grupos"
+            }
+          ]
+        }
+      ],
+      "tips": [
+        "Con el menú contraído, deja el puntero sobre un icono y aparece su nombre.",
+        "El menú recuerda cómo lo dejaste: la próxima vez que entres seguirá contraído o abierto. También puedes elegir cómo empieza en Configuración › Apariencia.",
+        "En una pantalla angosta, como la de un teléfono, el menú se esconde: toca ☰ (arriba a la izquierda) para abrirlo y ✕ para cerrarlo.",
+        "Cuando una pantalla no te deja hacer algo, el motivo está escrito en la misma pantalla, por ejemplo «Solo el dueño del taller puede…»."
+      ],
+      "warnings": []
+    },
+    {
+      "title": "La pantalla Hoy",
+      "intro": "«Hoy» es lo primero que ves al entrar. Resume qué falta cargar, qué vence y cómo va el taller, para que sepas por dónde empezar el día.",
+      "steps": [
+        {
+          "text": "Haz clic en «Hoy», en el grupo «Taller». Es también la pantalla a la que llegas al entrar.",
+          "image": "img/01-02-hoy.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "Título de un grupo del menú («Ventas»)"
+            },
+            {
+              "n": 2,
+              "label": "Botón « : contrae el menú"
+            },
+            {
+              "n": 3,
+              "label": "Primeros pasos: lo que falta cargar para cotizar, planificar y vender"
+            },
+            {
+              "n": 4,
+              "label": "Lo que vence: tareas atrasadas, de hoy o próximas"
+            },
+            {
+              "n": 5,
+              "label": "Venta rápida: vende algo que ya está en el estante"
+            }
+          ]
+        },
+        {
+          "text": "Lee la tarjeta «Primeros pasos». Lista lo que todavía falta: los parámetros de costo, la impresora, los filamentos y los productos. Cada título es un enlace a la pantalla donde se carga."
+        },
+        {
+          "text": "Mira «Lo que vence». Cada tarea trae una etiqueta («Atrasado», «Hoy» o «Pronto») y un enlace a la pantalla donde se resuelve. Al empezar te dirá «Falta registrar la impresora»."
+        },
+        {
+          "text": "Más abajo hay tarjetas de resumen: «Filamentos bajo mínimo», «Piezas e insumos bajo mínimo», «Pedidos en curso», «Mantenimiento» e «Impresiones de la semana»."
+        },
+        {
+          "text": "El botón «Venta rápida», arriba a la derecha, sirve para una venta de mostrador de algo que ya está en el estante, sin armar un pedido."
+        },
+        {
+          "text": "Cuando termines de configurar el taller, vuelve a «Hoy»: «Primeros pasos» se acorta. En el ejemplo, al guardar los parámetros de costo y la impresora ya solo faltan los filamentos y los productos, y desaparece el aviso de la impresora.",
+          "image": "img/01-38-hoy-despues.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "Primeros pasos con solo dos pendientes: filamentos y productos"
+            },
+            {
+              "n": 2,
+              "label": "Lo que vence ya no pide registrar la impresora"
+            }
+          ]
+        }
+      ],
+      "tips": [
+        "«Primeros pasos» y el botón «Venta rápida» solo los ven el dueño y el operador. Quien tiene el rol de solo lectura no los ve.",
+        "Cada título de «Primeros pasos» y cada tarea de «Lo que vence» es un enlace: haz clic y vas directo a la pantalla que hay que llenar."
+      ],
+      "warnings": []
+    },
+    {
+      "title": "Dónde se configura todo",
+      "intro": "Lo que se prepara una sola vez vive en Ajustes › Configuración, dividido en pestañas. La impresora y las cuentas, en cambio, se registran en sus propias pantallas.",
+      "steps": [
+        {
+          "text": "En la barra lateral, baja hasta el grupo «Ajustes» y haz clic en «Configuración».",
+          "image": "img/01-04-configuracion-pestanas.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "Las nueve pestañas de Configuración"
+            },
+            {
+              "n": 2,
+              "label": "Crear los primeros parámetros: botón de la pestaña «Parámetros de costo» cuando todavía no hay nada"
+            }
+          ]
+        },
+        {
+          "text": "Arriba verás nueve pestañas: «Parámetros de costo», «Taller», «Miembros», «Ventas y regalos», «Marcas», «Materiales», «Acabados», «Categorías de dinero» y «Apariencia». Haz clic en una para abrirla."
+        },
+        {
+          "text": "Cuando algo no está cargado todavía, la pantalla lo dice y trae un botón para empezar."
+        }
+      ],
+      "tips": [
+        "Orden recomendado para el primer día: 1) «Parámetros de costo», 2) «Taller» (datos y horario), 3) «Miembros», 4) «Ventas y regalos», 5) «Categorías de dinero», 6) «Marcas», «Materiales» y «Acabados», 7) la impresora en Producción › Impresoras, 8) las cuentas en Finanzas › Cuentas.",
+        "Casi todo lo de Configuración lo cambia solo el dueño. El operador puede cambiar «Marcas», «Materiales», «Acabados» y su «Apariencia»; el resto lo ve en modo lectura."
+      ],
+      "warnings": []
+    },
+    {
+      "title": "Parámetros de costo",
+      "intro": "Son los números con los que Pickypop calcula cuánto cuesta cada cosa y a qué precio venderla: merma, fallos, tu hora de trabajo, la luz, el margen. Sin ellos no se puede cotizar. Los crea y los cambia solo el dueño.",
+      "steps": [
+        {
+          "text": "En Configuración, abre la pestaña «Parámetros de costo». Verás «Aún no hay parámetros de costo vigentes» y un botón."
+        },
+        {
+          "text": "Haz clic en «Crear los primeros parámetros». Se abre un formulario con valores de partida; cámbialos por los de tu taller."
+        },
+        {
+          "text": "En «Vigente desde» deja la fecha de hoy. En «Merma de material (%)» escribe 3: es el material extra por cebado y restos del rollo. En «Tasa de fallo (%)» escribe 10: la parte de lo impreso que se pierde en fallas.",
+          "image": "img/01-05-parametros-formulario.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "Vigente desde: desde cuándo rigen estos valores (hoy o después, nunca antes)"
+            },
+            {
+              "n": 2,
+              "label": "Tasa de fallo (%): parte de lo impreso que se pierde, medida en costo"
+            },
+            {
+              "n": 3,
+              "label": "Hora de trabajo (S/): lo que cuesta una hora de tu tiempo"
+            },
+            {
+              "n": 4,
+              "label": "Tarifa eléctrica (S/ por kWh): sácala de tu recibo de luz"
+            },
+            {
+              "n": 5,
+              "label": "Margen objetivo (%): ganancia sobre el precio, no sobre el costo"
+            }
+          ]
+        },
+        {
+          "text": "En «Hora de trabajo (S/)» escribe lo que cuesta una hora de tu tiempo (en el ejemplo, 15). En «Tarifa eléctrica (S/ por kWh)» escribe la de tu recibo de luz, con hasta cuatro decimales (0.7556)."
+        },
+        {
+          "text": "En «Margen objetivo (%)» escribe 50. Recuerda: el margen se toma sobre el precio, no sobre el costo."
+        },
+        {
+          "text": "En «Precio mínimo por pedido (S/)» escribe 0 si no hay mínimo. En «Redondeo (S/)» escribe 0.5: el precio sube al siguiente múltiplo de 50 céntimos (0 para no redondear). En «IGV (%)» deja 18."
+        },
+        {
+          "text": "Baja hasta «Valorización del material» y deja «Costo promedio del stock» (el filamento se valora al costo promedio de lo que hay en el estante). Las otras opciones son «Último costo de compra» y «Costo de reposición». Si quieres, escribe un «Motivo del cambio».",
+          "image": "img/01-06-parametros-guardar.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "Valorización del material: con qué costo se valora el filamento"
+            },
+            {
+              "n": 2,
+              "label": "Motivo del cambio: nota opcional que queda en el historial"
+            },
+            {
+              "n": 3,
+              "label": "Guardar los parámetros"
+            }
+          ]
+        },
+        {
+          "text": "Haz clic en «Guardar los parámetros». Aparece «Versión guardada…» y la tarjeta «Parámetros vigentes» muestra cada valor con su explicación.",
+          "image": "img/01-07-parametros-vigentes.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "Aviso: «Versión guardada. Rige desde su fecha; las cotizaciones de antes no cambian»"
+            },
+            {
+              "n": 2,
+              "label": "Crear nueva versión: la única forma de cambiar un valor después"
+            },
+            {
+              "n": 3,
+              "label": "Desde cuándo rigen estos parámetros"
+            }
+          ]
+        }
+      ],
+      "tips": [
+        "El margen se toma sobre el precio: precio = costo ÷ (1 − margen). Con un margen de 50 %, un costo de S/ 5.00 da un precio de S/ 10.00. Con un markup del 50 % sobre el costo daría solo S/ 7.50.",
+        "La purga y la torre de limpieza ya vienen incluidas en los gramos que reporta el archivo laminado de Bambu Studio. Por eso la «Merma de material» es solo cebado y restos: no sumes la purga aparte.",
+        "La tasa de fallo se mide en costo, no en cantidad de impresiones. «Resultados» te dice cada mes si alcanzó.",
+        "El IGV solo se desglosa si el taller está en RER, RMT o Régimen General (se elige en la pestaña «Taller»).",
+        "Cada parte del precio se redondea a céntimos por separado, así el desglose siempre suma exactamente el total.",
+        "Las cotizaciones ya emitidas conservan los parámetros con los que se calcularon: cambiarlos después no las modifica."
+      ],
+      "warnings": [
+        "Sin parámetros de costo vigentes no se puede cotizar.",
+        "Solo el dueño crea o cambia los parámetros. Un operador o un miembro de solo lectura los ve en modo lectura, con un aviso.",
+        "El perfil vigente nunca se edita: para cambiar un valor se crea una versión nueva (siguiente sección)."
+      ]
+    },
+    {
+      "title": "Cambiar un valor después: versiones y versiones programadas",
+      "intro": "Los parámetros no se editan: cada cambio es una versión nueva con su fecha de inicio. Una versión programada es la que todavía no empezó, porque su fecha es posterior a hoy. Sirve para avisar un cambio con tiempo, por ejemplo una subida de la tarifa de luz que rige desde el 1 de noviembre.",
+      "steps": [
+        {
+          "text": "En la tarjeta «Parámetros vigentes», haz clic en «Crear nueva versión». El formulario parte de los valores vigentes."
+        },
+        {
+          "text": "En «Vigente desde» elige la fecha en que el cambio empieza a regir (por ejemplo 01/11/2026), cambia solo lo que haga falta (por ejemplo «Tarifa eléctrica») y escribe el «Motivo del cambio».",
+          "image": "img/01-08-version-programada-formulario.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "Vigente desde: una fecha futura convierte la versión en programada"
+            },
+            {
+              "n": 2,
+              "label": "Tarifa eléctrica: el único valor que cambia en este ejemplo"
+            },
+            {
+              "n": 3,
+              "label": "Motivo del cambio: para entender el historial más adelante"
+            }
+          ]
+        },
+        {
+          "text": "Haz clic en «Guardar nueva versión»."
+        },
+        {
+          "text": "Abre «Historial de versiones» y haz clic en una fecha para ver sus valores. La versión nueva lleva la etiqueta «Programada», la de hoy «Vigente» y las más viejas «Anterior».",
+          "image": "img/01-09-version-programada-historial.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "Etiqueta «Programada»: todavía no rige"
+            },
+            {
+              "n": 2,
+              "label": "Corregir: cambia los valores de la versión programada"
+            },
+            {
+              "n": 3,
+              "label": "Quitar: la borra; siguen rigiendo los parámetros de antes"
+            }
+          ]
+        },
+        {
+          "text": "Mientras sea «Programada», puedes hacer clic en «Corregir» (y luego «Guardar la corrección») o en «Quitar». Al quitar, la app pide confirmar: «¿Quitar la versión programada…? Todavía no se usó: se borra, y siguen rigiendo los parámetros de antes»."
+        }
+      ],
+      "tips": [
+        "La versión programada empieza a regir sola el día de su fecha. No tienes que volver a entrar a activarla.",
+        "Si la fecha de hoy ya la usa otra versión, el formulario propone la fecha siguiente: dos versiones no pueden empezar el mismo día.",
+        "En el ejemplo del manual se quitó la versión programada al terminar la prueba, para no dejar un cambio de tarifa a futuro."
+      ],
+      "warnings": [
+        "«Vigente desde» no puede ser anterior a hoy ni repetir la fecha de otra versión.",
+        "Solo una versión «Programada» se corrige o se quita. La «Vigente» y las «Anterior» ya costearon cotizaciones y armados: son historia y no se tocan."
+      ]
+    },
+    {
+      "title": "Datos del taller",
+      "intro": "El nombre, el régimen tributario y el RUC del taller. La moneda (soles) y la zona horaria (hora de Lima) se muestran pero no se cambian: todos los montos se calculan en soles y todas las fechas en hora de Lima.",
+      "steps": [
+        {
+          "text": "En Configuración, abre la pestaña «Taller». La primera tarjeta es «Datos del taller».",
+          "image": "img/01-10-taller-datos.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "Nombre del taller"
+            },
+            {
+              "n": 2,
+              "label": "Razón social: opcional, solo si tienes RUC"
+            },
+            {
+              "n": 3,
+              "label": "Régimen tributario: bajo él, un recuadro explica qué significa"
+            },
+            {
+              "n": 4,
+              "label": "RUC: 11 dígitos"
+            },
+            {
+              "n": 5,
+              "label": "Guardar cambios"
+            }
+          ]
+        },
+        {
+          "text": "En «Nombre del taller» escribe el nombre («Pickypop»)."
+        },
+        {
+          "text": "«Razón social» es opcional. Llénala solo si el taller tiene RUC."
+        },
+        {
+          "text": "En «Régimen tributario» elige «Sin RUC», «NRUS», «RER», «RMT» o «Régimen General». El recuadro de abajo dice qué comprobantes se pueden emitir con ese régimen."
+        },
+        {
+          "text": "En «RUC» escribe los 11 dígitos, sin espacios ni letras. Con «Sin RUC» déjalo vacío."
+        },
+        {
+          "text": "Haz clic en «Guardar cambios». Aparece «Datos del taller guardados.»"
+        }
+      ],
+      "tips": [
+        "Con «Sin RUC» no se emiten comprobantes: se entrega una nota de venta interna y no se desglosa IGV. Es el caso del taller del ejemplo. Cuando tengas RUC, vuelve aquí y cámbialo.",
+        "En el NRUS se emiten boletas sin desglosar IGV. En RER, RMT y Régimen General se emiten boletas y facturas con IGV al 18 %."
+      ],
+      "warnings": [
+        "Con cualquier régimen distinto de «Sin RUC», el RUC es obligatorio y debe tener exactamente 11 dígitos.",
+        "Solo el dueño cambia los datos del taller."
+      ]
+    },
+    {
+      "title": "Horario de impresión y separos",
+      "intro": "Es la segunda tarjeta de la pestaña «Taller». Le dice al plan cuándo puede trabajar la impresora y cuánto dura un separo, para prometer fechas de entrega realistas.",
+      "steps": [
+        {
+          "text": "En la pestaña «Taller», baja hasta la tarjeta «Horario de impresión y separos».",
+          "image": "img/01-11-horario-impresion.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "La primera placa empieza desde: la hora más temprana"
+            },
+            {
+              "n": 2,
+              "label": "La última puede empezar hasta: la hora más tarde para arrancar una placa"
+            },
+            {
+              "n": 3,
+              "label": "Todo tiene que terminar antes de: 00:00 es medianoche"
+            },
+            {
+              "n": 4,
+              "label": "Cambio de placa (minutos): lo que tardas entre una impresión y la siguiente"
+            },
+            {
+              "n": 5,
+              "label": "Un separo vence: el día en que caduca por defecto"
+            },
+            {
+              "n": 6,
+              "label": "a las: la hora en que caduca"
+            },
+            {
+              "n": 7,
+              "label": "Guardar horario"
+            }
+          ]
+        },
+        {
+          "text": "En «La primera placa empieza desde» pon la hora más temprana a la que puede arrancar la impresora (06:00). En «La última puede empezar hasta» pon la más tarde (23:00)."
+        },
+        {
+          "text": "En «Todo tiene que terminar antes de» pon la hora en que debe estar todo parado (00:00 es la medianoche). El recuadro de abajo lo explica con un ejemplo: «una placa de 3 h puede empezar hasta las 21:00»."
+        },
+        {
+          "text": "En «Cambio de placa (minutos)» escribe lo que tardas en cambiar de una placa a la siguiente (15)."
+        },
+        {
+          "text": "En «Un separo vence» elige «el mismo día», «el día siguiente», «a los 2 días» o «a los 3 días», y en «a las» la hora (23:00)."
+        },
+        {
+          "text": "Haz clic en «Guardar horario». Aparece «Horario guardado. Las fechas estimadas ya lo usan.»"
+        }
+      ],
+      "tips": [
+        "Un separo es el estante que se aparta para un cliente cuando envías una proforma o pones un pedido en espera. Este valor es el plazo por defecto y se puede cambiar en cada uno.",
+        "El plan usa el horario para decir para cuándo estaría un pedido. Cambiarlo mueve las fechas estimadas al instante, pero nunca las fechas que ya prometiste a un cliente.",
+        "La app mide sola el tiempo de cambio de placa. Hasta tener 5 cambios medidos usa el valor que escribas aquí; después usa lo medido y este queda de respaldo.",
+        "Según tu navegador, las horas pueden verse con AM y PM: 11:00 PM es las 23:00 y 12:00 AM es la medianoche."
+      ],
+      "warnings": [
+        "Si el horario no tiene sentido (por ejemplo, la última placa antes que la primera, o empezando después de la hora de cierre), la app lo dice en rojo y no deja guardar.",
+        "Solo el dueño cambia el horario."
+      ]
+    },
+    {
+      "title": "Miembros y roles",
+      "intro": "Aquí ves a las personas que trabajan en el taller, el rol de cada una y lo que cuesta su hora. Esta pantalla cambia el nombre, el rol y la tarifa de quienes ya tienen cuenta.",
+      "steps": [
+        {
+          "text": "En Configuración, abre la pestaña «Miembros». Verás una tarjeta por persona, con su rol en una etiqueta: «Dueño», «Operador» o «Solo lectura».",
+          "image": "img/01-14-miembros-lista.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "Etiqueta con el rol de la persona"
+            },
+            {
+              "n": 2,
+              "label": "Nombre de la persona"
+            },
+            {
+              "n": 3,
+              "label": "Editar: abre el formulario de esa persona"
+            }
+          ]
+        },
+        {
+          "text": "Haz clic en «Editar» en la tarjeta de la persona. Cambia el «Nombre», el «Rol» y la «Tarifa por hora (S/)». Debajo del «Rol» un texto explica lo que puede hacer el rol elegido.",
+          "image": "img/01-12-miembro-editar.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "Nombre"
+            },
+            {
+              "n": 2,
+              "label": "Rol: Dueño, Operador o Solo lectura"
+            },
+            {
+              "n": 3,
+              "label": "Tarifa por hora (S/): lo que cuesta una hora de esta persona"
+            },
+            {
+              "n": 4,
+              "label": "Guardar"
+            }
+          ]
+        },
+        {
+          "text": "Haz clic en «Guardar». La tarjeta muestra la tarifa («Tarifa: S/ 15.00 por hora»). Si prefieres no definirla, déjala vacía."
+        },
+        {
+          "text": "Para probar la regla del dueño, cambia el «Rol» del único dueño a «Operador» y haz clic en «Guardar»: la app no lo deja y dice «El taller necesita al menos un dueño. Nombra a otro dueño antes de cambiar este rol.» Haz clic en «Cancelar» para dejarlo como estaba.",
+          "image": "img/01-13-miembro-un-dueno.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "Rol: se eligió «Operador» para el único dueño"
+            },
+            {
+              "n": 2,
+              "label": "El mensaje de la app: el taller necesita al menos un dueño"
+            },
+            {
+              "n": 3,
+              "label": "Guardar: no guarda este cambio"
+            }
+          ]
+        }
+      ],
+      "tips": [
+        "La tarifa por hora distingue cuánto cuesta el trabajo según quién lo hace. Las cotizaciones usan la «Hora de trabajo» de los parámetros de costo; al cerrar un trabajo se puede costear con la tarifa de quien lo hizo.",
+        "En el ejemplo: Carlos (dueño, S/ 15 la hora), Diego (operador, S/ 12 la hora) y Rosa (solo lectura, sin tarifa)."
+      ],
+      "warnings": [
+        "El taller siempre necesita al menos un dueño. Si intentas cambiar el rol del único dueño, la app lo rechaza.",
+        "Esta pantalla no invita a personas nuevas: las cuentas se crean por invitación, fuera de la app. Pídeselo a quien administra la base de datos del taller. Invitar desde la propia app está pendiente.",
+        "Solo el dueño cambia los miembros."
+      ]
+    },
+    {
+      "title": "Canales de venta y canal por defecto",
+      "intro": "Un canal es por dónde llega una venta: venta directa, Instagram, una feria. Cada canal puede tener una comisión, que es lo que el canal se queda de cada venta. El canal «por defecto» es el de las ventas directas: la Venta rápida lo trae elegido.",
+      "steps": [
+        {
+          "text": "En Configuración, abre la pestaña «Ventas y regalos». La primera tarjeta es «Canales de venta»."
+        },
+        {
+          "text": "Haz clic en «+ Nuevo canal». En «Nombre» escribe el canal («Venta directa») y en «Comisión (%)» escribe 0 si no cobra. Deja marcada «Canal activo».",
+          "image": "img/01-15-canal-nuevo.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "+ Nuevo canal: abre el formulario"
+            },
+            {
+              "n": 2,
+              "label": "Nombre del canal"
+            },
+            {
+              "n": 3,
+              "label": "Comisión (%): sobre el precio de venta; 0 si no cobra"
+            },
+            {
+              "n": 4,
+              "label": "Canal activo"
+            },
+            {
+              "n": 5,
+              "label": "Guardar canal"
+            }
+          ]
+        },
+        {
+          "text": "Haz clic en «Guardar canal». Repite para los demás canales: «Instagram» (0 %) y «Feria» (8 %, lo que se queda la feria)."
+        },
+        {
+          "text": "Mientras ningún canal sea el de las ventas directas, aparece un aviso naranja. En la tarjeta de «Venta directa», haz clic en «Usar por defecto».",
+          "image": "img/01-16-canales-sin-defecto.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "Aviso: ningún canal es el de las ventas directas"
+            },
+            {
+              "n": 2,
+              "label": "Usar por defecto, en la tarjeta de «Venta directa»"
+            }
+          ]
+        },
+        {
+          "text": "El aviso desaparece, sale la confirmación ««Venta directa» es el canal por defecto…» y el canal muestra la etiqueta «Por defecto».",
+          "image": "img/01-17-canal-por-defecto.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "Confirmación de que la Venta rápida trae ese canal elegido"
+            },
+            {
+              "n": 2,
+              "label": "Etiqueta «Por defecto» del canal"
+            }
+          ]
+        }
+      ],
+      "tips": [
+        "La comisión se suma al precio de lo hecho a medida en el cotizador. Lo del catálogo se vende a su precio de lista, y en la Venta rápida el canal solo queda anotado.",
+        "Un canal no se borra: para dejar de usarlo, abre «Editar» y desmarca «Canal activo».",
+        "Solo un canal activo puede ser el de por defecto. Cuando elijas otro con «Usar por defecto», el anterior deja de serlo."
+      ],
+      "warnings": [
+        "Si ningún canal es el de por defecto, lo que se venda en la Venta rápida sin cambiar el canal queda sin canal.",
+        "Solo el dueño cambia los canales. El operador los ve (la Venta rápida los ofrece) pero no los edita."
+      ]
+    },
+    {
+      "title": "Categorías de regalo",
+      "intro": "Cuando un pedido es un regalo, se elige una categoría. El tratamiento de la categoría decide dónde cae el costo de ese regalo en Resultados, por eso solo lo define el dueño. Está en la misma pestaña «Ventas y regalos», debajo de los canales.",
+      "steps": [
+        {
+          "text": "En la pestaña «Ventas y regalos», baja hasta «Categorías de regalo» y haz clic en «+ Nueva categoría»."
+        },
+        {
+          "text": "En «Nombre» escribe la categoría («Clientes») y en «Tratamiento» elige «Marketing», «Retiro del dueño» u «Otro». Haz clic en «Guardar categoría».",
+          "image": "img/01-18-regalo-nueva.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "+ Nueva categoría"
+            },
+            {
+              "n": 2,
+              "label": "Nombre de la categoría"
+            },
+            {
+              "n": 3,
+              "label": "Tratamiento: cómo se cuenta el costo del regalo"
+            },
+            {
+              "n": 4,
+              "label": "Guardar categoría"
+            }
+          ]
+        },
+        {
+          "text": "Crea una segunda, «Familia y amigos», con el tratamiento «Retiro del dueño». La lista muestra cada categoría con su tratamiento y su explicación.",
+          "image": "img/01-19-regalos-lista.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "«Clientes»: tratamiento Marketing"
+            },
+            {
+              "n": 2,
+              "label": "«Familia y amigos»: tratamiento Retiro del dueño"
+            }
+          ]
+        }
+      ],
+      "tips": [
+        "«Marketing» se cuenta como gasto de promoción del negocio. «Retiro del dueño» no se cuenta como gasto del negocio. «Otro» es un gasto general, sin tratamiento especial."
+      ],
+      "warnings": [
+        "Solo el dueño cambia las categorías de regalo."
+      ]
+    },
+    {
+      "title": "Categorías de dinero",
+      "intro": "Cada ingreso y cada egreso de Caja se anota con una categoría. Aquí armas esa lista el primer día. Después eliges en qué categoría queda sola cada venta cobrada y cada compra pagada.",
+      "steps": [
+        {
+          "text": "En Configuración, abre la pestaña «Categorías de dinero». Abajo está la tarjeta «Categorías de movimiento»; al empezar dice «Aún no hay categorías»."
+        },
+        {
+          "text": "Haz clic en «+ Nueva categoría». En «Nombre» escribe «Venta de productos», en «Tipo» elige «Ingreso» y marca «Es de ventas».",
+          "image": "img/01-26-categoria-ventas.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "+ Nueva categoría"
+            },
+            {
+              "n": 2,
+              "label": "Nombre de la categoría"
+            },
+            {
+              "n": 3,
+              "label": "Tipo: Ingreso si entra plata, Egreso si sale"
+            },
+            {
+              "n": 4,
+              "label": "Es de ventas: la usan los cobros de pedidos y la Venta rápida"
+            },
+            {
+              "n": 5,
+              "label": "Es de capital: para los aportes y retiros del dueño"
+            },
+            {
+              "n": 6,
+              "label": "Guardar categoría"
+            }
+          ]
+        },
+        {
+          "text": "Haz clic en «Guardar categoría»."
+        },
+        {
+          "text": "Crea la categoría del dinero que el dueño mete al taller: «Aporte del dueño», tipo «Ingreso», con «Es de capital» marcada. Para el dinero que saca, crea «Retiro del dueño», tipo «Egreso», también «Es de capital».",
+          "image": "img/01-27-categoria-capital.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "Nombre: «Retiro del dueño»"
+            },
+            {
+              "n": 2,
+              "label": "Tipo: Egreso"
+            },
+            {
+              "n": 3,
+              "label": "Es de capital: marcada"
+            },
+            {
+              "n": 4,
+              "label": "Guardar categoría"
+            }
+          ]
+        },
+        {
+          "text": "Crea el resto de las categorías de tu taller. En el ejemplo: ingreso «Otros ingresos» y egresos «Compras de inventario», «Luz e internet», «Mantenimiento y repuestos» y «Publicidad»."
+        },
+        {
+          "text": "La lista queda dividida en «Ingresos» y «Egresos». Las etiquetas «De ventas» y «De capital» te dicen para qué sirve cada una. Para dejar de usar una, haz clic en «Desactivar».",
+          "image": "img/01-29-categorias-lista.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "Etiqueta «De capital»: «Aporte del dueño»"
+            },
+            {
+              "n": 2,
+              "label": "Etiqueta «De ventas»: «Venta de productos»"
+            },
+            {
+              "n": 3,
+              "label": "Desactivar: la categoría deja de ofrecerse, sin perder su historial"
+            }
+          ]
+        },
+        {
+          "text": "Arriba, en la tarjeta «Categorías por defecto», elige en «Para cobros de pedidos» la categoría «Venta de productos» y en «Para pagos de compras» la categoría «Compras de inventario».",
+          "image": "img/01-28-categorias-por-defecto.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "Para cobros de pedidos: una categoría de ingreso de ventas"
+            },
+            {
+              "n": 2,
+              "label": "Para pagos de compras: una categoría de egreso"
+            },
+            {
+              "n": 3,
+              "label": "Guardar categorías por defecto"
+            }
+          ]
+        },
+        {
+          "text": "Haz clic en «Guardar categorías por defecto». Aparece «Guardado. Los próximos cobros y pagos ya usan estas categorías.»"
+        }
+      ],
+      "tips": [
+        "«Es de ventas» solo aparece en las categorías de ingreso. La usan los cobros de pedidos y la Venta rápida. Un ingreso suelto de Caja no las ofrece, porque una venta anotada en Caja no sale del estante ni lleva su costo.",
+        "«Es de capital» es para los aportes y retiros del dueño. Esa plata ni suma ni resta a la utilidad, y por eso ni un ingreso, ni un egreso, ni el cobro de un pedido la ofrecen. Si la categoría se llama «Aporte del dueño» o «Retiro del dueño», la base la marca sola.",
+        "Una categoría no puede ser a la vez de ventas y de capital: al marcar una, se desmarca la otra.",
+        "«Otros ingresos» queda para lo que no es una venta, el cobro de un pedido ni un aporte: un reembolso, la devolución de un proveedor.",
+        "En «Automática», si el taller tiene una sola categoría activa de ese tipo se usa esa, y si tiene varias el movimiento queda sin categoría. Por eso conviene elegirlas.",
+        "Las categorías de capital no aparecen entre las opciones por defecto."
+      ],
+      "warnings": [
+        "El «Tipo» no se puede cambiar después. Si te equivocas, crea otra categoría y desactiva la equivocada.",
+        "Una categoría usada no se borra: se desactiva. Deja de ofrecerse y sigue explicando los movimientos viejos.",
+        "Solo el dueño crea, edita, marca o desactiva categorías, y solo el dueño puede quitarle a una el «Es de ventas»."
+      ]
+    },
+    {
+      "title": "Marcas, materiales y acabados",
+      "intro": "Son las listas con las que se describe cada filamento: la marca que compras, el material (PLA, PETG…) y el acabado (Básico, Mate, Seda…). Las pueden cambiar el dueño y el operador, porque al comprar un filamento nuevo hace falta tenerlas.",
+      "steps": [
+        {
+          "text": "Abre la pestaña «Marcas», haz clic en «+ Nueva marca», escribe el «Nombre» («Krear3D») y haz clic en «Guardar marca». Repite con «Bambu Lab».",
+          "image": "img/01-20-marca-nueva.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "+ Nueva marca"
+            },
+            {
+              "n": 2,
+              "label": "Nombre de la marca"
+            },
+            {
+              "n": 3,
+              "label": "Guardar marca"
+            }
+          ]
+        },
+        {
+          "text": "La lista muestra cada marca con la etiqueta «Activa» y dos botones: «Renombrar» y «Desactivar».",
+          "image": "img/01-21-marcas-lista.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "Etiqueta «Activa»"
+            },
+            {
+              "n": 2,
+              "label": "Renombrar: cambia el nombre de la marca"
+            },
+            {
+              "n": 3,
+              "label": "Desactivar: deja de ofrecerse sin perder su historial"
+            }
+          ]
+        },
+        {
+          "text": "Abre la pestaña «Materiales» y haz clic en «+ Nuevo material». En «Código» escribe «PLA» (se guarda en mayúsculas) y en «Densidad (g/cm³)» escribe 1.24. Haz clic en «Guardar material».",
+          "image": "img/01-22-material-nuevo.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "+ Nuevo material"
+            },
+            {
+              "n": 2,
+              "label": "Código del material"
+            },
+            {
+              "n": 3,
+              "label": "Densidad (g/cm³): opcional"
+            },
+            {
+              "n": 4,
+              "label": "Higroscópico: absorbe humedad del aire, hay que secarlo antes de imprimir"
+            },
+            {
+              "n": 5,
+              "label": "Abrasivo: desgasta la boquilla de latón"
+            },
+            {
+              "n": 6,
+              "label": "Guardar material"
+            }
+          ]
+        },
+        {
+          "text": "Crea también «PETG» (densidad 1.27) y marca «Higroscópico», porque absorbe humedad. En la lista, el material muestra sus etiquetas.",
+          "image": "img/01-23-materiales-lista.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "Etiqueta «Higroscópico»"
+            },
+            {
+              "n": 2,
+              "label": "Editar: cambia el código, la densidad o las casillas"
+            },
+            {
+              "n": 3,
+              "label": "Desactivar"
+            }
+          ]
+        },
+        {
+          "text": "Abre la pestaña «Acabados», haz clic en «+ Nuevo acabado» y crea «Básico», «Mate», «Seda» y «Glow». En «Glow» marca «Abrasivo (desgasta la boquilla: obliga a la endurecida)». Haz clic en «Guardar acabado».",
+          "image": "img/01-24-acabado-nuevo.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "+ Nuevo acabado"
+            },
+            {
+              "n": 2,
+              "label": "Nombre del acabado"
+            },
+            {
+              "n": 3,
+              "label": "Abrasivo: para acabados que desgastan la boquilla aunque el material no lo sea"
+            },
+            {
+              "n": 4,
+              "label": "Guardar acabado"
+            }
+          ]
+        },
+        {
+          "text": "En la lista de acabados, «Glow» muestra la etiqueta «Abrasivo».",
+          "image": "img/01-25-acabados-lista.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "Etiqueta «Abrasivo»"
+            },
+            {
+              "n": 2,
+              "label": "Editar"
+            },
+            {
+              "n": 3,
+              "label": "Desactivar"
+            }
+          ]
+        }
+      ],
+      "tips": [
+        "Un filamento es abrasivo si su material o su acabado lo es. Eso activa el aviso de usar la boquilla endurecida, que es un gasto real y una rotura real si se olvida.",
+        "«Higroscópico» activa los avisos de secado antes de imprimir (PETG, TPU, nailon).",
+        "Una marca, un material o un acabado con rollos registrados no se puede borrar: se desactiva con «Desactivar» y se puede volver a ofrecer con «Activar». No se pierde su historial."
+      ],
+      "warnings": [
+        "Un nombre repetido no se guarda: la app dice, por ejemplo, «Ya existe una marca con ese nombre (las mayúsculas no cuentan)». Cada marca, material y acabado debe ser distinto de los demás."
+      ]
+    },
+    {
+      "title": "Apariencia",
+      "intro": "Cómo se ve la aplicación. Es una preferencia tuya: la puede cambiar cualquier rol, y no toca los datos del taller.",
+      "steps": [
+        {
+          "text": "En Configuración, abre la pestaña «Apariencia»."
+        },
+        {
+          "text": "Elige un «Tema» (los colores: «Terracota», «Índigo», «Turquesa», «Ciruela» o «Grafito») y «Claro u oscuro» («Automático», «Claro» u «Oscuro»). Más abajo elige la «Densidad de las tablas» y si el menú lateral empieza contraído. Haz clic en «Guardar».",
+          "image": "img/01-30-apariencia.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "Tema: la miniatura está pintada con los colores de verdad"
+            },
+            {
+              "n": 2,
+              "label": "Claro u oscuro: se guarda en este navegador, no en tu cuenta"
+            }
+          ]
+        }
+      ],
+      "tips": [
+        "Claro u oscuro se guarda en este navegador. Puedes tener oscuro en la laptop y claro en la tablet del taller; si comparten el navegador, comparten esta preferencia.",
+        "El tema y la densidad esperan a «Guardar» (o «Descartar»). El menú lateral contraído se aplica al instante."
+      ],
+      "warnings": []
+    },
+    {
+      "title": "La impresora",
+      "intro": "Pickypop nunca controla la impresora: no lamina, no manda trabajos y no habla con la máquina. El laminado se hace en Bambu Studio. Pero necesita saber qué máquina tienes, porque su costo por hora entra en cada placa y el plan la usa para dar fechas.",
+      "steps": [
+        {
+          "text": "En la barra lateral, grupo «Producción», haz clic en «Impresoras». Sin impresoras verás «Aún no hay impresoras registradas en el taller».",
+          "image": "img/01-31-impresoras-vacia.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "Nueva impresora"
+            },
+            {
+              "n": 2,
+              "label": "Registrar la primera impresora"
+            }
+          ]
+        },
+        {
+          "text": "Haz clic en «Registrar la primera impresora» (o en «Nueva impresora», arriba a la derecha)."
+        },
+        {
+          "text": "Llena el formulario con los datos de tu máquina. En el ejemplo: «Nombre» A1 mini, «Modelo» Bambu Lab A1 mini + AMS lite, «Horas de uso iniciales» 175, «Potencia media (W)» 57, «Horas esperadas al año» 2000, «Presupuesto de mantenimiento al año (S/)» 240, «Costo de la impresora (S/)» 1500 y «Vida útil (horas de impresión)» 5000.",
+          "image": "img/01-32-impresora-formulario.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "Nombre: como la llaman en el taller; no puede repetirse"
+            },
+            {
+              "n": 2,
+              "label": "Modelo: marca y modelo"
+            },
+            {
+              "n": 3,
+              "label": "Horas de uso iniciales: las que ya traía (0 si es nueva)"
+            },
+            {
+              "n": 4,
+              "label": "Potencia media (W): alimenta el costo de energía"
+            },
+            {
+              "n": 5,
+              "label": "Horas esperadas al año: reparte el mantenimiento"
+            },
+            {
+              "n": 6,
+              "label": "Presupuesto de mantenimiento al año (S/): boquillas, placas, lubricante, repuestos"
+            },
+            {
+              "n": 7,
+              "label": "Costo de la impresora (S/): lo que pagaste, con sus accesorios (AMS)"
+            },
+            {
+              "n": 8,
+              "label": "Vida útil (horas de impresión): hasta cuándo hay que reemplazarla"
+            },
+            {
+              "n": 9,
+              "label": "Hora de máquina con estos datos: se recalcula mientras escribes"
+            },
+            {
+              "n": 10,
+              "label": "Guardar impresora"
+            }
+          ]
+        },
+        {
+          "text": "Mira el recuadro «Hora de máquina con estos datos». Con los datos del ejemplo sale S/ 0.42: S/ 0.30 de depreciación (1500 ÷ 5000) más S/ 0.12 de mantenimiento (240 ÷ 2000)."
+        },
+        {
+          "text": "Haz clic en «Guardar impresora». La tarjeta de la impresora muestra «Horas acumuladas» (175 h) y «Hora de máquina» (S/ 0.420, con su desglose).",
+          "image": "img/01-33-impresora-registrada.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "Hora de máquina: depreciación más mantenimiento"
+            },
+            {
+              "n": 2,
+              "label": "Editar: vuelve al formulario"
+            },
+            {
+              "n": 3,
+              "label": "Dar de baja: retira la impresora sin borrar su historial"
+            },
+            {
+              "n": 4,
+              "label": "Pestaña «Planes» (junto a «Mantenimiento», «Componentes» e «Incidentes»)"
+            }
+          ]
+        }
+      ],
+      "tips": [
+        "Las «Horas acumuladas» son las iniciales más las horas de impresión, fallidas incluidas.",
+        "Las pestañas «Mantenimiento», «Planes», «Componentes» e «Incidentes» llevan el cuidado de la máquina. Se explican en otro capítulo.",
+        "El costo de la impresora entre su vida útil en horas es lo que cuesta cada hora por desgaste. La app lo usa en cada cotización."
+      ],
+      "warnings": [
+        "Si dejas en 0 el costo, la vida útil, las horas esperadas o el presupuesto de mantenimiento, la hora de máquina sale sin ese componente y todas las cotizaciones salen más baratas de lo que son, sin ningún error. El formulario lo avisa en naranja debajo del recuadro.",
+        "«Dar de baja» retira la impresora: deja de ofrecerse en el cotizador y en las nuevas impresiones, y su historial se conserva. Se puede volver a activar con «Reactivar».",
+        "«Borrar» elimina la impresora para siempre, con sus planes, componentes e incidentes, y no se puede deshacer. Si solo dejó de usarse, usa «Dar de baja».",
+        "Solo el dueño registra y cambia la impresora, sus planes y sus componentes. El operador registra el mantenimiento y los incidentes."
+      ]
+    },
+    {
+      "title": "Cuentas: Efectivo y Yape",
+      "intro": "Una cuenta es un lugar donde está el dinero del taller: el cajón de efectivo, la billetera de Yape, un banco. Aquí las creas con el saldo con el que empiezas, y a partir de ahí cada cobro y cada pago las mueve.",
+      "steps": [
+        {
+          "text": "En la barra lateral, grupo «Finanzas», haz clic en «Cuentas». Sin cuentas verás «Todavía no hay cuentas».",
+          "image": "img/01-34-cuentas-vacia.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "Nueva cuenta (arriba a la derecha)"
+            },
+            {
+              "n": 2,
+              "label": "Nueva cuenta (en el recuadro vacío)"
+            }
+          ]
+        },
+        {
+          "text": "Haz clic en «Nueva cuenta»."
+        },
+        {
+          "text": "Para el efectivo: «Nombre» Efectivo, «Tipo» «Caja (efectivo)», «Saldo de apertura» 120 (lo que hay hoy en el cajón), «Fecha del saldo de apertura» la de hoy y «Medio de pago por defecto» «Efectivo». Haz clic en «Guardar cuenta».",
+          "image": "img/01-35-cuenta-efectivo.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "Nombre de la cuenta"
+            },
+            {
+              "n": 2,
+              "label": "Tipo: Caja (efectivo), Banco o Billetera (Yape, Plin)"
+            },
+            {
+              "n": 3,
+              "label": "Saldo de apertura: lo que ya había en la cuenta"
+            },
+            {
+              "n": 4,
+              "label": "Fecha del saldo de apertura: hoy"
+            },
+            {
+              "n": 5,
+              "label": "Medio de pago por defecto: con esto el cobro de un pedido no vuelve a preguntarlo"
+            },
+            {
+              "n": 6,
+              "label": "Guardar cuenta"
+            }
+          ]
+        },
+        {
+          "text": "Para Yape, haz clic otra vez en «Nueva cuenta»: «Nombre» Yape, «Tipo» «Billetera (Yape, Plin)», «Saldo de apertura» 85.50, y «Medio de pago por defecto» «Yape» (una billetera no trae uno elegido: lo eliges tú). Haz clic en «Guardar cuenta».",
+          "image": "img/01-36-cuenta-yape.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "Nombre: Yape"
+            },
+            {
+              "n": 2,
+              "label": "Tipo: Billetera (Yape, Plin)"
+            },
+            {
+              "n": 3,
+              "label": "Saldo de apertura: 85.50"
+            },
+            {
+              "n": 4,
+              "label": "Fecha del saldo de apertura: hoy"
+            },
+            {
+              "n": 5,
+              "label": "Medio de pago por defecto: Yape"
+            },
+            {
+              "n": 6,
+              "label": "Guardar cuenta"
+            }
+          ]
+        },
+        {
+          "text": "Aparece «Cuenta creada.» y la tabla muestra por cada cuenta «Apertura», «Entradas», «Salidas», «Saldo» y «Movimientos». Arriba están el «Total del taller» (en el ejemplo S/ 205.50) y las «Cuentas activas».",
+          "image": "img/01-37-cuentas-listado.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "Total del taller y cuentas activas"
+            },
+            {
+              "n": 2,
+              "label": "Efectivo: apertura S/ 120.00"
+            },
+            {
+              "n": 3,
+              "label": "Yape: apertura S/ 85.50"
+            }
+          ]
+        }
+      ],
+      "tips": [
+        "El saldo no se escribe: el saldo de una cuenta es el de apertura más sus movimientos. Si algo no cuadra, se corrige con un movimiento en Caja, no editando el saldo.",
+        "El saldo de apertura es lo que ya había en la cuenta el día que la registras. Un movimiento con fecha anterior a esa ya está dentro del saldo: no lo cambia, aunque sí cuenta en Resultados de su mes.",
+        "«Medio de pago por defecto» hace que el cobro de un pedido no vuelva a preguntar con qué se pagó. Una caja de efectivo trae «Efectivo»; en una billetera o un banco tú eliges «Yape», «Plin» o «Transferencia bancaria».",
+        "Para sacar el dinero de una cuenta que vas a dejar de usar, haz en Caja una transferencia entre cuentas hacia otra."
+      ],
+      "warnings": [
+        "Una cuenta no se borra: se desactiva con «Desactivar» y deja de recibir cobros y pagos. Si todavía tiene saldo, sigue contando en el total del taller hasta que lo transfieras.",
+        "La fecha del saldo de apertura no puede ser futura. Si la cambias en una cuenta con movimientos, algunos pueden pasar de un lado de la fecha al otro: la app los lista y pide confirmar antes de guardar.",
+        "Solo el dueño crea, edita o desactiva cuentas. El operador las ve para saber cuánto hay."
+      ]
+    },
+    {
+      "title": "Qué puede hacer cada rol",
+      "intro": "Pickypop tiene tres roles: dueño, operador y solo lectura. Las reglas viven en la base de datos, no en la pantalla: ocultar un botón no es seguridad, así que quien intente hacer lo que su rol no permite recibe un «no» aunque llame a la app por otro camino. Para ver lo que ve otra persona, sal y entra con la cuenta de ese rol; así se hizo para este manual.",
+      "steps": [
+        {
+          "text": "Haz clic en «Salir», baja al final de la barra lateral, y entra con la cuenta del operador. Abre Configuración › «Parámetros de costo»: los valores se ven, pero no hay botón para crear una versión, y un aviso dice «Solo el dueño del taller puede cambiar los parámetros de costo. Aquí los ves en modo lectura.»",
+          "image": "img/01-39-operador-parametros.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "Aviso: solo el dueño cambia los parámetros"
+            },
+            {
+              "n": 2,
+              "label": "Los parámetros vigentes, en modo lectura (sin «Crear nueva versión»)"
+            }
+          ]
+        },
+        {
+          "text": "Como operador, en «Ventas y regalos» ves los canales y las categorías de regalo con el aviso «Solo el dueño del taller puede cambiar los canales de venta». Lo mismo pasa en «Taller», «Miembros» y «Categorías de dinero».",
+          "image": "img/01-40-operador-canales.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "Aviso de modo lectura sobre los canales de venta"
+            }
+          ]
+        },
+        {
+          "text": "En «Taller» el operador ve los datos y el horario, pero los campos están bloqueados y no hay botón para guardar.",
+          "image": "img/01-42-operador-taller.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "Aviso: solo el dueño cambia estos datos"
+            },
+            {
+              "n": 2,
+              "label": "Campos de solo lectura"
+            }
+          ]
+        },
+        {
+          "text": "En cambio, en «Marcas», «Materiales» y «Acabados» el operador sí puede crear, renombrar y desactivar, porque al comprar un filamento nuevo los necesita.",
+          "image": "img/01-41-operador-marcas.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "+ Nueva marca: el operador sí lo tiene"
+            }
+          ]
+        },
+        {
+          "text": "En Finanzas › «Cuentas» el operador ve los saldos, pero sin «Nueva cuenta», «Editar» ni «Desactivar».",
+          "image": "img/01-43-operador-cuentas.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "Aviso: solo el dueño crea, edita o desactiva cuentas"
+            },
+            {
+              "n": 2,
+              "label": "Fila de la cuenta, sin botones"
+            }
+          ]
+        },
+        {
+          "text": "En Producción › «Impresoras» el operador ve la impresora, pero no puede editarla. Sí puede hacer clic en «Registrar mantenimiento».",
+          "image": "img/01-44-operador-impresoras.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "Aviso: la impresora, sus planes y sus componentes los cambia el dueño"
+            },
+            {
+              "n": 2,
+              "label": "Registrar mantenimiento: del día a día, lo registra el operador"
+            }
+          ]
+        },
+        {
+          "text": "Ahora sal y entra con la cuenta de solo lectura. En «Hoy» no hay botón «Venta rápida» ni tarjeta «Primeros pasos»: ve el menú y los resúmenes, pero no registra nada.",
+          "image": "img/01-45-lectura-hoy.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "El mismo menú que los demás: ve todas las pantallas"
+            },
+            {
+              "n": 2,
+              "label": "Lo que vence, solo para consultar"
+            },
+            {
+              "n": 3,
+              "label": "Arriba a la derecha no hay botón «Venta rápida»"
+            }
+          ]
+        },
+        {
+          "text": "En Configuración, incluso «Marcas», «Materiales» y «Acabados» salen con el aviso «Tu rol es de solo lectura: aquí ves las marcas sin poder cambiarlas», sin botones de crear ni editar.",
+          "image": "img/01-46-lectura-marcas.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "Aviso: tu rol es de solo lectura"
+            },
+            {
+              "n": 2,
+              "label": "Marca sin botones «Renombrar» ni «Desactivar»"
+            }
+          ]
+        },
+        {
+          "text": "Para volver, haz clic en «Salir» y entra otra vez con tu cuenta de dueño. Comprueba en la barra lateral que abajo aparece tu correo."
+        }
+      ],
+      "tips": [
+        "Dueño: todo lo del operador, y además cambia la configuración (parámetros de costo, datos y horario del taller, miembros, canales de venta, categorías de regalo y de dinero, impresoras con sus planes y componentes, cuentas y sus aperturas), anula movimientos de dinero y borra lo que se puede borrar.",
+        "Operador: el día a día. Imprime (inicia y cierra trabajos, pesa rollos), arma y cuenta el estante, compra y paga compras, cotiza, vende (pedidos y Venta rápida), cobra, entrega, cancela, lleva el catálogo y registra mantenimiento e incidentes. En Configuración cambia «Marcas», «Materiales», «Acabados» y su «Apariencia»; todo lo demás lo ve en lectura. No anula movimientos de dinero.",
+        "Solo lectura: ve todo y no registra nada. No tiene «Venta rápida» ni botones de crear o editar, y si intenta algo por otro camino, la base se lo niega.",
+        "Cuando un botón no aparece o un campo está bloqueado, la pantalla escribe el porqué, por ejemplo «Solo el dueño del taller puede…».",
+        "Reglas del taller que vas a encontrar más adelante, y que se explican en su capítulo: la cotización exige un cliente; «Clientes varios» es el cliente de la Venta rápida y nunca puede quedar debiendo, porque lo que se le vende se paga en el acto."
+      ],
+      "warnings": [
+        "El dinero no se borra: se anula, con un motivo obligatorio, y solo el dueño anula. Un movimiento anulado desaparece de los saldos y de los reportes, pero deja su rastro, y no se puede desanular: si fue un error, se registra de nuevo.",
+        "El estante solo se mueve por sus cuatro flujos: cerrar una impresión (entran las piezas que salieron de verdad), armar un producto, entregar un pedido y contar el estante. Si algo no coincide, se corrige contando, no editando. Un pedido llega a «Entregado» porque se entregó, no porque alguien cambió su estado.",
+        "El taller siempre tiene al menos un dueño: la base rechaza quitarle el rol al último."
+      ]
+    }
+  ]
+}

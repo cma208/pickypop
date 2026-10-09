@@ -1,0 +1,1061 @@
+{
+  "n": 3,
+  "title": "Catálogo, recetas y precios",
+  "intro": "El catálogo dice qué vendes, cómo se fabrica cada cosa y a qué precio. Con una receta bien cargada la app sabe cuánto cuesta cada unidad y te avisa cuando un precio deja poco margen. En este capítulo cargas la Calavera dulcera completa, de la foto al último escalón de precios.",
+  "who": "todos",
+  "sections": [
+    {
+      "title": "Dónde está el catálogo",
+      "intro": "El catálogo es la lista de lo que vendes y de cómo se fabrica cada cosa. Vive en el grupo «Producción» del menú, con el nombre «Catálogo y recetas». En este capítulo cargas la Calavera dulcera completa: el producto, su variante, las placas que salen del archivo de Bambu Studio, la receta y los precios.",
+      "steps": [
+        {
+          "text": "Haz clic en «Catálogo y recetas», en el grupo «Producción» del menú de la izquierda. Si todavía no hay productos, la pantalla lo dice y te ofrece dos botones que hacen lo mismo: «Nuevo producto» y «Crear el primero».",
+          "image": "img/03-01-catalogo-vacio.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "«Catálogo y recetas», en el grupo «Producción» del menú"
+            },
+            {
+              "n": 2,
+              "label": "«Nuevo producto»: abre el formulario"
+            },
+            {
+              "n": 3,
+              "label": "«Crear el primero»: hace lo mismo"
+            }
+          ]
+        },
+        {
+          "text": "Ten clara la diferencia entre las dos piezas del catálogo. El producto es «Calavera dulcera». La variante es la versión que de verdad vendes: «Con dulces surtidos». El precio, la receta y la escalera de precios son de la variante, no del producto."
+        }
+      ],
+      "tips": [
+        "Dueño y operador crean y editan todo el catálogo. El operador no puede quitar nada (variantes, placas, piezas, insumos ni escalones de precio). Con el rol de solo lectura se ve todo y no se cambia nada. Al final del capítulo ves cómo se nota cada rol.",
+        "Todo artículo se reconoce por su foto: el producto y cada variante llevan la suya en todas las listas. En un taller donde casi todo se llama «la tapa chica», el nombre solo no alcanza."
+      ],
+      "warnings": []
+    },
+    {
+      "title": "Crear el producto",
+      "intro": "Un producto es el nombre bajo el que agrupas lo que vendes, con su foto, su descripción y su ficha técnica. Todavía no lleva precio ni receta: eso va en sus variantes.",
+      "steps": [
+        {
+          "text": "Haz clic en «Nuevo producto», arriba a la derecha. Se abre la tarjeta «Nuevo producto»."
+        },
+        {
+          "text": "Escribe el «Nombre» («Calavera dulcera»). El «Identificador (slug)» se arma solo con el nombre («calavera-dulcera»): déjalo así. Completa la «Descripción», la «Categoría» («Dulceros»), las «Etiquetas» separadas por comas y el «Plazo de entrega (días)» (3).",
+          "image": "img/03-02-producto-nuevo.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "Nombre del producto"
+            },
+            {
+              "n": 2,
+              "label": "Identificador (slug): se arma solo con el nombre"
+            },
+            {
+              "n": 3,
+              "label": "Descripción"
+            },
+            {
+              "n": 4,
+              "label": "Categoría"
+            },
+            {
+              "n": 5,
+              "label": "Etiquetas, separadas por comas"
+            },
+            {
+              "n": 6,
+              "label": "Plazo de entrega, en días"
+            },
+            {
+              "n": 7,
+              "label": "Crear producto"
+            }
+          ]
+        },
+        {
+          "text": "Haz clic en «Crear producto». La app abre la ficha del producto, que nace en estado «Borrador»."
+        },
+        {
+          "text": "Sube la foto: haz clic en «Subir foto» y elige la imagen de la calavera (calavera.png). La foto se achica sola antes de subir y se guarda en el momento, sin tocar «Guardar cambios». Después cambia el «Estado» a «Publicado» y deja sin marcar «Visible para el bot del catálogo» por ahora.",
+          "image": "img/03-03-producto-foto-estado.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "«Cambiar foto»: la foto ya subida (antes dice «Subir foto»)"
+            },
+            {
+              "n": 2,
+              "label": "Estado: «Borrador», «Publicado» o «Archivado»"
+            },
+            {
+              "n": 3,
+              "label": "«Visible para el bot del catálogo»: déjala sin marcar"
+            }
+          ]
+        },
+        {
+          "text": "Baja a «Ficha técnica» y haz clic en «Agregar atributo» dos veces. Escribe «Material» = «PLA blanco con detalles negros» y «Contenido» = «Dulces surtidos, 50 g». Haz clic en «Guardar cambios»: junto al botón aparece «Guardado».",
+          "image": "img/03-04-producto-ficha-tecnica.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "Ficha técnica: atributos libres (dimensiones, acabado, cuidados…)"
+            },
+            {
+              "n": 2,
+              "label": "«Agregar atributo»: una fila nueva de atributo y valor"
+            },
+            {
+              "n": 3,
+              "label": "«Guardar cambios»"
+            }
+          ]
+        }
+      ],
+      "tips": [
+        "«Borrador» es un producto que todavía preparas, «Publicado» el que ya se vende y «Archivado» el que retiras. Solo los archivados desaparecen de las listas de cotizar y de crear pedidos.",
+        "«Visible para el bot del catálogo» decide si el bot que atiende a los clientes puede mostrar el producto. El bot nunca ve costos ni márgenes.",
+        "El «Identificador (slug)» es el nombre del producto dentro de los enlaces. Cambiarlo después rompe los enlaces que ya compartiste.",
+        "La «Ficha técnica» es libre: pon los atributos que le sirvan a quien lea la ficha (dimensiones, cuidados, si es personalizable…)."
+      ],
+      "warnings": [
+        "El nombre de un producto no se puede repetir en el taller, aunque cambien las mayúsculas o sobren espacios. La app lo avisa antes de guardar: «Ya hay un producto «…». Usa otro nombre, o agrégale una variante a ese.» Si el otro está archivado, te dice que lo restaures desde el catálogo."
+      ]
+    },
+    {
+      "title": "Crear la variante",
+      "intro": "La variante es lo que vendes y lo que se cotiza. Cada una tiene su precio de lista, su receta, su escalera de precios y su costo. Un producto puede tener varias: por tamaño, color o relleno.",
+      "steps": [
+        {
+          "text": "En la ficha del producto, baja a «Variantes». Como todavía no hay ninguna, haz clic en «Crear variante».",
+          "image": "img/03-05-variantes-vacio.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "Variantes"
+            },
+            {
+              "n": 2,
+              "label": "«Crear variante»"
+            }
+          ]
+        },
+        {
+          "text": "Sube la «Foto» del producto terminado tal como sale esta variante (la misma calavera.png). Escribe el «Nombre» («Con dulces surtidos»). En «Código interno (SKU)» haz clic en «Sugerir» para que la app arme uno: sirve para etiquetar la caja del estante. En «Precio de lista (S/)» escribe 19, el precio de una unidad. Deja vacío el «Mínimo de unidades» si no hay pedido mínimo. Haz clic en «Agregar opción» y escribe «Relleno» y «dulces surtidos». Deja marcada «Variante activa (se puede vender)».",
+          "image": "img/03-06-variante-nueva.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "Foto de la variante («Cambiar foto» una vez subida)"
+            },
+            {
+              "n": 2,
+              "label": "Nombre de la variante"
+            },
+            {
+              "n": 3,
+              "label": "Código interno (SKU): «Sugerir» lo arma"
+            },
+            {
+              "n": 4,
+              "label": "Precio de lista (S/): el precio de una unidad"
+            },
+            {
+              "n": 5,
+              "label": "Mínimo de unidades: déjalo vacío si no hay mínimo"
+            },
+            {
+              "n": 6,
+              "label": "Variante activa (se puede vender)"
+            },
+            {
+              "n": 7,
+              "label": "«Agregar opción»: aquí «Relleno» = «dulces surtidos»"
+            },
+            {
+              "n": 8,
+              "label": "Crear variante"
+            }
+          ]
+        },
+        {
+          "text": "Haz clic en «Crear variante». La variante aparece como una pestaña y debajo salen sus cuatro tarjetas: «Datos de la variante», «Receta de producción», «Escalera de precios» y «Costo actual». Al pie de «Datos de la variante» están «Guardar variante», «Duplicar» y «Eliminar variante».",
+          "image": "img/03-07-variante-guardada.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "«Guardar variante»: se enciende cuando cambias algo"
+            },
+            {
+              "n": 2,
+              "label": "«Duplicar»: copia la variante entera"
+            },
+            {
+              "n": 3,
+              "label": "«Eliminar variante»: solo el dueño, y solo mientras nada la use"
+            }
+          ]
+        }
+      ],
+      "tips": [
+        "Si no subes foto a la variante, se usa la del producto. La foto de una variante nueva se guarda al hacer clic en «Crear variante»; la de una variante que ya existe, en el momento de subirla.",
+        "El precio de lista es el de una unidad. Los descuentos por cantidad van en la escalera de precios. Si todavía no tienes precio, déjalo vacío: un precio de S/ 0 no se acepta.",
+        "Las «Opciones» describen lo que distingue a la variante (color, tamaño, relleno…)."
+      ],
+      "warnings": [
+        "El nombre de una variante no se repite dentro de su producto: «Ya hay una variante «…» en este producto. Usa otro nombre.»"
+      ]
+    },
+    {
+      "title": "La receta: cómo se entrega y cuánto tarda",
+      "intro": "La receta dice qué lleva una unidad terminada y cuánto trabajo exige. Con ella la app calcula cuánto cuesta fabricarla. Se escribe una vez por variante.",
+      "steps": [
+        {
+          "text": "En la tarjeta «Receta de producción» verás que la variante todavía no tiene receta. Haz clic en «Crear receta».",
+          "image": "img/03-08-variante-sin-receta.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "«Crear receta»"
+            },
+            {
+              "n": 2,
+              "label": "Tarjeta «Receta de producción»"
+            }
+          ]
+        },
+        {
+          "text": "Elige «¿Cómo se entrega?». La Calavera es «Se arma.»: sus piezas, dulces y empaque se juntan en «Armar productos» y al cliente se le entrega el producto armado. «Sale tal cual de la impresora.» es para cosas como un llavero, que no pasan por «Armar»: al entregarlas se descuentan directo sus piezas y su empaque."
+        },
+        {
+          "text": "Escribe la «Preparación por lote (minutos)» (10) y los «Minutos por unidad» (5: rellenar con dulces, cerrar y embolsar). Si quieres, deja una «Nota de la receta». Haz clic en «Guardar».",
+          "image": "img/03-09-receta-tiempos.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "Las dos explicaciones: preparación por lote y minutos por unidad"
+            },
+            {
+              "n": 2,
+              "label": "¿Cómo se entrega?: «Se arma.» o «Sale tal cual de la impresora.»"
+            },
+            {
+              "n": 3,
+              "label": "Preparación por lote (minutos)"
+            },
+            {
+              "n": 4,
+              "label": "Minutos por unidad"
+            },
+            {
+              "n": 5,
+              "label": "Nota de la receta"
+            },
+            {
+              "n": 6,
+              "label": "Guardar"
+            }
+          ]
+        }
+      ],
+      "tips": [
+        "Preparación por lote es el tiempo de laminar, acomodar la placa y cargar filamento. Se paga una sola vez por tanda, así que pesa menos en cada unidad cuanto más grande es el lote.",
+        "Minutos por unidad es lo que lleva terminar cada pieza (armar, rellenar, empacar). No baja con el volumen, y por eso es lo que más decide el costo. La tarjeta te dice cuánto suma cada minuto con la hora de trabajo que tengas en el taller: a S/ 15.00 la hora, cada minuto suma S/ 0.25 a cada unidad.",
+        "La hora de trabajo, la hora de máquina, la luz, la reserva por fallos y el margen objetivo no se escriben en el catálogo: salen del perfil de costos que se llena en «Configuración»."
+      ],
+      "warnings": []
+    },
+    {
+      "title": "Qué lee el archivo laminado, y qué no",
+      "intro": "Una placa es una impresión completa de la cama de la impresora. Un producto puede salir de varias: el frente en una, la trasera en otra, las tapas en una tercera. En vez de escribirlas a mano, lees el archivo ya laminado y confirmas lo que la app propone.",
+      "steps": [
+        {
+          "text": "En la receta, baja a «Placas». Ahí están el botón «Cargar desde archivo laminado» y, debajo, la tarjeta «Agregar placa», para escribir una placa a mano cuando no tienes archivo.",
+          "image": "img/03-10-placas-vacio.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "Placas: un producto puede salir de varias"
+            },
+            {
+              "n": 2,
+              "label": "«Cargar desde archivo laminado»"
+            },
+            {
+              "n": 3,
+              "label": "«Agregar placa»: la forma manual, sin archivo"
+            }
+          ]
+        },
+        {
+          "text": "Haz clic en «Cargar desde archivo laminado» y elige el archivo de la calavera, «skull.gcode.3mf». Es el .gcode.3mf que exportas desde Bambu Studio con «Export plate sliced file»."
+        },
+        {
+          "text": "Si eliges un archivo que no sirve, la app lo dice en rojo debajo del botón y no abre nada. Por ejemplo, con una imagen que se llama .3mf: «…no parece un archivo de Bambu Studio. Arrastra el .gcode.3mf que exportaste.»",
+          "image": "img/03-38-importar-archivo-invalido.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "«Cargar desde archivo laminado»"
+            },
+            {
+              "n": 2,
+              "label": "El mensaje en rojo: el archivo no sirve y no se guardó nada"
+            }
+          ]
+        }
+      ],
+      "tips": [
+        "Qué lee: de cada placa, el tiempo de impresión, los gramos de cada filamento (con el material y el color de cada ranura), una vista de la placa y la lista de objetos que lleva. Con eso propone el rollo del taller que más se le parece y las piezas que salen de la placa.",
+        "Qué no lee: no sabe cuánto cuesta nada, cuántas piezas lleva tu producto ni a qué precio lo vendes. Eso lo pones tú al confirmar.",
+        "Los gramos que trae el archivo ya incluyen la purga y la torre de limpieza: no las sumes aparte. El tiempo es el que el laminador predice para la placa.",
+        "La lectura se hace en tu computadora: el archivo no se sube a ningún sitio. Solo se guardan los datos que confirmas y la vista de cada placa."
+      ],
+      "warnings": [
+        "La app nunca controla la impresora: no lamina, no manda trabajos ni habla con la máquina. El laminado se hace en Bambu Studio y aquí solo se lee el archivo ya laminado.",
+        "Un proyecto sin laminar no sirve: no trae placas, gramos ni tiempo. Si el archivo «no trae los datos del laminado», expórtalo desde Bambu Studio con «Export plate sliced file»."
+      ]
+    },
+    {
+      "title": "Revisar las placas del archivo",
+      "intro": "Al elegir el archivo se abre «Revisa lo que trae «skull.gcode.3mf»»: una tarjeta por cada placa del archivo. Todavía no se guardó nada: puedes descartar todo sin dejar rastro.",
+      "steps": [
+        {
+          "text": "Mira una tarjeta. Tiene la vista de la placa, la casilla «Placa 1 del archivo», el tiempo y los gramos, la línea «El archivo dice:» con los objetos que lleva y el «Rollo de cada ranura» (el filamento de cada color).",
+          "image": "img/03-11-importar-revision.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "Título de la revisión, con el nombre del archivo"
+            },
+            {
+              "n": 2,
+              "label": "Vista de la placa, tomada del archivo"
+            },
+            {
+              "n": 3,
+              "label": "Casilla «Placa 1 del archivo»: marcada, la placa se guarda"
+            },
+            {
+              "n": 4,
+              "label": "Tiempo y gramos de una corrida"
+            },
+            {
+              "n": 5,
+              "label": "«El archivo dice:» los objetos que lleva la placa"
+            },
+            {
+              "n": 6,
+              "label": "«Rollo de cada ranura»: el filamento de cada color"
+            }
+          ]
+        },
+        {
+          "text": "Desmarca las placas que no son de este producto. El archivo de la calavera trae nueve placas y el producto usa tres. Desmarca las placas 2 a 5 (las piezas del molde, en PETG rojo) y las placas 1 y 7 (llevan dos frentes y dos traseras por placa: otra forma de repartir las mismas piezas). Una placa desmarcada se ve apagada y no se guarda.",
+          "image": "img/03-12-importar-molde-desmarcado.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "Placas 2 a 5 del archivo: las piezas del molde, desmarcadas"
+            },
+            {
+              "n": 2,
+              "label": "La casilla de la placa 2, sin marcar"
+            }
+          ]
+        },
+        {
+          "text": "Quedan marcadas la placa 6 (7 tapas y 7 ganchos), la placa 8 (el frente) y la placa 9 (la trasera)."
+        }
+      ],
+      "tips": [
+        "Placa marcada = va a la receta de esta variante. Si dudas de una, desmárcala: puedes cargar el archivo otra vez y marcarla más tarde."
+      ],
+      "warnings": [
+        "Si dejas marcada una placa del molde, se guardaría como placa del producto y su costo se sumaría al de cada Calavera. El molde no forma parte de la receta: mira la sección «El molde»."
+      ]
+    },
+    {
+      "title": "Nombrar las piezas y guardar las placas",
+      "intro": "Cada objeto del archivo es una pieza de tu inventario, o algo que no va al estante, como un molde o una prueba. Para cada objeto de una placa marcada eliges qué pieza es. Si todavía no existe, la creas ahí mismo.",
+      "steps": [
+        {
+          "text": "En la placa 6, «Cap ×7» es la tapa. Como todavía no tienes piezas, haz clic en «+ Pieza nueva» en la fila del objeto, escribe «Tapa de calavera» en «Nombre de la pieza nueva» y haz clic en «Usar».",
+          "image": "img/03-13-importar-pieza-nueva.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "«El archivo dice:» 7 «Cap» y 7 «Body1»"
+            },
+            {
+              "n": 2,
+              "label": "El objeto «Cap ×7»: elige su pieza y cuántas salen por corrida"
+            },
+            {
+              "n": 3,
+              "label": "Nombre de la pieza nueva"
+            },
+            {
+              "n": 4,
+              "label": "«Usar»: la pieza queda elegida"
+            }
+          ]
+        },
+        {
+          "text": "Haz lo mismo con «Body1 ×7»: «+ Pieza nueva», «Gancho de calavera», «Usar». Cada fila queda con su pieza y la marca «Nueva: se crea al guardar». «Productos por corrida» se calcula solo: con 7 tapas y 7 ganchos alcanza para 7 productos. Cambia la «Etiqueta» a «Tapas y ganchos».",
+          "image": "img/03-14-importar-tapas-ganchos.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "«Cap ×7» → «Tapa de calavera», 7 por corrida"
+            },
+            {
+              "n": 2,
+              "label": "«Body1 ×7» → «Gancho de calavera», 7 por corrida"
+            },
+            {
+              "n": 3,
+              "label": "Rollo de la ranura 1: PLA Blanco"
+            },
+            {
+              "n": 4,
+              "label": "Etiqueta y «Productos por corrida» (7)"
+            },
+            {
+              "n": 5,
+              "label": "La cuenta: con 7 tapas y 7 ganchos alcanza para 7 productos"
+            }
+          ]
+        },
+        {
+          "text": "En la placa 8 (el frente, que usa dos rollos: blanco en la ranura 1 y negro en la 2), nombra el objeto «Frente de calavera» y pon «Frente» de etiqueta. En la placa 9, nombra el objeto «Trasera de calavera» y pon «Trasera» de etiqueta. Confirma que cada ranura tenga el rollo que usas (PLA Blanco, PLA Negro).",
+          "image": "img/03-15-importar-frente-trasera.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "Vista de la placa 8: el frente, con los ojos negros"
+            },
+            {
+              "n": 2,
+              "label": "«Sub-merged body ×1» → «Frente de calavera»"
+            },
+            {
+              "n": 3,
+              "label": "Rollos: ranura 1 PLA Blanco, ranura 2 PLA Negro"
+            },
+            {
+              "n": 4,
+              "label": "Etiqueta «Frente» y 1 producto por corrida"
+            }
+          ]
+        },
+        {
+          "text": "Baja al final de la revisión y haz clic en «Guardar 3 placas». Si algo no te convence, «Descartar» cierra la revisión sin guardar nada.",
+          "image": "img/03-16-importar-guardar.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "Aviso: una pieza que falta se nombra con «+ Pieza nueva»"
+            },
+            {
+              "n": 2,
+              "label": "«Guardar 3 placas»"
+            },
+            {
+              "n": 3,
+              "label": "«Descartar»: no deja nada"
+            }
+          ]
+        }
+      ],
+      "tips": [
+        "Si un objeto no es una pieza del estante (un molde, una prueba), déjalo en «No va al estante».",
+        "Cuando el nombre de un objeto se parece al de una pieza que ya tienes, la app te la propone: confírmala o elige otra. Si no hay ninguna, «+ Pieza nueva».",
+        "El rollo de cada ranura es una propuesta: puedes cambiarlo. El material sigue al rollo que elijas.",
+        "Una pieza nueva no existe mientras revisas: se crea al guardar. Si descartas, no queda nada."
+      ],
+      "warnings": [
+        "«Productos por corrida» es lo que usa el costo: cuántos productos terminados alcanza a hacer una corrida de la placa. Si tu producto lleva otra cantidad de piezas, corrígelo antes de guardar."
+      ]
+    },
+    {
+      "title": "Cómo queda la receta con sus placas",
+      "intro": "Al guardar, la revisión se cierra y la receta muestra las tres placas, listas para editar. Cada una es una tarjeta con su etiqueta, sus filamentos y las piezas que dejan en el estante.",
+      "steps": [
+        {
+          "text": "Arriba aparece «Se cargaron 3 placas de «skull.gcode.3mf» y se crearon 4 piezas nuevas.» Cada placa es una tarjeta con su «Etiqueta», sus «Productos por corrida», su «Tiempo (minutos)» y sus filamentos: ranura, material, rollo asignado y gramos de una corrida.",
+          "image": "img/03-17-receta-placa-guardada.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "El aviso: 3 placas guardadas y 4 piezas creadas"
+            },
+            {
+              "n": 2,
+              "label": "Productos por corrida: 7 en la placa de tapas y ganchos"
+            },
+            {
+              "n": 3,
+              "label": "Tiempo (minutos): el archivo lo da en segundos, aquí se ve en minutos"
+            },
+            {
+              "n": 4,
+              "label": "Filamento de la placa: ranura, material, rollo asignado y gramos de una corrida"
+            }
+          ]
+        },
+        {
+          "text": "Más abajo, «Lo que sale de esta placa al estante» lista las piezas de una corrida: 7 tapas y 7 ganchos en la placa de tapas. Si falta una pieza, usa la fila vacía de abajo.",
+          "image": "img/03-18-receta-placa-salidas.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "«El archivo dice:» lo que traía la placa del archivo"
+            },
+            {
+              "n": 2,
+              "label": "«Tapa de calavera»: 7 por corrida"
+            },
+            {
+              "n": 3,
+              "label": "«Gancho de calavera»: 7 por corrida"
+            },
+            {
+              "n": 4,
+              "label": "Fila vacía: agrega otra pieza a la placa"
+            }
+          ]
+        },
+        {
+          "text": "Baja a «Piezas impresas por unidad». Las cuatro piezas ya están, con «Cantidad por unidad» 1: una tapa, un gancho, un frente y una trasera por cada Calavera. Cada fila dice «Sale de las placas de esta receta: su costo ya está en las corridas».",
+          "image": "img/03-19-receta-piezas-por-unidad.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "Piezas impresas por unidad"
+            },
+            {
+              "n": 2,
+              "label": "«Tapa de calavera»: 1 por unidad"
+            },
+            {
+              "n": 3,
+              "label": "«Trasera de calavera»: 1 por unidad"
+            }
+          ]
+        }
+      ],
+      "tips": [
+        "Las placas se numeran en la receta (1, 2, 3) aunque en el archivo fueran la 6, 8 y 9. El número del archivo se ve en «El archivo dice: … · placa 6 de «skull.gcode.3mf»».",
+        "El tiempo de cada placa se ve en minutos con decimales (44.43) porque el archivo lo da en segundos. No lo redondees: así el costo coincide con el del laminador.",
+        "Las piezas que salen de las placas se agregan solas a «Piezas impresas por unidad», una por unidad. Si tu producto lleva otra cantidad (dos ganchos, por ejemplo), cámbiala en su fila y haz clic en «Guardar».",
+        "Para cambiar algo de una placa (tiempo, gramos, rollo, piezas), edítalo en su tarjeta y haz clic en «Guardar» de esa fila."
+      ],
+      "warnings": [
+        "Quitar una placa, un filamento o una pieza de la receta (la ✕) lo hace solo el dueño. Si la placa es la única que imprime una pieza, la app lo avisa antes: la pieza se queda en la receta sin quién la imprima y el costo del producto cambia."
+      ]
+    },
+    {
+      "title": "Los insumos por unidad: dulces, lámina y bolsa",
+      "intro": "Lo que se compra y se gasta en cada unidad terminada va en «Insumos por unidad»: los dulces, la lámina y la bolsa. Salen de los insumos y el empaque que diste de alta en Inventario.",
+      "steps": [
+        {
+          "text": "Baja a «Insumos por unidad». En la fila vacía haz clic en «Elige un insumo…» y elige «Dulces surtidos». La lista muestra la foto de cada insumo y de cada empaque.",
+          "image": "img/03-20-receta-elegir-insumo.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "«Elige un insumo…»: el selector"
+            },
+            {
+              "n": 2,
+              "label": "La lista, con la foto de cada insumo y empaque"
+            }
+          ]
+        },
+        {
+          "text": "Escribe la «Cantidad por unidad (g)» (50) y haz clic en «Agregar». Debajo ves «Costo registrado: S/ 0.026 por g.», que sale de tus compras.",
+          "image": "img/03-21-receta-insumo-dulces.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "Insumo elegido: «Dulces surtidos»"
+            },
+            {
+              "n": 2,
+              "label": "Cantidad por unidad (g): 50"
+            },
+            {
+              "n": 3,
+              "label": "«Agregar»"
+            },
+            {
+              "n": 4,
+              "label": "Costo registrado: sale de tus compras"
+            }
+          ]
+        },
+        {
+          "text": "Repite con «Lámina PET» (1 unidad) y con «Bolsa con etiqueta» (1 unidad). La fila vacía de abajo queda lista para otro insumo.",
+          "image": "img/03-22-receta-insumos.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "«Dulces surtidos»: 50 g"
+            },
+            {
+              "n": 2,
+              "label": "«Lámina PET»: 1 unidad"
+            },
+            {
+              "n": 3,
+              "label": "«Bolsa con etiqueta»: 1 unidad"
+            },
+            {
+              "n": 4,
+              "label": "Fila vacía para otro insumo"
+            }
+          ]
+        }
+      ],
+      "tips": [
+        "En el selector solo hay insumos y empaque ya dados de alta. Si falta uno, se crea en «Insumos» o «Empaque», en el grupo «Inventario».",
+        "El costo de un insumo sale de lo que compraste, con el envío repartido. Si todavía no lo compraste, la fila dice «Sin costo registrado: no se ha comprado este insumo» y en «Costo actual» puedes probar un costo provisional que no se guarda.",
+        "Las piezas impresas no se compran: se producen. Su costo sale de las placas (y, más adelante, de las impresiones cerradas), nunca de una compra."
+      ],
+      "warnings": [
+        "Quitar un insumo de la receta lo hace solo el dueño."
+      ]
+    },
+    {
+      "title": "La escalera de precios",
+      "intro": "El precio de lista es el de una unidad. La escalera son los descuentos por cantidad: rige el escalón más alto cuyo mínimo se alcanza. Cada fila te dice cuánto cuesta fabricar una unidad con ese lote y qué margen deja.",
+      "steps": [
+        {
+          "text": "Baja a «Escalera de precios». La primera fila, «Lista (1 u.)», es el precio de lista que pusiste (S/ 19.00). Las columnas dicen: «Precio unit.», «Costo unit.» (lo que cuesta fabricar una unidad con ese lote), «Margen» y «Precio para el objetivo» (el precio que deja el margen que quieres).",
+          "image": "img/03-23-escalera-margen-bajo.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "La fila «Lista (1 u.)»: precio, costo, margen y precio para el objetivo"
+            },
+            {
+              "n": 2,
+              "label": "Aviso en rojo: el margen queda por debajo del objetivo"
+            },
+            {
+              "n": 3,
+              "label": "Formulario para agregar un escalón"
+            }
+          ]
+        },
+        {
+          "text": "Con el costo de la receta, S/ 19 a una unidad deja 46.63 %. Como el objetivo es 50 %, el margen sale en rojo y la app avisa: «Margen por debajo del objetivo (50 %)… Para llegar al objetivo el precio tendría que ser de S/ 20.28 o más.»"
+        },
+        {
+          "text": "Agrega el primer descuento: en «Desde (unidades)» escribe 5, en «Precio unitario (S/)» escribe 15 y haz clic en «Agregar escalón».",
+          "image": "img/03-24-escalera-nuevo-escalon.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "Desde (unidades): 5"
+            },
+            {
+              "n": 2,
+              "label": "Precio unitario (S/): 15"
+            },
+            {
+              "n": 3,
+              "label": "«Agregar escalón»"
+            }
+          ]
+        },
+        {
+          "text": "Repite con 10 y 13.50. La escalera queda con tres filas: lista a 1 unidad, desde 5 unidades y desde 10 unidades.",
+          "image": "img/03-25-escalera-completa.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "Lista (1 u.): S/ 19.00, margen 46.63 %"
+            },
+            {
+              "n": 2,
+              "label": "Desde 5 unidades: S/ 15.00, margen 50 %"
+            },
+            {
+              "n": 3,
+              "label": "Desde 10 unidades: S/ 13.50, margen 46.3 %"
+            },
+            {
+              "n": 4,
+              "label": "El aviso nombra cada fila que no llega al objetivo y a cuánto habría que subirla"
+            },
+            {
+              "n": 5,
+              "label": "✕: quitar el escalón (solo el dueño)"
+            }
+          ]
+        },
+        {
+          "text": "Si agregas un escalón desde una cantidad que ya tiene el suyo, la app lo rechaza y no cambia nada.",
+          "image": "img/03-37-escalera-escalon-repetido.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "Desde (unidades): 5, una cantidad que ya tiene escalón"
+            },
+            {
+              "n": 2,
+              "label": "Precio unitario (S/): 14"
+            },
+            {
+              "n": 3,
+              "label": "«Ya hay un escalón desde esa cantidad.»"
+            }
+          ]
+        }
+      ],
+      "tips": [
+        "El margen se toma sobre el precio, no sobre el costo: margen = (precio − costo) ÷ precio. Por eso el precio que alcanza el margen objetivo es costo ÷ (1 − margen). Con un costo de S/ 10.14 y un objetivo de 50 %, el precio es S/ 10.14 ÷ 0.5 = S/ 20.28. Sumarle el 50 % al costo daría S/ 15.21 y dejaría un margen menor.",
+        "El costo por unidad baja con el lote, y por eso el margen cambia en cada escalón: S/ 10.14 a 1 unidad, S/ 7.50 a 5 y S/ 7.25 a 10. Los mismos S/ 15 que dejan 50 % con 5 unidades no alcanzarían con una sola.",
+        "Vender una sola unidad suelta es antieconómico: hay que imprimir placas enteras y pagar la preparación del lote. Por eso existe la escalera de precios.",
+        "El margen objetivo (50 % en este taller) se cambia en «Configuración», en el perfil de costos. Es sobre el precio, no sobre el costo."
+      ],
+      "warnings": [
+        "El aviso de margen bajo no impide guardar: es una advertencia y la decisión de cobrar menos es tuya. En el ejemplo, S/ 19 a 1 unidad deja 46.63 % y S/ 13.50 desde 10 unidades deja 46.3 %: los dos quedan por debajo del 50 % y la app te dice a cuánto subirlos (S/ 20.28 y S/ 14.50).",
+        "No puede haber dos escalones desde la misma cantidad. Tampoco hay botón para editar un escalón: para cambiar su precio, quítalo con ✕ (solo el dueño) y vuelve a agregarlo.",
+        "Un escalón a S/ 0.00 no se acepta porque regalaría el producto, y las cantidades son enteras desde 1."
+      ]
+    },
+    {
+      "title": "El costo actual de la variante",
+      "intro": "La tarjeta «Costo actual» muestra de dónde sale el costo de fabricar la variante para el lote que elijas. Es el número con el que se compara cada precio de la escalera.",
+      "steps": [
+        {
+          "text": "Baja a «Costo actual». «Unidades del lote» es el tamaño de la tanda que calculas; los botones 1, 5 y 10 son atajos (una unidad y el mínimo de cada escalón). La tabla muestra cada placa con sus corridas y su tiempo, y luego Material (con merma), Energía, Máquina, Reserva por fallos, Producción, Preparación del lote, Trabajo por unidad, cada insumo e Insumos. La última fila, «Costo», es el total: S/ 72.50 el lote de 10, S/ 7.250 por unidad.",
+          "image": "img/03-26-costo-actual.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "Unidades del lote: el tamaño de la tanda que calculas"
+            },
+            {
+              "n": 2,
+              "label": "Atajos: una unidad y el mínimo de cada escalón (1, 5 y 10)"
+            },
+            {
+              "n": 3,
+              "label": "El desglose: placas, material, energía, máquina, fallos, trabajo e insumos"
+            }
+          ]
+        },
+        {
+          "text": "Al pie, «Sale del bolsillo» (material, energía e insumos: lo que pagas en dinero) y «Costo asignado (máquina y tiempo propio)». Después viene el precio por unidad de ese lote con su margen y el objetivo. Si no alcanza, un aviso amarillo te manda a mirar la escalera.",
+          "image": "img/03-27-costo-margen-lote.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "«Sale del bolsillo» y «Costo asignado»"
+            },
+            {
+              "n": 2,
+              "label": "Precio por unidad a 10 u.: S/ 13.50, con su margen (46.3 %) y el objetivo (50 %)"
+            },
+            {
+              "n": 3,
+              "label": "Aviso: con este lote el margen queda por debajo del objetivo"
+            }
+          ]
+        }
+      ],
+      "tips": [
+        "Mira «sobran 4 (se pagan igual)» en la fila de las tapas: salen de a 7 por placa, así que 10 unidades piden 2 corridas (14 tapas) y las 4 que sobran se pagan igual. Los lotes que son múltiplo de 7 las aprovechan mejor.",
+        "En esta pantalla no se escribe ningún costo: sale de las compras de insumos, de los rollos y de las impresiones. Si a algo le falta costo, la fila dice «(sin costo)» y puedes probar uno provisional en la lista de abajo; solo vale para esa cuenta en pantalla.",
+        "Es la misma cuenta que usa el cotizador cuando calcula un lote nuevo."
+      ],
+      "warnings": []
+    },
+    {
+      "title": "Duplicar una variante",
+      "intro": "Cuando una variante se parece a otra (el mismo producto con otro relleno u otro color), no la cargues de cero: duplícala.",
+      "steps": [
+        {
+          "text": "Abre la variante que quieres copiar («Con dulces surtidos») y, en «Datos de la variante», haz clic en «Duplicar».",
+          "image": "img/03-28-variante-duplicar.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "La variante original"
+            },
+            {
+              "n": 2,
+              "label": "La copia, que aparecerá al lado cuando la crees"
+            },
+            {
+              "n": 3,
+              "label": "«Duplicar»"
+            }
+          ]
+        },
+        {
+          "text": "El navegador abre una ventanita que pide «Nombre de la copia:», con «Con dulces surtidos (copia)» propuesto. Escribe «Con chocolates» y acepta."
+        },
+        {
+          "text": "La copia aparece como una pestaña nueva, al lado de la original. Ábrela: trae todo lo de la original (foto, precio de lista, opciones, receta con sus placas, filamentos, piezas e insumos, y la escalera de precios). Cambia lo que sea distinto: el «Código interno (SKU)» queda vacío, las «Opciones» siguen diciendo «Relleno: dulces surtidos» y los insumos son los mismos hasta que los cambies."
+        }
+      ],
+      "tips": [
+        "La copia se hace de una sola vez en la base de datos: queda completa o no queda. Una copia con media receta es peor que ninguna, y por eso no existe.",
+        "La copia y la original se editan por separado: cambiar una no toca la otra."
+      ],
+      "warnings": [
+        "Si el nombre de la copia ya existe en el producto, la app lo rechaza: «Ya hay una variante «…» en este producto. Usa otro nombre.»"
+      ]
+    },
+    {
+      "title": "Desactivar una variante, y por qué una usada no se borra",
+      "intro": "Una variante que ya no quieres vender no se borra: se desactiva. Desactivada deja de ofrecerse, pero lo que ya se cotizó o se vendió con ella conserva su producto y su precio.",
+      "steps": [
+        {
+          "text": "Abre la pestaña de la variante («Con chocolates», la copia). Desmarca «Variante activa (se puede vender)» y haz clic en «Guardar variante». Fíjate en el botón «Eliminar variante» al pie: aparece porque ninguna cotización, pedido ni estante usa todavía esta copia.",
+          "image": "img/03-29-variante-desactivar.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "La pestaña de la copia"
+            },
+            {
+              "n": 2,
+              "label": "Variante activa (se puede vender): desmarcada"
+            },
+            {
+              "n": 3,
+              "label": "«Guardar variante»"
+            },
+            {
+              "n": 4,
+              "label": "«Eliminar variante»: solo mientras nada usa la variante"
+            }
+          ]
+        },
+        {
+          "text": "Aparece «Guardado» y la pestaña pasa a decir «Con chocolates (inactiva)». Para reactivarla, vuelve a marcar la casilla y guarda.",
+          "image": "img/03-30-variante-inactiva.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "La pestaña, ahora «(inactiva)»"
+            },
+            {
+              "n": 2,
+              "label": "«Guardado»"
+            },
+            {
+              "n": 3,
+              "label": "La casilla desmarcada"
+            }
+          ]
+        }
+      ],
+      "tips": [
+        "Desactivar se puede deshacer; eliminar no. Ante la duda, desactiva.",
+        "Una variante inactiva ya no se ofrece para líneas nuevas del cotizador ni de los pedidos, y sale de «Armar productos» y del conteo del estante. En el catálogo se ve atenuada, con «(inactiva)».",
+        "Las cotizaciones abiertas que ya la usan se pueden aceptar con el precio que tienen."
+      ],
+      "warnings": [
+        "Por qué una variante usada no se borra: lo que ya se cotizó o se vendió apunta a ella (su producto y su precio), y la base de datos se niega a borrarla. Cuando la variante está en una cotización, en un pedido o armada en el estante, «Eliminar variante» desaparece y la pantalla dice, por ejemplo: «No se puede eliminar: Está en 2 cotizaciones y en 1 pedido. Desactívala para que no se ofrezca más: lo que ya se cotizó o se vendió conserva su producto y su precio.» En su lugar aparece «Desactivar variante».",
+        "Mientras la variante no esté en ninguna cotización, pedido ni estante, ves «Eliminar variante». Eliminar una variante que nadie usa borra también su receta y su escalera de precios y no se puede deshacer: la app pregunta antes. Solo el dueño puede.",
+        "Si desactivas una variante con pedidos sin entregar o unidades armadas en el estante, la app te avisa antes: sin la variante activa esos pedidos no se pueden armar y esas unidades no se pueden contar."
+      ]
+    },
+    {
+      "title": "El molde: una herramienta, no una pieza de la receta",
+      "intro": "El archivo de la Calavera trae también las placas de su molde, la herramienta con la que se da forma a la calavera. El molde se imprime una vez, no deja nada en el estante y no lleva el producto: por eso no forma parte de ninguna receta.",
+      "steps": [
+        {
+          "text": "Al cargar el archivo, deja desmarcadas las placas del molde (en este archivo, la 2 a la 5, en PETG rojo). Así no entran a la receta ni suman a su costo."
+        },
+        {
+          "text": "Cuando toque imprimir el molde, hazlo desde «Cola de impresión», en el grupo «Producción»: haz clic en «Nuevo trabajo». Deja «Línea a medida de un pedido» en «Sin pedido (estante, molde o prueba)», escribe en «Qué se imprime» algo como «Molde de calavera» y deja «Placa de la receta» en «Sin placa (a mano)». El paso a paso de lanzar y cerrar un trabajo está en el capítulo de producción.",
+          "image": "img/03-35-molde-trabajo-sin-placa.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "«Sin pedido (estante, molde o prueba)»: no es de ningún pedido"
+            },
+            {
+              "n": 2,
+              "label": "Qué se imprime: el nombre del trabajo"
+            },
+            {
+              "n": 3,
+              "label": "Placa de la receta: «Sin placa (a mano)»"
+            },
+            {
+              "n": 4,
+              "label": "El aviso: sin placa no entra nada al estante y el costo va al gasto del mes"
+            }
+          ]
+        }
+      ],
+      "tips": [
+        "No existe un tipo de artículo «herramienta» ni se amortiza: un molde de S/ 8 no justifica llevar una vida útil. Lo que costó imprimirlo (material, luz y máquina) es gasto del mes y lo ves en Resultados, en «Producción no vendida».",
+        "Si el molde falla y lo repites, el intento fallido también cuenta como gasto del mes: es parte de lo que costó la herramienta.",
+        "Lo mismo vale para una prueba: se lanza sin placa y su costo es gasto del mes."
+      ],
+      "warnings": [
+        "Para imprimir piezas para el estante hay que elegir su placa: sin placa no entra nada al estante. El estante solo se mueve imprimiendo (con placa), armando, entregando o contando."
+      ]
+    },
+    {
+      "title": "Las piezas que creó la importación",
+      "intro": "Las cuatro piezas que nombraste al guardar las placas ya existen en el inventario, aunque todavía no se haya impreso ninguna.",
+      "steps": [
+        {
+          "text": "Haz clic en «Piezas impresas», en el grupo «Inventario». Ahí están «Frente de calavera», «Gancho de calavera», «Tapa de calavera» y «Trasera de calavera», con 0 unidades.",
+          "image": "img/03-36-piezas-creadas.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "Las cuatro piezas que creó la importación"
+            },
+            {
+              "n": 2,
+              "label": "«Foto de la placa · Agregar la suya»"
+            },
+            {
+              "n": 3,
+              "label": "«Sin costo»: todavía no se imprimió ninguna"
+            }
+          ]
+        }
+      ],
+      "tips": [
+        "Mientras una pieza no tiene foto propia se muestra la de la placa que la imprime, con la nota «Foto de la placa · Agregar la suya». Haz clic en «Agregar la suya» cuando tengas su foto: todo artículo lleva la suya.",
+        "«Sin costo» es normal: una pieza no se compra, se produce, y su costo aparece cuando se cierra su primera impresión.",
+        "Importar placas o crear una pieza nunca agrega unidades al estante: el estante solo se mueve imprimiendo, armando, entregando o contando."
+      ],
+      "warnings": []
+    },
+    {
+      "title": "Encontrar, archivar y restaurar productos",
+      "intro": "Con varios productos en el catálogo, la lista se vuelve el lugar para encontrar uno, abrir su ficha o retirarlo.",
+      "steps": [
+        {
+          "text": "En «Catálogo y recetas», cada producto es una tarjeta con su foto, su nombre, su estado, su categoría, si es visible para el bot y la lista de sus variantes, cada una con su foto y su precio de lista. Busca por nombre en «Buscar por nombre…» (sin importar acentos ni mayúsculas: «calavéra» encuentra «Calavera») y filtra con el selector de estado.",
+          "image": "img/03-31-catalogo-con-producto.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "«Buscar por nombre…»"
+            },
+            {
+              "n": 2,
+              "label": "Filtro de estado: «Vigentes (sin archivados)», «Borrador», «Publicado», «Archivado» o «Todos»"
+            },
+            {
+              "n": 3,
+              "label": "La foto del producto"
+            },
+            {
+              "n": 4,
+              "label": "«Abrir ficha»: lleva a la ficha del producto"
+            },
+            {
+              "n": 5,
+              "label": "«Archivar»: retira el producto del catálogo vigente"
+            },
+            {
+              "n": 6,
+              "label": "Variante inactiva: atenuada, con «(inactiva)»"
+            },
+            {
+              "n": 7,
+              "label": "Variante activa, con su foto y su precio de lista"
+            }
+          ]
+        },
+        {
+          "text": "«Archivar» pregunta antes: «¿Archivar «Calavera dulcera»? Dejará de mostrarse en el catálogo vigente. Puedes restaurarlo después.» Un producto archivado se ve con el filtro «Archivado» (o «Todos») y su botón pasa a ser «Restaurar»."
+        }
+      ],
+      "tips": [
+        "Archivar es la forma de «borrar» un producto: nada se borra. Un producto archivado deja de ofrecerse al cotizar y al crear pedidos; lo que ya se cotizó o se vendió se conserva.",
+        "«Restaurar» devuelve el producto como «Borrador». Ábrelo y márcalo «Publicado» otra vez si hace falta."
+      ],
+      "warnings": [
+        "Si intentas crear un producto con el nombre de uno archivado, la app te pide restaurarlo en vez de duplicarlo."
+      ]
+    },
+    {
+      "title": "Qué puede hacer cada rol en el catálogo",
+      "intro": "Todos los roles ven el catálogo. Lo que cambia es qué pueden cambiar. La base de datos es la que lo decide: ocultar un botón no es seguridad, y si un operador intentara quitar algo por otro camino, la base lo rechaza.",
+      "steps": [
+        {
+          "text": "Como operador creas y editas casi todo: productos, variantes, recetas, placas, piezas, insumos y escalones, y también puedes duplicar. Lo que no puedes es quitar. En cada sitio la pantalla te lo dice; por ejemplo, junto a «Duplicar»: «Solo el dueño puede eliminar una variante.»",
+          "image": "img/03-32-operador-variante.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "«Duplicar»: el operador sí puede"
+            },
+            {
+              "n": 2,
+              "label": "«Guardar variante»: el operador sí puede"
+            },
+            {
+              "n": 3,
+              "label": "«Solo el dueño puede eliminar una variante.»"
+            }
+          ]
+        },
+        {
+          "text": "En la escalera de precios el operador agrega escalones, pero no ve la ✕ de quitar y bajo el formulario dice «Solo el dueño puede quitar un escalón.»",
+          "image": "img/03-33-operador-escalera.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "La tabla, sin la ✕ de quitar"
+            },
+            {
+              "n": 2,
+              "label": "«Agregar escalón»: el operador sí puede"
+            },
+            {
+              "n": 3,
+              "label": "«Solo el dueño puede quitar un escalón.»"
+            }
+          ]
+        },
+        {
+          "text": "Con el rol de solo lectura se ve el catálogo completo, pero sin botones ni formularios que cambien algo (los campos aparecen bloqueados), y arriba la pantalla dice: «Tu rol en el taller es de solo lectura: ves todo, pero no registras ni cambias nada.»",
+          "image": "img/03-34-lectura-ficha.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "La nota de solo lectura"
+            },
+            {
+              "n": 2,
+              "label": "La foto, sin botón para subir otra"
+            },
+            {
+              "n": 3,
+              "label": "Los campos bloqueados: se leen, no se editan"
+            }
+          ]
+        }
+      ],
+      "tips": [
+        "En la receta el operador también lo lee: «Quitar placas, filamentos, piezas o insumos de la receta lo hace solo el dueño.»",
+        "Archivar, restaurar y desactivar una variante con la casilla son cambios de estado y los hace quien puede editar el catálogo. Quitar, eliminar y borrar de la receta son del dueño."
+      ],
+      "warnings": []
+    }
+  ]
+}

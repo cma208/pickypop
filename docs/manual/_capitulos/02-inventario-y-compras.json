@@ -1,0 +1,1314 @@
+{
+  "n": 2,
+  "title": "Inventario y compras",
+  "intro": "Aquí aprendes a dar de alta lo que compras para trabajar (filamentos, insumos y empaque), a registrar cada compra con su costo real, envío incluido, y su pago, a pesar los rollos y a leer el Kardex, el libro donde queda cada entrada y salida. De lo que cuesta cada rollo sale después el costo de cada pieza que vendes.",
+  "who": "todos",
+  "sections": [
+    {
+      "title": "El grupo «Inventario» del menú",
+      "intro": "Todo lo que compras y todo lo que tienes en el taller vive en el grupo «Inventario» del menú de la izquierda. En este capítulo usas cinco de sus entradas.",
+      "steps": [
+        {
+          "text": "Mira el grupo «Inventario» del menú. «Filamentos» es lo que compras para imprimir y los rollos de cada uno; «Insumos», lo que se gasta (dulces, láminas, imanes) y los repuestos; «Empaque», las bolsas, cajas y etiquetas; «Compras», lo que compraste y lo que todavía debes; «Kardex», cada entrada y salida de todo eso.",
+          "image": "img/02-01-menu-inventario.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "Filamentos: lo que compras y sus rollos"
+            },
+            {
+              "n": 2,
+              "label": "Insumos: lo que se gasta y los repuestos"
+            },
+            {
+              "n": 3,
+              "label": "Empaque: bolsas, cajas, cintas y etiquetas"
+            },
+            {
+              "n": 4,
+              "label": "Compras: lo que compraste y sus pagos"
+            },
+            {
+              "n": 5,
+              "label": "Kardex: el libro de entradas y salidas"
+            }
+          ]
+        },
+        {
+          "text": "«Piezas impresas», «Armar productos» y «Contar el estante» son el estante de lo que fabricas. Tienen su propio capítulo."
+        }
+      ],
+      "tips": [
+        "Todo artículo se reconoce por su imagen: los insumos y el empaque llevan su foto, y los filamentos su color. En un taller donde casi todo se llama «la botella roja», el nombre solo no alcanza.",
+        "Los filamentos, los insumos y el empaque se dan de alta una sola vez. Después se compran las veces que haga falta. Los rollos no se crean a mano: nacen al registrar una compra."
+      ],
+      "warnings": []
+    },
+    {
+      "title": "Dar de alta un filamento",
+      "intro": "Un filamento es lo que compras: marca, material, acabado y color, por ejemplo «Krear3D · PLA · Básico · Blanco». Sus rollos (los carretes reales que pones en la impresora) aparecen solos cuando registras una compra.",
+      "steps": [
+        {
+          "text": "Haz clic en «Filamentos», en el grupo «Inventario». Si todavía no hay ninguno, la pantalla lo dice y te ofrece los botones «+ Nuevo filamento» y «Registrar el primero».",
+          "image": "img/02-02-filamentos-vacia.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "«+ Nuevo filamento»: abre el formulario"
+            },
+            {
+              "n": 2,
+              "label": "«Registrar el primero»: hace lo mismo"
+            }
+          ]
+        },
+        {
+          "text": "Haz clic en «+ Nuevo filamento». Elige la «Marca» y el «Material» (salen de lo que cargaste en Configuración). Si falta alguno, usa «+ Nueva marca» o «+ Nuevo material», debajo del campo, sin salir del formulario. En el ejemplo: Krear3D, PLA y acabado «Básico»."
+        },
+        {
+          "text": "Escribe el «Nombre del color» («Blanco») y, si quieres, el «Color (hex)», que es el círculo de color que verás junto al nombre en todas las listas. Puedes escribir el código (#FFFFFF) o elegirlo con el cuadrito de color."
+        },
+        {
+          "text": "Revisa el «Diámetro (mm)» (1.75 casi siempre), escribe el «Peso neto (g)» del rollo (1000) y la «Tara del carrete (g)», que es lo que pesa el carrete vacío (250). La tara se usa al pesar el rollo.",
+          "image": "img/02-03-filamento-formulario.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "Marca"
+            },
+            {
+              "n": 2,
+              "label": "Material"
+            },
+            {
+              "n": 3,
+              "label": "Nombre del color"
+            },
+            {
+              "n": 4,
+              "label": "Color (hex): el círculo que se ve en las listas"
+            },
+            {
+              "n": 5,
+              "label": "Peso neto del rollo, en gramos"
+            },
+            {
+              "n": 6,
+              "label": "Tara del carrete, para los pesajes"
+            },
+            {
+              "n": 7,
+              "label": "Mínimo: avisa cuando lo que hay baje de aquí"
+            },
+            {
+              "n": 8,
+              "label": "Costo de reposición: lo que costaría comprar un kilo hoy"
+            },
+            {
+              "n": 9,
+              "label": "Guardar"
+            }
+          ]
+        },
+        {
+          "text": "Escribe el «Mínimo (g)» (500) y el «Costo de reposición por kg (S/)» (50). Haz clic en «Guardar». Aparece «Filamento creado.»."
+        },
+        {
+          "text": "Repite para «PLA Negro» (Krear3D, PLA, Básico) y para «PETG Negro» (Krear3D, PETG, sin acabado). Con los tres creados, la lista queda así.",
+          "image": "img/02-04-filamentos-lista.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "«Buscar»: por color, marca o material"
+            },
+            {
+              "n": 2,
+              "label": "«Solo bajo mínimo»: deja solo los que hay que comprar"
+            },
+            {
+              "n": 3,
+              "label": "Flecha para desplegar los rollos del filamento"
+            },
+            {
+              "n": 4,
+              "label": "«Hay» y su «Mínimo»"
+            },
+            {
+              "n": 5,
+              "label": "«Bajo mínimo»: todavía no hay nada comprado"
+            },
+            {
+              "n": 6,
+              "label": "«Editar»"
+            }
+          ]
+        },
+        {
+          "text": "Para cambiar un dato, haz clic en «Editar». El formulario es el mismo, y al final trae la casilla «Activo». Desmárcala si dejas de comprar ese filamento: deja de ofrecerse al comprar y su historial se queda.",
+          "image": "img/02-34-filamento-editar.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "«Mínimo (g)»"
+            },
+            {
+              "n": 2,
+              "label": "«Costo de reposición por kg»"
+            },
+            {
+              "n": 3,
+              "label": "«Activo»: desmárcala para dejar de ofrecerlo"
+            },
+            {
+              "n": 4,
+              "label": "«Guardar»"
+            }
+          ]
+        }
+      ],
+      "tips": [
+        "La lista dice cuánto hay («Hay»), cuánto está separado para pedidos, cuánto queda libre y cuánto cuesta el gramo. Ese «Costo por g» es el promedio de lo que costó cada rollo que tienes.",
+        "Un filamento recién creado marca «Bajo mínimo» y «0 g» hasta que registres su primera compra.",
+        "El «Costo de reposición» no es lo que pagaste: es lo que te costaría reponer un kilo hoy. Solo se usa si en Configuración valoras el filamento por reposición; con «Costo promedio del stock» no cambia tus precios.",
+        "Dos colores parecidos se distinguen por el hex y el acabado: ponlos siempre."
+      ],
+      "warnings": [
+        "Un filamento no se borra: se desactiva con la casilla «Activo». Así sus compras y movimientos siguen explicando lo que hubo."
+      ]
+    },
+    {
+      "title": "Dar de alta un insumo con su foto",
+      "intro": "Los insumos son lo que se gasta al fabricar o armar: dulces, láminas, pegamento. Los repuestos (boquillas, correas) viven en la misma pantalla. Cada artículo lleva su foto para reconocerlo sin leer el nombre.",
+      "steps": [
+        {
+          "text": "Haz clic en «Insumos» y luego en «+ Nuevo artículo» (o «Registrar el primero» si la lista está vacía)."
+        },
+        {
+          "text": "Haz clic en «Subir foto» y elige la imagen del insumo. Se achica sola antes de subir y aparece de vista previa. Si te equivocas, usa «Cambiar foto» o «Quitar»."
+        },
+        {
+          "text": "Elige el «Tipo» («Insumo» o «Repuesto») y escribe el «Nombre» («Dulces surtidos»). En «Unidad» escribe en qué se cuenta: «unidad», «g», «ml»… (el campo sugiere las más comunes).",
+          "image": "img/02-05-insumo-formulario.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "«Cambiar foto» (antes «Subir foto»)"
+            },
+            {
+              "n": 2,
+              "label": "«Tipo»: Insumo o Repuesto"
+            },
+            {
+              "n": 3,
+              "label": "«Nombre»"
+            },
+            {
+              "n": 4,
+              "label": "«Unidad»: en qué se cuenta"
+            },
+            {
+              "n": 5,
+              "label": "«Mínimo»: avisa cuando baje de aquí"
+            },
+            {
+              "n": 6,
+              "label": "«Es perecible»: marca los que vencen"
+            },
+            {
+              "n": 7,
+              "label": "«Guardar»"
+            }
+          ]
+        },
+        {
+          "text": "Escribe el «Mínimo» (500 g). Marca «Es perecible» si vence (dulces, pegamentos, pinturas). Haz clic en «Guardar»: aparece «Artículo creado.»."
+        },
+        {
+          "text": "Repite con «Lámina PET» (unidad, mínimo 10). Cada fila muestra la foto, el nombre, lo que hay y su mínimo.",
+          "image": "img/02-06-insumos-lista.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "Foto y nombre del artículo"
+            },
+            {
+              "n": 2,
+              "label": "«Solo bajo mínimo»"
+            },
+            {
+              "n": 3,
+              "label": "«Hay» y «Mínimo»"
+            },
+            {
+              "n": 4,
+              "label": "«Movimiento»: entradas, salidas y conteos"
+            },
+            {
+              "n": 5,
+              "label": "«Editar»"
+            }
+          ]
+        }
+      ],
+      "tips": [
+        "Lo que se cuenta por «unidad», «par» o «caja» va en números enteros: no existe media caja. Lo que cuentas en g o ml admite decimales.",
+        "Un insumo recién creado marca «Bajo mínimo» hasta que compres. Eso también sale en la tarjeta «Piezas e insumos bajo mínimo» de Hoy."
+      ],
+      "warnings": []
+    },
+    {
+      "title": "Dar de alta el empaque",
+      "intro": "El empaque (bolsas, cajas, cintas, etiquetas) se da de alta igual que un insumo, pero en su propia pantalla.",
+      "steps": [
+        {
+          "text": "Haz clic en «Empaque» y luego en «+ Nuevo artículo». Sube la foto, escribe el «Nombre» («Bolsa con etiqueta»), la «Unidad» («unidad») y el «Mínimo» (20). Aquí no pregunta el tipo: todo lo que guardes es empaque. Haz clic en «Guardar»."
+        },
+        {
+          "text": "La bolsa queda en la lista con su foto. Como todavía no compraste ninguna, dice «0 unidades» y «Bajo mínimo».",
+          "image": "img/02-07-empaque-lista.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "«Solo bajo mínimo»"
+            },
+            {
+              "n": 2,
+              "label": "Foto y nombre del empaque"
+            },
+            {
+              "n": 3,
+              "label": "«Hay» y «Mínimo»"
+            }
+          ]
+        }
+      ],
+      "tips": [
+        "Filamentos, insumos y empaque se eligen después en el mismo selector del formulario de compras."
+      ],
+      "warnings": []
+    },
+    {
+      "title": "Registrar una compra",
+      "intro": "Una compra se registra una vez, completa: qué compraste, cuánto costó con el envío y cómo la pagaste. Al guardarla pasan varias cosas a la vez: entran los rollos (cada uno con su código y su costo final), entran los insumos y el empaque, la compra queda en la lista y el pago sale de la cuenta que elegiste.",
+      "steps": [
+        {
+          "text": "Haz clic en «Compras». Si no hay compras, verás «Todavía no registraste ninguna compra.». Haz clic en «+ Nueva compra».",
+          "image": "img/02-08-compras-vacia.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "«+ Nueva compra»"
+            },
+            {
+              "n": 2,
+              "label": "«Registrar la primera compra»"
+            }
+          ]
+        },
+        {
+          "text": "En «Datos de la compra», elige el «Proveedor». Si no existe, haz clic en «+ Nuevo proveedor».",
+          "image": "img/02-09-compra-formulario-vacio.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "«Proveedor»"
+            },
+            {
+              "n": 2,
+              "label": "«+ Nuevo proveedor»"
+            },
+            {
+              "n": 3,
+              "label": "«Fecha»: hoy por defecto"
+            },
+            {
+              "n": 4,
+              "label": "«Referencia del documento»: factura, boleta o guía"
+            },
+            {
+              "n": 5,
+              "label": "«Producto»: el selector de lo que compraste"
+            },
+            {
+              "n": 6,
+              "label": "«+ Agregar otro producto»"
+            }
+          ]
+        },
+        {
+          "text": "Escribe el nombre del proveedor («Krear3D Perú») y haz clic en «Agregar». Queda elegido solo.",
+          "image": "img/02-10-proveedor-nuevo.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "Nombre del proveedor"
+            },
+            {
+              "n": 2,
+              "label": "«Agregar»"
+            }
+          ]
+        },
+        {
+          "text": "Deja la «Fecha» que sale (hoy) o pon la del comprobante. Escribe la «Referencia del documento» (F001-0458). Haz clic en el campo «Producto» y escribe parte del nombre («neg»): la lista se filtra y cada opción muestra su color o su foto.",
+          "image": "img/02-45-compra-buscar-producto.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "Buscador: escribe parte del nombre"
+            },
+            {
+              "n": 2,
+              "label": "Primera coincidencia: haz clic para elegirla"
+            }
+          ]
+        },
+        {
+          "text": "Elige el filamento. Escribe cuántos «Rollos» (1) y el «Precio unitario (S/)» (50). El «Subtotal» se calcula solo.",
+          "image": "img/02-11-compra-datos-y-lineas.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "«Proveedor»"
+            },
+            {
+              "n": 2,
+              "label": "«Fecha»"
+            },
+            {
+              "n": 3,
+              "label": "«Referencia del documento»"
+            },
+            {
+              "n": 4,
+              "label": "«Producto»: ya elegido"
+            },
+            {
+              "n": 5,
+              "label": "«Rollos»"
+            },
+            {
+              "n": 6,
+              "label": "«Precio unitario (S/)»"
+            }
+          ]
+        },
+        {
+          "text": "Haz clic en «+ Agregar otro producto» y repite con cada rollo y cada insumo. Un insumo pide «Cantidad» y el precio por su unidad («Precio por g (S/)»). Si el comprobante solo dice el total de la línea, escríbelo en «o el total que pagaste por esta línea (S/)» y el precio se calcula. Un insumo perecible pide además «Vence el».",
+          "image": "img/02-12-compra-linea-insumo.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "«Producto»: el insumo"
+            },
+            {
+              "n": 2,
+              "label": "«Cantidad (g)»"
+            },
+            {
+              "n": 3,
+              "label": "«Precio por g (S/)»: admite fracciones de centavo"
+            },
+            {
+              "n": 4,
+              "label": "«o el total que pagaste por esta línea (S/)»"
+            },
+            {
+              "n": 5,
+              "label": "«Vence el»: solo en los perecibles"
+            },
+            {
+              "n": 6,
+              "label": "«Subtotal» de la línea"
+            }
+          ]
+        },
+        {
+          "text": "En «Envío y otros costos», escribe el «Costo de envío (S/)» (10) y, si los hay, «Otros costos (S/)» (comisiones, impuestos). Deja «Cómo repartirlos entre los rollos» en «Por monto (más caro, más envío)».",
+          "image": "img/02-13-compra-envio-y-pago.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "«+ Agregar otro producto»"
+            },
+            {
+              "n": 2,
+              "label": "«Costo de envío (S/)»"
+            },
+            {
+              "n": 3,
+              "label": "«Otros costos (S/)»"
+            },
+            {
+              "n": 4,
+              "label": "«Cómo repartirlos entre los rollos»"
+            },
+            {
+              "n": 5,
+              "label": "«Desde qué cuenta»: la que pagó"
+            },
+            {
+              "n": 6,
+              "label": "«Medio de pago»: el de la cuenta, salvo que pagaras distinto"
+            },
+            {
+              "n": 7,
+              "label": "Categoría en que queda el egreso, con «Cambiarla»"
+            }
+          ]
+        },
+        {
+          "text": "En «¿Cómo pagaste?», elige en «Desde qué cuenta» la cuenta que pagó (Yape). El «Medio de pago» queda el de la cuenta; cámbialo solo si pagaste distinto."
+        },
+        {
+          "text": "Baja hasta «Costo final antes de confirmar» (se explica en la sección siguiente). Si todo está bien, haz clic en «Revisar y guardar».",
+          "image": "img/02-15-compra-totales.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "Costo final de la última línea"
+            },
+            {
+              "n": 2,
+              "label": "«Subtotal de productos»"
+            },
+            {
+              "n": 3,
+              "label": "«Envío y otros costos»"
+            },
+            {
+              "n": 4,
+              "label": "«Total de la compra»"
+            },
+            {
+              "n": 5,
+              "label": "«Revisar y guardar»"
+            }
+          ]
+        },
+        {
+          "text": "Aparece un recuadro: «Vas a registrar una compra de S/ 240.00. Se crearán 3 rollos…». Dice qué entra y de dónde sale el pago. Haz clic en «Confirmar y guardar». Si algo no cuadra, haz clic en «Volver».",
+          "image": "img/02-16-compra-confirmar.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "Resumen de lo que se va a registrar"
+            },
+            {
+              "n": 2,
+              "label": "«Volver»: regresa al formulario"
+            },
+            {
+              "n": 3,
+              "label": "«Confirmar y guardar»"
+            }
+          ]
+        },
+        {
+          "text": "La lista muestra «Compra registrada.» con el código de cada rollo creado (PETG-NEGRO-01, PLA-BLANCO-01, PLA-NEGRO-01) y la compra queda con «Pagada». El pago ya figura en Caja.",
+          "image": "img/02-17-compra-registrada.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "Aviso con los rollos que se crearon"
+            },
+            {
+              "n": 2,
+              "label": "Qué se compró, a quién y cuántos rollos"
+            },
+            {
+              "n": 3,
+              "label": "Total y estado de pago: «Pagada»"
+            },
+            {
+              "n": 4,
+              "label": "«Detalle»"
+            }
+          ]
+        },
+        {
+          "text": "Haz clic en «Detalle» para ver cada línea con la parte del envío que le tocó y cómo se repartió.",
+          "image": "img/02-18-compra-detalle.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "Línea de filamento: cantidad × precio + envío"
+            },
+            {
+              "n": 2,
+              "label": "Línea de insumo"
+            },
+            {
+              "n": 3,
+              "label": "Envío, otros costos y forma de reparto"
+            },
+            {
+              "n": 4,
+              "label": "Cuánto se pagó"
+            },
+            {
+              "n": 5,
+              "label": "«Ocultar»"
+            }
+          ]
+        }
+      ],
+      "tips": [
+        "Los rollos se compran enteros («Al menos 1 rollo.»). Los insumos que se cuentan por unidad, caja o par también van enteros. El precio de un rollo va en céntimos.",
+        "«Proveedor» puede quedar en «Sin proveedor». La fecha no puede ser futura ni de más de dos años atrás.",
+        "Cada rollo entra con un código automático (material, color y número: PLA-BLANCO-01) que usarás al pesarlo, al buscarlo en el Kardex y al cargarlo en una impresión.",
+        "Un doble clic no duplica la compra. Si la respuesta se pierde, la pantalla dice «No sabemos si la compra se guardó» y te pide volver a pulsar «Confirmar y guardar»: si ya había entrado, no se registra dos veces.",
+        "Si el producto no aparece en el selector, es que no está dado de alta o está desactivado. Créalo primero (secciones anteriores)."
+      ],
+      "warnings": [
+        "Después de «Confirmar y guardar», la compra no se puede editar. Revisa cantidades, precios y cuenta antes. Si algo salió mal no se «arregla la compra»: se corrige lo que produjo (pesar el rollo, contar el insumo) y, si el pago estaba mal, el dueño lo anula en Caja.",
+        "La fecha «Vence el» de un insumo perecible se guarda con la compra, pero por ahora ninguna pantalla la muestra ni avisa cuando se acerca. Anótala también en el envase."
+      ]
+    },
+    {
+      "title": "Entender la vista previa del costo final",
+      "intro": "Antes de guardar, el formulario te enseña lo que de verdad va a costar cada rollo y cada insumo, con el envío y los otros costos ya repartidos. Esa cifra, y no el precio de la factura, es la que la app usa después para costear y poner precios.",
+      "steps": [
+        {
+          "text": "Baja hasta «Costo final antes de confirmar». La frase de arriba te dice cómo se reparte el envío: por monto o por peso. Cambia «Cómo repartirlos entre los rollos» y mira cómo se mueve la vista previa: no se guarda nada.",
+          "image": "img/02-14-compra-vista-previa.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "Cómo se están repartiendo el envío y los otros costos"
+            },
+            {
+              "n": 2,
+              "label": "«Compra»: cantidad × precio = subtotal de la línea"
+            },
+            {
+              "n": 3,
+              "label": "«Parte del envío y otros costos» que le tocó a esa línea"
+            },
+            {
+              "n": 4,
+              "label": "Costo final: «1 rollo a costo final de S/ 52.17 (S/ 0.052 por g)»"
+            }
+          ]
+        },
+        {
+          "text": "Cada producto trae tres filas: «Compra» (lo que dice la factura), «Parte del envío y otros costos» (lo que le tocó) y el costo final. Un rollo dice «1 rollo a costo final de S/ 52.17» y su costo por gramo. Un insumo dice «Costo final por g» o «por unidad», con más decimales (S/ 0.02609), porque se gasta de a poco."
+        },
+        {
+          "text": "Al final están «Subtotal de productos» (S/ 230.00), «Envío y otros costos» (S/ 10.00) y «Total de la compra» (S/ 240.00). Ese total es lo que saldrá de la cuenta."
+        }
+      ],
+      "tips": [
+        "Por monto: cada línea carga una parte proporcional a lo que costó. Con S/ 10 de envío sobre S/ 230 de productos, un rollo de S/ 50 carga S/ 2.17 y uno de S/ 60 carga S/ 2.61.",
+        "Por peso: el envío se reparte según los gramos netos de cada rollo; los insumos no reciben parte, aunque se compren por gramos. Si ninguna línea tiene peso, el reparto se hace por monto y la pantalla lo avisa.",
+        "Cada parte del envío se redondea a céntimos por separado, para que el desglose sume exactamente el total (2.17 + 2.17 + 2.61 + 1.09 + 1.09 + 0.87 = 10.00).",
+        "Si dos rollos del mismo producto salen con un céntimo de diferencia, la vista previa los agrupa («2 rollos a S/ 53.33 y 1 a S/ 53.34»). Es el redondeo, no un error."
+      ],
+      "warnings": [
+        "Si no cargas el envío, los costos salen más bajos que la realidad y los precios que calcules después quedarán cortos."
+      ]
+    },
+    {
+      "title": "Dejar una compra por pagar y pagarla después",
+      "intro": "A veces recibes la mercadería y pagas después. Registra la compra sin pago y paga cuando toque, en uno o en varios pagos. En el ejemplo: 1 rollo de PLA Blanco a S/ 48 y 10 láminas a S/ 2.50, con S/ 8 de envío repartido por peso. Total: S/ 81.00.",
+      "steps": [
+        {
+          "text": "Registra la compra como siempre, pero en «Desde qué cuenta» elige «Todavía no la pagué». Debajo dice que queda «por pagar». Con el reparto «Por peso», el envío cae todo en el rollo y la lámina no recibe parte. Haz clic en «Revisar y guardar» y en «Confirmar y guardar».",
+          "image": "img/02-19-compra-por-pagar.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "«Costo de envío (S/)»"
+            },
+            {
+              "n": 2,
+              "label": "«Cómo repartirlos»: por peso"
+            },
+            {
+              "n": 3,
+              "label": "«Desde qué cuenta»: «Todavía no la pagué»"
+            },
+            {
+              "n": 4,
+              "label": "Aviso: queda «por pagar» en Compras"
+            },
+            {
+              "n": 5,
+              "label": "Cómo se reparte por peso"
+            }
+          ]
+        },
+        {
+          "text": "En la lista, la compra aparece con la etiqueta «Por pagar». Haz clic en «Detalle»: abajo está «Registrar el pago · falta S/ 81.00».",
+          "image": "img/02-20-pago-sobrepago.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "Etiqueta «Por pagar»"
+            },
+            {
+              "n": 2,
+              "label": "«Registrar el pago · falta S/ 81.00»"
+            },
+            {
+              "n": 3,
+              "label": "«Desde qué cuenta»"
+            },
+            {
+              "n": 4,
+              "label": "«Monto (S/)»"
+            },
+            {
+              "n": 5,
+              "label": "Aviso si te pasas: «No puede pasar de lo que falta»"
+            },
+            {
+              "n": 6,
+              "label": "«Registrar pago»"
+            }
+          ]
+        },
+        {
+          "text": "Elige «Desde qué cuenta» (Efectivo). «Monto (S/)» viene con lo que falta; si pagas una parte, cámbialo (50). «Fecha y hora» es ahora y «Medio de pago» es el de la cuenta. Haz clic en «Registrar pago».",
+          "image": "img/02-21-pago-parcial-formulario.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "«Desde qué cuenta»"
+            },
+            {
+              "n": 2,
+              "label": "«Monto (S/)»: lo que pagas ahora"
+            },
+            {
+              "n": 3,
+              "label": "«Fecha y hora»"
+            },
+            {
+              "n": 4,
+              "label": "«Medio de pago»"
+            },
+            {
+              "n": 5,
+              "label": "«Registrar pago»"
+            }
+          ]
+        },
+        {
+          "text": "Aparece «Pago registrado. Ya figura en Caja, ligado a la compra.». La compra pasa a «Falta S/ 31.00» y el formulario sigue abierto con lo que falta.",
+          "image": "img/02-22-pago-parcial-falta.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "Aviso de pago registrado"
+            },
+            {
+              "n": 2,
+              "label": "Etiqueta «Falta S/ 31.00»"
+            },
+            {
+              "n": 3,
+              "label": "«Registrar el pago · falta S/ 31.00»"
+            },
+            {
+              "n": 4,
+              "label": "«Monto (S/)»: ya trae lo que falta"
+            }
+          ]
+        },
+        {
+          "text": "Cuando pagues el resto, deja el monto que sale (31) y haz clic otra vez en «Registrar pago». La compra queda «Pagada».",
+          "image": "img/02-23-compra-pagada.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "Aviso de pago registrado"
+            },
+            {
+              "n": 2,
+              "label": "Total y estado: «Pagada»"
+            },
+            {
+              "n": 3,
+              "label": "«Pagada: S/ 81.00.»"
+            }
+          ]
+        },
+        {
+          "text": "Cada pago es un egreso en «Caja», con la categoría «Compras de inventario», el proveedor y la referencia del documento. Ahí lo ves, igual que el de la primera compra.",
+          "image": "img/02-40-caja-pagos-de-compra.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "Pago de S/ 50.00 desde Efectivo"
+            },
+            {
+              "n": 2,
+              "label": "Pago de S/ 31.00 desde Efectivo"
+            },
+            {
+              "n": 3,
+              "label": "Pago de S/ 240.00 desde Yape"
+            }
+          ]
+        },
+        {
+          "text": "En «Cuentas» ves cómo cada pago bajó el saldo de la cuenta de la que salió.",
+          "image": "img/02-41-cuentas-saldos.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "Saldo de Efectivo: 120.00 − 81.00"
+            },
+            {
+              "n": 2,
+              "label": "Saldo de Yape: 85.50 − 240.00"
+            },
+            {
+              "n": 3,
+              "label": "Cantidad de movimientos de la cuenta"
+            }
+          ]
+        }
+      ],
+      "tips": [
+        "Puedes pagar una compra en varios pagos y desde cuentas distintas. La compra sigue «Por pagar» o «Falta S/ …» hasta que la suma de pagos llegue al total.",
+        "El formulario frena un monto mayor que lo que falta. No se puede pagar de más.",
+        "Un pago fechado antes de la apertura de la cuenta salda la compra pero no mueve el saldo de la cuenta, porque ese dinero ya estaba dentro del saldo de apertura. La pantalla avisa antes de guardar."
+      ],
+      "warnings": [
+        "El dinero no se borra: se anula. Un pago registrado no se edita ni se elimina. Se anula en Caja, con un motivo, y solo el dueño anula. Al anularlo, la compra vuelve a quedar por pagar.",
+        "Pagar no revisa que la cuenta tenga saldo. Con S/ 85.50 en Yape, pagar S/ 240.00 la deja en −S/ 154.50 sin ningún aviso. Si pusiste plata propia para comprar, regístrala antes en Caja como «Aporte del dueño»."
+      ]
+    },
+    {
+      "title": "Ver los rollos, ubicarlos y pesarlos",
+      "intro": "El stock de un rollo sale de sus movimientos: lo que entró al comprarlo, menos lo que se gastó imprimiendo. Cuando la balanza dice otra cosa, no se escribe el número a mano: se pesa el rollo y la app registra la diferencia como un ajuste.",
+      "steps": [
+        {
+          "text": "En «Filamentos», haz clic en la flecha de la izquierda del filamento para desplegar sus rollos. Cada rollo muestra su código, dónde está, cuánto le queda, lo que costó (con el costo por gramo), su estado y los botones «Pesar» y «Ubicación».",
+          "image": "img/02-24-filamentos-rollos.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "Flecha: despliega o recoge los rollos"
+            },
+            {
+              "n": 2,
+              "label": "«Hay»: la suma de los rollos"
+            },
+            {
+              "n": 3,
+              "label": "«Costo por g»: promedio de los rollos"
+            },
+            {
+              "n": 4,
+              "label": "Código del rollo y su ubicación"
+            },
+            {
+              "n": 5,
+              "label": "Costo del rollo, con el envío repartido"
+            },
+            {
+              "n": 6,
+              "label": "Estado del rollo"
+            },
+            {
+              "n": 7,
+              "label": "«Pesar»"
+            },
+            {
+              "n": 8,
+              "label": "«Ubicación»"
+            }
+          ]
+        },
+        {
+          "text": "Para anotar dónde está el rollo, haz clic en «Ubicación», escribe, por ejemplo, «Estante A, nivel 2» y haz clic en «Guardar». También puedes cambiar el «Código del rollo» (la etiqueta o el QR pegado al carrete).",
+          "image": "img/02-25-rollo-ubicacion.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "«Ubicación»: AMS 1, ranura 2, estante A…"
+            },
+            {
+              "n": 2,
+              "label": "«Código del rollo»"
+            },
+            {
+              "n": 3,
+              "label": "«Guardar»"
+            }
+          ]
+        },
+        {
+          "text": "Pon el rollo con su carrete en la balanza y haz clic en «Pesar», en la fila del rollo. Escribe el «Peso en la balanza (g)» (1225). La «Tara del carrete (g)» ya viene del filamento (250); corrígela solo si este carrete pesa distinto.",
+          "image": "img/02-26-pesar-rollo.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "«Peso en la balanza (g)»: con el carrete"
+            },
+            {
+              "n": 2,
+              "label": "«Tara del carrete (g)»"
+            },
+            {
+              "n": 3,
+              "label": "Lo que va a registrar: «ajuste de −25 g»"
+            },
+            {
+              "n": 4,
+              "label": "«Registrar pesaje»"
+            }
+          ]
+        },
+        {
+          "text": "La ventana te enseña lo «Esperado según movimientos» (1,000 g), el «Filamento real (balanza − tara)» (975 g) y el ajuste que va a registrar. Haz clic en «Registrar pesaje».",
+          "image": "img/02-27-pesaje-registrado.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "«Pesaje registrado: ajuste de −25 g en el kardex…»"
+            },
+            {
+              "n": 2,
+              "label": "Lo que le queda ahora al rollo: 975 g"
+            },
+            {
+              "n": 3,
+              "label": "Código y ubicación guardados"
+            }
+          ]
+        }
+      ],
+      "tips": [
+        "Si el peso coincide con lo esperado, la app lo dice y no escribe ningún ajuste.",
+        "El peso de la balanza no puede ser menor que la tara del carrete.",
+        "Pesar un rollo sellado no lo abre: sigue «Sellado».",
+        "Lo que un pesaje encuentra de menos es filamento que se pagó y no se vendió: resta de los resultados del mes. Lo que encuentra de más, lo compensa."
+      ],
+      "warnings": [
+        "Un pesaje no se deshace. Si te equivocaste, vuelve a pesar: queda otro ajuste, y el Kardex guarda los dos."
+      ]
+    },
+    {
+      "title": "Los estados del rollo y cómo volver a usar uno",
+      "intro": "Cada rollo tiene un estado: «Sellado», «Abierto», «En uso», «Agotado» o «Descartado». Sirve para saber qué hay en el estante y qué se puede cargar en la impresora.",
+      "steps": [
+        {
+          "text": "Abre los rollos de un filamento y elige el estado en la lista de la fila del rollo. Para el rollo que cargaste en la impresora, elige «En uso». Aparece «El rollo PLA-BLANCO-01 ahora está: en uso.».",
+          "image": "img/02-28-rollo-en-uso.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "Aviso del cambio de estado"
+            },
+            {
+              "n": 2,
+              "label": "Rollo «En uso»"
+            },
+            {
+              "n": 3,
+              "label": "Rollo todavía «Sellado»"
+            }
+          ]
+        },
+        {
+          "text": "Si un rollo se acabó o se botó con filamento todavía dentro, elige «Descartado» (o «Agotado»). La app no cambia nada todavía: te dice cuánto le queda según sus movimientos y qué va a pasar.",
+          "image": "img/02-29-rollo-descartar-aviso.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "Cuánto le queda y qué pasará: «salen del stock como merma»"
+            },
+            {
+              "n": 2,
+              "label": "«Pesarlo»: si solo querías corregir cuánto"
+            },
+            {
+              "n": 3,
+              "label": "«Cancelar»: no cambia nada"
+            },
+            {
+              "n": 4,
+              "label": "«Descartarlo»: confirma"
+            }
+          ]
+        },
+        {
+          "text": "Haz clic en «Descartarlo». El rollo queda en 0 g y la fila dice «Para volver a usarlo, pésalo.». Con «Agotado» pasa lo mismo y el botón dice «Marcarlo agotado».",
+          "image": "img/02-30-rollo-descartado.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "Aviso: «Salieron del stock 1 kg (S/ 56.00) como merma»"
+            },
+            {
+              "n": 2,
+              "label": "El rollo ya no tiene gramos"
+            },
+            {
+              "n": 3,
+              "label": "Estado «Descartado»"
+            },
+            {
+              "n": 4,
+              "label": "«Para volver a usarlo, pésalo.»"
+            },
+            {
+              "n": 5,
+              "label": "«Pesar»"
+            }
+          ]
+        },
+        {
+          "text": "Para volver a usar el rollo, haz clic en «Pesar», escribe el «Peso en la balanza (g)» y marca «Vuelve a usarse: el filamento sirve.». Sin esa marca, el botón «Registrar pesaje» no se activa.",
+          "image": "img/02-31-rollo-volver-a-usar.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "«Peso en la balanza (g)»"
+            },
+            {
+              "n": 2,
+              "label": "«Tara del carrete (g)»"
+            },
+            {
+              "n": 3,
+              "label": "Aviso: el rollo está descartado y volverá a contar"
+            },
+            {
+              "n": 4,
+              "label": "«Vuelve a usarse: el filamento sirve.»"
+            },
+            {
+              "n": 5,
+              "label": "«Registrar pesaje»"
+            }
+          ]
+        },
+        {
+          "text": "El aviso dice «…La balanza encontró filamento, así que vuelve a estar abierto.». El rollo recupera sus gramos y su estado pasa a «Abierto».",
+          "image": "img/02-32-rollo-recuperado.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "Aviso del pesaje que lo reabrió"
+            },
+            {
+              "n": 2,
+              "label": "Gramos que tiene otra vez"
+            },
+            {
+              "n": 3,
+              "label": "Estado «Abierto»"
+            }
+          ]
+        },
+        {
+          "text": "Con «Agotado», el aviso es parecido: dice cuánto le queda y que sale del stock «como ajuste» en lugar de «como merma».",
+          "image": "img/02-33-rollo-agotado-aviso.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "Cuánto le queda y qué pasará: «salen del stock como ajuste»"
+            },
+            {
+              "n": 2,
+              "label": "«Pesarlo»"
+            },
+            {
+              "n": 3,
+              "label": "«Cancelar»"
+            },
+            {
+              "n": 4,
+              "label": "«Marcarlo agotado»"
+            }
+          ]
+        }
+      ],
+      "tips": [
+        "«Sellado»: rollo nuevo, sin abrir. «Abierto»: ya se abrió o se usó, pero no está cargado. «En uso»: es el que está en la impresora. «Agotado»: no le queda filamento. «Descartado»: lo botaste.",
+        "No siempre hace falta tocar el estado: el primer consumo real (imprimir, una merma, un mantenimiento) abre un rollo sellado, y un rollo que llega a 0 g pasa solo a «Agotado».",
+        "Un rollo «Agotado» o «Descartado» no se ofrece al imprimir y no cuenta para el plan de producción.",
+        "Agotado y descartado sacan del stock los gramos que quedaban: el primero como ajuste, el segundo como merma. Los dos aparecen en el Kardex con su origen «Cambio de estado del rollo» y los dos restan de los resultados al costo con que salieron.",
+        "Un rollo sin gramos no se «reactiva» eligiendo un estado: esas opciones están bloqueadas. Se vuelve a usar pesándolo, y solo si el pesaje encuentra filamento."
+      ],
+      "warnings": [
+        "No marques «Agotado» o «Descartado» para corregir un número: si el rollo todavía tiene filamento, pésalo. Marcarlo saca todos sus gramos del stock.",
+        "El Kardex no olvida: descartar un rollo y volver a pesarlo deja una merma y un ajuste de entrada, uno junto al otro. Es lo normal; no se borra."
+      ]
+    },
+    {
+      "title": "Contar un insumo y registrar entradas y salidas",
+      "intro": "Los insumos, el empaque y los repuestos tienen un botón «Movimiento» en su fila. Sirve para tres cosas: contar lo que hay de verdad, sacar lo que se usó o se perdió, y anotar lo que llegó sin compra.",
+      "steps": [
+        {
+          "text": "En «Insumos» o «Empaque», haz clic en «Movimiento» en la fila del artículo. En «Qué quieres registrar», elige «Ajuste por conteo físico», escribe la «Cantidad contada» (19) y una «Nota» («Se rompió una al cortar»).",
+          "image": "img/02-35-insumo-conteo.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "«Qué quieres registrar»"
+            },
+            {
+              "n": 2,
+              "label": "«Cantidad contada»: lo que hay ahora en el estante"
+            },
+            {
+              "n": 3,
+              "label": "«Nota»: por qué se hace"
+            },
+            {
+              "n": 4,
+              "label": "Lo que se va a registrar y cómo quedarán las existencias"
+            },
+            {
+              "n": 5,
+              "label": "«Registrar movimiento»"
+            }
+          ]
+        },
+        {
+          "text": "Lee lo que dice la ventana: «Se registrará −1 unidad como ajuste. Las existencias pasarán de 20 unidades a 19 unidades.». Haz clic en «Registrar movimiento». Aparece «Movimiento registrado: −1 unidad. Ahora hay 19 unidades. Lo ves en el kardex.»."
+        },
+        {
+          "text": "Para sacar algo, elige «Salida (restar existencias)» y el «Motivo de la salida»: «Uso o consumo» o «Merma o pérdida». Si pides más de lo que hay, la app lo frena y el botón queda apagado.",
+          "image": "img/02-46-insumo-salida-excedida.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "«Salida (restar existencias)»"
+            },
+            {
+              "n": 2,
+              "label": "«Motivo de la salida»"
+            },
+            {
+              "n": 3,
+              "label": "«Cantidad»"
+            },
+            {
+              "n": 4,
+              "label": "«No puedes sacar más de lo que hay (50 unidades).»"
+            },
+            {
+              "n": 5,
+              "label": "«Registrar movimiento»: apagado"
+            }
+          ]
+        }
+      ],
+      "tips": [
+        "El conteo no suma ni resta: deja las existencias en lo contado. Por eso la ventana te dice antes de guardar de cuánto a cuánto pasan.",
+        "«Entrada (sumar existencias)» es para lo que llegó sin comprarse: un regalo, o lo que ya tenías el primer día. Lo que compras se registra en «Compras», para que quede su costo y su pago.",
+        "«Merma o pérdida» resta de los resultados del mes. «Uso o consumo» no, porque su costo ya llega por otro camino.",
+        "El botón «Movimiento» no está para quien tiene el rol de solo lectura."
+      ],
+      "warnings": []
+    },
+    {
+      "title": "El Kardex",
+      "intro": "El Kardex es el libro del inventario: cada entrada y cada salida de cada rollo, insumo y empaque, con su hora, su cantidad, su origen y su nota. Las existencias que ves en las demás pantallas son la suma de estos movimientos.",
+      "steps": [
+        {
+          "text": "Haz clic en «Kardex». Los movimientos salen del más reciente al más antiguo, agrupados por día. Cada fila trae la hora, el artículo con su foto o su color, el tipo de movimiento («Compra», «Producción», «Entrega», «Consumo», «Merma», «Ajuste», «Mantenimiento»), la cantidad con signo (+ entra, − sale), el origen y la nota.",
+          "image": "img/02-36-kardex.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "«Tipo»"
+            },
+            {
+              "n": 2,
+              "label": "«Rollo»"
+            },
+            {
+              "n": 3,
+              "label": "«Artículo»"
+            },
+            {
+              "n": 4,
+              "label": "«Desde» y «Hasta»"
+            },
+            {
+              "n": 5,
+              "label": "Día del movimiento"
+            },
+            {
+              "n": 6,
+              "label": "Qué artículo y qué tipo de movimiento"
+            },
+            {
+              "n": 7,
+              "label": "Cantidad: verde entra, rojo sale"
+            },
+            {
+              "n": 8,
+              "label": "Origen: Compra, Pesaje, Cambio de estado del rollo, Registro manual"
+            }
+          ]
+        },
+        {
+          "text": "Para ver la historia de un solo rollo, elígelo en «Rollo». Aparecen su compra, el descarte y el pesaje que lo trajo de vuelta, con sus notas («Pesaje: 1250 g en balanza, tara 250 g, esperado 0 g»).",
+          "image": "img/02-37-kardex-rollo.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "Filtro «Rollo»"
+            },
+            {
+              "n": 2,
+              "label": "Ajuste de +1,000 g: el pesaje que lo reabrió"
+            },
+            {
+              "n": 3,
+              "label": "Merma de −1,000 g: lo descartado"
+            },
+            {
+              "n": 4,
+              "label": "Compra de +1,000 g: la entrada del rollo"
+            },
+            {
+              "n": 5,
+              "label": "«Limpiar filtros»"
+            }
+          ]
+        },
+        {
+          "text": "Usa «Tipo», «Artículo», «Desde» y «Hasta» para acotar, y «Limpiar filtros» para volver a ver todo."
+        }
+      ],
+      "tips": [
+        "La nota de cada movimiento explica por qué se hizo: «Ingreso del rollo», «Rollo marcado «Descartado» con 1000 g según sus movimientos», lo que escribiste en un conteo.",
+        "Las mermas salen resaltadas, para que se vean las pérdidas de un vistazo.",
+        "Si una existencia no te cuadra, el Kardex es donde se averigua: ahí está lo que entró y lo que salió, en orden."
+      ],
+      "warnings": [
+        "El Kardex no se edita ni se borra, ni siquiera el dueño. Lo que no cuadre se corrige con otro movimiento: pesando el rollo o contando el artículo."
+      ]
+    },
+    {
+      "title": "El stock no se edita: se corrige pesando o contando",
+      "intro": "Ninguna pantalla tiene un campo para escribir «cuántos hay». Es a propósito: el stock es la suma de sus movimientos, y si pudieras escribirlo, el Kardex dejaría de explicar lo que hay.",
+      "steps": [
+        {
+          "text": "Abre «Editar» en un insumo. El formulario trae foto, tipo, nombre, unidad, mínimo, «Es perecible» y «Activo», pero ningún campo de existencias. El de un filamento tampoco (mira la sección «Dar de alta un filamento»).",
+          "image": "img/02-38-insumo-editar.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "«Nombre»"
+            },
+            {
+              "n": 2,
+              "label": "«Mínimo»"
+            },
+            {
+              "n": 3,
+              "label": "«Activo»: desmárcalo para dejar de ofrecerlo en compras y recetas"
+            },
+            {
+              "n": 4,
+              "label": "«Guardar»"
+            }
+          ]
+        },
+        {
+          "text": "Para corregir un filamento, pesa el rollo («Pesar»). Para corregir un insumo, el empaque o un repuesto, usa «Movimiento» y «Ajuste por conteo físico». Para piezas y productos terminados, usa «Contar el estante» (otro capítulo)."
+        }
+      ],
+      "tips": [
+        "Lo que ya no usas, se desactiva («Activo»): deja de ofrecerse, pero su historia queda.",
+        "El estante solo se mueve por sus flujos: comprando, imprimiendo, armando, entregando o contando. Nada lo cambia «a mano»."
+      ],
+      "warnings": [
+        "Una compra, un pesaje o un movimiento ya guardados no se editan ni se borran. La corrección es siempre otro movimiento encima."
+      ]
+    },
+    {
+      "title": "Qué cambia en Hoy",
+      "intro": "Cuando cargas filamentos y compras, la pantalla «Hoy» te lo reconoce y empieza a avisarte cuándo comprar.",
+      "steps": [
+        {
+          "text": "Haz clic en «Hoy». «Primeros pasos» ya no pide los filamentos: solo falta «Los productos». Las tarjetas «Filamentos bajo mínimo» y «Piezas e insumos bajo mínimo» te avisan cuando algo baja de su mínimo.",
+          "image": "img/02-39-hoy-despues.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "«Primeros pasos»: solo faltan los productos"
+            },
+            {
+              "n": 2,
+              "label": "«Filamentos bajo mínimo»"
+            },
+            {
+              "n": 3,
+              "label": "«Piezas e insumos bajo mínimo»"
+            }
+          ]
+        }
+      ],
+      "tips": [
+        "Si cargas un mínimo, esas tarjetas te dicen qué comprar antes de que se acabe."
+      ],
+      "warnings": []
+    },
+    {
+      "title": "Qué puede hacer cada rol aquí",
+      "intro": "Todo lo de este capítulo lo hacen el dueño y el operador. Quien tiene el rol de solo lectura puede mirar, pero no cambia nada.",
+      "steps": [
+        {
+          "text": "El operador ve «+ Nueva compra» y todos los botones de «Filamentos», «Insumos» y «Empaque»: da de alta, compra, paga, pesa, cambia estados y mueve insumos.",
+          "image": "img/02-42-operador-compras.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "«+ Nueva compra»"
+            },
+            {
+              "n": 2,
+              "label": "«Detalle»"
+            }
+          ]
+        },
+        {
+          "text": "Quien tiene el rol de solo lectura ve todo, pero arriba aparece «Tu rol en el taller es de solo lectura: ves todo, pero no registras ni cambias nada.» y no hay botones para crear, comprar ni pagar.",
+          "image": "img/02-43-lectura-compras.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "Aviso de solo lectura"
+            },
+            {
+              "n": 2,
+              "label": "«Detalle»: solo se puede mirar"
+            }
+          ]
+        },
+        {
+          "text": "En «Filamentos», quien solo lee ve los rollos y sus estados, pero la lista de estado está bloqueada y no aparecen «Pesar», «Ubicación», «Editar» ni «+ Nuevo filamento».",
+          "image": "img/02-44-lectura-filamentos.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "Aviso de solo lectura"
+            },
+            {
+              "n": 2,
+              "label": "Estado del rollo: bloqueado"
+            }
+          ]
+        }
+      ],
+      "tips": [
+        "Aunque se oculte un botón, la regla vive en la base de datos: nadie sin permiso puede registrar algo llamando a la app de otra forma."
+      ],
+      "warnings": [
+        "Anular un pago de una compra, en Caja, solo lo hace el dueño. El operador paga y registra, pero no anula."
+      ]
+    }
+  ]
+}
