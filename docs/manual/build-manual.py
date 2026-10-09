@@ -29,10 +29,20 @@ STYLE = """
   --body: 'Atkinson Hyperlegible', 'Segoe UI', system-ui, sans-serif;
 }
 * { box-sizing: border-box }
+/* The panel uses display: grid, which would otherwise beat the hidden attribute. */
+[hidden] { display: none !important }
 body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.6 var(--body); padding-inline: 16px }
 img { max-width: 100% }
+/* Diagonal lines like cma208.github.io (.relief-lines): clean behind the middle of the page, visible toward the edges. */
+:root { --relief: color-mix(in srgb, var(--line-strong) 50%, transparent) }
+body::before {
+  content: ""; position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background-image: repeating-linear-gradient(-45deg, var(--relief) 0 1.5px, transparent 1.5px 10px); opacity: .48;
+  -webkit-mask-image: radial-gradient(ellipse 78% 66% at 50% 46%, transparent 0 30%, #000 80%);
+  mask-image: radial-gradient(ellipse 78% 66% at 50% 46%, transparent 0 30%, #000 80%);
+}
 header.cover .back { display: inline-block; margin-top: 1rem; font-weight: 700; color: var(--accent) }
-.shell { display: grid; grid-template-columns: 17rem minmax(0, 1fr); gap: 3rem; max-width: 76rem; margin: 0 auto; padding-block: 2rem 5rem }
+.shell { position: relative; z-index: 1; display: grid; grid-template-columns: 17rem minmax(0, 1fr); gap: 3rem; max-width: 76rem; margin: 0 auto; padding-block: 2rem 5rem }
 nav.toc { position: sticky; top: env(safe-area-inset-top, 0px); align-self: start; max-height: 100vh; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; padding-block: 1rem; font-size: .9rem }
 nav.toc .brand { font: 700 1.1rem var(--display); color: var(--accent); margin: 0 0 1rem }
 nav.toc ol { list-style: none; margin: 0; padding: 0; display: grid; gap: .15rem }
@@ -49,7 +59,9 @@ section.chapter, article.sec { scroll-margin-top: 1rem }
 main { min-width: 0; max-width: 52rem }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap }
 .appearance { position: fixed; right: calc(1rem + env(safe-area-inset-right, 0px)); bottom: calc(1rem + env(safe-area-inset-bottom, 0px)); z-index: 10; display: grid; justify-items: end; gap: .6rem }
-.appearance-toggle { width: 3rem; height: 3rem; border-radius: 50%; border: 1px solid var(--line); background: var(--surface); color: var(--accent); display: grid; place-items: center; cursor: pointer; box-shadow: 0 2px 10px rgb(0 0 0 / .14) }
+.appearance-toggle { height: 2.75rem; padding: 0 1.1rem 0 .9rem; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); color: var(--text); font: 700 .95rem var(--body); display: inline-flex; align-items: center; gap: .5rem; cursor: pointer; box-shadow: 0 2px 10px rgb(0 0 0 / .14) }
+.appearance-toggle svg { color: var(--accent) }
+.appearance-toggle[aria-expanded="true"] { border-color: var(--accent); background: var(--accent-soft) }
 .appearance-toggle:hover { background: var(--accent-soft) }
 .appearance-toggle:focus-visible, .appearance input:focus-visible + span { outline: 3px solid var(--accent); outline-offset: 2px }
 .appearance-panel { width: min(19rem, calc(100vw - 2rem)); background: var(--surface); color: var(--text); border: 1px solid var(--line); border-radius: 12px; padding: 1rem; box-shadow: 0 8px 28px rgb(0 0 0 / .18); display: grid; gap: 1rem }
@@ -116,7 +128,7 @@ details.mobile-toc { display: none }
 
 
 APP_PALETTES = os.path.join(HERE, '..', '..', 'apps', 'web', 'src', '_palettes.scss')
-TOKENS = ('bg', 'surface', 'text', 'muted', 'line', 'accent', 'accent-soft', 'on-accent')
+TOKENS = ('bg', 'surface', 'text', 'muted', 'line', 'line-strong', 'accent', 'accent-soft', 'on-accent')
 SEMANTIC = {'tip': 'good', 'tip-soft': 'good-soft', 'warn': 'warn', 'warn-soft': 'warn-soft'}
 
 
@@ -167,9 +179,11 @@ EARLY_SCRIPT = """(() => {
     const saved = JSON.parse(localStorage.getItem('pickypop.appearance') || '{}') || {};
     const root = document.documentElement;
     if (PALETTES.includes(saved.palette)) root.dataset.palette = saved.palette;
-    const mode = saved.mode ?? saved.theme;
+    const mode = saved.mode ?? saved.theme ?? 'light';
     if (mode === 'light' || mode === 'dark') root.dataset.mode = mode;
-  } catch {}
+  } catch {
+    document.documentElement.dataset.mode = 'light';
+  }
 })();"""
 
 PAGE_SCRIPT = """(() => {
@@ -210,7 +224,8 @@ PAGE_SCRIPT = """(() => {
   window.addEventListener('storage', (event) => {
     if (event.key !== KEY) return;
     const saved = read();
-    apply(PALETTES.includes(saved.palette) ? saved.palette : DEFAULT_PALETTE, ['light', 'dark'].includes(saved.mode) ? saved.mode : 'auto');
+    const mode = saved.mode ?? 'light';
+    apply(PALETTES.includes(saved.palette) ? saved.palette : DEFAULT_PALETTE, ['auto', 'light', 'dark'].includes(mode) ? mode : 'light');
   });
 
   // The index follows the reading. Someone who scrolls the index to look
@@ -360,7 +375,7 @@ def main():
 </div>
 <button type="button" class="appearance-toggle" aria-expanded="false" aria-controls="appearance-panel" title="Colores y modo">
 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18c1.1 0 2-.9 2-2 0-.5-.2-1-.5-1.3-.3-.4-.5-.8-.5-1.3 0-1.1.9-2 2-2h2.4A4.6 4.6 0 0 0 21 9.8C21 6 17 3 12 3z"/><circle cx="7.5" cy="10.5" r="1.2" fill="currentColor"/><circle cx="10.5" cy="7" r="1.2" fill="currentColor"/><circle cx="15" cy="7.5" r="1.2" fill="currentColor"/></svg>
-<span class="sr-only">Colores y modo</span>
+<span>Colores</span>
 </button>
 </div>
 <script>{PAGE_SCRIPT}</script>

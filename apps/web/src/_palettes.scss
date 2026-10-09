@@ -58,7 +58,7 @@ $semantic-dark: (
 $palettes: (
   terracota: (
     label: 'Terracota',
-    hint: 'La de siempre: barro sobre crema.',
+    hint: 'Barro sobre crema, la primera de Pickypop.',
     light: (bg: #fbfaf9, surface: #ffffff, text: #1c1b1a, muted: #6f6b66, line: #e4e1dd, line-strong: #8e8880, accent: #b4532a, accent-soft: #f7ebe5, on-accent: #ffffff),
     dark: (bg: #17161a, surface: #201f24, text: #ece9e6, muted: #a09b95, line: #34323a, line-strong: #6f6c76, accent: #e0855c, accent-soft: #3a2a23, on-accent: #241410),
   ),
@@ -88,9 +88,10 @@ $palettes: (
   ),
 );
 
-/// The palette used when nobody has chosen one. It is the workshop's identity,
-/// so it is not just the first of the list by accident.
-$default: terracota;
+/// The palette used when nobody has chosen one. The owner chose Grafito in light
+/// mode on 2026-10-09: the content brings the color. Not the first of the list
+/// by accident.
+$default: grafito;
 
 /// Writes one set of tokens as custom properties.
 @mixin tokens($ground, $semantic) {

@@ -31,16 +31,18 @@ export interface PaletteOption {
 
 /** Names and descriptions only. Not a single colour: those are in the stylesheet. */
 export const PALETTE_OPTIONS: PaletteOption[] = [
-  { id: 'terracota', label: 'Terracota', hint: 'La de siempre: barro sobre crema.' },
+  { id: 'terracota', label: 'Terracota', hint: 'Barro sobre crema, la primera de Pickypop.' },
   { id: 'indigo', label: 'Índigo', hint: 'Fría y seria, de tinta azul.' },
   { id: 'turquesa', label: 'Turquesa', hint: 'Fresca, de taller limpio.' },
   { id: 'ciruela', label: 'Ciruela', hint: 'La más alegre, de dulce de feria.' },
   { id: 'grafito', label: 'Grafito', hint: 'Sin color propio: lo pone el contenido.' },
 ];
 
+// Grafito in light mode until someone picks otherwise: the owner's choice
+// (2026-10-09). index.html paints the same before Angular boots.
 export const DEFAULT_APPEARANCE: AppearanceSettings = {
-  mode: 'auto',
-  palette: 'terracota',
+  mode: 'light',
+  palette: 'grafito',
   density: 'comfortable',
   sidebarCollapsed: false,
 };

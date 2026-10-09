@@ -947,7 +947,7 @@
           "text": "En Configuración, abre la pestaña «Apariencia»."
         },
         {
-          "text": "Elige un «Tema» (los colores: «Terracota», «Índigo», «Turquesa», «Ciruela» o «Grafito») y «Claro u oscuro» («Automático», «Claro» u «Oscuro»). Más abajo elige la «Densidad de las tablas» y si el menú lateral empieza contraído. Haz clic en «Guardar».",
+          "text": "Elige un «Tema» (los colores: «Terracota», «Índigo», «Turquesa», «Ciruela» o «Grafito») y «Claro u oscuro» («Automático», «Claro» u «Oscuro»). Si nadie elige, la app usa «Grafito» en «Claro». Más abajo elige la «Densidad de las tablas» y si el menú lateral empieza contraído. Haz clic en «Guardar».",
           "image": "img/01-30-apariencia.jpg",
           "marks": [
             {

@@ -13,7 +13,8 @@
        same fallback to the old `theme` for whoever stored one. */
     try {
       var saved = JSON.parse(localStorage.getItem('pickypop.appearance') || '{}');
-      var mode = saved.mode || saved.theme;
+      // Light until someone picks otherwise; an explicit 'auto' follows the system.
+      var mode = saved.mode || saved.theme || 'light';
       if (mode === 'light' || mode === 'dark') {
         document.documentElement.dataset.mode = mode;
       }
@@ -24,7 +25,8 @@
         document.documentElement.dataset.density = saved.density;
       }
     } catch (e) {
-      /* Storage blocked: the defaults are fine. */
+      /* Storage blocked: the defaults, light. */
+      document.documentElement.dataset.mode = 'light';
     }
   </script>
 </head>
