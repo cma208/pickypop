@@ -297,9 +297,14 @@ PAGE_SCRIPT = """(() => {
 
 
 def esc(text):
-    """Escapes, then turns «quoted UI names» into emphasis so buttons stand out."""
+    """Escapes, then turns «quoted UI names» into emphasis so buttons stand out.
+
+    They are marked translate="no": the app only exists in Spanish, so a reader
+    who has the browser translate the page still finds the button as it reads
+    on screen.
+    """
     out = html.escape(text or '')
-    return re.sub(r'«([^»]{1,80})»', r'«<strong>\1</strong>»', out)
+    return re.sub(r'«([^»]{1,80})»', r'«<strong translate="no">\1</strong>»', out)
 
 
 def slug(text):
