@@ -695,6 +695,47 @@ begin
     || ', ''00000000-7e57-4000-8000-000000000401'', ''00000000-7e57-4000-8000-000000000411'', ''negro'')', 'error:23505');
   perform pg_temp.expect('Categoría de regalo en minúsculas', 'owner',
     'insert into public.gift_categories (workspace_id, name) values (' || c_ws || ', ''clientes'')', 'error:23505');
+
+  -- Los datos para recibir pagos: su formato y qué admite cada tipo de cuenta
+  -- (20261028110000_account_payment_details.sql).
+  perform pg_temp.expect('Banco con titular, número, CCI y celular', 'owner',
+    'insert into public.accounts (workspace_id, name, kind, holder_name, account_number, interbank_number, phone) values ('
+    || c_ws || ', ''BCP datos'', ''bank'', ''Carlos'', ''191-12345678-0-12'', ''00219111234567801255'', ''987654321'')', 'ok:1');
+  perform pg_temp.expect('A la caja le ponen un celular sin cambiarle el tipo', 'owner',
+    'update public.accounts set phone = ''987654321'' where id = ''00000000-7e57-4000-8000-000000000201''', 'error:23514');
+  perform pg_temp.expect('La caja pasa a billetera con su celular', 'owner',
+    'update public.accounts set kind = ''wallet'', phone = ''987654321'' where id = ''00000000-7e57-4000-8000-000000000201''',
+    'ok:1');
+  perform pg_temp.expect('Billetera con titular y celular', 'owner',
+    'insert into public.accounts (workspace_id, name, kind, holder_name, phone) values ('
+    || c_ws || ', ''Plin datos'', ''wallet'', ''Carlos'', ''987654321'')', 'ok:1');
+  perform pg_temp.expect('Billetera con CCI (Ligo da uno)', 'owner',
+    'insert into public.accounts (workspace_id, name, kind, interbank_number) values ('
+    || c_ws || ', ''Ligo'', ''wallet'', ''00219111234567801255'')', 'ok:1');
+  perform pg_temp.expect('Billetera con número de cuenta', 'owner',
+    'insert into public.accounts (workspace_id, name, kind, account_number) values ('
+    || c_ws || ', ''Yape con número'', ''wallet'', ''191-12345678-0-12'')', 'error:23514');
+  perform pg_temp.expect('Caja con celular', 'owner',
+    'insert into public.accounts (workspace_id, name, kind, phone) values ('
+    || c_ws || ', ''Caja con celular'', ''cash'', ''987654321'')', 'error:23514');
+  perform pg_temp.expect('CCI de 19 dígitos', 'owner',
+    'insert into public.accounts (workspace_id, name, kind, interbank_number) values ('
+    || c_ws || ', ''CCI corto'', ''bank'', ''0021911123456780125'')', 'error:23514');
+  perform pg_temp.expect('CCI con guiones', 'owner',
+    'insert into public.accounts (workspace_id, name, kind, interbank_number) values ('
+    || c_ws || ', ''CCI con guiones'', ''bank'', ''002-191-112345678012-55'')', 'error:23514');
+  perform pg_temp.expect('Número de cuenta con letras', 'owner',
+    'insert into public.accounts (workspace_id, name, kind, account_number) values ('
+    || c_ws || ', ''Cuenta con letras'', ''bank'', ''191-ABC-12'')', 'error:23514');
+  perform pg_temp.expect('Celular fijo de Lima', 'owner',
+    'insert into public.accounts (workspace_id, name, kind, phone) values ('
+    || c_ws || ', ''Fijo'', ''wallet'', ''014567890'')', 'error:23514');
+  perform pg_temp.expect('Celular con el +51', 'owner',
+    'insert into public.accounts (workspace_id, name, kind, phone) values ('
+    || c_ws || ', ''Con prefijo'', ''wallet'', ''+51987654321'')', 'error:23514');
+  perform pg_temp.expect('Titular con espacios alrededor', 'owner',
+    'insert into public.accounts (workspace_id, name, kind, holder_name) values ('
+    || c_ws || ', ''Titular con espacios'', ''bank'', '' Carlos '')', 'error:23514');
 end;
 $$;
 

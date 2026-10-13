@@ -6,9 +6,10 @@ import { roundMoney, sumMoney } from '../../core/pricing';
 import type { AccountKind, PaymentMethod, TransactionType } from './finanzas.models';
 import { MAX_LEDGER_AMOUNT } from './finanzas.models';
 import { openingDay } from './opening-balance';
+import type { PaymentDetails } from './payment-details';
 
 /** What the account form can change. Whether it is active has its own button in Cuentas. */
-export interface AccountInput {
+export interface AccountInput extends PaymentDetails {
   name: string;
   kind: AccountKind;
   openingBalance: number;
@@ -25,6 +26,10 @@ export interface AccountChanges {
   opening_balance_on?: string;
   default_payment_method?: PaymentMethod | null;
   note?: string | null;
+  holder_name?: string | null;
+  account_number?: string | null;
+  interbank_number?: string | null;
+  phone?: string | null;
 }
 
 /**
@@ -44,6 +49,11 @@ export function accountChanges(before: AccountInput, after: AccountInput): Accou
     changes.default_payment_method = after.defaultPaymentMethod;
   }
   if ((after.note ?? null) !== (before.note ?? null)) changes.note = after.note ?? null;
+  const differs = (detail: keyof PaymentDetails) => (after[detail] ?? null) !== (before[detail] ?? null);
+  if (differs('holderName')) changes.holder_name = after.holderName ?? null;
+  if (differs('accountNumber')) changes.account_number = after.accountNumber ?? null;
+  if (differs('interbankNumber')) changes.interbank_number = after.interbankNumber ?? null;
+  if (differs('phone')) changes.phone = after.phone ?? null;
   return changes;
 }
 

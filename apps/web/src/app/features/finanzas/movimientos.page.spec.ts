@@ -6,6 +6,7 @@ import { FinanzasData, type AccountSummary, type LedgerRow } from './finanzas.da
 import { CurrentWorkspace, type MemberRole } from '../../core/workspace';
 import { fakeWorkspace, workspaceAs } from '../../core/workspace.testing';
 import { MovimientosFinancierosPage } from './movimientos.page';
+import { NO_PAYMENT_DETAILS } from './payment-details';
 
 function account(id: string, name: string, balance: number): AccountSummary {
   return {
@@ -17,6 +18,7 @@ function account(id: string, name: string, balance: number): AccountSummary {
     openingBalanceOn: '2026-09-01',
     defaultPaymentMethod: 'yape',
     note: null,
+    ...NO_PAYMENT_DETAILS,
     updatedAt: '2026-09-01T15:00:00+00:00',
     totalIn: balance,
     totalOut: 0,

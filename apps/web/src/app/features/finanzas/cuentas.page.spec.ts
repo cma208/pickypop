@@ -6,6 +6,7 @@ import { CurrentWorkspace } from '../../core/workspace';
 import { fakeWorkspace } from '../../core/workspace.testing';
 import { CuentasPage } from './cuentas.page';
 import { FinanzasData, type AccountSummary } from './finanzas.data';
+import { NO_PAYMENT_DETAILS } from './payment-details';
 
 const YAPE: AccountSummary = {
   id: 'acc-yape',
@@ -16,6 +17,7 @@ const YAPE: AccountSummary = {
   openingBalanceOn: '2026-09-01',
   defaultPaymentMethod: 'yape',
   note: null,
+  ...NO_PAYMENT_DETAILS,
   updatedAt: '2026-09-01T15:00:00+00:00',
   totalIn: 0,
   totalOut: 0,
@@ -78,5 +80,39 @@ describe('CuentasPage, an owner made operator from another tab (ADR-025)', () =>
     expect(labels(fixture)).not.toContain('Desactivar');
     expect(labels(fixture)).not.toContain('Editar');
     expect(fixture.nativeElement.querySelector('.alert')?.textContent).toContain('No tienes permiso');
+  });
+});
+
+describe('CuentasPage, how somebody pays into an account', () => {
+  it('shows the details written for an account, and nothing for one without them', async () => {
+    const bcp: AccountSummary = {
+      ...YAPE,
+      id: 'acc-bcp',
+      name: 'BCP',
+      kind: 'bank',
+      holderName: 'Carlos Machicado',
+      accountNumber: '191-12345678-0-12',
+      interbankNumber: '00219111234567801255',
+    };
+    TestBed.configureTestingModule({
+      providers: [
+        provideRouter([]),
+        { provide: CurrentWorkspace, useValue: fakeWorkspace('owner') },
+        { provide: FinanzasData, useValue: { accounts: async () => [bcp, YAPE] } },
+      ],
+    });
+    const fixture = TestBed.createComponent(CuentasPage);
+    await settle(fixture);
+
+    const rows = ([...fixture.nativeElement.querySelectorAll('tbody tr')] as HTMLElement[]).map((row) =>
+      (row.textContent ?? '').replace(/\s+/g, ' '),
+    );
+    expect(rows[0]).toContain('BCP');
+    const details = ([...fixture.nativeElement.querySelectorAll('tbody tr:first-child .detail')] as HTMLElement[]).map(
+      (line) => line.textContent?.replace(/\s+/g, ' ').trim(),
+    );
+    expect(details).toEqual(['N.º 191-12345678-0-12', 'CCI 002-191-112345678012-55', 'A nombre de Carlos Machicado']);
+    expect(rows[1]).not.toContain('N.º');
+    expect(fixture.nativeElement.querySelectorAll('tbody tr:nth-child(2) .detail')).toHaveLength(0);
   });
 });

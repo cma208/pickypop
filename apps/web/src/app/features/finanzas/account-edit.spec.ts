@@ -11,6 +11,7 @@ import {
   type AccountInput,
   type AccountLeg,
 } from './account-edit';
+import { NO_PAYMENT_DETAILS } from './payment-details';
 
 /** Intl puts a no-break space between «S/» and the number; the assertions read it as a plain one. */
 const plain = (text: string) => text.replace(/ /g, ' ');
@@ -22,6 +23,7 @@ const YAPE: AccountInput = {
   openingBalanceOn: '2026-10-07',
   defaultPaymentMethod: 'yape',
   note: null,
+  ...NO_PAYMENT_DETAILS,
 };
 
 describe('accountChanges (T5-09)', () => {
@@ -44,6 +46,26 @@ describe('accountChanges (T5-09)', () => {
     expect(accountChanges({ ...YAPE, note: 'algo' }, { ...YAPE, defaultPaymentMethod: null, note: null })).toEqual({
       default_payment_method: null,
       note: null,
+    });
+  });
+
+  it('sends a payment detail only when it changed, by its column', () => {
+    expect(accountChanges(YAPE, { ...YAPE, phone: '987654321' })).toEqual({ phone: '987654321' });
+    const withPhone = { ...YAPE, holderName: 'Carlos', phone: '987654321' };
+    expect(accountChanges(withPhone, { ...withPhone })).toEqual({});
+  });
+
+  it('clears the details a new kind does not take, in the same update as the kind', () => {
+    const bank: AccountInput = {
+      ...YAPE,
+      kind: 'bank',
+      accountNumber: '191-12345678-0-12',
+      interbankNumber: '00219111234567801255',
+    };
+    expect(accountChanges(bank, { ...bank, kind: 'cash', accountNumber: null, interbankNumber: null })).toEqual({
+      kind: 'cash',
+      account_number: null,
+      interbank_number: null,
     });
   });
 });

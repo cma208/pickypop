@@ -4,6 +4,7 @@ import { FinanzasData, type AccountSummary, type ReceivableRow } from './finanza
 import type { MemberRole } from '../../core/workspace';
 import { workspaceAs } from '../../core/workspace.testing';
 import { PorCobrarPage } from './por-cobrar.page';
+import { NO_PAYMENT_DETAILS } from './payment-details';
 
 const CASH: AccountSummary = {
   id: 'acc-1',
@@ -14,6 +15,7 @@ const CASH: AccountSummary = {
   openingBalanceOn: '2026-09-01',
   defaultPaymentMethod: 'cash',
   note: null,
+  ...NO_PAYMENT_DETAILS,
   updatedAt: '2026-09-01T15:00:00+00:00',
   totalIn: 0,
   totalOut: 0,

@@ -25,13 +25,13 @@ export type Database = {
           Tables: {
             "accounts": {
                   Row: {
-                    "active": boolean,"created_at": string,"created_by": string | null,"default_payment_method": Database["public"]['Enums']["payment_method"] | null,"id": string,"kind": Database["public"]['Enums']["account_kind"],"name": string,"note": string | null,"opening_balance": number,"opening_balance_on": string,"updated_at": string,"workspace_id": string
+                    "account_number": string | null,"active": boolean,"created_at": string,"created_by": string | null,"default_payment_method": Database["public"]['Enums']["payment_method"] | null,"holder_name": string | null,"id": string,"interbank_number": string | null,"kind": Database["public"]['Enums']["account_kind"],"name": string,"note": string | null,"opening_balance": number,"opening_balance_on": string,"phone": string | null,"updated_at": string,"workspace_id": string
                   }
                   Insert: {
-                    "active"?: boolean,"created_at"?: string,"created_by"?: string | null,"default_payment_method"?: Database["public"]['Enums']["payment_method"] | null,"id"?: string,"kind"?: Database["public"]['Enums']["account_kind"],"name": string,"note"?: string | null,"opening_balance"?: number,"opening_balance_on"?: string,"updated_at"?: string,"workspace_id": string
+                    "account_number"?: string | null,"active"?: boolean,"created_at"?: string,"created_by"?: string | null,"default_payment_method"?: Database["public"]['Enums']["payment_method"] | null,"holder_name"?: string | null,"id"?: string,"interbank_number"?: string | null,"kind"?: Database["public"]['Enums']["account_kind"],"name": string,"note"?: string | null,"opening_balance"?: number,"opening_balance_on"?: string,"phone"?: string | null,"updated_at"?: string,"workspace_id": string
                   }
                   Update: {
-                    "active"?: boolean,"created_at"?: string,"created_by"?: string | null,"default_payment_method"?: Database["public"]['Enums']["payment_method"] | null,"id"?: string,"kind"?: Database["public"]['Enums']["account_kind"],"name"?: string,"note"?: string | null,"opening_balance"?: number,"opening_balance_on"?: string,"updated_at"?: string,"workspace_id"?: string
+                    "account_number"?: string | null,"active"?: boolean,"created_at"?: string,"created_by"?: string | null,"default_payment_method"?: Database["public"]['Enums']["payment_method"] | null,"holder_name"?: string | null,"id"?: string,"interbank_number"?: string | null,"kind"?: Database["public"]['Enums']["account_kind"],"name"?: string,"note"?: string | null,"opening_balance"?: number,"opening_balance_on"?: string,"phone"?: string | null,"updated_at"?: string,"workspace_id"?: string
                   }
                   Relationships: [
                     {

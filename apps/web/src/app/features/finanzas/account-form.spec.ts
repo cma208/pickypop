@@ -1,7 +1,8 @@
 import { TestBed, type ComponentFixture } from '@angular/core/testing';
-import type { AccountInput, AccountLeg } from './account-edit';
+import { accountChanges, type AccountInput, type AccountLeg } from './account-edit';
 import { AccountForm } from './account-form';
 import { FinanzasData, StaleAccountError, type AccountSummary } from './finanzas.data';
+import { NO_PAYMENT_DETAILS } from './payment-details';
 
 const STALE =
   'La cuenta cambió en otra pestaña, o la cambió otra persona, mientras la editabas: no se guardó nada. Vuelve a abrirla para ver cómo quedó.';
@@ -15,6 +16,7 @@ const CASH: AccountSummary = {
   openingBalanceOn: '2026-09-01',
   defaultPaymentMethod: 'cash',
   note: null,
+  ...NO_PAYMENT_DETAILS,
   updatedAt: '2026-09-01T15:00:00+00:00',
   totalIn: 50,
   totalOut: 20,
@@ -34,12 +36,14 @@ const LEGS: AccountLeg[] = [
 interface Opened {
   fixture: ComponentFixture<AccountForm>;
   updates: AccountInput[];
+  creates: AccountInput[];
   outdated: string[];
   saved: string[];
 }
 
 async function open(account: AccountSummary | null, update?: () => Promise<boolean>): Promise<Opened> {
   const updates: AccountInput[] = [];
+  const creates: AccountInput[] = [];
   TestBed.configureTestingModule({
     providers: [
       {
@@ -50,14 +54,16 @@ async function open(account: AccountSummary | null, update?: () => Promise<boole
             updates.push(input);
             return update ? update() : true;
           },
-          createAccount: async () => undefined,
+          createAccount: async (input: AccountInput) => {
+            creates.push(input);
+          },
         },
       },
     ],
   });
   const fixture = TestBed.createComponent(AccountForm);
   fixture.componentRef.setInput('account', account);
-  const opened: Opened = { fixture, updates, outdated: [], saved: [] };
+  const opened: Opened = { fixture, updates, creates, outdated: [], saved: [] };
   fixture.componentInstance.outdated.subscribe((message) => opened.outdated.push(message));
   fixture.componentInstance.saved.subscribe((message) => opened.saved.push(message));
   await settle(fixture);
@@ -86,6 +92,31 @@ async function type(fixture: ComponentFixture<AccountForm>, name: string, value:
   input.dispatchEvent(new Event('input'));
   await settle(fixture);
 }
+
+async function choose(fixture: ComponentFixture<AccountForm>, name: string, value: string): Promise<void> {
+  const select = field(fixture, name) as unknown as HTMLSelectElement;
+  select.value = value;
+  select.dispatchEvent(new Event('change'));
+  await settle(fixture);
+}
+
+const shownFields = (fixture: ComponentFixture<AccountForm>) =>
+  (['holderName', 'accountNumber', 'interbankNumber', 'phone'] as const).filter(
+    (name) => fixture.nativeElement.querySelector(`[formcontrolname="${name}"]`) !== null,
+  );
+
+const BCP: AccountSummary = {
+  ...CASH,
+  id: 'acc-2',
+  name: 'BCP',
+  kind: 'bank',
+  defaultPaymentMethod: 'transfer',
+  movements: 0,
+  holderName: 'Carlos Machicado',
+  accountNumber: '191-12345678-0-12',
+  interbankNumber: '00219111234567801255',
+  phone: '987654321',
+};
 
 function saveButton(fixture: ComponentFixture<AccountForm>): HTMLButtonElement {
   return fixture.nativeElement.querySelector('button[type="submit"]') as HTMLButtonElement;
@@ -194,5 +225,114 @@ describe('AccountForm', () => {
 
     expect(updates).toEqual([]);
     expect(text(fixture)).toContain('No puede ser posterior a hoy');
+  });
+
+  describe('the details for getting paid', () => {
+    it('reads the CCI and phone shown in blocks back as digits, so saving untouched changes no column', async () => {
+      const { fixture, updates } = await open(BCP);
+
+      await save(fixture);
+
+      expect(updates).toHaveLength(1);
+      expect(accountChanges(BCP, updates[0]!)).toEqual({});
+    });
+
+    it('offers none for a cash box, all four for a bank and all but the account number for a wallet', async () => {
+      const { fixture } = await open(null);
+      expect(shownFields(fixture)).toEqual([]);
+
+      await choose(fixture, 'kind', 'bank');
+      expect(shownFields(fixture)).toEqual(['holderName', 'accountNumber', 'interbankNumber', 'phone']);
+      expect(text(fixture)).toContain('Para recibir pagos');
+
+      await choose(fixture, 'kind', 'wallet');
+      expect(shownFields(fixture)).toEqual(['holderName', 'interbankNumber', 'phone']);
+    });
+
+    it('saves a new bank with its CCI as 20 digits and the phone without the +51', async () => {
+      const { fixture, creates } = await open(null);
+
+      await type(fixture, 'name', 'BCP');
+      await choose(fixture, 'kind', 'bank');
+      await type(fixture, 'holderName', '  Carlos Machicado ');
+      await type(fixture, 'accountNumber', '191 12345678 0 12');
+      await type(fixture, 'interbankNumber', '002-191-112345678012-55');
+      await type(fixture, 'phone', '+51 987 654 321');
+      await save(fixture);
+
+      expect(creates).toHaveLength(1);
+      expect(creates[0]).toMatchObject({
+        holderName: 'Carlos Machicado',
+        accountNumber: '191-12345678-0-12',
+        interbankNumber: '00219111234567801255',
+        phone: '987654321',
+      });
+    });
+
+    it('saves them empty when nobody writes them', async () => {
+      const { fixture, creates } = await open(null);
+
+      await type(fixture, 'name', 'Interbank');
+      await choose(fixture, 'kind', 'bank');
+      await save(fixture);
+
+      expect(creates[0]).toMatchObject({ holderName: null, accountNumber: null, interbankNumber: null, phone: null });
+    });
+
+    it('says a CCI that is not 20 digits next to the field, and sends nothing', async () => {
+      const { fixture, creates } = await open(null);
+
+      await type(fixture, 'name', 'BCP');
+      await choose(fixture, 'kind', 'bank');
+      await type(fixture, 'interbankNumber', '0021911123');
+      await save(fixture);
+
+      expect(creates).toEqual([]);
+      expect(text(fixture)).toContain('El CCI tiene 20 dígitos');
+    });
+
+    it('refuses a phone that is not a Peruvian mobile', async () => {
+      const { fixture, creates } = await open(null);
+
+      await type(fixture, 'name', 'Yape');
+      await choose(fixture, 'kind', 'wallet');
+      await type(fixture, 'phone', '014567890');
+      await save(fixture);
+
+      expect(creates).toEqual([]);
+      expect(text(fixture)).toContain('9 dígitos que empiezan con 9');
+    });
+
+    it('does not let a field the kind hides block saving, and drops what it held', async () => {
+      const { fixture, creates } = await open(null);
+
+      await type(fixture, 'name', 'Caja chica');
+      await choose(fixture, 'kind', 'bank');
+      await type(fixture, 'interbankNumber', '123');
+      await choose(fixture, 'kind', 'cash');
+      await save(fixture);
+
+      expect(creates).toHaveLength(1);
+      expect(creates[0]).toMatchObject({ kind: 'cash', interbankNumber: null });
+    });
+
+    it('opens an account with what it has, and turning a bank into a wallet drops its account number', async () => {
+      const { fixture, updates } = await open(BCP);
+
+      expect(field(fixture, 'interbankNumber').value).toBe('002-191-112345678012-55');
+      expect(field(fixture, 'phone').value).toBe('987 654 321');
+
+      await choose(fixture, 'kind', 'wallet');
+      await save(fixture);
+
+      expect(updates).toHaveLength(1);
+      expect(updates[0]).toMatchObject({
+        kind: 'wallet',
+        holderName: 'Carlos Machicado',
+        accountNumber: null,
+        interbankNumber: '00219111234567801255',
+        phone: '987654321',
+      });
+    });
   });
 });

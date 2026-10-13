@@ -68,6 +68,13 @@ const CONSTRAINT_MESSAGES: Record<string, string> = {
   accounts_workspace_id_name_key: DUPLICATE_ACCOUNT,
   accounts_name_ci_key: DUPLICATE_ACCOUNT,
   accounts_name_check: 'Escribe el nombre de la cuenta: no puede quedar vacío.',
+  accounts_holder_name_format: 'El titular no puede quedar en blanco ni pasar de 120 caracteres.',
+  accounts_account_number_format:
+    'El número de cuenta lleva solo dígitos, con guiones si el banco los usa: entre 6 y 20 dígitos.',
+  accounts_interbank_number_format: 'El CCI tiene exactamente 20 dígitos.',
+  accounts_phone_format: 'El celular tiene 9 dígitos y empieza con 9, sin el +51.',
+  accounts_payment_details_fit_kind:
+    'Una caja no lleva datos para recibir pagos, y una billetera no lleva número de cuenta.',
   transaction_categories_workspace_id_direction_name_key: DUPLICATE_CATEGORY,
   transaction_categories_name_ci_key: DUPLICATE_CATEGORY,
   transaction_categories_name_check: 'Escribe el nombre de la categoría: no puede quedar vacío.',

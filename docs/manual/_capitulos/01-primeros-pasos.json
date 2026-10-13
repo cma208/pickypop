@@ -1124,7 +1124,7 @@
           ]
         },
         {
-          "text": "Para Yape, haz clic otra vez en «Nueva cuenta»: «Nombre» Yape, «Tipo» «Billetera (Yape, Plin)», «Saldo de apertura» 85.50, y «Medio de pago por defecto» «Yape» (una billetera no trae uno elegido: lo eliges tú). Haz clic en «Guardar cuenta».",
+          "text": "Para Yape, haz clic otra vez en «Nueva cuenta»: «Nombre» Yape, «Tipo» «Billetera (Yape, Plin)», «Saldo de apertura» 85.50, y «Medio de pago por defecto» «Yape» (una billetera no trae uno elegido: lo eliges tú). Debajo, en «Para recibir pagos», puedes anotar el titular y el celular con el que te yapean; es opcional y puedes hacerlo después. Haz clic en «Guardar cuenta».",
           "image": "img/01-36-cuenta-yape.jpg",
           "marks": [
             {
@@ -1149,6 +1149,10 @@
             },
             {
               "n": 6,
+              "label": "Para recibir pagos: titular, CCI y celular, opcionales"
+            },
+            {
+              "n": 7,
               "label": "Guardar cuenta"
             }
           ]

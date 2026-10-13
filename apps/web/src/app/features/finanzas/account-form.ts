@@ -29,10 +29,26 @@ import {
   type PaymentMethod,
 } from './finanzas.models';
 import { FINANCE_STYLES } from './finanzas.styles';
+import {
+  accountNumberFormat,
+  formatInterbank,
+  formatPhone,
+  HOLDER_NAME_MAX,
+  interbankFormat,
+  PAYMENT_DETAIL_MESSAGES,
+  PAYMENT_DETAILS_BY_KIND,
+  paymentDetailsFor,
+  phoneFormat,
+  type PaymentDetail,
+} from './payment-details';
 import { CurrentWorkspace } from '../../core/workspace';
 
 /** How many of the movements that change side are listed before «y N más». */
 const SHIFT_LIST_LIMIT = 8;
+
+const FIELD_MESSAGES = { ...ACCOUNT_FIELD_MESSAGES, ...PAYMENT_DETAIL_MESSAGES };
+
+const PAYMENT_DETAIL_CONTROLS: readonly PaymentDetail[] = ['holderName', 'accountNumber', 'interbankNumber', 'phone'];
 
 /**
  * Create or edit a place where the workshop's money sits. Whether it is
@@ -42,7 +58,10 @@ const SHIFT_LIST_LIMIT = 8;
 @Component({
   selector: 'app-account-form',
   imports: [ReactiveFormsModule, Field, FORMAT_PIPES],
-  styles: [SECTION_STYLES, FINANCE_STYLES, `.shift { margin: 0 0 0.75rem; padding-left: 1.25rem; font-size: var(--fs-sm); }`],
+  styles: [SECTION_STYLES, FINANCE_STYLES, `
+    .shift { margin: 0 0 0.75rem; padding-left: 1.25rem; font-size: var(--fs-sm); }
+    .details-hint { margin: 0.25rem 0 0.75rem; font-size: var(--fs-sm); }
+  `],
   template: `
     <form class="form-box" [formGroup]="form" (ngSubmit)="submit()" novalidate>
       <h3>{{ account() ? 'Editar cuenta' : 'Nueva cuenta' }}</h3>
@@ -95,6 +114,44 @@ const SHIFT_LIST_LIMIT = 8;
           <input formControlName="note" autocomplete="off" />
         </pp-field>
       </div>
+
+      @if (shownDetails().length > 0) {
+        <fieldset>
+          <legend>Para recibir pagos</legend>
+          <p class="muted details-hint">Opcional. Son los datos que le das a un cliente para que te pague en esta cuenta.</p>
+          <div class="grid two">
+            @if (shows('holderName')) {
+              <pp-field label="Titular" hint="A nombre de quién está: el cliente lo ve antes de confirmar el pago" [error]="error('holderName')">
+                <input formControlName="holderName" autocomplete="off" [attr.maxlength]="holderNameMax" />
+              </pp-field>
+            }
+            @if (shows('accountNumber')) {
+              <pp-field label="Número de cuenta" hint="Como te lo da el banco, con sus guiones" [error]="error('accountNumber')">
+                <!-- No numeric keypad: on a phone it has no dash, and the number keeps the bank's. -->
+                <input formControlName="accountNumber" autocomplete="off" placeholder="191-12345678-0-12" />
+              </pp-field>
+            }
+            @if (shows('interbankNumber')) {
+              <pp-field
+                label="CCI (interbancario)"
+                [hint]="kind() === 'bank' ? '20 dígitos: lo usa quien te paga desde otro banco' : '20 dígitos, si tu billetera te da uno (Ligo, por ejemplo)'"
+                [error]="error('interbankNumber')"
+              >
+                <input formControlName="interbankNumber" autocomplete="off" inputmode="numeric" placeholder="002-191-112345678012-55" />
+              </pp-field>
+            }
+            @if (shows('phone')) {
+              <pp-field
+                label="Celular (Yape o Plin)"
+                [hint]="kind() === 'bank' ? 'Si esta cuenta recibe Plin o Yape con tu número' : 'El número con el que te yapean o plinean'"
+                [error]="error('phone')"
+              >
+                <input type="tel" formControlName="phone" autocomplete="off" inputmode="tel" placeholder="987 654 321" />
+              </pp-field>
+            }
+          </div>
+        </fieldset>
+      }
 
       @if (shiftNotice(); as text) {
         <section aria-live="polite">
@@ -151,6 +208,11 @@ export class AccountForm {
   protected readonly typeShort = TRANSACTION_TYPE_SHORT;
   protected readonly maxAmount = MAX_LEDGER_AMOUNT;
   protected readonly today = todayLocal();
+  protected readonly holderNameMax = HOLDER_NAME_MAX;
+
+  /** The kind on screen, which decides the payment details offered. */
+  protected readonly kind = signal<AccountKind>('cash');
+  protected readonly shownDetails = computed(() => PAYMENT_DETAILS_BY_KIND[this.kind()]);
 
   protected readonly saving = signal(false);
   protected readonly failure = signal<string | null>(null);
@@ -170,6 +232,11 @@ export class AccountForm {
     // A new account starts as a cash box, and a cash box takes cash.
     defaultPaymentMethod: [(defaultMethodFor('cash') ?? '') as PaymentMethod | ''],
     note: [''],
+    // Disabled while the kind does not take them, so a hidden field never blocks saving.
+    holderName: [{ value: '', disabled: true }, Validators.maxLength(HOLDER_NAME_MAX)],
+    accountNumber: [{ value: '', disabled: true }, accountNumberFormat],
+    interbankNumber: [{ value: '', disabled: true }, interbankFormat],
+    phone: [{ value: '', disabled: true }, phoneFormat],
   });
 
   protected readonly shiftNotice = computed(() => {
@@ -204,9 +271,28 @@ export class AccountForm {
    * what it has: changing its kind is not a reason to change how it is paid.
    */
   private followKind(kind: AccountKind): void {
+    this.offerDetailsFor(kind);
     const method = this.form.controls.defaultPaymentMethod;
     if (this.account() || !method.pristine) return;
     method.setValue(defaultMethodFor(kind) ?? '');
+  }
+
+  /**
+   * What is typed stays in a field the kind hides, in case the person goes
+   * back to the previous kind; saving drops it (`paymentDetailsFor`).
+   */
+  private offerDetailsFor(kind: AccountKind): void {
+    this.kind.set(kind);
+    const shown = PAYMENT_DETAILS_BY_KIND[kind];
+    for (const detail of PAYMENT_DETAIL_CONTROLS) {
+      const control = this.form.controls[detail];
+      if (shown.includes(detail)) control.enable({ emitEvent: false });
+      else control.disable({ emitEvent: false });
+    }
+  }
+
+  protected shows(detail: PaymentDetail): boolean {
+    return this.shownDetails().includes(detail);
   }
 
   // Signal inputs are only set after construction, so the form is filled here.
@@ -220,12 +306,17 @@ export class AccountForm {
         openingBalanceOn: account.openingBalanceOn,
         defaultPaymentMethod: account.defaultPaymentMethod ?? '',
         note: account.note ?? '',
+        holderName: account.holderName ?? '',
+        accountNumber: account.accountNumber ?? '',
+        // Shown in blocks, easier to check against the bank's; saving reads them back as digits.
+        interbankNumber: account.interbankNumber ? formatInterbank(account.interbankNumber) : '',
+        phone: account.phone ? formatPhone(account.phone) : '',
       });
     }
   }
 
-  protected error(control: keyof typeof ACCOUNT_FIELD_MESSAGES): string | null {
-    return errorOf(this.form.controls[control], ACCOUNT_FIELD_MESSAGES[control]);
+  protected error(control: keyof typeof FIELD_MESSAGES): string | null {
+    return errorOf(this.form.controls[control], FIELD_MESSAGES[control]);
   }
 
   protected async submit(): Promise<void> {
@@ -291,6 +382,7 @@ export class AccountForm {
       openingBalanceOn: value.openingBalanceOn,
       defaultPaymentMethod: value.defaultPaymentMethod === '' ? null : value.defaultPaymentMethod,
       note: textOrNull(value.note),
+      ...paymentDetailsFor(value.kind, value),
     };
   }
 }

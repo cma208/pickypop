@@ -48,7 +48,7 @@
       "intro": "«Cuentas» muestra cada lugar donde el taller guarda dinero (la caja de efectivo, Yape, un banco) con su saldo. Es la pantalla que miras para saber cuánta plata hay y dónde.",
       "steps": [
         {
-          "text": "Haz clic en «Cuentas». Arriba, «Total del taller» suma el saldo de todas las cuentas y «Cuentas activas» dice cuántas están en uso. Debajo hay una fila por cuenta con su «Apertura» (lo que había el día que la registraste, con su fecha), sus «Entradas», sus «Salidas», su «Saldo» y cuántos «Movimientos» tiene.",
+          "text": "Haz clic en «Cuentas». Arriba, «Total del taller» suma el saldo de todas las cuentas y «Cuentas activas» dice cuántas están en uso. Debajo hay una fila por cuenta con su «Apertura» (lo que había el día que la registraste, con su fecha), sus «Entradas», sus «Salidas», su «Saldo» y cuántos «Movimientos» tiene. Si anotaste los datos para recibir pagos, aparecen debajo del tipo, uno por línea: «N.º», «CCI», «Celular» y «A nombre de».",
           "image": "img/06-01-cuentas-lista.jpg",
           "marks": [
             {
@@ -69,7 +69,7 @@
             },
             {
               "n": 5,
-              "label": "«Editar»: cambia el nombre, el tipo, la apertura, el medio de pago o la nota"
+              "label": "«Editar»: cambia el nombre, el tipo, la apertura, el medio de pago, la nota o los datos para recibir pagos"
             },
             {
               "n": 6,
@@ -97,7 +97,7 @@
       "intro": "Una cuenta nueva sirve para otro lugar donde guardas dinero: un banco, otra billetera, una caja chica. Solo el dueño las crea. Aquí creas «BCP ahorros», que luego usarás para ver cómo se cierra una cuenta.",
       "steps": [
         {
-          "text": "Haz clic en «Nueva cuenta». Se abre el formulario «Nueva cuenta» encima de la lista. En «Nombre» escribe «BCP ahorros». En «Tipo» elige «Banco» (las otras opciones son «Caja (efectivo)» y «Billetera (Yape, Plin)»). En «Saldo de apertura» escribe lo que ya hay en esa cuenta hoy: 30. «Fecha del saldo de apertura» trae la de hoy. En «Medio de pago por defecto» elige «Transferencia bancaria»: así el cobro de un pedido que entre en esta cuenta no vuelve a preguntarlo. En «Nota» puedes escribir para qué es.",
+          "text": "Haz clic en «Nueva cuenta». Se abre el formulario «Nueva cuenta» encima de la lista. En «Nombre» escribe «BCP ahorros». En «Tipo» elige «Banco» (las otras opciones son «Caja (efectivo)» y «Billetera (Yape, Plin)»). En «Saldo de apertura» escribe lo que ya hay en esa cuenta hoy: 30. «Fecha del saldo de apertura» trae la de hoy. En «Medio de pago por defecto» elige «Transferencia bancaria»: así el cobro de un pedido que entre en esta cuenta no vuelve a preguntarlo. En «Nota» puedes escribir para qué es. Debajo, en «Para recibir pagos», puedes anotar el titular, el número de cuenta, el CCI y el celular si la cuenta recibe Yape o Plin con tu número. Todo es opcional: son los datos que le das a un cliente para que te pague.",
           "image": "img/06-02-cuenta-nueva.jpg",
           "marks": [
             {
@@ -122,6 +122,10 @@
             },
             {
               "n": 6,
+              "label": "«Para recibir pagos»: titular, número de cuenta, CCI y celular, todos opcionales"
+            },
+            {
+              "n": 7,
               "label": "«Guardar cuenta»"
             }
           ]
@@ -152,13 +156,14 @@
       "tips": [
         "El saldo de apertura es lo que ya había en la cuenta el día que la registras. Puede ser cero («Indica el saldo de apertura, aunque sea cero.») o negativo, si la cuenta debe dinero.",
         "El nombre no se puede repetir en el taller, aunque cambien las mayúsculas.",
-        "Si no eliges «Medio de pago por defecto», cada cobro te preguntará con qué medio se pagó."
+        "Si no eliges «Medio de pago por defecto», cada cobro te preguntará con qué medio se pagó.",
+        "«Para recibir pagos» cambia según el «Tipo»: un banco pide titular, número de cuenta, CCI y celular; una billetera, titular, CCI (si te da uno, como Ligo) y celular; una caja, nada. El CCI puedes pegarlo con guiones o espacios y se guarda con sus 20 dígitos; el celular, con o sin el +51. Si cambias el tipo de una cuenta, al guardar se borran los datos que el tipo nuevo no lleva."
       ],
       "warnings": []
     },
     {
       "title": "Editar una cuenta y el saldo de apertura",
-      "intro": "Con «Editar» cambias el nombre, el tipo, el saldo de apertura, la fecha de apertura, el medio de pago por defecto o la nota. Es la forma de corregir el punto de partida de una cuenta.",
+      "intro": "Con «Editar» cambias el nombre, el tipo, el saldo de apertura, la fecha de apertura, el medio de pago por defecto, la nota o los datos para recibir pagos. Es la forma de corregir el punto de partida de una cuenta.",
       "steps": [
         {
           "text": "En la fila de la cuenta haz clic en «Editar». Se abre «Editar cuenta» con los datos actuales. Cambia lo que haga falta y haz clic en «Guardar cuenta»; si no cambiaste nada, la pantalla dice «No había cambios: la cuenta quedó como estaba.». «Cancelar» cierra el formulario sin guardar.",

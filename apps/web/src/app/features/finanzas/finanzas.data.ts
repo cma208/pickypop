@@ -29,6 +29,11 @@ export interface AccountSummary {
   openingBalanceOn: string;
   defaultPaymentMethod: PaymentMethod | null;
   note: string | null;
+  /** How somebody pays into it (`payment-details.ts`): empty until someone writes them. */
+  holderName: string | null;
+  accountNumber: string | null;
+  interbankNumber: string | null;
+  phone: string | null;
   /** When it was last changed: an edit from an old tab is refused against it (T5-09). */
   updatedAt: string;
   /** In and out since the opening balance: opening + in − out is the balance. */
@@ -172,7 +177,7 @@ export class FinanzasData {
     const [accounts, balances] = await Promise.all([
       this.supabase
         .from('accounts')
-        .select('id, name, kind, opening_balance, opening_balance_on, default_payment_method, note, active, updated_at'),
+        .select('id, name, kind, opening_balance, opening_balance_on, default_payment_method, note, holder_name, account_number, interbank_number, phone, active, updated_at'),
       this.supabase
         .from('account_balances')
         .select('account_id, total_in, total_out, balance, movements, last_movement_at, movements_before_opening, net_before_opening'),
@@ -194,6 +199,10 @@ export class FinanzasData {
           openingBalanceOn: account.opening_balance_on,
           defaultPaymentMethod: account.default_payment_method,
           note: account.note,
+          holderName: account.holder_name,
+          accountNumber: account.account_number,
+          interbankNumber: account.interbank_number,
+          phone: account.phone,
           updatedAt: account.updated_at,
           totalIn: num(balance?.total_in),
           totalOut: num(balance?.total_out),
@@ -219,6 +228,10 @@ export class FinanzasData {
       opening_balance_on: input.openingBalanceOn,
       default_payment_method: input.defaultPaymentMethod,
       note: input.note,
+      holder_name: input.holderName,
+      account_number: input.accountNumber,
+      interbank_number: input.interbankNumber,
+      phone: input.phone,
     });
     if (error) throw withRaisedMessage(error);
   }

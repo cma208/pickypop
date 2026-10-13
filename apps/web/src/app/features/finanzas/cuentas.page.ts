@@ -9,6 +9,7 @@ import { FinanzasData, isRefusal, type AccountSummary } from './finanzas.data';
 import { ACCOUNT_KIND_LABELS, PAYMENT_METHOD_LABELS } from './finanzas.models';
 import { FINANCE_STYLES } from './finanzas.styles';
 import { beforeOpeningSummary } from './opening-balance';
+import { paymentDetailsLines, type PaymentDetailLine } from './payment-details';
 import { CurrentWorkspace } from '../../core/workspace';
 
 /**
@@ -36,6 +37,8 @@ function deactivateQuestion(account: AccountSummary): string {
     `
       .early { color: var(--warn); font-weight: 400; white-space: normal; max-width: 14rem; margin-left: auto; }
       .form-anchor { scroll-margin-top: 1rem; }
+      /* A number cut at its dashes cannot be read out or copied: each one stays whole. */
+      .detail .whole { white-space: nowrap; }
     `,
   ],
   template: `
@@ -140,6 +143,9 @@ function deactivateQuestion(account: AccountSummary): string {
                           · sin medio de pago por defecto
                         }
                       </small>
+                      @for (line of detailsLines(account); track $index) {
+                        <small class="sub detail">{{ line.label }} <span [class.whole]="line.whole">{{ line.value }}</span></small>
+                      }
                       <small class="sub only-small">
                         Apertura {{ account.openingBalance | money }} · {{ account.movements }} movimientos
                       </small>
@@ -216,6 +222,11 @@ export class CuentasPage {
   protected readonly anyBeforeOpening = computed(() =>
     this.accounts().some((account) => account.movementsBeforeOpening > 0),
   );
+
+  /** Where somebody pays into it, when the owner wrote it down. */
+  protected detailsLines(account: AccountSummary): PaymentDetailLine[] {
+    return paymentDetailsLines(account);
+  }
 
   /** Why the balance is not the opening plus everything Caja lists for this account. */
   protected earlyText(account: AccountSummary): string | null {
