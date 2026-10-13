@@ -3,6 +3,7 @@ import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/rou
 import { Session } from '../core/session';
 import { CurrentWorkspace } from '../core/workspace';
 import { Appearance } from '../core/appearance';
+import { AppearanceToggle } from './appearance-toggle';
 import { NavIcons } from './nav-icons';
 
 interface NavLink {
@@ -25,7 +26,7 @@ interface NavGroup {
 
 @Component({
   selector: 'app-shell',
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, NavIcons],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, NavIcons, AppearanceToggle],
   templateUrl: './shell.html',
   styleUrl: './shell.scss',
 })

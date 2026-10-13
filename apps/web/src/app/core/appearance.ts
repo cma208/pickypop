@@ -79,6 +79,15 @@ export class Appearance {
 
   constructor() {
     this.apply(this.current());
+    // The manual's «Colores» button, or another tab of the app, writes the
+    // same key: this tab follows instead of keeping colours nobody chose.
+    // A cleared storage (`key` null) goes back to the defaults.
+    window.addEventListener('storage', (event) => {
+      if (event.key !== APPEARANCE_KEY && event.key !== null) return;
+      const next = read();
+      this.current.set(next);
+      this.apply(next);
+    });
   }
 
   /** Writes and applies at once: used by the save button and the menu toggle. */

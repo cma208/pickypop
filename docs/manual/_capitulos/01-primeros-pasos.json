@@ -959,11 +959,26 @@
               "label": "Claro u oscuro: se guarda en este navegador, no en tu cuenta"
             }
           ]
+        },
+        {
+          "text": "Para cambiar rápido, sin ir a Configuración, usa el botón «Colores» que está abajo a la derecha en todas las pantallas. Abre los mismos temas y «Automático», «Claro» u «Oscuro»; ahí el cambio se aplica al instante, sin «Guardar». Se cierra con otro clic en «Colores», con Esc o haciendo clic fuera.",
+          "image": "img/01-30b-boton-colores.jpg",
+          "marks": [
+            {
+              "n": 1,
+              "label": "El panel: tema y claro u oscuro, al instante"
+            },
+            {
+              "n": 2,
+              "label": "«Colores»: abajo a la derecha, en todas las pantallas"
+            }
+          ]
         }
       ],
       "tips": [
         "Claro u oscuro se guarda en este navegador. Puedes tener oscuro en la laptop y claro en la tablet del taller; si comparten el navegador, comparten esta preferencia.",
-        "El tema y la densidad esperan a «Guardar» (o «Descartar»). El menú lateral contraído se aplica al instante."
+        "El tema y la densidad esperan a «Guardar» (o «Descartar»). El menú lateral contraído se aplica al instante.",
+        "El botón «Colores» y el del manual guardan la misma preferencia: lo que eliges en uno cambia el otro en este navegador, también si los tienes abiertos en dos pestañas."
       ],
       "warnings": []
     },

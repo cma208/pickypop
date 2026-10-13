@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, inject, linkedSignal, signal, untracked } from '@angular/core';
 import { Card } from '../../ui';
 import { SECTION_STYLES } from '../../core/styles';
 import {
@@ -21,6 +21,9 @@ const MODE_OPTIONS: ModeOption[] = [
   { id: 'light', label: 'Claro', hint: 'Siempre claro, sin importar el sistema.' },
   { id: 'dark', label: 'Oscuro', hint: 'Siempre oscuro, sin importar el sistema.' },
 ];
+
+/** What the theme thumbnails compare: everything but the menu. */
+type Look = Pick<AppearanceSettings, 'mode' | 'palette' | 'density'>;
 
 const DENSITY_OPTIONS: { id: DensityChoice; label: string; hint: string }[] = [
   { id: 'comfortable', label: 'Cómoda', hint: 'Filas más altas. Se lee mejor.' },
@@ -236,7 +239,27 @@ export class AppearanceSection {
   protected readonly palettes = PALETTE_OPTIONS;
   protected readonly densities = DENSITY_OPTIONS;
 
-  protected readonly draft = signal<AppearanceSettings>({ ...this.appearance.settings() });
+  /**
+   * The look in force: theme, mode and density. The menu is left out, so
+   * collapsing it from here does not throw away a theme being compared.
+   */
+  private readonly look = computed<Look>(
+    () => {
+      const { mode, palette, density } = this.appearance.settings();
+      return { mode, palette, density };
+    },
+    { equal: (a, b) => a.mode === b.mode && a.palette === b.palette && a.density === b.density },
+  );
+
+  /**
+   * Starts from the look in force and follows it when it changes elsewhere:
+   * the floating «Colores» button applies on the spot, and a draft left
+   * behind would show «Sin guardar» for a change already made.
+   */
+  protected readonly draft = linkedSignal<Look, AppearanceSettings>({
+    source: this.look,
+    computation: (look) => ({ ...look, sidebarCollapsed: untracked(this.appearance.settings).sidebarCollapsed }),
+  });
   protected readonly collapsedNow = computed(() => this.appearance.settings().sidebarCollapsed);
   protected readonly justSaved = signal(false);
 

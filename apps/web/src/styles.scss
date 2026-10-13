@@ -234,3 +234,10 @@ a { color: var(--accent); }
   /* In a phone's table every pixel of the picture is taken from the name. */
   td pp-thumb[data-size='row'], td pp-thumb[data-size='lead'] { --thumb: 2.5rem; }
 }
+
+/* On a phone a record's main action is a bar fixed at the bottom
+   (pp-resource-header): the «Colores» button goes up above it instead of
+   covering it. Here because it spans two components. */
+@media (max-width: 40rem) {
+  body:has(pp-resource-header .primary) app-appearance-toggle { --lift: 3.75rem; }
+}

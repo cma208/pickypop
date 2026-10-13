@@ -1,5 +1,6 @@
-import { describe, expect, it } from 'vitest';
-import { DEFAULT_APPEARANCE, parseAppearance } from './appearance';
+import { TestBed } from '@angular/core/testing';
+import { afterEach, describe, expect, it } from 'vitest';
+import { Appearance, APPEARANCE_KEY, DEFAULT_APPEARANCE, parseAppearance } from './appearance';
 
 /**
  * What is stored survives upgrades, downgrades and anything a person types
@@ -45,5 +46,39 @@ describe('parseAppearance', () => {
 
   it('does not take a truthy value for a boolean', () => {
     expect(parseAppearance({ sidebarCollapsed: 'yes' }).sidebarCollapsed).toBe(false);
+  });
+});
+
+/**
+ * The manual's «Colores» button and every tab of the app write the same key.
+ * A tab that did not follow kept colours nobody had chosen any more.
+ */
+describe('Appearance across tabs', () => {
+  afterEach(() => {
+    localStorage.clear();
+    delete document.documentElement.dataset['mode'];
+    delete document.documentElement.dataset['palette'];
+    delete document.documentElement.dataset['density'];
+  });
+
+  it('follows what another tab or the manual saved', () => {
+    const appearance = TestBed.inject(Appearance);
+
+    localStorage.setItem(APPEARANCE_KEY, JSON.stringify({ mode: 'dark', palette: 'indigo' }));
+    window.dispatchEvent(new StorageEvent('storage', { key: APPEARANCE_KEY }));
+
+    expect(appearance.settings()).toMatchObject({ mode: 'dark', palette: 'indigo' });
+    expect(document.documentElement.dataset['palette']).toBe('indigo');
+    expect(document.documentElement.dataset['mode']).toBe('dark');
+  });
+
+  it('ignores other keys', () => {
+    const appearance = TestBed.inject(Appearance);
+    const before = appearance.settings();
+
+    localStorage.setItem(APPEARANCE_KEY, JSON.stringify({ mode: 'dark', palette: 'indigo' }));
+    window.dispatchEvent(new StorageEvent('storage', { key: 'otra.clave' }));
+
+    expect(appearance.settings()).toEqual(before);
   });
 });

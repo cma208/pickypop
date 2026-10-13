@@ -1,5 +1,5 @@
-import { Component, inject, signal } from '@angular/core';
-import { ActivatedRoute } from '@angular/router';
+import { Component, computed, inject, input } from '@angular/core';
+import { ActivatedRoute, Router } from '@angular/router';
 import { Page } from '../../ui';
 import { AppearanceSection } from './appearance-section';
 import { BrandsSection } from './brands-section';
@@ -50,7 +50,7 @@ const TABS: { id: TabId; label: string }[] = [
             class="ghost"
             role="tab"
             [attr.aria-selected]="active() === tab.id"
-            (click)="active.set(tab.id)"
+            (click)="choose(tab.id)"
           >
             {{ tab.label }}
           </button>
@@ -85,12 +85,25 @@ const TABS: { id: TabId; label: string }[] = [
   `,
 })
 export class ConfiguracionPage {
+  private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
   protected readonly tabs = TABS;
-  /** `?tab=categories` opens a tab directly, so another screen can send the person to the setting it mentions. */
-  protected readonly active = signal<TabId>(this.requestedTab());
 
-  private requestedTab(): TabId {
-    const requested = inject(ActivatedRoute).snapshot.queryParamMap.get('tab');
-    return TABS.find((tab) => tab.id === requested)?.id ?? 'costs';
+  /**
+   * `?tab=categories`, bound by the router: another screen can send the
+   * person to the setting it mentions. It is followed, not read once: the
+   * «Colores» button floats over this page too, and its link to Apariencia
+   * reuses the page instead of building a new one.
+   */
+  readonly tab = input<string>();
+  protected readonly active = computed<TabId>(() => TABS.find((tab) => tab.id === this.tab())?.id ?? 'costs');
+
+  /**
+   * The tab goes in the address, so a link to the tab already open is never
+   * a navigation to the same URL (which the router ignores), and a reload
+   * stays on it.
+   */
+  protected choose(tab: TabId): void {
+    void this.router.navigate([], { relativeTo: this.route, queryParams: { tab }, replaceUrl: true });
   }
 }
