@@ -282,6 +282,21 @@ El dueño lo vio y dijo que *"pareciera que le falta más información"*. Pidió
 
 **Terminado cuando:** el dueño invita a alguien desde la aplicación, esa persona entra con el rol que le tocó, y una llamada directa a la API con su sesión es rechazada en lo que no le corresponde. **Probar lo segundo, no solo lo primero.**
 
+### El flujo acordado (2026-10-13), pendiente
+
+El dueño lo definió así. **No hay nada preparado todavía**: ni tabla de invitaciones, ni Edge Function, ni pantalla para elegir contraseña. Espera a que haya un servicio de correo.
+
+1. **Crear un taller se pide por correo** al dueño de la plataforma, y él lo levanta. A mano por ahora; se automatiza después. Hoy no hace falta.
+2. **El dueño del taller invita desde la aplicación**: la invitación ya nace atada a **su** taller y con el rol asignado. Nadie la enlaza después con SQL.
+3. **La persona recibe el correo, elige su contraseña y acepta.** Falta la pantalla que recibe el enlace (`#access_token`, tipo `invite` o `recovery`) y llama a `updateUser({ password })`: hoy la aplicación solo sabe entrar con correo y contraseña, así que un invitado entra una vez y no puede volver.
+
+Lo que hay que saber antes de hacerlo:
+
+- **Hoy cualquier sesión puede crear un taller.** La política `workspaces_insert` solo exige `auth.uid() is not null`, y `app.add_creator_as_owner` lo vuelve dueño. No ve datos ajenos, pero contradice el punto 1: al hacer M9 se cierra (solo la llave de servicio, o una función que lo exija).
+- **En el proyecto alojado, el registro abierto va apagado** (Authentication → *Allow new users to sign up*). La llave `anon` es pública; con el registro abierto, cualquiera crea una cuenta, y por lo anterior, un taller.
+- La **Site URL** del proyecto alojado tiene que ser la de producción, no `localhost`: el enlace del correo vuelve ahí.
+- Mientras tanto, una persona se suma así: el dueño la crea en el panel de Supabase (Add user, con contraseña y *Auto Confirm*) y la mete al taller con un `insert` en `workspace_members` desde el SQL Editor.
+
 ---
 
 ## M10 · Afinado visual y temas de color
