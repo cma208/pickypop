@@ -1,6 +1,6 @@
 import { Component, computed, inject, input, OnDestroy, output, signal } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
-import { NonNullableFormBuilder, ReactiveFormsModule, Validators, type AbstractControl, type ValidationErrors } from '@angular/forms';
+import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
+import { FormControl, NonNullableFormBuilder, ReactiveFormsModule, Validators, type AbstractControl, type ValidationErrors } from '@angular/forms';
 import { ArticlePhotos } from '../../core/article-photos';
 import { Media } from '../../core/media';
 import { Field, ImageField, Thumb } from '../../ui';
@@ -11,6 +11,8 @@ import { InventarioData, type InventoryItemSummary } from './inventario.data';
 import { describeError } from './inventario.errors';
 import { countedWhole, ITEM_KINDS, ITEM_KIND_LABELS, type ItemKind } from './inventario.format';
 import { INVENTORY_STYLES } from './inventario.styles';
+import { CostField } from './cost-field';
+import { COST_VALIDATORS, isBought, standardCostHint } from './item-cost';
 import { CurrentWorkspace } from '../../core/workspace';
 
 const DEFAULT_UNIT = 'unidad';
@@ -47,7 +49,7 @@ const ACTIVE_LABELS: Record<ItemKind, string> = {
  */
 @Component({
   selector: 'app-item-form',
-  imports: [ReactiveFormsModule, Field, ImageField, Thumb],
+  imports: [ReactiveFormsModule, Field, ImageField, Thumb, CostField],
   template: `
     <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
       <pp-field label="Foto" hint="Para reconocerlo en la lista sin leer el nombre.">
@@ -93,6 +95,9 @@ const ACTIVE_LABELS: Record<ItemKind, string> = {
         <pp-field label="Mínimo" hint="Avisa cuando baje de aquí" [error]="minStockError()">
           <input type="number" step="any" formControlName="minStock" inputmode="decimal" />
         </pp-field>
+        @if (bought()) {
+          <app-cost-field [control]="form.controls.standardCost" [unit]="unit()" [hint]="costHint()" />
+        }
       </div>
 
       @if (kind() !== 'part') {
@@ -178,6 +183,11 @@ export class ItemForm implements OnDestroy {
       perishable: [false],
       note: [''],
       active: [true],
+      /**
+       * Optional: a purchase decides the cost once there is one. Without
+       * either, assembling, delivering and quoting count it at S/ 0.
+       */
+      standardCost: new FormControl<number | null>(null, COST_VALIDATORS),
     },
     { validators: wholeMinimumForWholeUnits },
   );
@@ -195,6 +205,24 @@ export class ItemForm implements OnDestroy {
   /** What switching it off really does, which depends on the kind (E5-08). */
   protected readonly activeLabel = computed(() => ACTIVE_LABELS[this.kind()]);
 
+  /** Only what is bought has a cost of its own here: a printed part costs what printing it cost. */
+  protected readonly bought = computed(() => isBought(this.kind()));
+  private readonly unitValue = toSignal(this.form.controls.unit.valueChanges);
+  protected readonly unit = computed(() => this.unitValue() ?? this.form.controls.unit.value);
+  protected readonly costHint = computed(() => standardCostHint(this.item()?.lastPurchaseCost ?? null, this.unit()));
+
+  constructor() {
+    // A part's cost is not this form's to judge, nor to block its saving: a
+    // disabled control is not validated, and saveItem does not write it.
+    this.form.controls.kind.valueChanges.pipe(takeUntilDestroyed()).subscribe((kind) => this.costFollows(kind));
+  }
+
+  private costFollows(kind: ItemKind): void {
+    const control = this.form.controls.standardCost;
+    if (isBought(kind)) control.enable({ emitEvent: false });
+    else control.disable({ emitEvent: false });
+  }
+
   /**
    * The plate thumbnail the lists show for a piece with no photo of its own.
    * The field above edits the piece's own photo, so without this the form
@@ -206,6 +234,7 @@ export class ItemForm implements OnDestroy {
     const item = this.item();
     if (!item) {
       this.form.controls.kind.setValue(this.kinds()[0] ?? 'supply');
+      this.costFollows(this.form.controls.kind.value);
       return;
     }
     if (item.kind === 'part' && !item.imagePath) void this.findPlatePhoto(item.id);
@@ -218,7 +247,9 @@ export class ItemForm implements OnDestroy {
       perishable: item.perishable,
       note: item.note ?? '',
       active: item.active,
+      standardCost: item.standardCost,
     });
+    this.costFollows(item.kind);
   }
 
   /** Closing the dialog any way but Save throws away what was uploaded here. */
@@ -238,7 +269,7 @@ export class ItemForm implements OnDestroy {
     this.form.markAllAsTouched();
     if (this.form.invalid) return;
 
-    const value = this.form.getRawValue();
+    const { standardCost, ...value } = this.form.getRawValue();
     this.busy.set(true);
     this.error.set(null);
     try {
@@ -247,6 +278,10 @@ export class ItemForm implements OnDestroy {
         perishable: value.kind === 'part' ? false : value.perishable,
         note: blankToNull(value.note),
         imagePath: this.imagePath(),
+        // Only a cost the person touched. The one this form opened with may
+        // be old by now (an entry elsewhere may have just set it): written
+        // back to save a photo, it would leave the article without a cost.
+        standardCost: this.form.controls.standardCost.dirty ? standardCost : undefined,
       });
       this.settled = true;
       await this.forgetReplacedPhotos();

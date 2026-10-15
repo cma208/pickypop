@@ -1,12 +1,12 @@
 import { Component, computed, inject, input, output, signal } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { FormControl, NonNullableFormBuilder, ReactiveFormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
 import { nowForInput } from '../../core/dates';
 import { friendlyError } from '../../core/friendly-error';
 import { SECTION_STYLES } from '../../core/styles';
 import { CurrentWorkspace } from '../../core/workspace';
 import { Field, FORMAT_PIPES } from '../../ui';
+import { CashElsewhere } from './cash-elsewhere';
 import { FinanzasData, isRefusal, type AccountSummary } from './finanzas.data';
 import {
   cashCategoriesFor,
@@ -39,7 +39,8 @@ import {
 const TYPE_HINTS: Record<TransactionType, string> = {
   income:
     'Dinero que entra y no es venta, cobro de un pedido ni aporte: un reembolso, la devolución de un proveedor. Suma a la utilidad como «Otros ingresos».',
-  expense: 'Dinero que sale del taller: luz, envíos, publicidad, repuestos.',
+  // Not «repuestos»: a spare part is stock, bought in Compras so it carries its cost.
+  expense: 'Dinero que sale del taller: luz, internet, envíos, publicidad.',
   transfer: 'Dinero que cambia de bolsillo. No es ganancia ni gasto: el total del taller no cambia.',
   owner_contribution: 'Plata tuya que metes al taller. Es capital, no utilidad.',
   owner_draw: 'Plata del taller que sacas para ti. Es capital, no gasto.',
@@ -61,12 +62,8 @@ function canLeave(account: AccountSummary, type: TransactionType): boolean {
  */
 @Component({
   selector: 'app-transaction-form',
-  imports: [ReactiveFormsModule, RouterLink, Field, FORMAT_PIPES],
-  styles: [
-    SECTION_STYLES,
-    FINANCE_STYLES,
-    `.sales-elsewhere { margin: -0.4rem 0 0.9rem; padding: 0.5rem 0.75rem; border-radius: var(--radius-sm); background: var(--info-soft); font-size: var(--fs-sm); }`,
-  ],
+  imports: [ReactiveFormsModule, Field, CashElsewhere, FORMAT_PIPES],
+  styles: [SECTION_STYLES, FINANCE_STYLES],
   template: `
     <form class="form-box" [formGroup]="form" (ngSubmit)="submit()" novalidate>
       <h3>Registrar movimiento</h3>
@@ -78,19 +75,7 @@ function canLeave(account: AccountSummary, type: TransactionType): boolean {
           }
         </select>
       </pp-field>
-      @if (isIncome()) {
-        <!--
-          A sale typed here never left the shelf nor carried its cost, and the
-          collection of an order typed here counts twice: once as the order's
-          sale and again as other income (E5-01).
-        -->
-        <p class="sales-elsewhere">
-          ¿Es una venta? Va por <a routerLink="/pedidos">Pedidos</a> o por la
-          <a routerLink="/pedidos/venta-rapida">Venta rápida</a>, que sí sacan lo vendido del estante y llevan su
-          costo. ¿Te pagaron un pedido? Se cobra desde el pedido o desde
-          <a routerLink="/finanzas/por-cobrar">Por cobrar</a>: anotado aquí, contaría dos veces.
-        </p>
-      }
+      <app-cash-elsewhere [type]="chosenType()" />
 
       <div class="grid two">
         <pp-field [label]="isTransfer() ? 'Sale de la cuenta' : 'Cuenta'" [required]="true" [hint]="originHint()">
@@ -256,8 +241,8 @@ export class TransactionForm {
     return this.form.getRawValue();
   });
 
+  protected readonly chosenType = computed(() => this.values().type);
   protected readonly isTransfer = computed(() => this.values().type === 'transfer');
-  protected readonly isIncome = computed(() => this.values().type === 'income');
   protected readonly typeHint = computed(() => TYPE_HINTS[this.values().type]);
 
   /** Money moves in and out of open accounts; a closed one with money can still be emptied. */

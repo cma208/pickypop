@@ -43,6 +43,6 @@ describe('savedPurchaseNotice', () => {
   });
 
   it('speaks of supplies when no roll came in', () => {
-    expect(savedPurchaseNotice({ rolls: 0, spools: [], paid: 0 })).toBe('Compra registrada. El stock de insumos ya subió.');
+    expect(savedPurchaseNotice({ rolls: 0, spools: [], paid: 0 })).toBe('Compra registrada. Las existencias ya subieron, con su costo.');
   });
 });

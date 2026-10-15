@@ -1,7 +1,8 @@
 import { DestroyRef } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { FormControl } from '@angular/forms';
-import { linkPriceAndTotal } from './compra-line';
+import { itemToBuy, linkPriceAndTotal } from './compra-line';
+import type { InventoryItemSummary } from './inventario.data';
 
 function linkedLine(quantity: number | null = 1000) {
   const controls = {
@@ -76,5 +77,22 @@ describe('linkPriceAndTotal', () => {
     line.lineTotal.setValue(15);
 
     expect(line.unitPrice.value).toBe(0);
+  });
+});
+
+describe('itemToBuy', () => {
+  const tape = { id: 'tape', kind: 'packaging', active: true } as InventoryItemSummary;
+
+  it('finds the item a purchase line can take', () => {
+    expect(itemToBuy([tape], 'tape')).toBe(tape);
+  });
+
+  it('gives nothing for no id, an unknown id, an item switched off or one made here', () => {
+    expect(itemToBuy([tape], null)).toBeNull();
+    expect(itemToBuy([tape], '')).toBeNull();
+    expect(itemToBuy([tape], 'other')).toBeNull();
+    expect(itemToBuy([{ ...tape, active: false }], 'tape')).toBeNull();
+    expect(itemToBuy([{ ...tape, kind: 'part' }], 'tape')).toBeNull();
+    expect(itemToBuy([{ ...tape, kind: 'finished_good' }], 'tape')).toBeNull();
   });
 });

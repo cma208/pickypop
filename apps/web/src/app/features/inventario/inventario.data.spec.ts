@@ -2,18 +2,19 @@ import { TestBed } from '@angular/core/testing';
 import { UserFacingError } from '../../core/friendly-error';
 import { SUPABASE } from '../../core/supabase';
 import { CurrentWorkspace } from '../../core/workspace';
-import { InventarioData, type PurchaseDraft, type SpoolSummary } from './inventario.data';
+import { InventarioData, type InventoryItemInput, type PurchaseDraft, type SpoolSummary } from './inventario.data';
 
 type Rpc = (name: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: unknown }>;
 
 interface Recorded {
   rpc: [string, Record<string, unknown>][];
   updates: [string, Record<string, unknown>][];
+  inserts: [string, Record<string, unknown>][];
 }
 
 /** A Supabase stand-in: every rpc answers `answer`, and every update returns `rows`. */
 function dataWith(answer: Rpc, rows: unknown[] = [{ id: 'x' }]): { data: InventarioData; recorded: Recorded } {
-  const recorded: Recorded = { rpc: [], updates: [] };
+  const recorded: Recorded = { rpc: [], updates: [], inserts: [] };
   const supabase = {
     rpc: (name: string, args: Record<string, unknown>) => {
       recorded.rpc.push([name, args]);
@@ -24,6 +25,10 @@ function dataWith(answer: Rpc, rows: unknown[] = [{ id: 'x' }]): { data: Inventa
         recorded.updates.push([table, values]);
         const chain = { eq: () => chain, select: async () => ({ data: rows, error: null }) };
         return chain;
+      },
+      insert: async (values: Record<string, unknown>) => {
+        recorded.inserts.push([table, values]);
+        return { error: null };
       },
     }),
   };
@@ -167,7 +172,7 @@ describe('InventarioData.recordItemMovement', () => {
     const { data, recorded } = dataWith(async () => ({ data: { before: 480, difference: 0, after: 480 }, error: null }));
 
     const result = await data.recordItemMovement(
-      { itemId: 'sweets', mode: 'count', quantity: 480, reason: null, note: null },
+      { itemId: 'sweets', mode: 'count', quantity: 480, reason: null, note: null, unitCost: null },
       'key-1',
     );
 
@@ -175,6 +180,64 @@ describe('InventarioData.recordItemMovement', () => {
       'move_item_stock',
       { p_item_id: 'sweets', p_mode: 'count', p_quantity: 480, p_request_key: 'key-1' },
     ]);
-    expect(result).toEqual({ before: 480, difference: 0, after: 480 });
+    expect(result).toEqual({ before: 480, difference: 0, after: 480, unitCost: null, costSource: 'unknown' });
+  });
+
+  it('sends the cost typed for an article without one, and reads back the cost the stock moved at', async () => {
+    const { data, recorded } = dataWith(async () => ({
+      data: { before: 0, difference: 5, after: 5, unit_cost: 0.35, cost_source: 'standard', replayed: false },
+      error: null,
+    }));
+
+    const result = await data.recordItemMovement(
+      { itemId: 'bags', mode: 'in', quantity: 5, reason: null, note: null, unitCost: 0.35 },
+      'key-2',
+    );
+
+    expect(recorded.rpc[0]?.[1]).toEqual({ p_item_id: 'bags', p_mode: 'in', p_quantity: 5, p_request_key: 'key-2', p_unit_cost: 0.35 });
+    expect(result).toEqual({ before: 0, difference: 5, after: 5, unitCost: 0.35, costSource: 'standard' });
+  });
+});
+
+describe('InventarioData.saveItem', () => {
+  const BAG: InventoryItemInput = {
+    kind: 'packaging',
+    name: ' Bolsa kraft ',
+    unit: 'unidad',
+    imagePath: null,
+    minStock: 10,
+    perishable: false,
+    note: null,
+    active: true,
+    standardCost: 0.35,
+  };
+
+  it('writes the standard cost of a bought article, new or edited', async () => {
+    const { data, recorded } = dataWith(async () => ({ data: null, error: null }));
+
+    await data.saveItem(null, BAG);
+    await data.saveItem('bag-1', { ...BAG, standardCost: null });
+
+    expect(recorded.inserts[0]?.[1]).toMatchObject({ workspace_id: 'workspace-1', name: 'Bolsa kraft', standard_cost: 0.35 });
+    expect(recorded.updates[0]?.[1]).toHaveProperty('standard_cost', null);
+  });
+
+  it('leaves the stored standard cost alone when none is given (review)', async () => {
+    const { data, recorded } = dataWith(async () => ({ data: null, error: null }));
+
+    await data.saveItem('bag-1', { ...BAG, standardCost: undefined });
+
+    expect(recorded.updates[0]?.[1]).toMatchObject({ name: 'Bolsa kraft' });
+    expect(recorded.updates[0]?.[1]).not.toHaveProperty('standard_cost');
+  });
+
+  it('never touches the standard cost of a printed part, the one part_stock falls back on', async () => {
+    const { data, recorded } = dataWith(async () => ({ data: null, error: null }));
+
+    await data.saveItem('cap-1', { ...BAG, kind: 'part', name: 'Tapa', standardCost: null });
+    await data.saveItem(null, { ...BAG, kind: 'part', name: 'Tapa', standardCost: null });
+
+    expect(recorded.updates[0]?.[1]).not.toHaveProperty('standard_cost');
+    expect(recorded.inserts[0]?.[1]).not.toHaveProperty('standard_cost');
   });
 });

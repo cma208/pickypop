@@ -43,13 +43,14 @@ export function purchaseEntries(rolls: number, itemKinds: readonly ItemKind[]): 
  * «Compra registrada. Se creó 1 rollo con su costo final: PLA-NEGRO-03 · PLA
  * Negro.» The labels are listed because they are what gets written on the
  * rolls, and the verb agrees with how many there are: it said «Se crearon 1
- * rollo» (T1-24).
+ * rollo» (T1-24). Without rolls it names no kind: a purchase of bags said «El
+ * stock de insumos ya subió», and a bag is not an «insumo» (E1-05).
  */
 export function savedPurchaseNotice(saved: { rolls: number; spools: readonly SpoolIdentity[]; paid: number }): string {
   const labels = saved.spools.length > 0 ? `: ${saved.spools.map(spoolName).join(', ')}` : '';
   const entered =
     saved.rolls === 0
-      ? 'El stock de insumos ya subió.'
+      ? 'Las existencias ya subieron, con su costo.'
       : `${saved.rolls === 1 ? 'Se creó 1 rollo' : `Se crearon ${saved.rolls} rollos`} con su costo final${labels}.`;
   const payment = saved.paid > 0 ? ' El pago ya figura en Caja, ligado a la compra.' : '';
   return `Compra registrada. ${entered}${payment}`;

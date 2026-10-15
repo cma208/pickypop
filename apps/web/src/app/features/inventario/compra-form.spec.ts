@@ -7,6 +7,7 @@ import { FinanzasData } from '../finanzas/finanzas.data';
 import { CompraForm } from './compra-form';
 import {
   InventarioData,
+  type InventoryItemSummary,
   type PaymentAccount,
   type PurchaseDraft,
   type RegisteredPurchase,
@@ -37,6 +38,20 @@ const SKU: SkuSummary = {
   belowMinimum: false,
 };
 
+const TAPE = {
+  id: 'tape',
+  kind: 'packaging',
+  name: 'Cinta doble faz',
+  unit: 'unidad',
+  imagePath: null,
+  minStock: 0,
+  perishable: false,
+  note: null,
+  active: true,
+  onHand: 0,
+  belowMinimum: false,
+} as InventoryItemSummary;
+
 const CASH: PaymentAccount = { id: 'cash', name: 'Efectivo', defaultMethod: 'cash', openingBalanceOn: '2026-01-01' };
 
 const REGISTERED: RegisteredPurchase = {
@@ -52,6 +67,7 @@ const LOST = { code: '', message: 'TypeError: Failed to fetch' };
 const REFUSED = { code: 'P0001', message: 'La cuenta Efectivo está desactivada.' };
 
 interface Control {
+  readonly value: unknown;
   setValue(value: unknown): void;
 }
 
@@ -204,5 +220,79 @@ describe('CompraForm', () => {
     TestBed.resetTestingModule();
     const owner = open([], { accounts: [], isOwner: true });
     expect(text(owner.fixture)).toContain('Crea una en Finanzas › Cuentas.');
+  });
+
+  describe('opened from «Comprar»', () => {
+    function openWith(itemId: string, items: InventoryItemSummary[]) {
+      TestBed.configureTestingModule({
+        providers: [
+          provideRouter([]),
+          workspaceAs('operator'),
+          { provide: Media, useValue: { url: async () => null, version: signal(0) } },
+          { provide: ArticlePhotos, useValue: { resolve: async () => ({ path: null, kind: 'packaging' }) } },
+          { provide: FinanzasData, useValue: { paymentCategories: async () => ({ order: null, purchase: null }) } },
+          { provide: InventarioData, useValue: {} },
+        ],
+      });
+      const fixture = TestBed.createComponent(CompraForm);
+      fixture.componentRef.setInput('skuOptions', [SKU]);
+      fixture.componentRef.setInput('itemOptions', items);
+      fixture.componentRef.setInput('supplierOptions', []);
+      fixture.componentRef.setInput('accountOptions', [CASH]);
+      fixture.componentRef.setInput('preselectedItemId', itemId);
+      fixture.detectChanges();
+      return { fixture, line: (fixture.componentInstance as unknown as Internals).lines.at(0).controls };
+    }
+
+    it('starts the first line with the item, and the cursor on its quantity', async () => {
+      const { fixture, line } = openWith(TAPE.id, [TAPE]);
+      await fixture.whenStable();
+
+      expect(line.target.value).toBe('item:tape');
+      expect(line.quantity.value).toBeNull();
+      expect(line.unitPrice.value).toBeNull();
+      expect(document.activeElement).toBe((fixture.nativeElement as HTMLElement).querySelector('input[formControlName="quantity"]'));
+    });
+
+    it('chooses nothing for an item that is gone, switched off or made here', () => {
+      const cases: Array<[string, InventoryItemSummary[]]> = [
+        ['missing', [TAPE]],
+        [TAPE.id, [{ ...TAPE, active: false }]],
+        [TAPE.id, [{ ...TAPE, kind: 'part' }]],
+        [TAPE.id, [{ ...TAPE, kind: 'finished_good' }]],
+      ];
+      for (const [id, items] of cases) {
+        TestBed.resetTestingModule();
+        const { line } = openWith(id, items);
+
+        expect(line.target.value).toBe('');
+        expect(line.quantity.value).toBe(1);
+      }
+    });
+
+    it('calls the quantity «Cantidad» until something is chosen, and «Rollos» only for a filament (review)', () => {
+      const { fixture, line } = openWith('missing', [TAPE]);
+      const labels = () =>
+        [...(fixture.nativeElement as HTMLElement).querySelectorAll('pp-field .label')].map((label) =>
+          label.textContent?.replace(/\s+/g, ' ').trim(),
+        );
+
+      expect(labels()).toContain('Cantidad *');
+      expect(labels()).not.toContain('Rollos *');
+
+      line.target.setValue(`sku:${SKU.id}`);
+      fixture.detectChanges();
+      expect(labels()).toContain('Rollos *');
+    });
+
+    it('does not replace what the person chose when a reload brings the item back', () => {
+      const { fixture, line } = openWith(TAPE.id, []);
+      line.target.setValue(`sku:${SKU.id}`);
+
+      fixture.componentRef.setInput('itemOptions', [TAPE]);
+      fixture.detectChanges();
+
+      expect(line.target.value).toBe(`sku:${SKU.id}`);
+    });
   });
 });

@@ -1,8 +1,10 @@
 import { signal } from '@angular/core';
 import { TestBed, type ComponentFixture } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
 import { ArticlePhotos } from '../../core/article-photos';
 import { Media } from '../../core/media';
 import { workspaceAs } from '../../core/workspace.testing';
+import type { SupplyCostSource } from '../cotizador/supply-costs';
 import { ArmarData } from './armar.data';
 import { ArmarPage } from './armar.page';
 import { InventarioData, type AssemblyComponent, type AssemblyOption } from './inventario.data';
@@ -28,14 +30,26 @@ const component = (id: string, onHand: number): AssemblyComponent => ({
   onHand,
 });
 
-function open(options: AssemblyOption[][], components: AssemblyComponent[][], canOperate = true) {
+/** Every bought item has a cost unless the test says otherwise. */
+const ALL_COSTED: Record<string, SupplyCostSource> = {};
+
+function open(
+  options: AssemblyOption[][],
+  components: AssemblyComponent[][],
+  canOperate = true,
+  sources: Record<string, SupplyCostSource> = ALL_COSTED,
+) {
   const assemblyOptions = vi.fn(async () => options.shift() ?? []);
   const assemblyComponents = vi.fn(async () => components.shift() ?? []);
   const assemble = vi.fn(async (_variantId: string, _units: number, _key: string) => undefined);
+  const costSources = vi.fn(
+    async (ids: readonly string[]) => new Map(ids.map((id) => [id, sources[id] ?? 'purchase'] as const)),
+  );
   TestBed.configureTestingModule({
     providers: [
+      provideRouter([]),
       { provide: InventarioData, useValue: { assemblyOptions, assemblyComponents } },
-      { provide: ArmarData, useValue: { assemble } },
+      { provide: ArmarData, useValue: { assemble, costSources } },
       workspaceAs(canOperate ? 'operator' : 'viewer'),
       { provide: InventoryPlan, useValue: { read: async () => null, changed: () => undefined, problem: () => 'sin plan' } },
       { provide: Media, useValue: { url: async () => null, version: signal(0) } },
@@ -44,7 +58,7 @@ function open(options: AssemblyOption[][], components: AssemblyComponent[][], ca
   });
   const fixture = TestBed.createComponent(ArmarPage);
   fixture.detectChanges();
-  return { fixture, assemble, assemblyOptions };
+  return { fixture, assemble, assemblyOptions, costSources };
 }
 
 const el = (fixture: ComponentFixture<ArmarPage>) => fixture.nativeElement as HTMLElement;
@@ -177,5 +191,93 @@ describe('ArmarPage, a member who only reads', () => {
     expect(button(fixture, 'Armar')).toBeUndefined();
     expect(text(fixture)).toContain('frente');
     expect(assemble).not.toHaveBeenCalled();
+  });
+});
+
+describe('ArmarPage, a bought component without cost', () => {
+  const bag: AssemblyComponent = { ...component('Bolsa kraft', 9), kind: 'packaging', imagePath: 'items/bag.webp' };
+  const candy: AssemblyComponent = { ...component('Dulces', 900), kind: 'supply', unit: 'g', quantityPerUnit: 66 };
+  const front = component('Frente', 9);
+
+  const notice = (fixture: ComponentFixture<ArmarPage>) => el(fixture).querySelector('app-assembly-cost-notice');
+  const noticeText = (fixture: ComponentFixture<ArmarPage>) => (notice(fixture)?.textContent ?? '').replace(/\s+/g, ' ').trim();
+
+  it('says which one, with its photo and a link to where its cost is given, and still lets assemble', async () => {
+    const { fixture, assemble, costSources } = open(
+      [[SKULL], [SKULL], [SKULL]],
+      [[front, bag, candy], [front, bag, candy]],
+      true,
+      { 'Bolsa kraft': 'unknown', Dulces: 'standard' },
+    );
+    await chooseSkull(fixture);
+
+    // A printed part is not asked about: its cost comes from production, not from this view.
+    expect(costSources).toHaveBeenCalledWith(['Bolsa kraft', 'Dulces']);
+    expect(noticeText(fixture)).toBe(
+      'Bolsa kraft no tiene costo: el producto entraría al estante sin su valor. Ponle costo en Empaque.',
+    );
+    expect(notice(fixture)!.querySelector('a')!.getAttribute('href')).toBe('/inventario/empaque');
+    expect(notice(fixture)!.querySelector('pp-thumb')).not.toBeNull();
+
+    type(fixture, '1');
+    button(fixture, 'Armar 1')!.click();
+    fixture.detectChanges();
+
+    // Right above «Sí, armar», inside the confirmation, and only there.
+    const notices = el(fixture).querySelectorAll('app-assembly-cost-notice');
+    expect(notices.length).toBe(1);
+    expect(notices[0]!.closest('.confirm')).not.toBeNull();
+    expect(button(fixture, 'Sí, armar')!.disabled).toBe(false);
+
+    button(fixture, 'Sí, armar')!.click();
+    await settle(fixture);
+    await settle(fixture);
+    expect(assemble).toHaveBeenCalledTimes(1);
+  });
+
+  it('sends a supply or a spare part to Insumos', async () => {
+    const screw: AssemblyComponent = { ...component('Tornillo', 9), kind: 'spare_part' };
+    const { fixture } = open([[SKULL], [SKULL]], [[candy, screw]], true, { Dulces: 'unknown', Tornillo: 'unknown' });
+    await chooseSkull(fixture);
+
+    const links = [...notice(fixture)!.querySelectorAll('a')].map((a) => [a.textContent, a.getAttribute('href')]);
+    expect(links).toEqual([
+      ['Insumos', '/inventario/insumos'],
+      ['Insumos', '/inventario/insumos'],
+    ]);
+  });
+
+  it('says nothing when every bought component has a cost', async () => {
+    const { fixture } = open([[SKULL], [SKULL]], [[front, bag, candy]], true, { 'Bolsa kraft': 'standard' });
+    await chooseSkull(fixture);
+    expect(noticeText(fixture)).toBe('');
+  });
+
+  it('says it could not check, rather than nothing, when the costs cannot be read', async () => {
+    const { fixture, costSources } = open([[SKULL], [SKULL]], [[front, bag]]);
+    costSources.mockRejectedValueOnce(new Error('boom'));
+    await chooseSkull(fixture);
+
+    expect(noticeText(fixture)).toBe('No pudimos revisar si los componentes tienen costo.');
+    type(fixture, '1');
+    expect(button(fixture, 'Armar 1')!.disabled).toBe(false);
+  });
+
+  it('is gone after the cost is given elsewhere and the product is read again', async () => {
+    const sources: Record<string, SupplyCostSource> = { 'Bolsa kraft': 'unknown' };
+    const { fixture } = open([[SKULL], [SKULL], [SKULL]], [[bag], [bag]], true, sources);
+    await chooseSkull(fixture);
+    expect(noticeText(fixture)).toContain('Bolsa kraft no tiene costo');
+
+    sources['Bolsa kraft'] = 'standard';
+    el(fixture).querySelector<HTMLButtonElement>('button.option')!.click();
+    await settle(fixture);
+    expect(noticeText(fixture)).toBe('');
+  });
+
+  it('is not shown to a member who only reads, who cannot assemble nor give a cost', async () => {
+    const { fixture } = open([[SKULL], [SKULL]], [[bag]], false, { 'Bolsa kraft': 'unknown' });
+    await chooseSkull(fixture);
+    expect(notice(fixture)).toBeNull();
   });
 });

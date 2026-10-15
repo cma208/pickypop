@@ -83,4 +83,36 @@ describe('InventarioData long lists', () => {
       ['purchases', 1000, 1999],
     ]);
   });
+
+  it('reads every article with its cost, past the 1000 rows PostgREST answers at once', async () => {
+    const items = Array.from({ length: 1100 }, (_, index) => ({
+      id: `item-${String(index).padStart(4, '0')}`,
+      kind: 'packaging',
+      name: `Bolsa ${index}`,
+      unit: 'unidad',
+      image_path: null,
+      min_stock: 0,
+      perishable: false,
+      note: null,
+      active: true,
+    }));
+    const balances = items.map((item) => ({ inventory_item_id: item.id, on_hand: 3 }));
+    const costs = items.map((item, index) =>
+      index === 1050
+        ? { inventory_item_id: item.id, cost_per_unit: null, cost_source: 'unknown', last_purchase_cost: null, standard_cost: null }
+        : { inventory_item_id: item.id, cost_per_unit: 0.8, cost_source: 'purchase', last_purchase_cost: 0.8, standard_cost: 0.5 },
+    );
+    const { data, ranges } = pagedSupabase({ inventory_items: items, inventory_balances: balances, inventory_item_costs: costs });
+
+    const read = await data.items();
+
+    expect(read).toHaveLength(1100);
+    expect(ranges.filter(([table]) => table === 'inventory_item_costs')).toEqual([
+      ['inventory_item_costs', 0, 999],
+      ['inventory_item_costs', 1000, 1999],
+    ]);
+    const last = read.find((item) => item.id === 'item-1099');
+    expect(last).toMatchObject({ onHand: 3, costPerUnit: 0.8, costSource: 'purchase', lastPurchaseCost: 0.8, standardCost: 0.5 });
+    expect(read.find((item) => item.id === 'item-1050')).toMatchObject({ costPerUnit: null, costSource: 'unknown' });
+  });
 });

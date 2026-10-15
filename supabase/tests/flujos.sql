@@ -33,6 +33,11 @@
 --   la llave de otra compra o de otro pedido se rechaza.
 -- * La ficha del pedido cuenta entre los fallidos una impresión cancelada que
 --   corrió, como el tablero y Resultados (ADR-023, punto 6).
+-- * Lo que entra sin compra trae su costo (ADR-023, punto 7): un movimiento a
+--   mano que cambia el stock de un artículo sin costo lo pide, y queda como su
+--   costo estándar y el del movimiento. Uno con costo lo ignora, un conteo sin
+--   diferencia no lo pide, «Solo lectura» oye primero lo del rol, y el costo
+--   va de más de S/ 0 a S/ 100 000 con hasta 4 decimales, también en la ficha.
 --
 -- Los rechazos escritos para una persona son P0001.
 
@@ -45,11 +50,11 @@ create function pg_temp.id(p_n integer) returns uuid language sql immutable as $
 $$;
 
 create function pg_temp.person(p_who text) returns uuid language sql immutable as $$
-  select case p_who when 'owner' then pg_temp.id(901) when 'operator' then pg_temp.id(902) end
+  select case p_who when 'owner' then pg_temp.id(901) when 'operator' then pg_temp.id(902) when 'viewer' then pg_temp.id(903) end
 $$;
 
 create function pg_temp.label(p_who text) returns text language sql immutable as $$
-  select case p_who when 'owner' then 'dueño' when 'operator' then 'operador' else p_who end
+  select case p_who when 'owner' then 'dueño' when 'operator' then 'operador' when 'viewer' then 'solo lectura' else p_who end
 $$;
 
 create function pg_temp.fail(p_message text) returns void language sql as $$
@@ -113,13 +118,15 @@ select set_config('flujos.fallas', '', true);
 
 insert into auth.users (id, email, aud, role) values
   (pg_temp.id(901), 'flujos-dueno@prueba.test', 'authenticated', 'authenticated'),
-  (pg_temp.id(902), 'flujos-operador@prueba.test', 'authenticated', 'authenticated');
+  (pg_temp.id(902), 'flujos-operador@prueba.test', 'authenticated', 'authenticated'),
+  (pg_temp.id(903), 'flujos-lector@prueba.test', 'authenticated', 'authenticated');
 
 insert into public.workspaces (id, name) values (pg_temp.id(1), 'Taller de prueba de flujos');
 
 insert into public.workspace_members (workspace_id, user_id, role, display_name) values
   (pg_temp.id(1), pg_temp.id(901), 'owner', 'Dueño'),
-  (pg_temp.id(1), pg_temp.id(902), 'operator', 'Operador');
+  (pg_temp.id(1), pg_temp.id(902), 'operator', 'Operador'),
+  (pg_temp.id(1), pg_temp.id(903), 'viewer', 'Lector');
 
 insert into public.accounts (id, workspace_id, name, opening_balance, opening_balance_on, active, default_payment_method)
 values (pg_temp.id(201), pg_temp.id(1), 'Efectivo', 0, app.workspace_day(pg_temp.id(1), now()) - 60, true, 'cash');
@@ -556,6 +563,245 @@ select pg_temp.expect('Una cancelada que corrió es un intento fallido en la fic
       raise exception '% trabajos, % exitosos, % fallidos', r.jobs, r.successful_jobs, r.failed_jobs;
     end if;
   end $x$$q$, 703), 'ok:');
+
+-- ========================================= lo que entra sin compra trae su costo
+
+-- A ribbon that never moved and has no cost, tissue paper that came in by
+-- hand before the cost was asked (10, with no cost), and a kraft box bought
+-- at S/ 0.80 with no standard cost. «Bolsa chica» (#422) has a standard cost
+-- of S/ 1 and no purchase line.
+insert into public.inventory_items (id, workspace_id, kind, name, unit) values
+  (pg_temp.id(424), pg_temp.id(1), 'packaging', 'Cinta de regalo', 'unidad'),
+  (pg_temp.id(425), pg_temp.id(1), 'packaging', 'Papel seda', 'unidad'),
+  (pg_temp.id(426), pg_temp.id(1), 'packaging', 'Caja kraft', 'unidad');
+
+insert into public.stock_movements (workspace_id, occurred_at, type, inventory_item_id, quantity, unit_cost, source_type, note) values
+  (pg_temp.id(1), now() - interval '20 days', 'adjustment', pg_temp.id(425), 10, null, 'manual', 'Entró a mano sin costo');
+
+insert into public.purchases (id, workspace_id) values (pg_temp.id(803), pg_temp.id(1));
+
+insert into public.purchase_lines (workspace_id, purchase_id, inventory_item_id, quantity, unit_price) values
+  (pg_temp.id(1), pg_temp.id(803), pg_temp.id(426), 10, 0.80);
+
+-- A cost above the cap written before there was one: the guard only judges
+-- the number being written, so the article can still be renamed.
+set local session_replication_role = replica;
+insert into public.inventory_items (id, workspace_id, kind, name, unit, standard_cost) values
+  (pg_temp.id(427), pg_temp.id(1), 'spare_part', 'Hotend de antes', 'unidad', 150000);
+set local session_replication_role = origin;
+
+-- Whatever changes the stock of an article with no cost asks for one.
+select pg_temp.expect('Entrada sin costo en un artículo sin costo', 'operator', pg_temp.q($q$
+  select public.move_item_stock(#1, 'in', 5)
+  $q$, 424), 'error:P0001:Cinta de regalo todavía no tiene costo: escribe cuánto vale cada unidad.');
+
+select pg_temp.expect('Primer conteo sin costo en un artículo sin costo', 'operator', pg_temp.q($q$
+  select public.move_item_stock(#1, 'count', 30)
+  $q$, 424), 'error:P0001:Cinta de regalo todavía no tiene costo');
+
+select pg_temp.expect('Salida sin costo en un artículo sin costo', 'operator', pg_temp.q($q$
+  select public.move_item_stock(#1, 'out', 2, 'waste')
+  $q$, 425), 'error:P0001:Papel seda todavía no tiene costo');
+
+select pg_temp.expect('Conteo con diferencia sin costo en un artículo sin costo', 'operator', pg_temp.q($q$
+  select public.move_item_stock(#1, 'count', 8)
+  $q$, 425), 'error:P0001:Papel seda todavía no tiene costo');
+
+-- The role is asked before anything about the cost: «Solo lectura» hears it
+-- was the role, and the screen reads it again.
+select pg_temp.expect('Entrada sin costo en un artículo sin costo', 'viewer', pg_temp.q($q$
+  select public.move_item_stock(#1, 'in', 5)
+  $q$, 424), 'error:42501:Solo el dueño o un operador del taller pueden mover el stock de un artículo');
+
+select pg_temp.expect('Entrada con costo en un artículo sin costo', 'viewer', pg_temp.q($q$
+  select public.move_item_stock(#1, 'in', 5, p_unit_cost => 0.35)
+  $q$, 424), 'error:42501:Solo el dueño o un operador');
+
+-- What the operator writes is the article's standard cost and the cost of
+-- the movement, and the next movement no longer asks.
+select pg_temp.expect('Entrada con costo en un artículo sin costo', 'operator', pg_temp.q($q$do $x$
+  declare r jsonb; v_standard numeric; v_moved numeric; v_source text; v_waste numeric;
+  begin
+    r := public.move_item_stock(#1, 'in', 5, p_unit_cost => 0.35);
+    select standard_cost into v_standard from public.inventory_items where id = #1;
+    select unit_cost into v_moved from public.stock_movements where inventory_item_id = #1;
+    select cost_source into v_source from public.inventory_item_costs where inventory_item_id = #1;
+    if v_standard is distinct from 0.35 or v_moved is distinct from 0.35 or v_source is distinct from 'standard' then
+      raise exception 'costo estándar %, el movimiento a %, la vista dice %', v_standard, v_moved, v_source;
+    end if;
+    if (r ->> 'unit_cost')::numeric is distinct from 0.35 or r ->> 'cost_source' is distinct from 'standard'
+       or (r ->> 'after')::numeric is distinct from 5 then
+      raise exception 'respondió %', r;
+    end if;
+
+    r := public.move_item_stock(#1, 'out', 1, 'waste');
+    select unit_cost into v_waste from public.stock_movements where inventory_item_id = #1 and type = 'waste';
+    if v_waste is distinct from 0.35 or r ->> 'cost_source' is distinct from 'standard' then
+      raise exception 'la merma salió a % y respondió %', v_waste, r;
+    end if;
+  end $x$$q$, 424), 'ok:');
+
+select pg_temp.expect('Salida con costo en un artículo sin costo', 'operator', pg_temp.q($q$do $x$
+  declare r jsonb; v_standard numeric; v_waste numeric;
+  begin
+    r := public.move_item_stock(#1, 'out', 2, 'waste', p_unit_cost => 0.2);
+    select standard_cost into v_standard from public.inventory_items where id = #1;
+    select unit_cost into v_waste from public.stock_movements where inventory_item_id = #1 and type = 'waste';
+    if v_standard is distinct from 0.2 or v_waste is distinct from 0.2 then
+      raise exception 'costo estándar %, la merma a %', v_standard, v_waste;
+    end if;
+  end $x$$q$, 425), 'ok:');
+
+select pg_temp.expect('Conteo con diferencia y costo en un artículo sin costo', 'operator', pg_temp.q($q$do $x$
+  declare r jsonb; v_standard numeric; n integer;
+  begin
+    r := public.move_item_stock(#1, 'count', 8, p_unit_cost => 0.2);
+    select standard_cost into v_standard from public.inventory_items where id = #1;
+    select count(*) into n from public.stock_movements
+    where inventory_item_id = #1 and quantity = -2 and unit_cost = 0.2 and source_id = #1;
+    if v_standard is distinct from 0.2 or n <> 1 then
+      raise exception 'costo estándar %, % conteos con su costo', v_standard, n;
+    end if;
+  end $x$$q$, 425), 'ok:');
+
+-- A count that finds what there is writes nothing, so it asks nothing.
+select pg_temp.expect('Un conteo sin diferencia no pide costo', 'operator', pg_temp.q($q$do $x$
+  declare r jsonb; n integer;
+  begin
+    r := public.move_item_stock(#1, 'count', 10);
+    select count(*) into n from public.stock_movements where inventory_item_id = #1;
+    if n <> 1 or (r ->> 'difference')::numeric <> 0
+       or r ->> 'unit_cost' is not null or r ->> 'cost_source' is distinct from 'unknown'
+       or (select standard_cost from public.inventory_items where id = #1) is not null then
+      raise exception '% movimientos, respondió %', n, r;
+    end if;
+  end $x$$q$, 425), 'ok:');
+
+-- An article with a cost keeps it: what was paid goes through Compras.
+select pg_temp.expect('Un artículo con compra ignora el costo que le escriban', 'operator', pg_temp.q($q$do $x$
+  declare r jsonb; v_moved numeric;
+  begin
+    r := public.move_item_stock(#1, 'in', 5, p_unit_cost => 3);
+    select unit_cost into v_moved from public.stock_movements where inventory_item_id = #1;
+    if v_moved is distinct from 0.80
+       or (select standard_cost from public.inventory_items where id = #1) is not null
+       or (r ->> 'unit_cost')::numeric is distinct from 0.80 or r ->> 'cost_source' is distinct from 'purchase' then
+      raise exception 'entró a % y respondió %', v_moved, r;
+    end if;
+  end $x$$q$, 426), 'ok:');
+
+select pg_temp.expect('Un artículo con costo estándar ignora el costo que le escriban', 'operator', pg_temp.q($q$do $x$
+  declare r jsonb;
+  begin
+    r := public.move_item_stock(#1, 'in', 1, p_unit_cost => 9);
+    if (select standard_cost from public.inventory_items where id = #1) is distinct from 1
+       or (r ->> 'unit_cost')::numeric is distinct from 1 or r ->> 'cost_source' is distinct from 'standard' then
+      raise exception 'respondió %', r;
+    end if;
+  end $x$$q$, 422), 'ok:');
+
+select pg_temp.expect('Un costo de cero en un artículo con compra', 'operator', pg_temp.q($q$
+  select public.move_item_stock(#1, 'in', 5, p_unit_cost => 0)
+  $q$, 426), 'ok:1');
+
+-- What a unit is worth: more than S/ 0, up to S/ 100 000, 4 decimals.
+select pg_temp.expect('Un costo de cero', 'operator', pg_temp.q($q$
+  select public.move_item_stock(#1, 'in', 5, p_unit_cost => 0)
+  $q$, 424), 'error:P0001:El costo por unidad tiene que ser mayor que cero.');
+
+select pg_temp.expect('Un costo negativo', 'operator', pg_temp.q($q$
+  select public.move_item_stock(#1, 'in', 5, p_unit_cost => -0.5)
+  $q$, 424), 'error:P0001:El costo por unidad tiene que ser mayor que cero.');
+
+select pg_temp.expect('Un costo que no es un número', 'operator', pg_temp.q($q$
+  select public.move_item_stock(#1, 'in', 5, p_unit_cost => 'NaN')
+  $q$, 424), 'error:P0001:El costo por unidad tiene que ser mayor que cero.');
+
+select pg_temp.expect('Un costo con 5 decimales', 'operator', pg_temp.q($q$
+  select public.move_item_stock(#1, 'in', 5, p_unit_cost => 0.12345)
+  $q$, 424), 'error:P0001:El costo por unidad admite hasta 4 decimales.');
+
+select pg_temp.expect('Un costo con 4 decimales', 'operator', pg_temp.q($q$
+  select public.move_item_stock(#1, 'in', 5, p_unit_cost => 0.1234)
+  $q$, 424), 'ok:1');
+
+select pg_temp.expect('Un costo de más', 'operator', pg_temp.q($q$
+  select public.move_item_stock(#1, 'in', 5, p_unit_cost => 100000.01)
+  $q$, 424), 'error:P0001:El costo por unidad va hasta S/ 100 000: revisa el número.');
+
+select pg_temp.expect('Un costo en el tope', 'operator', pg_temp.q($q$
+  select public.move_item_stock(#1, 'in', 5, p_unit_cost => 100000)
+  $q$, 424), 'ok:1');
+
+-- The same request sent again answers what it answered, cost included.
+select pg_temp.expect('El reintento contesta el mismo costo', 'operator', pg_temp.q($q$do $x$
+  declare a jsonb; b jsonb; n integer;
+  begin
+    a := public.move_item_stock(#1, 'in', 5, null, null, #2, 0.5);
+    b := public.move_item_stock(#1, 'in', 5, null, null, #2, 0.9);
+    select count(*) into n from public.stock_movements where inventory_item_id = #1;
+    if n <> 1 or (b ->> 'replayed')::boolean is not true
+       or (b ->> 'unit_cost')::numeric is distinct from 0.5 or b ->> 'cost_source' is distinct from 'standard'
+       or (select standard_cost from public.inventory_items where id = #1) is distinct from 0.5 then
+      raise exception 'primera %, segunda %, % movimientos', a, b, n;
+    end if;
+  end $x$$q$, 424, 961), 'ok:');
+
+-- The article's form has the same cap.
+select pg_temp.expect('Un costo estándar de más en la ficha', 'operator', pg_temp.q($q$
+  update public.inventory_items set standard_cost = 100000.01 where id = #1
+  $q$, 424), 'error:P0001:El costo por unidad va hasta S/ 100 000: revisa el número.');
+
+select pg_temp.expect('Un artículo nuevo con un costo de más', 'operator', pg_temp.q($q$
+  insert into public.inventory_items (workspace_id, kind, name, standard_cost) values (#1, 'supply', 'Resina cara', 250000)
+  $q$, 1), 'error:P0001:El costo por unidad va hasta S/ 100 000');
+
+select pg_temp.expect('Un costo estándar en el tope', 'operator', pg_temp.q($q$
+  update public.inventory_items set standard_cost = 100000 where id = #1
+  $q$, 424), 'ok:1');
+
+select pg_temp.expect('Renombrar un artículo con un costo de antes del tope', 'operator', pg_temp.q($q$
+  update public.inventory_items set name = 'Hotend viejo' where id = #1
+  $q$, 427), 'ok:1');
+
+-- A zero is not a cost, typed or rounded into one (20261029110000).
+select pg_temp.expect('Un costo estándar de cero en la ficha', 'operator', pg_temp.q($q$
+  update public.inventory_items set standard_cost = 0 where id = #1
+  $q$, 424), 'error:P0001:El costo por unidad tiene que ser mayor que cero.');
+
+select pg_temp.expect('Un costo estándar que la columna deja en cero', 'operator', pg_temp.q($q$
+  update public.inventory_items set standard_cost = 0.00004 where id = #1
+  $q$, 424), 'error:P0001:El costo por unidad tiene que ser mayor que cero.');
+
+select pg_temp.expect('Un artículo nuevo con costo cero', 'operator', pg_temp.q($q$
+  insert into public.inventory_items (workspace_id, kind, name, unit, standard_cost) values (#1, 'packaging', 'Cinta gratis', 'm', 0)
+  $q$, 1), 'error:P0001:El costo por m tiene que ser mayor que cero.');
+
+select pg_temp.expect('Quitar el costo estándar', 'operator', pg_temp.q($q$
+  update public.inventory_items set standard_cost = null where id = #1
+  $q$, 424), 'ok:1');
+
+-- A free line in a purchase is a gift: it does not price the article. The
+-- lines of one purchase are averaged by quantity, not picked at random.
+select pg_temp.expect('Una línea de compra gratis no deja el artículo en cero', 'operator', pg_temp.q($q$do $x$
+  declare v_cost numeric; v_source text;
+  begin
+    insert into public.purchases (id, workspace_id) values (#3, #2);
+    insert into public.purchase_lines (workspace_id, purchase_id, inventory_item_id, quantity, unit_price)
+    values (#2, #3, #1, 20, 0);
+    select cost_per_unit, cost_source into v_cost, v_source from public.inventory_item_costs where inventory_item_id = #1;
+    if v_cost is distinct from 1 or v_source is distinct from 'standard' then
+      raise exception 'el regalo lo dejó en % (%)', v_cost, v_source;
+    end if;
+
+    insert into public.purchases (id, workspace_id) values (#4, #2);
+    insert into public.purchase_lines (workspace_id, purchase_id, inventory_item_id, quantity, unit_price)
+    values (#2, #4, #1, 100, 0.40), (#2, #4, #1, 20, 0), (#2, #4, #1, 50, 0.50);
+    select cost_per_unit, cost_source into v_cost, v_source from public.inventory_item_costs where inventory_item_id = #1;
+    if v_cost is distinct from 0.4333 or v_source is distinct from 'purchase' then
+      raise exception 'dos lotes y un regalo dieron % (%)', v_cost, v_source;
+    end if;
+  end $x$$q$, 422, 1, 804, 805), 'ok:');
 
 -- --------------------------------------------------------------- resultado
 

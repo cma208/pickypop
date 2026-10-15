@@ -8,18 +8,28 @@ import { describeError, noAnswerReason, outcomeUnknown } from './inventario.erro
 import { countedWhole, MOVEMENT_TYPE_LABELS, quantity, signedQuantity, type MovementType } from './inventario.format';
 import { PURCHASE_LIMITS } from '../../core/pricing';
 import { INVENTORY_STYLES } from './inventario.styles';
+import { CostField } from './cost-field';
+import { costAt, COST_VALIDATORS, isNoCostRefusal, movementCost, typedCostHint } from './item-cost';
 import { CurrentWorkspace } from '../../core/workspace';
 
 type Mode = 'in' | 'out' | 'count';
 type OutReason = Extract<MovementType, 'consumption' | 'waste'>;
 
+/**
+ * What was bought goes through Compras, with its price and its payment. An
+ * entry here is what came in without one: a gift, or what was already on
+ * the shelf when the app started.
+ */
 const MODE_LABELS: Record<Mode, string> = {
-  in: 'Entrada (sumar existencias)',
+  in: 'Entrada sin compra (regalo o lo que ya había)',
   out: 'Salida (restar existencias)',
   count: 'Ajuste por conteo físico',
 };
 
 const QUANTITY_PRECISION = 1000;
+
+/** Under «Entrada sin compra»: what was paid for has a better door. */
+const BOUGHT_HINT = '¿Lo compraste? Regístralo en Compras: así queda lo que pagaste.';
 
 /**
  * Manual stock movement for a supply or spare part. Always shows what will be
@@ -32,7 +42,7 @@ const QUANTITY_PRECISION = 1000;
  */
 @Component({
   selector: 'app-item-movement-form',
-  imports: [ReactiveFormsModule, Field],
+  imports: [ReactiveFormsModule, Field, CostField],
   template: `
     <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
       <p class="muted">
@@ -41,7 +51,7 @@ const QUANTITY_PRECISION = 1000;
 
       <!-- Locked while it is on its way and while nobody knows whether it went in: see locked. -->
       <fieldset class="contents" [disabled]="locked()">
-      <pp-field label="Qué quieres registrar" [required]="true">
+      <pp-field label="Qué quieres registrar" [required]="true" [hint]="values().mode === 'in' ? boughtHint : undefined">
         <select formControlName="mode">
           @for (entry of modes; track entry.value) {
             <option [value]="entry.value">{{ entry.label }}</option>
@@ -67,6 +77,10 @@ const QUANTITY_PRECISION = 1000;
         <input type="number" step="any" formControlName="amount" inputmode="decimal" />
       </pp-field>
 
+      @if (cost().asks) {
+        <app-cost-field [control]="form.controls.unitCost" [unit]="item().unit" [hint]="costHint()" [required]="true" />
+      }
+
       <pp-field label="Nota" hint="Por qué se hace este movimiento">
         <input formControlName="note" autocomplete="off" />
       </pp-field>
@@ -77,10 +91,13 @@ const QUANTITY_PRECISION = 1000;
           <p class="alert alert-warn">{{ text }}</p>
         } @else if (problem(); as text) {
           <p class="alert alert-warn">{{ text }}</p>
+        } @else if (cost().missing && !error()) {
+          <p class="alert alert-warn">{{ cost().missing }}</p>
         } @else if (signed() !== null) {
           <p class="notice">
             Se registrará <strong>{{ signedText() }}</strong> como {{ typeLabel() }}.
             Las existencias pasarán de {{ onHandText() }} a <strong>{{ afterText() }}</strong>.
+            {{ cost().note }}
           </p>
         }
       </section>
@@ -97,7 +114,7 @@ const QUANTITY_PRECISION = 1000;
 
       <div class="form-actions">
         <button type="button" class="secondary" (click)="cancelled.emit()">Cancelar</button>
-        <button type="submit" [disabled]="busy() || (!uncertain() && (signed() === null || !!problem() || !!amountProblem()))">
+        <button type="submit" [disabled]="busy() || (!uncertain() && !ready())">
           {{ busy() ? 'Guardando…' : 'Registrar movimiento' }}
         </button>
       </div>
@@ -132,6 +149,7 @@ export class ItemMovementForm {
     label: MODE_LABELS[value],
   }));
   protected readonly msg = invalidMessage;
+  protected readonly boughtHint = BOUGHT_HINT;
   protected readonly busy = signal(false);
   protected readonly error = signal<string | null>(null);
   /** Why there is no answer, when the movement may have gone in anyway. Cleared by the answer to a retry. */
@@ -148,6 +166,7 @@ export class ItemMovementForm {
     reason: ['consumption' as OutReason],
     amount: new FormControl<number | null>(null, [Validators.required, Validators.min(0)]),
     note: [''],
+    unitCost: new FormControl<number | null>(null, COST_VALIDATORS),
   });
 
   protected readonly values = toSignal(this.form.valueChanges, { initialValue: this.form.getRawValue() });
@@ -160,10 +179,20 @@ export class ItemMovementForm {
    */
   private requestKey = crypto.randomUUID();
 
+  /** The error on screen is the database saying the article has no cost. */
+  private costRefused = false;
+
   constructor() {
     this.form.valueChanges.pipe(takeUntilDestroyed()).subscribe(() => {
       // A change that slips in while it is locked is not the person's: the key stays with what was sent.
       if (!this.locked()) this.requestKey = crypto.randomUUID();
+    });
+    // Once a cost is being written, «todavía no tiene costo» no longer holds:
+    // in red next to the preview that says what it enters at, it said the opposite.
+    this.form.controls.unitCost.valueChanges.pipe(takeUntilDestroyed()).subscribe(() => {
+      if (!this.costRefused || this.locked()) return;
+      this.costRefused = false;
+      this.error.set(null);
     });
   }
 
@@ -200,6 +229,39 @@ export class ItemMovementForm {
     return null;
   });
 
+  /**
+   * The database said the article has no cost although the dialog showed one
+   * (another tab cleared it): the field shows from then on, instead of only
+   * the refusal.
+   */
+  private readonly costDemanded = signal(false);
+
+  /** Whether the cost is asked, what is missing, and what the preview says of it. */
+  protected readonly cost = computed(() => {
+    const { mode, unitCost } = this.values();
+    return movementCost({
+      item: this.item(),
+      mode: mode ?? 'in',
+      difference: this.signed(),
+      typed: unitCost ?? null,
+      // Read with the value: `values` changes whenever the control's validity can.
+      typedValid: this.form.controls.unitCost.valid,
+      demanded: this.costDemanded(),
+    });
+  });
+
+  protected readonly costHint = computed(() => typedCostHint(this.item().unit));
+
+  /** Everything the movement needs is there and right. A retry after a lost answer skips this: see submit. */
+  protected readonly ready = computed(
+    () =>
+      this.signed() !== null &&
+      !this.problem() &&
+      !this.amountProblem() &&
+      !this.cost().missing &&
+      !this.cost().invalid,
+  );
+
   protected readonly onHandText = computed(() => quantity(this.item().onHand, this.item().unit));
   protected readonly signedText = computed(() => signedQuantity(this.signed() ?? 0, this.item().unit));
   protected readonly afterText = computed(() =>
@@ -213,7 +275,8 @@ export class ItemMovementForm {
     if (result.difference === 0) {
       return `El conteo coincide con lo que hay (${quantity(result.after, unit)}): no se registró ningún movimiento.`;
     }
-    return `Movimiento registrado: ${signedQuantity(result.difference, unit)}. Ahora hay ${quantity(result.after, unit)}. Lo ves en el kardex.`;
+    const at = result.unitCost === null ? '' : ` ${costAt(result.unitCost, result.costSource, unit)}`;
+    return `Movimiento registrado: ${signedQuantity(result.difference, unit)}${at}. Ahora hay ${quantity(result.after, unit)}. Lo ves en el kardex.`;
   }
 
   private movementType(): MovementType {
@@ -224,13 +287,14 @@ export class ItemMovementForm {
   protected async submit(): Promise<void> {
     if (this.busy()) return;
     this.form.markAllAsTouched();
-    const { mode, reason, amount, note } = this.form.getRawValue();
+    const { mode, reason, amount, note, unitCost } = this.form.getRawValue();
     if (amount === null) return;
     // A retry after a lost answer sends what was sent, and the database judges it.
-    if (!this.uncertain() && (this.signed() === null || this.problem() || this.amountProblem())) return;
+    if (!this.uncertain() && !this.ready()) return;
 
     this.busy.set(true);
     this.error.set(null);
+    this.costRefused = false;
     try {
       const result = await this.data.recordItemMovement(
         {
@@ -239,6 +303,8 @@ export class ItemMovementForm {
           quantity: amount,
           reason: mode === 'out' ? reason : null,
           note: blankToNull(note),
+          // Only when asked: a cost left in a field that hid again is not the person's answer.
+          unitCost: this.cost().asks ? unitCost : null,
         },
         this.requestKey,
       );
@@ -252,6 +318,8 @@ export class ItemMovementForm {
       } else {
         // The database answered no: nothing was written, with this key or before.
         this.uncertain.set(null);
+        this.costRefused = isNoCostRefusal(error);
+        if (this.costRefused) this.costDemanded.set(true);
         this.error.set(describeError(error, 'No pudimos registrar el movimiento. Inténtalo de nuevo.'));
       }
       this.refused.emit();

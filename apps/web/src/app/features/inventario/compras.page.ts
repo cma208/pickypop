@@ -1,4 +1,5 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, effect, inject, input, signal, untracked } from '@angular/core';
+import { ActivatedRoute, Router } from '@angular/router';
 import { AsyncState, Badge, Empty, FORMAT_PIPES, Item, Page, type ArticleKind } from '../../ui';
 import { CompraForm, type SavedPurchase } from './compra-form';
 import { CompraPago } from './compra-pago';
@@ -27,7 +28,7 @@ const DEFAULT_UNIT = 'unidad';
   template: `
     <pp-page
       [title]="creating() ? 'Nueva compra' : 'Compras'"
-      [subtitle]="creating() ? 'Cada rollo entra con su costo real, envío incluido' : 'Lo que compraste y los rollos que generó'"
+      [subtitle]="creating() ? 'Cada rollo, insumo o empaque entra con su costo real, envío incluido' : 'Lo que compraste, con su costo y su pago'"
     >
       @if (!creating() && canOperate()) {
         <button actions type="button" [disabled]="loading() || !!error()" (click)="startNew()">+ Nueva compra</button>
@@ -47,6 +48,7 @@ const DEFAULT_UNIT = 'unidad';
             [itemOptions]="items()"
             [supplierOptions]="suppliers()"
             [accountOptions]="accounts()"
+            [preselectedItemId]="articulo() ?? null"
             (saved)="onSaved($event)"
             (refused)="refresh()"
             (cancelled)="onCancelled()"
@@ -175,6 +177,15 @@ const DEFAULT_UNIT = 'unidad';
 export class ComprasPage {
   private readonly data = inject(InventarioData);
   private readonly planner = inject(InventoryPlan);
+  private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
+
+  /**
+   * `?articulo=<id>`, bound by the router: «Comprar» on Empaque or Insumos
+   * opens a new purchase with that item on its first line, so what is bought
+   * there comes in with its cost instead of as a free «Entrada».
+   */
+  readonly articulo = input<string>();
 
   protected readonly purchases = signal<PurchaseSummary[]>([]);
   protected readonly skus = signal<SkuSummary[]>([]);
@@ -191,9 +202,22 @@ export class ComprasPage {
   protected readonly notice = signal<string | null>(null);
   protected readonly creating = signal(false);
   protected readonly expandedId = signal<string | null>(null);
+  /** The `?articulo=` the form was already opened for: a reload must not open it again. */
+  private openedFor: string | null = null;
 
   constructor() {
     void this.load();
+    // Once the lists are in, so the form starts with the item there to pick
+    // (and not over a page that failed to load). An id that names nothing
+    // purchasable still opens it, with nothing chosen.
+    effect(() => {
+      const id = this.articulo() || null;
+      if (id === null) this.openedFor = null;
+      const ready = !this.loading() && this.error() === null && this.canOperate();
+      if (id === null || id === this.openedFor || !ready) return;
+      this.openedFor = id;
+      untracked(() => this.startNew());
+    });
   }
 
   protected startNew(): void {
@@ -226,6 +250,7 @@ export class ComprasPage {
 
   protected async onSaved(saved: SavedPurchase): Promise<void> {
     this.creating.set(false);
+    this.forgetArticle();
     // What came in may be exactly what an order was missing: the plan computes again.
     this.planner.changed();
     this.notice.set(savedPurchaseNotice(saved));
@@ -253,12 +278,24 @@ export class ComprasPage {
   /** Leaving the form: the list shows what is there now, in case what was being saved went in after all. */
   protected onCancelled(): void {
     this.creating.set(false);
+    this.forgetArticle();
     void this.refresh();
   }
 
   protected async onPaid(): Promise<void> {
     this.notice.set('Pago registrado. Ya figura en Caja, ligado a la compra.');
     await this.load();
+  }
+
+  /** Out of the address once the form closes: a reload or «Atrás» would open it again for a purchase already made. */
+  private forgetArticle(): void {
+    if (!this.articulo()) return;
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { articulo: null },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
+    });
   }
 
   private async load(): Promise<void> {

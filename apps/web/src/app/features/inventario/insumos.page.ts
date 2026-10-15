@@ -1,29 +1,23 @@
 import { Component, computed, inject, input, signal } from '@angular/core';
-import { AsyncState, Badge, Empty, Item, Page } from '../../ui';
+import { AsyncState, Empty, Page } from '../../ui';
 import { InventarioData, type InventoryItemSummary } from './inventario.data';
 import { describeError } from './inventario.errors';
 import { ITEM_KINDS, ITEM_KIND_LABELS, type ItemKind } from './inventario.format';
 import { INVENTORY_STYLES, POSITION_STYLES } from './inventario.styles';
 import { InventoryPlan, type InventoryPositions } from './inventory-plan';
+import { lacksCost } from './item-cost';
 import { ItemForm } from './item-form';
 import { ItemMovementForm } from './item-movement-form';
 import { Modal } from './modal';
-import { amount, itemCells, type PositionCells } from './stock-position';
+import { itemCells } from './stock-position';
+import { SupplyRow, type SupplyRowView } from './supply-row';
 import { CurrentWorkspace, READ_ONLY_NOTE } from '../../core/workspace';
 
 type Dialog = { kind: 'edit'; item: InventoryItemSummary | null } | { kind: 'move'; item: InventoryItemSummary };
 
-/** An article with what the plan says of it. `cells` is null while the plan is not there. */
-interface ItemRow {
-  item: InventoryItemSummary;
-  /** "Repuesto · Perecible": the kind only where a screen mixes kinds. */
-  sub: string;
-  cells: PositionCells | null;
-}
-
 @Component({
   selector: 'app-insumos',
-  imports: [Page, AsyncState, Empty, Badge, Item, Modal, ItemForm, ItemMovementForm],
+  imports: [Page, AsyncState, Empty, Modal, ItemForm, ItemMovementForm, SupplyRow],
   template: `
     <pp-page [title]="heading()" [subtitle]="subtitle()">
       @if (canOperate()) {
@@ -68,7 +62,17 @@ interface ItemRow {
               <input type="checkbox" [checked]="onlyLow()" (change)="onlyLow.set(!onlyLow())" />
               Solo bajo mínimo ({{ lowCount() }})
             </label>
+            <label class="check low">
+              <input type="checkbox" [checked]="onlyNoCost()" (change)="onlyNoCost.set(!onlyNoCost())" />
+              Solo sin costo ({{ noCostCount() }})
+            </label>
           </div>
+          @if (canOperate() && onlyNoCost() && noCostCount() > 0) {
+            <p class="muted">
+              Sin costo, cuentan como S/ 0 al armar, entregar y cotizar. Si los compraste, regístralos con «Comprar»;
+              si no, ponles su costo por unidad en «Editar».
+            </p>
+          }
 
           @if (visible().length === 0) {
             <pp-empty message="Ningún artículo coincide con el filtro." />
@@ -82,56 +86,19 @@ interface ItemRow {
                     <th class="wide-only">Separado</th>
                     <th class="num wide-only">Libre</th>
                     <th class="wide-only">Falta</th>
+                    <th class="num wide-only">Costo</th>
                     <th><span class="sr-only">Acciones</span></th>
                   </tr>
                 </thead>
                 <tbody>
                   @for (row of visible(); track row.item.id) {
-                    @let item = row.item;
-                    <tr [class.inactive]="!item.active">
-                      <td>
-                        <pp-item [kind]="item.kind" [path]="item.imagePath" [name]="item.name">
-                          <span sub>
-                            {{ row.sub }}
-                            @if (!item.imagePath) {
-                              {{ row.sub ? '· ' : '' }}Sin foto ·
-                              @if (canOperate()) { <button type="button" class="inline-link" (click)="dialog.set({ kind: 'edit', item })">Agregar</button> }
-                            }
-                          </span>
-                          @if (!item.active) { <pp-badge>Inactivo</pp-badge> }
-                        </pp-item>
-                        @if (row.cells?.missing; as missing) {
-                          <div class="badge-line narrow-only"><pp-badge tone="warn">{{ missing }}</pp-badge></div>
-                        }
-                      </td>
-                      <td class="num">
-                        <span class="nowrap">{{ row.cells?.onHand ?? amount(item.onHand, item.unit) }}</span>
-                        @if (row.cells; as cells) {
-                          <small class="sub narrow-only" [attr.title]="cells.who || null">{{ cells.compact }}</small>
-                        }
-                        <small class="sub hide-small nowrap">Mínimo {{ amount(item.minStock, item.unit) }}</small>
-                        @if (item.belowMinimum && !row.cells?.missing) {
-                          <small class="sub badge-line"><pp-badge tone="warn">Bajo mínimo</pp-badge></small>
-                        }
-                      </td>
-                      <td class="wide-only separated" [attr.title]="row.cells?.who || null">{{ row.cells?.separated ?? '—' }}</td>
-                      <td class="num wide-only">{{ row.cells?.free ?? '—' }}</td>
-                      <td class="wide-only">
-                        @if (row.cells?.missing; as missing) {
-                          <pp-badge tone="warn">{{ missing }}</pp-badge>
-                        } @else {
-                          <span class="muted">—</span>
-                        }
-                      </td>
-                      <td class="actions-cell">
-                        @if (canOperate()) {
-                          <button type="button" class="secondary" (click)="dialog.set({ kind: 'move', item })">
-                            Movimiento
-                          </button>
-                          <button type="button" class="ghost" (click)="dialog.set({ kind: 'edit', item })">Editar</button>
-                        }
-                      </td>
-                    </tr>
+                    <tr
+                      app-supply-row
+                      [row]="row"
+                      [canOperate]="canOperate()"
+                      (move)="dialog.set({ kind: 'move', item: row.item })"
+                      (edit)="dialog.set({ kind: 'edit', item: row.item })"
+                    ></tr>
                   }
                 </tbody>
               </table>
@@ -167,7 +134,6 @@ interface ItemRow {
     INVENTORY_STYLES,
     POSITION_STYLES,
     `
-      .inactive { opacity: 0.6; }
       .low { margin-bottom: 0.4rem; }
     `,
   ],
@@ -192,8 +158,6 @@ export class InsumosPage {
   readonly subtitle = input('Lo que se compra y se gasta, por unidad, gramo o ml');
 
   protected readonly labels = ITEM_KIND_LABELS;
-  /** Grams the way the plan's columns say them: "520 g", "1 kg". */
-  protected readonly amount = amount;
   protected readonly kindsHere = computed(() => this.scope() ?? ITEM_KINDS);
 
   protected readonly items = signal<InventoryItemSummary[]>([]);
@@ -204,10 +168,12 @@ export class InsumosPage {
   protected readonly search = signal('');
   protected readonly kindFilter = signal<ItemKind | ''>('');
   protected readonly onlyLow = signal(false);
+  protected readonly onlyNoCost = signal(false);
   private readonly positions = signal<InventoryPositions | null>(null);
   protected readonly planError = signal<string | null>(null);
 
   protected readonly lowCount = computed(() => this.mine().filter((item) => item.belowMinimum).length);
+  protected readonly noCostCount = computed(() => this.mine().filter(lacksCost).length);
 
   /** «Aún no hay insumos y repuestos registrados» but «Aún no hay empaque registrado»: the participle agrees with the noun. */
   protected readonly emptyMessage = computed(() => {
@@ -222,7 +188,7 @@ export class InsumosPage {
     return scope ? this.items().filter((item) => scope.includes(item.kind)) : this.items();
   });
 
-  protected readonly visible = computed<ItemRow[]>(() => {
+  protected readonly visible = computed<SupplyRowView[]>(() => {
     const needle = this.search().trim().toLowerCase();
     const positions = this.positions();
     const mixed = this.kindsHere().length > 1;
@@ -230,6 +196,7 @@ export class InsumosPage {
       .filter(
         (item) =>
           (!this.onlyLow() || item.belowMinimum) &&
+          (!this.onlyNoCost() || lacksCost(item)) &&
           (!this.kindFilter() || item.kind === this.kindFilter()) &&
           (!needle || item.name.toLowerCase().includes(needle)),
       )

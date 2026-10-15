@@ -2,6 +2,33 @@ import { DestroyRef } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import type { FormControl } from '@angular/forms';
 import { unitPriceFromLineTotal } from '../../core/pricing';
+import type { InventoryItemSummary } from './inventario.data';
+
+/**
+ * A printed part and an assembled product are made here, never bought
+ * (ADR-016, ADR-018): a purchase line for one would value the shelf at a price
+ * paid instead of at what producing it cost.
+ */
+const MADE_HERE: ReadonlySet<string> = new Set(['part', 'finished_good']);
+
+export function canBeBought(item: Pick<InventoryItemSummary, 'kind'>): boolean {
+  return !MADE_HERE.has(item.kind);
+}
+
+/**
+ * The item `?articulo=` names, when a purchase line can take it. «Comprar» on
+ * Empaque or Insumos sends its id, but a link can be old or typed by hand: an
+ * item switched off, deleted or made here gives null, and the purchase starts
+ * with nothing chosen instead of with a line the database would refuse.
+ */
+export function itemToBuy(
+  items: readonly InventoryItemSummary[],
+  id: string | null | undefined,
+): InventoryItemSummary | null {
+  if (!id) return null;
+  const item = items.find((candidate) => candidate.id === id);
+  return item && item.active && canBeBought(item) ? item : null;
+}
 
 export interface LinePriceControls {
   target: FormControl<string>;

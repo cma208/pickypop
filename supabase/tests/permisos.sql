@@ -508,8 +508,11 @@ begin
   perform pg_temp.expect('Corregir el stock con un ajuste a mano', 'operator',
     'insert into public.stock_movements (workspace_id, inventory_item_id, type, quantity) values ('
     || c_ws || ', ''00000000-7e57-4000-8000-000000000431'', ''adjustment'', -1)', 'error:42501');
+  -- La cinta entró sin línea de compra ni costo estándar: el conteo que
+  -- cambia su stock pide lo que vale cada una, y el operador lo pone
+  -- (20261029100000_supplies_carry_their_cost).
   perform pg_temp.expect('Corregir el stock con un conteo', 'operator',
-    'select public.move_item_stock(''00000000-7e57-4000-8000-000000000431'', ''count'', 4)', 'ok:1');
+    'select public.move_item_stock(''00000000-7e57-4000-8000-000000000431'', ''count'', 4, p_unit_cost => 1.20)', 'ok:1');
   perform pg_temp.expect('Cambiar una entrega', 'owner',
     'update public.order_deliveries set workspace_id = workspace_id where workspace_id = ' || c_ws, 'error:42501');
   perform pg_temp.expect('Borrar una línea de entrega', 'owner',

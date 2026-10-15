@@ -7,6 +7,8 @@ import { CurrentWorkspace } from '../../core/workspace';
 import type { PaymentMethod } from '../finanzas/finanzas.models';
 import { dayEnd, dayStart, type ItemKind, type MovementType, type SpoolStatus } from './inventario.format';
 import type { AllocationMethod } from '../../core/pricing';
+import { toCostSource, type SupplyCostSource } from '../cotizador/supply-costs';
+import { isBought } from './item-cost';
 
 // ------------------------------------------------------------------ types
 
@@ -240,6 +242,19 @@ export interface InventoryItemSummary {
   /** What is on the shelf. Who it is for comes from the plan, not from this. */
   onHand: number;
   belowMinimum: boolean;
+  /**
+   * What one unit is worth, as `inventory_item_costs` says: the last purchase,
+   * else the standard cost. Null, with `costSource` 'unknown', when it has
+   * neither, and then everything that moves it counts it at S/ 0. Only true
+   * of what is bought: a printed part costs what printing it cost
+   * (`partStock`), whatever this says.
+   */
+  costPerUnit: number | null;
+  costSource: SupplyCostSource;
+  /** What one unit cost in the last purchase, shipping included. While there is one, it decides the cost. */
+  lastPurchaseCost: number | null;
+  /** The cost typed by hand: used only while there is no purchase. */
+  standardCost: number | null;
 }
 
 export interface InventoryItemInput {
@@ -251,6 +266,11 @@ export interface InventoryItemInput {
   perishable: boolean;
   note: string | null;
   active: boolean;
+  /**
+   * Written only for a supply, a bag or a spare part (`isBought`), and only
+   * when given: undefined leaves the stored one as it is, null clears it.
+   */
+  standardCost?: number | null;
 }
 
 export type ItemMovementMode = 'in' | 'out' | 'count';
@@ -267,6 +287,11 @@ export interface ItemMovementInput {
   /** Why it went out. Only for `out`. */
   reason: Extract<MovementType, 'consumption' | 'waste'> | null;
   note: string | null;
+  /**
+   * What one unit is worth, for an article that has no cost yet: it stays as
+   * its standard cost. The database ignores it when the article has one.
+   */
+  unitCost: number | null;
 }
 
 /** What a movement did: `difference` zero means it wrote nothing. */
@@ -274,6 +299,9 @@ export interface ItemMovementResult {
   before: number;
   difference: number;
   after: number;
+  /** The cost the stock moved at; with no difference, the article's as it stands. */
+  unitCost: number | null;
+  costSource: SupplyCostSource;
 }
 
 export interface MovementFilter {
@@ -856,20 +884,47 @@ export class InventarioData {
 
   // ------------------------------------------------------------------ items
 
+  /**
+   * Every article with its stock and its cost. The cost is the view's
+   * (`inventory_item_costs`), never worked out here: the catalogue, the
+   * calculator and assembling read the same one. Paged, so the 1001st
+   * article does not vanish from the list without a word.
+   */
   async items(): Promise<InventoryItemSummary[]> {
-    const [items, balances] = await Promise.all([
-      this.supabase.from('inventory_items').select('id, kind, name, unit, image_path, min_stock, perishable, note, active'),
-      this.supabase.from('inventory_balances').select('inventory_item_id, on_hand'),
+    const [items, balances, costs] = await Promise.all([
+      fetchAll((from, to) =>
+        this.supabase
+          .from('inventory_items')
+          .select('id, kind, name, unit, image_path, min_stock, perishable, note, active')
+          .order('id')
+          .range(from, to),
+      ),
+      fetchAll((from, to) =>
+        this.supabase
+          .from('inventory_balances')
+          .select('inventory_item_id, on_hand')
+          .order('inventory_item_id')
+          .range(from, to),
+      ),
+      fetchAll((from, to) =>
+        this.supabase
+          .from('inventory_item_costs')
+          .select('inventory_item_id, cost_per_unit, cost_source, last_purchase_cost, standard_cost')
+          .order('inventory_item_id')
+          .range(from, to),
+      ),
     ]);
-    if (items.error) throw items.error;
-    if (balances.error) throw balances.error;
 
-    const byId = new Map(balances.data.map((row) => [row.inventory_item_id, row]));
+    const byId = new Map(balances.map((row) => [row.inventory_item_id, row]));
+    const costOf = new Map(costs.map((row) => [row.inventory_item_id, row]));
 
-    return items.data
+    return items
       .map((item): InventoryItemSummary => {
         const balance = byId.get(item.id);
         const onHand = num(balance?.on_hand);
+        const cost = costOf.get(item.id);
+        // Without a number there is no cost, whatever the source says: «Sin costo», not a S/ 0 nobody chose.
+        const costSource = cost?.cost_per_unit == null ? 'unknown' : toCostSource(cost.cost_source);
         return {
           id: item.id,
           kind: item.kind,
@@ -882,6 +937,10 @@ export class InventarioData {
           active: item.active,
           onHand,
           belowMinimum: item.active && onHand < num(item.min_stock),
+          costPerUnit: costSource === 'unknown' ? null : num(cost?.cost_per_unit),
+          costSource,
+          lastPurchaseCost: numOrNull(cost?.last_purchase_cost),
+          standardCost: numOrNull(cost?.standard_cost),
         };
       })
       .sort((a, b) => a.name.localeCompare(b.name, 'es'));
@@ -904,6 +963,9 @@ export class InventarioData {
       note: input.note,
       active: input.active,
       image_path: input.imagePath,
+      // A printed part keeps the standard cost `part_stock` falls back on:
+      // its form has no such field, and an empty one would wipe it.
+      ...(isBought(input.kind) && input.standardCost !== undefined ? { standard_cost: input.standardCost } : {}),
     };
 
     if (id) {
@@ -926,6 +988,9 @@ export class InventarioData {
    *
    * `key` names the request: asked again with it (an answer lost on the way
    * back), the database returns its first answer and moves nothing.
+   *
+   * An article with no cost moving its stock needs `unitCost`: the database
+   * refuses it otherwise, so nothing enters the shelf worth S/ 0.
    */
   async recordItemMovement(input: ItemMovementInput, key: string): Promise<ItemMovementResult> {
     const { data, error } = await this.supabase.rpc('move_item_stock', {
@@ -935,14 +1000,19 @@ export class InventarioData {
       p_reason: input.reason ?? undefined,
       p_note: input.note ?? undefined,
       p_request_key: key,
+      p_unit_cost: input.unitCost ?? undefined,
     });
     if (error) throw error;
 
     const result = jsonObject(data);
+    const unitCost = numOrNull(result['unit_cost'] as number | null | undefined);
     return {
       before: num(result['before'] as number | null),
       difference: num(result['difference'] as number | null),
       after: num(result['after'] as number | null),
+      unitCost,
+      // An answer saved before the cost travelled with it says nothing of it.
+      costSource: unitCost === null ? 'unknown' : toCostSource((result['cost_source'] as string | null) ?? null),
     };
   }
 

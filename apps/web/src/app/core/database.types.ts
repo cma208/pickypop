@@ -2817,7 +2817,7 @@ isOneToOne: false
 { Args: { "p_first_index": number,"p_new_parts": Json,"p_plates": Json,"p_recipe_id": string }; Returns: Json
                            },
 "move_item_stock":
-{ Args: { "p_item_id": string,"p_mode": string,"p_note"?: string,"p_quantity": number,"p_reason"?: Database["public"]['Enums']["stock_movement_type"],"p_request_key"?: string }; Returns: Json
+{ Args: { "p_item_id": string,"p_mode": string,"p_note"?: string,"p_quantity": number,"p_reason"?: Database["public"]['Enums']["stock_movement_type"],"p_request_key"?: string,"p_unit_cost"?: number }; Returns: Json
                            },
 "next_document_number":
 { Args: { "p_doc_kind": string,"p_workspace": string }; Returns: string

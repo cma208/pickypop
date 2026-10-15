@@ -5,7 +5,9 @@ import { friendlyError } from '../../core/friendly-error';
 import { InventarioData, type AssemblyComponent, type AssemblyOption } from './inventario.data';
 import { INVENTORY_PIPES, ITEM_KIND_LABELS } from './inventario.format';
 import { INVENTORY_STYLES, POSITION_STYLES } from './inventario.styles';
-import { assemblyOutcome, type AssemblyOutcome } from './assembly';
+import { assemblyOutcome, boughtComponentIds, uncostedComponents, type AssemblyOutcome } from './assembly';
+import { AssemblyCostNotice } from './assembly-cost-notice';
+import type { SupplyCostSource } from '../cotizador/supply-costs';
 import { InventoryPlan, type InventoryPositions } from './inventory-plan';
 import { assembledMessage, assembledText, claimsTitle } from './stock-position';
 import { buildableFrom, MAX_UNITS, parseUnits, unitsProblem } from './armar-units';
@@ -35,7 +37,7 @@ interface Built {
  */
 @Component({
   selector: 'app-armar',
-  imports: [Page, Card, AsyncState, Empty, Badge, Thumb, ...FORMAT_PIPES, ...INVENTORY_PIPES],
+  imports: [Page, Card, AsyncState, Empty, Badge, Thumb, AssemblyCostNotice, ...FORMAT_PIPES, ...INVENTORY_PIPES],
   template: `
     <pp-page title="Armar productos" subtitle="Juntar piezas, dulces y empaque en un producto terminado">
       @if (planError(); as text) {
@@ -102,6 +104,10 @@ interface Built {
                   }
                 </div>
                 @if (unitsError(); as problem) { <p class="error units-error">{{ problem }}</p> }
+                <!-- While confirming it moves inside the confirmation, right above «Sí, armar», which a screen reader announces. -->
+                @if (!confirming()) {
+                  <app-assembly-cost-notice [missing]="uncosted()" [problem]="costsError()" />
+                }
               }
 
               @if (confirming()) {
@@ -140,6 +146,7 @@ interface Built {
                     Al venderse sale al promedio de lo que costó producir este producto, con lo armado antes, y eso
                     es lo que cuenta Resultados.
                   </p>
+                  <app-assembly-cost-notice [missing]="uncosted()" [problem]="costsError()" />
                   <div class="actions">
                     <button type="button" [disabled]="busy()" (click)="assemble()">{{ busy() ? 'Armando…' : 'Sí, armar' }}</button>
                     <button type="button" class="secondary" [disabled]="busy()" (click)="confirming.set(false)">Volver</button>
@@ -279,6 +286,15 @@ export class ArmarPage {
   protected readonly result = signal<string | null>(null);
   /** «Armar» first shows what will move; only «Sí, armar» moves it (E3-04). */
   protected readonly confirming = signal(false);
+  /**
+   * Where each bought component's cost comes from, by item. Merged on every
+   * read rather than replaced: a slow read of the product chosen before only
+   * adds its own items, and cannot wipe out the ones on the table now.
+   */
+  private readonly costSources = signal<ReadonlyMap<string, SupplyCostSource>>(new Map());
+  protected readonly costsError = signal<string | null>(null);
+  /** Bought components that would leave the shelf at zero (warned, not blocked). */
+  protected readonly uncosted = computed(() => uncostedComponents(this.components(), this.costSources()));
   /** Who the assembled units are for. Without the plan the card still says how many there are. */
   private readonly positions = signal<InventoryPositions | null>(null);
   protected readonly planError = signal<string | null>(null);
@@ -405,9 +421,26 @@ export class ArmarPage {
 
   private async loadComponents(option: AssemblyOption): Promise<void> {
     try {
-      this.components.set(await this.data.assemblyComponents(option.variantId));
+      const components = await this.data.assemblyComponents(option.variantId);
+      this.components.set(components);
+      await this.loadCosts(components);
     } catch (error) {
       this.componentsError.set(friendlyError(error, 'No pudimos leer la receta de este producto.'));
+    }
+  }
+
+  /**
+   * Read with the recipe every time, after an assembly too: a cost given
+   * meanwhile in Insumos or Empaque makes the warning go away without
+   * reloading the page.
+   */
+  private async loadCosts(components: readonly AssemblyComponent[]): Promise<void> {
+    try {
+      const fresh = await this.assembly.costSources(boughtComponentIds(components));
+      this.costSources.update((known) => new Map([...known, ...fresh]));
+      this.costsError.set(null);
+    } catch (error) {
+      this.costsError.set(friendlyError(error, 'No pudimos revisar si los componentes tienen costo.'));
     }
   }
 

@@ -12,6 +12,7 @@ import {
   signal,
   untracked,
   viewChild,
+  viewChildren,
 } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import {
@@ -36,7 +37,7 @@ import {
 import { describeError, noAnswerReason, outcomeUnknown } from './inventario.errors';
 import { INVENTORY_STYLES } from './inventario.styles';
 import { ITEM_KIND_LABELS, todayIso } from './inventario.format';
-import { linkPriceAndTotal } from './compra-line';
+import { canBeBought, itemToBuy, linkPriceAndTotal } from './compra-line';
 import { borrowedPhoto } from '../../core/article-photos';
 import { planPurchase, PURCHASE_LIMITS, type AllocationMethod, type PlanLineInput } from '../../core/pricing';
 import type { SpoolIdentity } from '../../core/spool-label';
@@ -65,7 +66,6 @@ export interface SavedPurchase {
   paid: number;
 }
 
-const MADE_HERE: ReadonlySet<string> = new Set(['part', 'finished_good']);
 const SKU_PREFIX = 'sku:';
 /** The "todavía no" answer to how it was paid. Never a uuid, so it cannot clash with an account. */
 const NOT_PAID = 'not-paid';
@@ -89,7 +89,7 @@ function numberOrNull(value: number | null | undefined): number | null {
 }
 
 /**
- * The purchase form. It shows the final cost of every spool, shipping already
+ * The purchase form. It shows the final cost of every line, shipping already
  * spread, while the person types, and asks for a last confirmation before it
  * writes anything.
  */
@@ -127,7 +127,7 @@ function numberOrNull(value: number | null | undefined): number | null {
           <div class="line" [formGroup]="line">
             <pp-field label="Producto" [required]="true" [error]="msg(line.controls.target)">
               <pp-item-picker
-                placeholder="Elige un filamento o insumo"
+                placeholder="Elige un filamento, insumo o empaque"
                 [options]="pickerOptions()"
                 [value]="line.controls.target.value"
                 (chosen)="line.controls.target.setValue($event); line.controls.target.markAsTouched()"
@@ -135,7 +135,7 @@ function numberOrNull(value: number | null | undefined): number | null {
             </pp-field>
             <div class="numbers">
               <pp-field [label]="quantityLabel(i)" [required]="true" [error]="quantityError(i)">
-                <input type="number" step="any" formControlName="quantity" inputmode="decimal" />
+                <input #quantityInput type="number" step="any" formControlName="quantity" inputmode="decimal" />
               </pp-field>
               <pp-field [label]="priceLabel(i)" [required]="true" [hint]="priceHint(i)" [error]="priceError(i)">
                 <input type="number" step="any" formControlName="unitPrice" inputmode="decimal" />
@@ -172,10 +172,10 @@ function numberOrNull(value: number | null | undefined): number | null {
           <pp-field label="Costo de envío (S/)" [required]="true" [error]="msg(form.controls.shippingCost)">
             <input type="number" step="0.01" formControlName="shippingCost" inputmode="decimal" />
           </pp-field>
-          <pp-field label="Otros costos (S/)" hint="Comisiones, impuestos, empaque…" [error]="msg(form.controls.otherCosts)">
+          <pp-field label="Otros costos (S/)" hint="Comisiones, impuestos y otros cargos de la compra" [error]="msg(form.controls.otherCosts)">
             <input type="number" step="0.01" formControlName="otherCosts" inputmode="decimal" />
           </pp-field>
-          <pp-field label="Cómo repartirlos entre los rollos">
+          <pp-field label="Cómo repartirlos entre lo comprado">
             <select formControlName="allocation">
               <option value="by_amount">Por monto (más caro, más envío)</option>
               <option value="by_weight">Por peso (más gramos, más envío)</option>
@@ -298,11 +298,14 @@ export class CompraForm {
   private readonly injector = inject(Injector);
   private readonly destroyRef = inject(DestroyRef);
   private readonly confirmBox = viewChild<ElementRef<HTMLElement>>('confirmBox');
+  private readonly quantityInputs = viewChildren<ElementRef<HTMLInputElement>>('quantityInput');
 
   readonly skuOptions = input.required<SkuSummary[]>();
   readonly itemOptions = input.required<InventoryItemSummary[]>();
   readonly supplierOptions = input.required<SupplierOption[]>();
   readonly accountOptions = input.required<PaymentAccount[]>();
+  /** The item «Comprar» was pressed on: the first line starts with it, quantity and price left to the person. */
+  readonly preselectedItemId = input<string | null>(null);
   /** Only the owner creates accounts: the operator is told whom to ask. */
   /** Only to word what the operator cannot do (create an account); the database decides. */
   protected readonly isOwner = this.workspace.isOwner;
@@ -336,14 +339,14 @@ export class CompraForm {
       color: sku.colorHex,
       group: 'Filamentos',
     })),
-    // A printed part and an assembled product are made here, never bought
-    // (ADR-016, ADR-018): offering them would value the shelf at a price paid.
-    ...this.items().filter((item) => !MADE_HERE.has(item.kind)).map((item) => ({
+    ...this.items().filter(canBeBought).map((item) => ({
       value: ITEM_PREFIX + item.id,
       label: item.name,
       hint: item.unit,
       imagePath: item.imagePath,
       photo: borrowedPhoto(item.id, item.kind),
+      // Without a photo, the icon of its kind: a bag, not a flask.
+      kind: item.kind,
       group: ITEM_KIND_LABELS[item.kind],
     })),
   ]);
@@ -496,6 +499,8 @@ export class CompraForm {
    * change to the form is another purchase, with a key of its own.
    */
   private purchaseKey = crypto.randomUUID();
+  /** Whether the item from «Comprar» already went on the first line. */
+  private preselected = false;
 
   constructor() {
     this.form.valueChanges.pipe(takeUntilDestroyed()).subscribe(() => {
@@ -512,6 +517,26 @@ export class CompraForm {
       const items = this.itemById();
       untracked(() => this.dropVanishedChoices(accounts, skus, items));
     });
+    effect(() => {
+      const item = itemToBuy(this.items(), this.preselectedItemId());
+      if (item) untracked(() => this.startWith(item));
+    });
+  }
+
+  /**
+   * Once, and never over a choice: a reload that brings the item back later
+   * must not replace what the person picked meanwhile. The quantity starts
+   * empty instead of at 1: they came to say how much they bought, and a 1
+   * already there is too easy to save as it is.
+   */
+  private startWith(item: InventoryItemSummary): void {
+    if (this.preselected) return;
+    this.preselected = true;
+    const first = this.lines.at(0).controls;
+    if (first.target.value !== '') return;
+    first.target.setValue(ITEM_PREFIX + item.id);
+    first.quantity.setValue(null);
+    afterNextRender(() => this.quantityInputs()[0]?.nativeElement.focus(), { injector: this.injector });
   }
 
   private dropVanishedChoices(
@@ -546,10 +571,15 @@ export class CompraForm {
     return [sku.colorName, sku.materialCode, sku.finishName, sku.brandName].filter(Boolean).join(' · ');
   }
 
-  /** «Rollos» for a filament; for a supply, the unit it is counted in, so «Cantidad (g)» says what the number means. */
+  /**
+   * «Rollos» for a filament; for a supply, the unit it is counted in, so
+   * «Cantidad (g)» says what the number means. Before anything is chosen it
+   * names nothing: a purchase of bags opened on «Rollos».
+   */
   protected quantityLabel(index: number): string {
     const { target, item } = this.resolved()[index] ?? {};
-    if (target?.kind !== 'item') return 'Rollos';
+    if (!target) return 'Cantidad';
+    if (target.kind !== 'item') return 'Rollos';
     return item && item.unit !== DEFAULT_UNIT ? `Cantidad (${item.unit})` : 'Cantidad';
   }
 
