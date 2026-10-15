@@ -15,3 +15,6 @@ coverage/
 # Copias de trabajo de los agentes y caché del compilador: nunca se versionan.
 .claude/worktrees/
 .angular/
+
+# Archivos laminados y fotos para probar en local: datos reales que no se versionan.
+apps/web/public/_fixtures/
